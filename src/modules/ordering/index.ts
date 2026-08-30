@@ -14,6 +14,18 @@ export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput
 
 export { placeOrder } from './place-order';
 export { getOrderForStay } from './read-order';
+
+export {
+  advanceOrder, kitchenTickets, runnerTickets, openTicketCount, ORDER_CHANNEL,
+} from './advance-order';
+export type { AdvanceOrderInput, AdvancedOrder, KitchenTicket, OrderChangedPayload }
+  from './advance-order';
+
+export {
+  canTransition, nextStatuses, isTerminal, reasonRequiredFor,
+  ORDER_STATUSES, KITCHEN_OPEN_STATUSES, RUNNER_OPEN_STATUSES,
+} from './transitions';
+export type { OrderStatus } from './transitions';
 export type { PlacedOrderDetail, PlacedOrderLine } from './read-order';
 export type { PlaceOrderInput, PlacedOrder } from './place-order';
 
