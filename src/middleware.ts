@@ -1,8 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { STAFF_SESSION_COOKIE } from '@/modules/identity/cookie';
+import { REQUEST_ID_HEADER, requestIdFrom } from '@/lib/request-id';
 
 /**
- * Staff surface gate for /admin, /kds and /runner.
+ * Two jobs: stamp every request with an id, and turn staff surfaces away when
+ * there is no cookie.
+ *
+ * ─── The request id ────────────────────────────────────────────────────────
+ *
+ * Minted here because this is the first code that sees a request, and put on
+ * BOTH the forwarded request headers (so route handlers and server components
+ * read it with `headers()`) and the response (so a guest reporting a problem
+ * can quote it). Nothing heavier than `crypto.randomUUID` runs here — this is
+ * the edge runtime, and pino does not exist in it.
+ *
+ * ─── The staff gate ────────────────────────────────────────────────────────
  *
  * ─── What this deliberately does NOT do ────────────────────────────────────
  *
@@ -24,27 +36,44 @@ const STAFF_PREFIXES = ['/admin', '/kds', '/runner'];
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
+  const requestId = requestIdFrom(request.headers);
+
+  const forwarded = new Headers(request.headers);
+  forwarded.set(REQUEST_ID_HEADER, requestId);
+  const pass = () => NextResponse.next({ request: { headers: forwarded } });
 
   const isStaffSurface = STAFF_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
-  if (!isStaffSurface) return NextResponse.next();
 
-  if (pathname.startsWith('/admin/login')) return NextResponse.next();
+  const response =
+    !isStaffSurface || pathname.startsWith('/admin/login')
+      ? pass()
+      : gateStaff(request, pathname, pass);
 
+  response.headers.set(REQUEST_ID_HEADER, requestId);
+  return response;
+}
+
+function gateStaff(
+  request: NextRequest,
+  pathname: string,
+  pass: () => NextResponse,
+): NextResponse {
   const cookie = request.cookies.get(STAFF_SESSION_COOKIE);
-  if (!cookie?.value) {
-    const login = request.nextUrl.clone();
-    login.pathname = '/admin/login';
-    // Send them back where they were going, but only to an internal path —
-    // an open redirect here would be a phishing gift.
-    login.search = `?next=${encodeURIComponent(pathname)}`;
-    return NextResponse.redirect(login);
-  }
+  if (cookie?.value) return pass();
 
-  return NextResponse.next();
+  const login = request.nextUrl.clone();
+  login.pathname = '/admin/login';
+  // Send them back where they were going, but only to an internal path —
+  // an open redirect here would be a phishing gift.
+  login.search = `?next=${encodeURIComponent(pathname)}`;
+  return NextResponse.redirect(login);
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/kds/:path*', '/runner/:path*'],
+  // Every request, so the id is universal — except the ones that are served
+  // from disk and never reach application code. Matching those would add an
+  // edge invocation per static asset for a trace nobody reads.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|fonts/|icons/|.*\\.(?:png|jpg|jpeg|svg|webp|woff2|ico|txt|xml)$).*)'],
 };

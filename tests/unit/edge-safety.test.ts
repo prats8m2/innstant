@@ -34,4 +34,19 @@ describe('middleware stays edge-safe', () => {
   it('cookie.ts itself imports nothing at all', () => {
     expect(importsOf('src/modules/identity/cookie.ts')).toHaveLength(0);
   });
+
+  // Same reason as cookie.ts: the middleware mints the request id, so
+  // request-id.ts is edge code. pino (or anything that reaches node:) belongs
+  // in logger.ts, which the middleware must never import.
+  it('request-id.ts itself imports nothing at all', () => {
+    expect(importsOf('src/lib/request-id.ts')).toHaveLength(0);
+  });
+
+  it('instrumentation.ts reaches the database only behind a runtime check', () => {
+    const source = readFileSync('src/instrumentation.ts', 'utf8');
+    expect(importsOf('src/instrumentation.ts')).toHaveLength(0);
+    // A static `@/db` import here breaks the EDGE build — webpack follows it
+    // to pg, then to node:fs. The check is what lets it drop the branch.
+    expect(source).toContain("process.env.NEXT_RUNTIME === 'nodejs'");
+  });
 });

@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import pg from 'pg';
 import * as schema from './schema';
 import { dbSsl } from './ssl';
+import { logger } from '@/lib/logger';
 
 /**
  * The database client. CLAUDE.md #1.
@@ -62,7 +63,7 @@ const pool = new pg.Pool({
 pool.on('error', (err) => {
   // An idle client erroring must not take the process down — Railway restarts
   // Postgres during maintenance and the pool recovers on its own.
-  console.error(JSON.stringify({ level: 'error', msg: 'idle db client error', err: err.message }));
+  logger.error({ err: err.message }, 'idle db client error');
 });
 
 const db = drizzle(pool, { schema, casing: 'snake_case' });
@@ -150,7 +151,7 @@ export async function withoutTenantForProvisioning<T>(
   fn: (tx: Tx) => Promise<T>,
 ): Promise<T> {
   if (!reason.trim()) throw new Error('A reason is required — it is written to the log.');
-  console.warn(JSON.stringify({ level: 'warn', msg: 'unscoped db access', reason }));
+  logger.warn({ reason }, 'unscoped db access');
   return db.transaction(fn);
 }
 
@@ -212,5 +213,29 @@ export async function pingDatabase(): Promise<{ ok: boolean; latencyMs: number }
     return { ok: true, latencyMs: Date.now() - started };
   } catch {
     return { ok: false, latencyMs: Date.now() - started };
+  }
+}
+
+/**
+ * Which migrations this database has actually run. For /api/health.
+ *
+ * Unscoped, and legitimately so: `__drizzle_migrations` holds no tenant data —
+ * it is a list of filenames — and it is the one table 0001's RLS sweep skips
+ * for that reason. app_user can read it because 0001 grants SELECT on ALL
+ * TABLES in public, and the migration runner creates this table before the
+ * first migration, so the grant always covers it.
+ *
+ * Returns null when the table does not exist: a database that has never been
+ * migrated, which is a real state a health check should be able to describe
+ * rather than crash on.
+ */
+export async function readMigrationState(): Promise<{ names: string[]; appliedAt: Date | null } | null> {
+  try {
+    const { rows } = await pool.query<{ name: string; applied_at: Date }>(
+      'SELECT name, applied_at FROM __drizzle_migrations ORDER BY id',
+    );
+    return { names: rows.map((r) => r.name), appliedAt: rows.at(-1)?.applied_at ?? null };
+  } catch {
+    return null;
   }
 }
