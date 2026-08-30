@@ -11,6 +11,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
+import { dbSsl } from './ssl';
 
 const MIGRATIONS_DIR = join(process.cwd(), 'src/db/migrations');
 
@@ -33,10 +34,8 @@ function requireOwnerUrl(): string {
 }
 
 async function main(): Promise<void> {
-  const client = new pg.Client({
-    connectionString: requireOwnerUrl(),
-    ssl: { rejectUnauthorized: false },
-  });
+  const url = requireOwnerUrl();
+  const client = new pg.Client({ connectionString: url, ssl: dbSsl(url) });
   await client.connect();
 
   await client.query(`

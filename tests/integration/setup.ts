@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { dbSsl } from '@/db/ssl';
 import { withTenant } from '@/db';
 import { provisionProperty } from '@/modules/identity';
 
@@ -16,7 +17,7 @@ export const TENANT_B = 'bbbbbbbb-0000-4000-8000-000000000002';
 export function ownerClient(): pg.Client {
   const url = process.env.DATABASE_MIGRATION_URL;
   if (!url) throw new Error('DATABASE_MIGRATION_URL required for integration tests');
-  return new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+  return new pg.Client({ connectionString: url, ssl: dbSsl(url) });
 }
 
 export function appPool(): pg.Pool {
@@ -24,7 +25,7 @@ export function appPool(): pg.Pool {
   if (!url) throw new Error('DATABASE_URL required for integration tests');
   // max: 1 makes connection reuse deterministic — the leak test in this suite
   // depends on the second request landing on the same connection as the first.
-  return new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false }, max: 1 });
+  return new pg.Pool({ connectionString: url, ssl: dbSsl(url), max: 1 });
 }
 
 export interface Fixture {

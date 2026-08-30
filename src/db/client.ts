@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import pg from 'pg';
 import * as schema from './schema';
+import { dbSsl } from './ssl';
 
 /**
  * The database client. CLAUDE.md #1.
@@ -52,8 +53,9 @@ const pool = new pg.Pool({
   max: Number(process.env.DATABASE_POOL_MAX ?? 10),
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
-  // Railway requires TLS; its proxy certificate is not in the system CA store.
-  ssl: { rejectUnauthorized: false },
+  // Railway requires TLS; its proxy certificate is not in the system CA
+  // store. A local Postgres (CI service container) speaks none. See ssl.ts.
+  ssl: dbSsl(connectionString),
   statement_timeout: Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? 15_000),
 });
 

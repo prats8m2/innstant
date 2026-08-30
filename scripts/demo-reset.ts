@@ -11,6 +11,7 @@
  */
 import pg from 'pg';
 import { withTenant, recordEvent, closePool } from '@/db';
+import { dbSsl } from '@/db/ssl';
 import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } from '@/modules/identity';
 import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
 import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
@@ -61,7 +62,7 @@ const WIPE_ORDER = [
 async function wipe(): Promise<void> {
   const owner = new pg.Client({
     connectionString: process.env.DATABASE_MIGRATION_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: dbSsl(process.env.DATABASE_MIGRATION_URL),
   });
   await owner.connect();
   try {
@@ -85,7 +86,7 @@ async function main(): Promise<void> {
   // to a tenant that does not exist yet. Everything after it is scoped.
   const owner = new pg.Client({
     connectionString: process.env.DATABASE_MIGRATION_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: dbSsl(process.env.DATABASE_MIGRATION_URL),
   });
   await owner.connect();
   await owner.query(

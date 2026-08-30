@@ -13,6 +13,7 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { dbSsl } from '@/db/ssl';
 
 type Check = { label: string; ok: boolean | null; detail: string };
 
@@ -83,15 +84,20 @@ async function checkDatabase(env: Record<string, string>): Promise<Check[]> {
     return out;
   }
 
+  const ssl = dbSsl(url);
   const client = new pg.default.Client({
     connectionString: url,
-    ssl: { rejectUnauthorized: false },
+    ssl,
     connectionTimeoutMillis: 10_000,
   });
   try {
     await client.connect();
     const v = await client.query<{ v: string }>("select current_setting('server_version') as v");
-    out.push({ label: 'database reachable', ok: true, detail: `PostgreSQL ${v.rows[0]?.v ?? '?'} (SSL required)` });
+    out.push({
+      label: 'database reachable',
+      ok: true,
+      detail: `PostgreSQL ${v.rows[0]?.v ?? '?'} (${ssl ? 'TLS' : 'no TLS, local host'})`,
+    });
 
     const priv = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
       `select rolsuper, rolbypassrls from pg_roles where rolname = current_user`,
