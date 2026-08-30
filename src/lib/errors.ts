@@ -1,0 +1,101 @@
+/**
+ * Typed errors, thrown — never returned as `{ error }` tuples.
+ * Mapped to an HTTP status in exactly ONE place: `httpStatusFor()`.
+ *
+ * Guest-facing messages say what happened and what to do. They do not
+ * apologise and they are never vague (CLAUDE.md "Conventions").
+ */
+
+export abstract class AppError extends Error {
+  abstract readonly code: string;
+  /** Safe to show a user. Everything else stays in the log. */
+  abstract readonly publicMessage: string;
+
+  constructor(message: string, readonly context: Record<string, unknown> = {}) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
+
+/** No session, or a session that no longer resolves. */
+export class UnauthenticatedError extends AppError {
+  readonly code = 'UNAUTHENTICATED';
+  readonly publicMessage = 'Sign in to continue.';
+}
+
+/**
+ * The caller is known and lacks the permission — at a property they can
+ * legitimately see. Distinct from NotFoundError on purpose; see the note on
+ * `httpStatusFor`.
+ */
+export class ForbiddenError extends AppError {
+  readonly code = 'FORBIDDEN';
+  readonly publicMessage = 'You do not have permission to do that.';
+}
+
+/**
+ * Also used when a caller has no business knowing a resource exists.
+ *
+ * A staff user reaching across properties gets this, never ForbiddenError:
+ * 403 would confirm the resource exists, and that single bit is enough to
+ * enumerate another hotel's rooms or orders. Cross-tenant access is
+ * indistinguishable from a typo, by design.
+ */
+export class NotFoundError extends AppError {
+  readonly code = 'NOT_FOUND';
+  readonly publicMessage = 'That is no longer available.';
+}
+
+/** Input failed validation at a boundary. */
+export class ValidationError extends AppError {
+  readonly code = 'VALIDATION';
+  readonly publicMessage: string;
+  constructor(publicMessage: string, context: Record<string, unknown> = {}) {
+    super(publicMessage, context);
+    this.publicMessage = publicMessage;
+  }
+}
+
+/** The action is legal but not from the current state — a state machine said no. */
+export class ConflictError extends AppError {
+  readonly code = 'CONFLICT';
+  readonly publicMessage: string;
+  constructor(publicMessage: string, context: Record<string, unknown> = {}) {
+    super(publicMessage, context);
+    this.publicMessage = publicMessage;
+  }
+}
+
+/** Rate limited — verification attempts, OTP sends, public endpoints. */
+export class TooManyAttemptsError extends AppError {
+  readonly code = 'TOO_MANY_ATTEMPTS';
+  readonly publicMessage: string;
+  constructor(readonly retryAfterSeconds: number, publicMessage?: string) {
+    super('too many attempts', { retryAfterSeconds });
+    this.publicMessage =
+      publicMessage ?? `Too many attempts. Try again in ${Math.ceil(retryAfterSeconds / 60)} minutes.`;
+  }
+}
+
+/**
+ * The single mapping point. Adding a status anywhere else is how a 403 ends up
+ * leaking the existence of another hotel's data.
+ */
+export function httpStatusFor(error: unknown): number {
+  if (!(error instanceof AppError)) return 500;
+  switch (error.code) {
+    case 'UNAUTHENTICATED': return 401;
+    case 'FORBIDDEN': return 403;
+    case 'NOT_FOUND': return 404;
+    case 'VALIDATION': return 422;
+    case 'CONFLICT': return 409;
+    case 'TOO_MANY_ATTEMPTS': return 429;
+    default: return 500;
+  }
+}
+
+/** What a client is allowed to see. Never the raw message of a non-AppError. */
+export function publicPayloadFor(error: unknown): { code: string; message: string } {
+  if (error instanceof AppError) return { code: error.code, message: error.publicMessage };
+  return { code: 'INTERNAL', message: 'Something went wrong on our side.' };
+}

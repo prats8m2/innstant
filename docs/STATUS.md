@@ -12,24 +12,23 @@ and this file is stale — fix it.
 **Keep this current.** At the end of a session: move the finished session into
 Done, rewrite `## Now
 
-**P0 · Foundation. S4 is COMPLETE — the isolation is proven and re-runnable.**
+**P0 · Foundation. S5 is COMPLETE.** 58 unit + 41 integration tests green;
+typecheck, lint and build clean.
 
-`pnpm test:integration` — 26 tests against a real Postgres, covering all six
-of S4's required properties plus the helper layer. `pnpm test` (29 unit tests)
-stays fast and DB-free; the two are separate configs so a green unit run can
-never quietly omit the isolation proofs.
+**Next: S6 — property provisioning and the demo seeder.**
+`provisionProperty()` in `modules/identity/` as ONE transaction (property, the
+8 roles via `seedSystemRoles`, floors, rooms, QR codes at version 1, an
+IN_ROOM_DINING outlet with hours, ~20 request types, a default
+`access_policies` row, and the first PROPERTY_ADMIN invite), then
+`pnpm demo:reset` for The Kesari. Write it so tests can call it directly with
+an override object — it is also the integration fixture, and
+`tests/integration/setup.ts` should be rewritten to use it rather than hand-
+rolling rows.
 
-**Next: S5 — staff auth and RBAC.** Argon2id, httpOnly cookie with the token
-hashed at rest, `authorize(session, propertyId, 'resource:action')` in exactly
-one place, and the 8 system roles seeded. S5 asks for the per-role permission
-list to be proposed for review before it is committed — do not skip that.
+Then **S7** (QR resolution + guest sessions — read D-012 first), **S8**
+(deploy + CI), and **S2a** (design tokens, still independent and unstarted).
 
-Still unstarted and independent: **S2a** (extract design tokens from the
-compiled export), **S6** (provisionProperty + demo seeder), **S7** (QR
-resolution and guest sessions), **S8** (deploy + CI).
-
-**Not yet in CI.** Nothing re-runs any of this on push — that is S8, and until
-it exists the suites are only as good as someone remembering to run them.
+**Still not in CI.** Nothing re-runs any suite on push; that is S8.
 
 ## Done
 
@@ -38,6 +37,7 @@ it exists the suites are only as good as someone remembering to run them.
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S5 | _pending_ | Argon2id, SHA-256 session tokens, `authorize()` in one place, 8 seeded roles, typed errors mapped to HTTP once, edge-safe middleware. 403 at your property / 404 at another. |
 | S4 | `a667728` | 26 integration tests: cross-tenant reads, the unscoped case, WITH CHECK on INSERT and UPDATE, context non-leakage across pooled connections, event_log append-only, D-007 under real concurrency, and app_user's inability to dismantle its own constraints. |
 | S3b | `61997df` | `withTenant()` + typed `Tx`, `recordEvent(tx, …)`, `src/db/index.ts` public surface. Pool kept unexported; second-pool lint rule. Health endpoint reports real DB state. |
 | S3a | `6831aa5` | 51 tables across 11 schema files, `0000`/`0001_rls`/`0002_constraints`, migration runner. Applied to Railway. Decisions recorded as D-019, D-020. |
