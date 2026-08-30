@@ -13,6 +13,7 @@ Booking is deliberately **not** in scope. See `docs/EXTENSION-POINTS.md`.
 | Read | For |
 |---|---|
 | `CLAUDE.md` | the invariants. Read first, every session. |
+| `docs/STATUS.md` | where the work is right now — plus `pnpm status` |
 | `docs/DECISIONS.md` | why the codebase is shaped this way |
 | `docs/PROJECT-PLAN.md` | the six phases and their exit criteria |
 | `docs/P0-TASKS.md` | the current phase, session by session |
@@ -53,6 +54,7 @@ CLAUDE.md #2.
 ## Commands
 
 ```bash
+pnpm status       # verified state: gates, database, current session
 pnpm dev          pnpm build        pnpm typecheck    pnpm lint
 pnpm test         pnpm test:e2e
 pnpm db:generate  pnpm db:migrate   pnpm db:studio

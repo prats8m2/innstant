@@ -1,7 +1,14 @@
 # CLAUDE.md
 
-Read this first, every session. Then read `docs/DECISIONS.md` for why things are
-the way they are, and `docs/PROJECT-PLAN.md` for what to build next.
+Read this first, every session. Then read `docs/STATUS.md` — where the work
+actually is, what is next, and what is blocked — and run `pnpm status`, which
+re-derives that from the repo and the database rather than trusting the file.
+`docs/DECISIONS.md` says why things are the way they are; `docs/PROJECT-PLAN.md`
+and `docs/P0-TASKS.md` say what to build next.
+
+**Before ending a session, update `docs/STATUS.md`.** Move the finished session
+into Done with its commit, rewrite `## Now`, and append anything learned to
+Environment notes. This project spans many sessions; that file is the handoff.
 
 ---
 
@@ -72,6 +79,7 @@ service function.
 ## Commands
 
 ```bash
+pnpm status           # where the work is + verified env state — run first
 pnpm dev              # next dev
 pnpm build            # next build (standalone)
 pnpm typecheck        # tsc --noEmit

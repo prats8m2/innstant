@@ -19,10 +19,13 @@
     "db:migrate": "tsx src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "tokens:build": "tsx scripts/build-tokens.ts",
-    "demo:reset": "tsx scripts/demo-reset.ts"
+    "demo:reset": "tsx scripts/demo-reset.ts",
+    "status": "tsx scripts/status.ts"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.2",
     "next": "^15.5.24",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zod": "^4.5.2"
@@ -32,10 +35,12 @@
     "@next/eslint-plugin-next": "^16.3.3",
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.4.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.5.4",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
     "postcss": "^8.5.26",
     "tailwindcss": "^3.4.19",
