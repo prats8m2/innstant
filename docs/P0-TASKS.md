@@ -1,6 +1,6 @@
 # P0 — session by session
 
-Ten sessions. One per Claude Code session, in this order. Each has a stated
+Nine sessions. One per Claude Code session, in this order. Each has a stated
 done condition — don't move on until it holds.
 
 Every session starts by reading `CLAUDE.md` and `docs/DECISIONS.md`. Say so in
@@ -33,65 +33,36 @@ and the boundary lint rule demonstrably fires on a bad import.
 
 ---
 
-## S2a · Extract the token system from the design export
+## S2 · The theme and the room home
 
-The design lives in `design/reference/kesari-guest-app.html` — a **compiled**
-Claude Design canvas bundle. It has no CSS custom properties; every colour is a
-hardcoded hex inside a minified JS bundle. It cannot be read as a stylesheet and
-its markup must never be copied into components.
+**Replaces the old S2a/S2b token-pipeline sessions. There is no `tokens.json`
+and no generator — see D-023.**
 
-This session's only job is to turn that bundle into `tokens.json`. Nothing else.
+The design lives in `design/reference/kesari-guest-app.html`, a compiled Claude
+Design bundle. `pnpm design:decode` unpacks it; the extracted palette, type,
+shape and motion values are written up in `design/reference/DESIGN-SPEC.md`.
 
-> Read design/README.md and design/design-prompts.md.
+> Read CLAUDE.md, design/reference/DESIGN-SPEC.md, and run `pnpm design:decode`
+> to read `design/reference/decoded/app.html` directly.
 >
-> Open `design/reference/kesari-guest-app.html` in a browser at 390×844 and
-> read the computed styles. Produce:
-> - `design/tokens/tokens.json` — the DEFAULT theme: colour, type scale,
->   spacing, radii, shadow, motion (duration + easing), image aspect ratios
->   (16:9 hero, 4:3 dish card, 1:1 thumb) and the scrim system.
-> - `design/themes/kesari.json` — identical key set, The Kesari's values.
-> - Fill in `design/reference/motion-notes.md`, which is currently a blank
->   template. The bundle is the only record of the motion system.
+> - `src/styles/theme.css` — every value from DESIGN-SPEC.md as a CSS custom
+>   property on `:root`. Hand-written; there is no build step.
+> - Self-host **Marcellus**, **Mukta** and **DM Mono** from
+>   `design/reference/decoded/*.woff2` via `next/font/local`, with the SIL OFL
+>   licence committed beside them.
+> - `prefers-reduced-motion` handled ONCE, globally, exactly as the export does
+>   — collapsing animation and transition to 1ms. Not per component.
+> - Rebuild the **room home** as real components: the four rows (Amenities,
+>   Call for service, Your stay, Nearby), the property header, and the
+>   kitchen-hours line. Match the reference; do not paste its markup.
+> - Components use `var(--saffron)`. A hardcoded hex is a review failure.
 >
-> Known starting points already read out of the bundle: `#101E33` deep indigo,
-> `#E3E5DB` lime plaster, `#E9A227` saffron, `#6E9C95` teal, surfaces
-> `#1B2B45` / `#16253E` / `#243755`; a 390×844 frame; `skeletonMs` default 620;
-> a `lateNightMode` boolean. Verify each against the rendered page — do not
-> trust this list.
->
-> Every value you cannot determine from the export: list it explicitly and ask.
-> Do not invent a type scale and present it as extracted.
+> Copy is part of the design. Use the export's wording verbatim — "Seven places
+> we vouch for", not a paraphrase.
 
-**Done when:** `tokens.json` and `kesari.json` exist with identical key sets, and
-every value traces to something observable in the export or to an answered
-question. This is the one session where the export outranks the tokens — after
-it, CLAUDE.md's rule applies permanently and the tokens win.
-
----
-
-## S2b · Design tokens into the build
-
-> Read CLAUDE.md and design/README.md.
->
-> Wire the design token pipeline.
-> - Write `design/tokens/tokens.schema.json` describing the token contract in
->   design/README.md, and validate the `tokens.json` produced in S2a against it
-> - Write `scripts/build-tokens.ts` (`pnpm tokens:build`) that generates:
->   `src/styles/tokens.css` (CSS custom properties on :root),
->   the Tailwind theme extension, and `src/lib/theme/types.ts`
-> - Generated files carry a "do not edit" header
-> - A CI check that fails if generated output is stale
-> - A `ThemeProvider` that applies a theme from `design/themes/*.json` by
->   setting CSS variables on `<html>` — this is the same mechanism that will
->   later read `properties.branding`
-> - Self-host the fonts in `design/fonts/`, with `next/font/local`
->
-> Then rebuild ONE screen from `design/reference/` — the room home — as a real
-> component using only tokens. No hardcoded colours, radii, or durations.
-> Treat the reference export as a picture, not as markup to copy.
-
-**Done when:** the room home renders at token fidelity, and switching the theme
-JSON changes its appearance with no component edits.
+**Done when:** `/r/<code>/home` renders the room home at reference fidelity on a
+390×844 viewport, no hex or duration appears in any component, and changing a
+value in `theme.css` restyles the screen with no component edit.
 
 ---
 

@@ -32,3 +32,6 @@ npm-debug.log*
 
 # nvm
 .node-version
+
+# derived from the design export by `pnpm design:decode`
+design/reference/decoded/

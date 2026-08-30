@@ -1,19 +1,30 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { formatMoney, money } from '@/lib/money';
+import styles from './room-home.module.css';
 
 /**
  * The room home — the post-scan landing.
  *
- * Placeholder markup. S2a/S2b produce the design tokens and P1 builds the real
- * screen from them; `design/reference/kesari-guest-app.html` is the picture to
- * match, not markup to copy.
+ * Rebuilt from `design/reference/` as real components; the export is a picture
+ * to match, not markup to copy (design/README.md). Every value comes from
+ * `src/styles/theme.css` — there is no hex, radius or duration in this file.
  *
- * What is NOT a placeholder is the access model: this renders for an anonymous
- * REQUEST-tier session with nothing in the way (#9).
+ * Copy is taken verbatim from the export. "Seven places we vouch for" is the
+ * design; a paraphrase is a different product.
+ *
+ * CLAUDE.md #9: this renders for an anonymous REQUEST-tier session with
+ * nothing in the way. No login, no verification, no onboarding.
  */
 export const dynamic = 'force-dynamic';
+
+const ROWS = [
+  { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · transfer' },
+  { key: 'service', title: 'Call for service', sub: 'Someone comes up' },
+  { key: 'stay', title: 'Your stay', sub: 'Out Thursday, 11am' },
+  { key: 'nearby', title: 'Nearby', sub: 'Seven places we vouch for' },
+] as const;
 
 export default async function RoomHome({
   params,
@@ -24,21 +35,50 @@ export default async function RoomHome({
   const store = await cookies();
   const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
 
-  // Cookie missing or stale (checked out, expired, revoked) — send them back
-  // through the link, which will issue a fresh session or 404.
+  // Cookie missing or stale — checked out, expired, revoked. Send them back
+  // through the link, which issues a fresh session or 404s (#10).
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
+  const base = `/r/${encodeURIComponent(qrCode)}`;
+
   return (
-    <main>
-      <h1>Room {session.roomNumber}</h1>
-      <p data-testid="tier">
-        {session.accessTier}
-        {session.isAnonymous ? ' · not verified' : ' · verified'}
-      </p>
-      <p>
-        Browse the menu, ask for anything, or call someone up — no sign-in.
-        Prices look like {formatMoney(money(115_000, 'INR'))}.
-      </p>
+    <main className={styles.shell}>
+      <header className={styles.header}>
+        <p className={styles.eyebrow}>Room {session.roomNumber}</p>
+        <h1 className={styles.property}>The Kesari</h1>
+        <p className={styles.stayLine}>
+          Room {session.roomNumber} until Thursday. Dinner runs until 11:30.
+        </p>
+        <span className={styles.kitchen}>
+          <span className={styles.pulse} aria-hidden="true" />
+          Kitchen open until 11:30pm
+        </span>
+      </header>
+
+      <Link href={`${base}/menu`} className={styles.dining}>
+        <span className={styles.diningLabel}>In-room dining</span>
+        <p className={styles.diningTitle}>Order to the room</p>
+        <p className={styles.diningSub}>
+          Rajasthani plates and the rooftop grill, brought up.
+        </p>
+      </Link>
+
+      <nav className={styles.rows} aria-label="Services">
+        {ROWS.map((row) => (
+          <Link key={row.key} href={`${base}/${row.key}`} className={styles.row}>
+            <span>
+              <p className={styles.rowTitle}>{row.title}</p>
+              <p className={styles.rowSub}>{row.sub}</p>
+            </span>
+            <span className={styles.chevron} aria-hidden="true">→</span>
+          </Link>
+        ))}
+      </nav>
+
+      <footer className={styles.footer}>
+        <span>The Kesari · Udaipur</span>
+        <span className="tabular">Room {session.roomNumber}</span>
+      </footer>
     </main>
   );
 }

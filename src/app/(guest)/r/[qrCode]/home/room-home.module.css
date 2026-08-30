@@ -1,0 +1,148 @@
+/*
+ * Room home. Rebuilt from design/reference/ — matched, not pasted.
+ * Every value is a custom property from theme.css. No hex, no raw duration.
+ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  /* 390×844 is the design viewport; the app is mobile-only (no desktop
+     breakpoint), so it centres rather than stretching on a larger screen. */
+  max-width: 430px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-5) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header { animation: riseIn var(--dur-slow) var(--ease-out) both; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--saffron);
+  margin: 0 0 var(--space-3);
+}
+
+.property {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--text);
+  margin: 0;
+}
+
+.stayLine {
+  margin: var(--space-3) 0 0;
+  color: var(--plaster-dim);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* The one status affordance: the kitchen being open is the single most useful
+   fact on this screen at 9:40pm. */
+.kitchen {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill-sm);
+  font-size: var(--text-xs);
+  color: var(--plaster-dim);
+}
+
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--teal);
+  position: relative;
+}
+.pulse::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: 50%; background: var(--teal);
+  animation: breathe 2.4s var(--ease-out) infinite;
+}
+
+.dining {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-6) var(--space-5);
+  background: linear-gradient(160deg, var(--ink-700), var(--ink-800));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  animation: archIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 60ms;
+  transition: border-color var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
+}
+.dining:hover, .dining:active { border-color: var(--saffron); transform: translateY(-1px); }
+
+.diningLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--saffron);
+}
+.diningTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  color: var(--text);
+  margin: var(--space-2) 0 var(--space-1);
+}
+.diningSub { color: var(--plaster-dim); font-size: var(--text-sm); margin: 0; }
+
+.rows { display: flex; flex-direction: column; gap: var(--space-2); }
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  /* 44px minimum touch target — a hard requirement. */
+  min-height: var(--touch-min);
+  padding: var(--space-4) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-align: left;
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+.row:hover, .row:active { background: var(--surface-hover); border-color: var(--border); }
+
+/* The staggered page-load sequence the brief asked for: one orchestrated
+   moment, not five scattered fades. */
+.row:nth-child(1) { animation-delay: 120ms; }
+.row:nth-child(2) { animation-delay: 170ms; }
+.row:nth-child(3) { animation-delay: 220ms; }
+.row:nth-child(4) { animation-delay: 270ms; }
+
+.rowTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--text);
+  margin: 0 0 2px;
+  font-weight: 400;
+}
+.rowSub { color: var(--text-muted); font-size: var(--text-xs); margin: 0; }
+.chevron { color: var(--saffron); font-size: var(--text-lg); flex: none; }
+
+.footer {
+  margin-top: auto;
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-soft);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+}

@@ -6,14 +6,10 @@ here.
 
 ```
 design/
-  tokens/
-    tokens.json           canonical token set for the DEFAULT theme
-    tokens.schema.json    the contract; validated in CI
-  themes/
-    kesari.json           one file per hotel identity, same shape as tokens.json
-    aramaya.json          these are seeded into properties.branding
-    node.json  ...
   reference/
+    kesari-guest-app.html   the compiled Claude Design export — the reference
+    DESIGN-SPEC.md          palette, type, shape, motion, screens, copy
+    decoded/                `pnpm design:decode` output (git-ignored)
     room-home.png         rendered screens from Claude Design
     room-home.html        the HTML export, if you have it — reference only
     menu.png  dish-detail.png  cart.png ...
@@ -27,35 +23,42 @@ design/
 ## How this reaches the code
 
 ```
-design/tokens/tokens.json
-        │  pnpm tokens:build
+design/reference/kesari-guest-app.html    the compiled export (the reference)
+        │  pnpm design:decode
         ▼
-src/styles/tokens.css        CSS custom properties on :root
-tailwind.config.ts           theme extension reading those vars
-src/lib/theme/types.ts       generated TS types
+design/reference/decoded/app.html         readable markup + stylesheet
+design/reference/decoded/*.woff2          the three fonts
+        │  read by hand, written up in
+        ▼
+design/reference/DESIGN-SPEC.md           palette, type, shape, motion
+        │  hand-maintained as
+        ▼
+src/styles/theme.css                      CSS custom properties on :root
 ```
 
-Never edit the generated files. Edit `tokens.json` and rerun `pnpm tokens:build`.
-CI fails if the generated files are out of sync with the source.
+There is **no token pipeline** — no `tokens.json`, no schema, no
+`pnpm tokens:build`, no generated files. See D-023. `theme.css` is written and
+edited by hand, and components reference `var(--saffron)` rather than a hex, so
+a second hotel is still a palette swap (D-016).
 
 ## Rules
 
 - **`reference/` is reference, not source.** Do not copy markup out of the HTML
   export into components. It was produced to show what the design is, not how to
   build it. Rebuild it properly with the token system and real components.
-- **Every theme file has the identical key set.** A missing key is a build error,
-  not a fallback. See `tokens.schema.json`.
-- **Themes differ only in token values.** Identical DOM across all of them. The
+- **Themes differ only in custom-property values.** Identical DOM across all of
+  them. There is no schema validating that a theme defines every variable —
+  that check moves into the admin theme editor in P5 (D-023). The
   one permitted structural variance is the `heroStyle` token, which has exactly
   three allowed values: `cinematic`, `editorial`, `compact`.
 - **Fonts are self-hosted.** Check the licence for commercial use before adding
   one — a hotel deployment is commercial use. Put the LICENCE file next to the
   woff2.
-- **Motion lives in tokens too.** Duration and easing are token values, not
-  numbers typed into a component. `prefers-reduced-motion` is handled once, in
+- **Motion lives in custom properties too.** Duration and easing are variables,
+  not numbers typed into a component. `prefers-reduced-motion` is handled once, in
   the motion helper, not per-animation.
 
-## What to do when a screenshot and the tokens disagree
+## What to do when the reference and `theme.css` disagree
 
-The tokens win. If the screenshot is right and the tokens are wrong, fix
-`tokens.json` and say so — do not special-case the component.
+The reference wins. Fix `src/styles/theme.css` and say so — never special-case
+the component with a one-off value.

@@ -8,8 +8,8 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && pnpm bundle:static",
+    "start": "node .next/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -22,7 +22,9 @@
     "demo:reset": "tsx --env-file=.env scripts/demo-reset.ts",
     "status": "tsx scripts/status.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:all": "pnpm test && pnpm test:integration"
+    "test:all": "pnpm test && pnpm test:integration",
+    "design:decode": "tsx scripts/decode-design-export.ts",
+    "bundle:static": "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null || true"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.1.0",

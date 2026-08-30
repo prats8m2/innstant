@@ -193,3 +193,31 @@ than one replica, or when idle connections become a measurable share of the
 database's memory. At that point PgBouncer goes back in front of
 `DATABASE_URL` only, and `DATABASE_LISTEN_URL` is reintroduced pointing
 direct — the design is already shaped for it.
+
+### D-023 · No token build pipeline — SUPERSEDES the generator half of D-016
+There is no `design/tokens/tokens.json`, no `tokens.schema.json`, no
+`pnpm tokens:build`, and no generated `tokens.css`. The design values from the
+Kesari export live directly in `src/styles/theme.css` as CSS custom properties,
+hand-maintained, documented in `design/reference/DESIGN-SPEC.md`.
+
+**Why.** The pipeline was three sessions of scaffolding — author the JSON,
+write a schema, write a generator, add a CI staleness check — before a single
+screen existed. With one property and one theme, the JSON would have been a
+lossy copy of a CSS file that a build step then turned back into a CSS file.
+The reference export is the spec; going through an intermediate format bought
+nothing and delayed every guest screen.
+
+**What does NOT change.** D-016 stands where it matters: identical DOM across
+every hotel, and only custom-property values differ. Components reference
+`var(--saffron)`, never `#E9A227`. A second hotel is still a palette swap and
+not a layout fork — `properties.branding` will set the same variables at
+runtime, which is what `ThemeProvider` was always going to do. The generator
+was the disposable half of D-016; the discipline is the half that matters.
+
+**Cost / when to revisit.** Two things get harder. Multi-theme validation is
+now manual — the schema would have caught a theme file missing a key, and
+nothing does now; a runtime check in the admin panel's theme editor should
+cover it when P5 arrives. And WCAG AA contrast is no longer validated at
+save-time by a build step, so that check moves into the theme editor too.
+Revisit if a third or fourth hotel theme lands before P5, since that is the
+point where hand-maintaining parallel palettes starts to drift.

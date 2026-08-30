@@ -211,12 +211,22 @@ that runs two operations in parallel and asserts exactly one wins.
 **UI:** mobile-first for guest routes, 44px minimum touch targets, visible focus
 states, `prefers-reduced-motion` respected.
 
-**Design tokens are the only source of colour, radius, type, and motion values.**
-Edit `design/tokens/tokens.json`, run `pnpm tokens:build`, use the generated CSS
-variables. Never hardcode a hex, a radius, or a duration in a component. Never
-edit a generated file. `design/reference/` holds rendered screens — they are
-pictures to match, not markup to copy. When a screenshot and the tokens
-disagree, the tokens win and the tokens file gets fixed.
+**CSS custom properties are the only source of colour, radius, type, and motion
+values.** They live in `src/styles/theme.css`, hand-maintained. Never hardcode a
+hex, a radius, or a duration in a component — use `var(--saffron)`, not
+`#E9A227`. This is what keeps a second hotel a palette swap rather than a
+layout fork (D-016), and `properties.branding` sets the same variables at
+runtime.
+
+There is no token build pipeline — no `tokens.json`, no `pnpm tokens:build`
+(D-023, superseding the generator half of D-016).
+
+`design/reference/kesari-guest-app.html` is the design reference. It is a
+compiled bundle; run `pnpm design:decode` to read it, and
+`design/reference/DESIGN-SPEC.md` for the extracted palette, type, shape and
+motion values. **Match the reference — but rebuild it with real components; do
+not paste its markup.** When the reference and `theme.css` disagree, the
+reference wins and `theme.css` gets fixed.
 
 ---
 

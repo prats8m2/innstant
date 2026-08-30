@@ -18,16 +18,31 @@ import { scanQrCode, resolveGuestSession, GUEST_SESSION_COOKIE, QrNotUsableError
  */
 export const dynamic = 'force-dynamic';
 
+function redirectTo(path: string): NextResponse {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ qrCode: string }> },
 ): Promise<NextResponse> {
   const { qrCode } = await params;
-  const home = new URL(`/r/${encodeURIComponent(qrCode)}/home`, request.url);
+  /**
+   * A RELATIVE Location, deliberately.
+   *
+   * `NextResponse.redirect()` needs an absolute URL, and building one from
+   * `request.url` or `nextUrl` derives the host from the server's bind
+   * address — which under `output: 'standalone'` is 0.0.0.0, and behind
+   * Railway's proxy would send a guest to an internal hostname.
+   *
+   * A relative Location is valid (RFC 7231 §7.1.2) and the browser resolves it
+   * against the URL it actually requested, so there is no host to get wrong.
+   */
+  const home = `/r/${encodeURIComponent(qrCode)}/home`;
 
   // Already carrying a live session for this stay — reuse it.
   const existing = await resolveGuestSession(request.cookies.get(GUEST_SESSION_COOKIE)?.value);
-  if (existing) return NextResponse.redirect(home);
+  if (existing) return redirectTo(home);
 
   try {
     const scan = await scanQrCode(qrCode, {
@@ -35,7 +50,7 @@ export async function GET(
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
 
-    const response = NextResponse.redirect(home);
+    const response = redirectTo(home);
     response.cookies.set(GUEST_SESSION_COOKIE, scan.cookieValue, {
       httpOnly: true,
       sameSite: 'lax',

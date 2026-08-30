@@ -21,28 +21,21 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 · Foundation. S7 is COMPLETE.** 65 unit + 65 integration tests green;
-typecheck, lint, build clean. Verified end to end against the running app: the
-link redirects, sets the cookie, and renders the room home with no screen in
-the way.
+**P0 · Foundation. S2 (theme + room home) is COMPLETE.** 75 unit + 65
+integration tests green; typecheck, lint, build clean. The room home renders at
+reference fidelity — see it with `pnpm demo:reset` then open the printed link.
 
-**Next: S8 — deploy and CI.** The last P0 session. GitHub Actions running
-typecheck / lint / unit / integration (with a Postgres service container) on
-every push; Railway auto-deploy from `main`; `/api/health` extended with
-migration state; Pino structured logging with a request id. Then verify on the
-DEPLOYED environment, not locally.
+**Next: S8 — deploy and CI.** The last P0 session, and the biggest remaining
+gap: nothing re-runs either suite on push. GitHub Actions (typecheck, lint,
+unit, integration with a Postgres service container), Railway auto-deploy from
+`main`, migration state in `/api/health`, Pino logging with a request id. Then
+verify on the DEPLOYED environment, not locally.
 
-**Nothing runs in CI yet.** Both suites only run when someone remembers. That
-is the single biggest gap in the project right now and S8 closes it.
-
-Also still unstarted: **S2a** (extract design tokens from
-`design/reference/kesari-guest-app.html`) — independent of everything else, and
-the thing blocking any real UI work. Every guest screen is currently
-placeholder markup.
-
-**To see the product right now:** `pnpm demo:reset` prints a live link like
-`/r/<code>`; open it and you land on room 214 as an anonymous REQUEST-tier
-guest.
+After P0, **P1 is the demo**: menu, dish detail, cart, ordering, KDS, SSE. The
+remaining seven screens in `design/reference/DESIGN-SPEC.md` (`menu`, `dish`,
+`track`, `amenities`, `service`, `stay`, `nearby`) are built the same way the
+room home was — read the decoded export, rebuild with components, values from
+`theme.css` only.
 
 ## Done
 
@@ -51,6 +44,7 @@ guest.
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S2 | _pending_ | `theme.css` from the decoded export, three self-hosted OFL fonts, room home rebuilt as real components. WCAG + no-hardcoded-value tests. No token pipeline (D-023). |
 | S7 | `7ff122e` | `/r/[code]` link → session with no verification screen. Access tiers, escalation-not-403, PHONE_LAST4 with per-room rate limiting, staff vouching, revocation at checkout. SECURITY DEFINER routing lookup (0003). |
 | S6 | `869b73c` | `provisionProperty()` as one transaction across four modules via their service interfaces. 23 request types, D-012 access policy, QR at v1, first PROPERTY_ADMIN. `pnpm demo:reset` seeds The Kesari. Integration fixtures rewritten to use real provisioning. |
 | S5 | `2adb1fa` | Argon2id, SHA-256 session tokens, `authorize()` in one place, 8 seeded roles, typed errors mapped to HTTP once, edge-safe middleware. 403 at your property / 404 at another. |
@@ -122,6 +116,26 @@ Things that cost time to rediscover.
   the Railway UI is the internal port, correct only for `*.railway.internal`
   hosts (which are unreachable from a laptop). Each service that needs external
   access gets its own TCP Proxy entry with its own generated port.
+- **The design export IS readable** — `pnpm design:decode` unpacks it (gzipped
+  base64 in a `__bundler/manifest` block, markup in `__bundler/template` as
+  concatenated JSON string literals). An earlier pass wrongly concluded there
+  was "nothing to extract"; the whole stylesheet, all 8 screens and 18 woff2
+  fonts were sitting there compressed. Extracted values are in
+  `design/reference/DESIGN-SPEC.md`.
+- **`next start` does not work with `output: 'standalone'`**, and standalone
+  does NOT copy static assets. `pnpm build` now runs `bundle:static` to copy
+  `.next/static` and `public` into `.next/standalone`, and `pnpm start` runs
+  `node .next/standalone/server.js`. Without this the app serves HTML with no
+  CSS — which is exactly what it did for one confusing debugging round, and
+  would have done on Railway.
+- **Redirects use a RELATIVE Location.** Standalone binds 0.0.0.0, so building
+  an absolute URL from `request.url` or `nextUrl` sends the guest to the bind
+  address — behind Railway's proxy, an internal hostname. A relative Location
+  is resolved by the browser against the URL it actually requested.
+- **`--ink-300` is a border colour, never text** (2.39:1 on the card surface).
+  Muted text is `--plaster` at 62%. `tests/unit/theme-contrast.test.ts` asserts
+  every pairing — this already caught one real accessibility bug that is
+  invisible on a good screen with good eyes.
 - **`/r/[code]` is a Route Handler, not a page.** It must set a cookie, and a
   Server Component cannot. Without the redirect hop to `/r/[code]/home`, every
   reload minted a new `guest_sessions` row, which makes `access_escalations`
