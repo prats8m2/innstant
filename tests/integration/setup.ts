@@ -88,30 +88,45 @@ export async function seedTenant(
   };
 }
 
+/**
+ * Wipe both test tenants.
+ *
+ * FK-order-independent on purpose. An explicit children-first list has to track
+ * every foreign key in a 51-table schema, and getting it wrong surfaces as a
+ * constraint violation in whichever unrelated test happens to run next — which
+ * already happened twice. `session_replication_role = replica` suspends FK
+ * triggers for this session only; the owner role may set it, the app role
+ * cannot, and it is restored immediately.
+ *
+ * This is a TEST fixture. Nothing in the application may do this.
+ */
+const TENANT_SCOPED_TABLES = [
+  'event_log', 'order_item_modifiers', 'order_items', 'orders',
+  'cart_item_modifiers', 'cart_items', 'carts',
+  'service_request_items', 'service_requests',
+  'folio_lines', 'folios', 'payments',
+  'checkout_requests',
+  'access_escalations', 'staff_vouches', 'verification_challenges',
+  'guest_sessions', 'access_policies',
+  'itinerary_stops', 'itineraries', 'pois', 'notifications',
+  'collection_items', 'collections', 'menu_item_availability_windows',
+  'menu_item_modifier_groups', 'modifier_options', 'modifier_groups',
+  'menu_items', 'menu_categories', 'outlet_hours', 'outlets',
+  'request_types', 'shift_zones', 'shifts',
+  'stays', 'guest_property_profiles', 'guests',
+  'room_qr_codes', 'rooms', 'floors', 'room_types',
+  'staff_sessions', 'staff_property_roles', 'role_permissions', 'roles', 'staff_users',
+  'idempotency_keys', 'integration_outbox', 'properties',
+];
+
 export async function cleanup(owner: pg.Client): Promise<void> {
-  // One statement per call: pg refuses multiple commands in a parameterised
-  // query. Order matters — children before parents.
-  //
-  // event_log has DELETE revoked from app_user, but the owner may clear it.
-  // Children before parents. Provisioning creates far more than the tests do,
-  // so this list must track provisionProperty() — a stale entry here shows up
-  // as a foreign-key error in an unrelated test.
-  const tables = [
-    'event_log',
-    'order_item_modifiers', 'order_items', 'orders',
-    'service_request_items', 'service_requests',
-    'folio_lines', 'folios',
-    'guest_sessions', 'access_escalations', 'verification_challenges',
-    'staff_vouches', 'access_policies',
-    'collection_items', 'collections', 'menu_items', 'menu_categories',
-    'outlet_hours', 'outlets', 'request_types',
-    'stays', 'guest_property_profiles', 'guests',
-    'room_qr_codes', 'rooms', 'floors', 'room_types',
-    'staff_sessions', 'staff_property_roles', 'role_permissions', 'roles', 'staff_users',
-    'properties',
-  ];
-  for (const table of tables) {
-    await owner.query(`DELETE FROM ${table} WHERE tenant_id IN ($1,$2)`, [TENANT_A, TENANT_B]);
+  await owner.query(`SET session_replication_role = replica`);
+  try {
+    for (const table of TENANT_SCOPED_TABLES) {
+      await owner.query(`DELETE FROM ${table} WHERE tenant_id IN ($1,$2)`, [TENANT_A, TENANT_B]);
+    }
+    await owner.query(`DELETE FROM tenants WHERE id IN ($1,$2)`, [TENANT_A, TENANT_B]);
+  } finally {
+    await owner.query(`SET session_replication_role = origin`);
   }
-  await owner.query(`DELETE FROM tenants WHERE id IN ($1,$2)`, [TENANT_A, TENANT_B]);
 }

@@ -152,6 +152,51 @@ export async function withoutTenantForProvisioning<T>(
   return db.transaction(fn);
 }
 
+/**
+ * The one pre-tenant lookup in the request path (0003_qr_routing.sql).
+ *
+ * A guest at /r/{publicCode} has no cookie and no tenant, so this cannot run
+ * inside withTenant(). It calls a SECURITY DEFINER function that returns
+ * ROUTING IDS ONLY — tenant, property, room, and the code's own state. No
+ * guest, stay or folio data crosses this boundary; everything downstream runs
+ * through withTenant() with the tenant this returns.
+ *
+ * Lives here rather than in its own module because this file is the only place
+ * allowed to touch the pool, and that restriction is the point.
+ */
+export interface QrRouting {
+  tenantId: string;
+  propertyId: string;
+  roomId: string;
+  qrCodeId: string;
+  version: number;
+  revokedAt: Date | null;
+}
+
+export async function resolveQrRouting(publicCode: string): Promise<QrRouting | null> {
+  // Shape check before touching the database — this URL is public and will be
+  // crawled, probed and fuzzed.
+  if (!publicCode || publicCode.length > 64 || !/^[A-Za-z0-9_-]+$/.test(publicCode)) {
+    return null;
+  }
+
+  const { rows } = await pool.query<{
+    tenant_id: string; property_id: string; room_id: string;
+    qr_code_id: string; version: number; revoked_at: Date | null;
+  }>('SELECT * FROM resolve_qr_routing($1)', [publicCode]);
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    tenantId: row.tenant_id,
+    propertyId: row.property_id,
+    roomId: row.room_id,
+    qrCodeId: row.qr_code_id,
+    version: row.version,
+    revokedAt: row.revoked_at,
+  };
+}
+
 /** For graceful shutdown and for tests. */
 export async function closePool(): Promise<void> {
   await pool.end();

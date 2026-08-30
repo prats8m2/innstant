@@ -3,7 +3,7 @@ import { withTenant, type Tx } from '@/db';
 import {
   staffSessions, staffUsers, staffPropertyRoles, roles, rolePermissions,
 } from '@/db/schema/identity';
-import { issueToken, hashToken } from './tokens';
+import { issueToken, hashToken } from '@/lib/tokens';
 import { isPermission, type Permission } from './permissions';
 import type { StaffSession } from './authorize';
 // Edge-safe constants live apart so middleware can import them without

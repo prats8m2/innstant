@@ -21,34 +21,28 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 · Foundation. S6 is COMPLETE.** 58 unit + 47 integration tests green;
-typecheck, lint, build clean. `pnpm demo:reset` runs repeatedly and prints
-working QR codes.
+**P0 · Foundation. S7 is COMPLETE.** 65 unit + 65 integration tests green;
+typecheck, lint, build clean. Verified end to end against the running app: the
+link redirects, sets the cookie, and renders the room home with no screen in
+the way.
 
-**Next: S7 — QR resolution, guest sessions, access tiers.**
-`docs/P0-TASKS.md` has the prompt. **Read D-012 and CLAUDE.md #9 and #10 before
-writing a line of it** — this is the session most likely to be built wrong,
-because the obvious implementation (verify on scan) is the one that was
-explicitly rejected.
+**Next: S8 — deploy and CI.** The last P0 session. GitHub Actions running
+typecheck / lint / unit / integration (with a Postgres service container) on
+every push; Railway auto-deploy from `main`; `/api/health` extended with
+migration state; Pino structured logging with a request id. Then verify on the
+DEPLOYED environment, not locally.
 
-What S7 must produce:
-- `/r/[code]` resolves publicCode → property + room + active CHECKED_IN stay,
-  rejecting a revoked or version-mismatched QR
-- an anonymous session at `access_policies.base_tier` (REQUEST) with **no
-  verification screen** — `guest_sessions.isAnonymous = true`
-- `requireTier(session, 'CHARGE')` that ESCALATES rather than 403s
-- escalation via PHONE_LAST4 / OTP_SMS, rate limited per room and per phone
-- staff vouching, writing `staff_vouches`, with zero guest-side interaction
-- sessions revoked at checkout; tokens SHA-256 only
+**Nothing runs in CI yet.** Both suites only run when someone remembers. That
+is the single biggest gap in the project right now and S8 closes it.
 
-Then **S8** (deploy + CI) and **S2a** (design tokens — still unstarted, still
-independent of everything else).
+Also still unstarted: **S2a** (extract design tokens from
+`design/reference/kesari-guest-app.html`) — independent of everything else, and
+the thing blocking any real UI work. Every guest screen is currently
+placeholder markup.
 
-**Still not in CI.** Nothing re-runs any suite on push. That is S8, and until it
-exists the suites are only as good as someone remembering to run them.
-
-**To resume, run `pnpm demo:reset` first** — it prints a live QR URL and the
-staff logins, which is the fastest way to see the current state of the product.
+**To see the product right now:** `pnpm demo:reset` prints a live link like
+`/r/<code>`; open it and you land on room 214 as an anonymous REQUEST-tier
+guest.
 
 ## Done
 
@@ -57,6 +51,7 @@ staff logins, which is the fastest way to see the current state of the product.
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S7 | _pending_ | `/r/[code]` link → session with no verification screen. Access tiers, escalation-not-403, PHONE_LAST4 with per-room rate limiting, staff vouching, revocation at checkout. SECURITY DEFINER routing lookup (0003). |
 | S6 | `869b73c` | `provisionProperty()` as one transaction across four modules via their service interfaces. 23 request types, D-012 access policy, QR at v1, first PROPERTY_ADMIN. `pnpm demo:reset` seeds The Kesari. Integration fixtures rewritten to use real provisioning. |
 | S5 | `2adb1fa` | Argon2id, SHA-256 session tokens, `authorize()` in one place, 8 seeded roles, typed errors mapped to HTTP once, edge-safe middleware. 403 at your property / 404 at another. |
 | S4 | `a667728` | 26 integration tests: cross-tenant reads, the unscoped case, WITH CHECK on INSERT and UPDATE, context non-leakage across pooled connections, event_log append-only, D-007 under real concurrency, and app_user's inability to dismantle its own constraints. |
@@ -127,6 +122,22 @@ Things that cost time to rediscover.
   the Railway UI is the internal port, correct only for `*.railway.internal`
   hosts (which are unreachable from a laptop). Each service that needs external
   access gets its own TCP Proxy entry with its own generated port.
+- **`/r/[code]` is a Route Handler, not a page.** It must set a cookie, and a
+  Server Component cannot. Without the redirect hop to `/r/[code]/home`, every
+  reload minted a new `guest_sessions` row, which makes `access_escalations`
+  unreadable and re-prompts a verified guest after each refresh.
+- **The one deliberately unscoped query is `resolve_qr_routing()`** (migration
+  0003) — a SECURITY DEFINER function returning routing ids only. A guest
+  arriving at a link has no tenant, and `app_user` under RLS with no
+  `app.tenant_id` correctly returns zero rows, so without it a scan could never
+  resolve at all. Do not widen what it returns.
+- **Integration fixtures suspend FK triggers** (`session_replication_role =
+  replica`, owner only) rather than maintaining a children-first delete list.
+  Hand-ordering deletes across 51 tables broke twice, in unrelated tests.
+- **Integration tests run against REMOTE Railway**, so a single test can make
+  dozens of round trips. `testTimeout` is 90s and `hookTimeout` 180s for that
+  reason — a failure there is usually latency, not a defect. Check before
+  debugging logic.
 - **Provisioning is batched, and must stay batched.** Per-row round trips made
   `provisionProperty()` O(rooms) network calls — 34 rooms took ~2.5 minutes from
   a laptop, and a 200-room hotel would have taken fifteen. Rooms, QR codes,

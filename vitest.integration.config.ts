@@ -14,7 +14,9 @@ export default defineConfig({
     include: ['tests/integration/**/*.test.ts'],
     // They share one database; parallel files would fight over fixtures.
     fileParallelism: false,
-    testTimeout: 30_000,
+    // These run against a REMOTE database; a single test may make dozens of
+    // round trips. 30s failed the lockout test for latency, not for a defect.
+    testTimeout: 90_000,
     // Fixtures now run real provisioning against a REMOTE database. Even
     // batched that is a few seconds per tenant; a tight timeout here fails the
     // suite for latency rather than for a defect.
