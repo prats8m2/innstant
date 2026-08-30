@@ -84,10 +84,12 @@ pnpm dev              # next dev
 pnpm build            # next build (standalone)
 pnpm typecheck        # tsc --noEmit
 pnpm lint
-pnpm test             # vitest
+pnpm test             # vitest — unit
+pnpm test:integration # vitest against a real Postgres (D-024)
 pnpm test:e2e         # playwright
 
 pnpm db:generate      # drizzle-kit generate from schema/*.ts
+pnpm db:bootstrap     # create app_user on a fresh database (CI, or a local PG)
 pnpm db:migrate       # apply migrations (runs as the migration role, not app_user)
 pnpm db:studio
 pnpm demo:reset       # wipe + reseed The Kesari demo property

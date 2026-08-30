@@ -21,15 +21,34 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 · Foundation. S2 (theme + room home) is COMPLETE.** 75 unit + 65
-integration tests green; typecheck, lint, build clean. The room home renders at
-reference fidelity — see it with `pnpm demo:reset` then open the printed link.
+**P0 · Foundation. S8 (deploy and CI) is COMPLETE IN THE REPO, NOT YET ON
+RAILWAY.** Everything code-side is written and verified; the two steps that
+need an account holder are not done, because this repo has no git remote and
+there is no Railway app service yet.
 
-**Next: S8 — deploy and CI.** The last P0 session, and the biggest remaining
-gap: nothing re-runs either suite on push. GitHub Actions (typecheck, lint,
-unit, integration with a Postgres service container), Railway auto-deploy from
-`main`, migration state in `/api/health`, Pino logging with a request id. Then
-verify on the DEPLOYED environment, not locally.
+Landed and verified locally:
+
+- GitHub Actions — `checks` / `integration` / `e2e`, on every push and PR. The
+  integration job runs against an ephemeral Postgres 18 with the real two-role
+  setup (D-024). Rehearsed against a local container: 65 tests in **6 seconds**,
+  against minutes on Railway.
+- `Dockerfile` + `railway.json`. The image was built and run: it serves a
+  scanned QR through to the room home **with CSS**, and drains the pool on
+  SIGTERM (exit 0). It carries no migrations and no owner credentials (D-025).
+- `/api/health` reports version, commit, DB latency and migration drift by name.
+- Pino, one JSON line per event, with an `x-request-id` minted at the edge and
+  returned on every response.
+
+**Next, and it needs you, not Claude** — see `docs/DEPLOYMENT.md` for the exact
+steps:
+
+1. Create the GitHub repo, `git remote add origin …`, push `main`. CI needs no
+   secrets.
+2. Create the Railway app service (Singapore, Dockerfile builder, private
+   `postgres.railway.internal` host, no `DATABASE_MIGRATION_URL`).
+3. Then the only assertion left in S8's done condition: **print a QR and scan it
+   from a phone on mobile data.** Nothing local proves that path — it crosses
+   DNS, TLS, the Railway proxy, a cellular NAT and iOS Safari.
 
 After P0, **P1 is the demo**: menu, dish detail, cart, ordering, KDS, SSE. The
 remaining seven screens in `design/reference/DESIGN-SPEC.md` (`menu`, `dish`,
@@ -41,6 +60,7 @@ room home was — read the decoded export, rebuild with components, values from
 
 | Session | Commit | What landed |
 |---|---|---|
+| S8 | `c370d9a` | GitHub Actions with an ephemeral Postgres (D-024). Pinned three-stage Dockerfile carrying no owner credentials (D-025). `/api/health` reports migration drift by name. Pino + `x-request-id`. Pool drained on SIGTERM. e2e rewritten against the seeded property. |
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
@@ -179,6 +199,47 @@ Things that cost time to rediscover.
   transaction; `event_log` UPDATE/DELETE are revoked from `app_user`;
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
+
+- **Run the integration suite against a LOCAL Postgres.** It is roughly twenty
+  times faster (6s vs minutes), it cannot wipe a database someone is demoing on,
+  and it is exactly what CI does:
+  ```
+  docker run -d --name pg -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+    -e POSTGRES_DB=guest_services -p 55432:5432 postgres:18
+  export DATABASE_URL=postgres://app_user:app_user@localhost:55432/guest_services
+  export DATABASE_MIGRATION_URL=postgres://postgres:postgres@localhost:55432/guest_services
+  pnpm db:bootstrap && pnpm db:migrate && pnpm demo:reset && pnpm test:integration
+  ```
+- **`pnpm test:integration` used to need the env exported by hand** and failed
+  with "DATABASE_URL is not set" for anyone who had not. `vitest.integration.config.ts`
+  now calls `process.loadEnvFile('.env')` when the file exists; Vitest forks its
+  workers from that process, so they inherit it.
+- **TLS is decided from the host now** (`src/db/ssl.ts`), not hardcoded. A
+  remote host gets TLS with verification off; localhost gets none. Reaching a
+  local Postgres from inside a container means `host.docker.internal`, which is
+  *not* local by that rule — add `?sslmode=disable` or it fails with an
+  unhelpful connection reset.
+- **A `DO $$ … $$` block cannot take bind parameters.** `db:bootstrap` was
+  written that way first and failed with an opaque `exec_bind_message` error.
+  Use `client.escapeIdentifier()` / `client.escapeLiteral()` for DDL that cannot
+  be parameterised.
+- **`src/instrumentation.ts` is compiled for BOTH runtimes.** An early
+  `return` on `NEXT_RUNTIME !== 'nodejs'` does not stop webpack following an
+  `@/db` import to `pg` to `node:fs`, and the edge build fails. The real work
+  has to sit behind `if (NEXT_RUNTIME === 'nodejs') { await import(…) }` so the
+  branch can be dropped. `tests/unit/edge-safety.test.ts` guards it.
+- **What a build expects is baked in, not read at runtime.** `output: 'standalone'`
+  ships neither `package.json` nor `src/db/migrations`, so `/api/health` would
+  have reported "0 migrations expected" in production while working perfectly
+  from the repo root. `next.config.ts` reads both at build time into
+  `APP_VERSION` / `APP_MIGRATIONS`.
+- **The e2e suite had been asserting S1 behaviour since S7 landed** — it fetched
+  `/r/demo-code` and expected the code in the body, which is now a bare 404.
+  Nothing caught it because nothing ran it. It now reads `.demo-seed.json`,
+  written by `pnpm demo:reset`.
+- **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
+  (no browser launches); anything that opens a page dies. CI on Linux is the
+  only place iOS Safari is actually exercised.
 
 ---
 

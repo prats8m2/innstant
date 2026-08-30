@@ -134,6 +134,46 @@ async function checkDatabase(env: Record<string, string>): Promise<Check[]> {
   return out;
 }
 
+/**
+ * S8. The parts of a deploy that are visible from here.
+ *
+ * Deliberately narrow: this cannot tell you whether Railway is serving, only
+ * whether the repo is wired up to get there. The one assertion that matters —
+ * a phone on mobile data scanning a printed code — is not automatable and is
+ * written down in docs/DEPLOYMENT.md instead.
+ */
+function checkDeploy(): Check[] {
+  const remote = sh('git remote get-url origin');
+  const upstream = sh('git rev-parse --abbrev-ref --symbolic-full-name @{u}');
+  const branch = sh('git rev-parse --abbrev-ref HEAD');
+
+  return [
+    {
+      label: 'git remote',
+      ok: !!remote,
+      detail: remote || 'none — CI cannot run and Railway has nothing to deploy from',
+    },
+    {
+      label: 'branch tracks a remote',
+      ok: !!upstream,
+      detail: upstream || `${branch} is local only (\`git push -u origin ${branch}\`)`,
+    },
+    {
+      label: 'CI workflow',
+      ok: existsSync('.github/workflows/ci.yml'),
+      detail: existsSync('.github/workflows/ci.yml') ? 'checks · integration · e2e' : 'missing',
+    },
+    {
+      label: 'deploy image',
+      ok: existsSync('Dockerfile') && existsSync('railway.json'),
+      detail:
+        existsSync('Dockerfile') && existsSync('railway.json')
+          ? 'Dockerfile + railway.json (healthcheck /api/health)'
+          : 'missing Dockerfile or railway.json',
+    },
+  ];
+}
+
 async function main(): Promise<void> {
   const env = loadEnv();
 
@@ -168,6 +208,13 @@ async function main(): Promise<void> {
   const optional = ['R2_ACCESS_KEY_ID', 'RAZORPAY_KEY_ID', 'SMS_PROVIDER_KEY', 'GOOGLE_PLACES_API_KEY'];
   const unset = optional.filter((k) => !env[k]);
   if (unset.length) console.log(`  \x1b[90m·\x1b[0m ${'not needed yet'.padEnd(28)} ${unset.join(', ')}`);
+
+  console.log('\n\x1b[1mDEPLOY\x1b[0m');
+  console.log('─'.repeat(64));
+  for (const c of checkDeploy()) {
+    const mark = c.ok === null ? '\x1b[90m·\x1b[0m' : c.ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
+    console.log(`  ${mark} ${c.label.padEnd(28)} ${c.detail}`);
+  }
 
   console.log('\n\x1b[1mPOSITION\x1b[0m');
   console.log('─'.repeat(64));

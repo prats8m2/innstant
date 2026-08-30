@@ -221,3 +221,64 @@ cover it when P5 arrives. And WCAG AA contrast is no longer validated at
 save-time by a build step, so that check moves into the theme editor too.
 Revisit if a third or fourth hotel theme lands before P5, since that is the
 point where hand-maintaining parallel palettes starts to drift.
+
+### D-024 · CI runs the integration suite against an ephemeral Postgres
+GitHub Actions starts a `postgres:18` service container, creates `app_user`
+with `pnpm db:bootstrap`, applies the migrations as the owner, and runs the
+integration suite against that. Not against the shared Railway database.
+
+**Why.** Three reasons, in order of how much they would have hurt.
+
+The suite deletes rows. `tests/integration/setup.ts` suspends FK triggers and
+wipes fixtures; pointing that at the database a demo is running on is a matter
+of time. Two developers running it at once already conflict, since
+`fileParallelism: false` only serialises one machine.
+
+It is slow. The same 65 tests take about six seconds locally and minutes
+against Singapore, and the config carries a 90s `testTimeout` and a 180s
+`hookTimeout` purely to absorb that latency. A CI run should not be dominated by
+round trips.
+
+And it makes the two-role setup explicit rather than inherited. `db:bootstrap`
+creates `app_user` as a plain LOGIN role and refuses to continue if it has
+SUPERUSER or BYPASSRLS — so every CI run rebuilds, from nothing, the exact
+property that makes CLAUDE.md #2 real. An isolation suite that quietly ran as an
+owner would pass every assertion and prove nothing.
+
+**What this required.** The hardcoded `ssl: { rejectUnauthorized: false }` in
+every client became `dbSsl()`, which reads the host: local means no TLS, remote
+keeps exactly the previous behaviour. A service container speaks no TLS at all.
+
+**Cost / when to revisit.** CI now proves the schema and the policies against a
+fresh database, which is the stronger claim, but no longer proves anything about
+the *live* one — a drifted Railway database (a hand-applied fix, a migration run
+out of order) would not be caught. `/api/health` reports migration drift for
+that reason, and `pnpm status` still checks the real thing. Revisit if a
+scheduled job against the live database becomes worth its flakiness.
+
+### D-025 · The deploy image cannot reach the database as the owner
+The Dockerfile ships the standalone server and its traced dependencies. It does
+not contain `src/db/migrations`, `tsx`, or `DATABASE_MIGRATION_URL`. Migrations
+are run deliberately — from CI or a laptop — as the owner role, against a
+database the app can only ever reach as `app_user`.
+
+**Why.** An image that can migrate is an image that holds credentials which
+bypass every RLS policy in the schema (CLAUDE.md #2). Auto-migrate-on-boot also
+means N replicas racing the same DDL, and a failed migration taking the app down
+with it rather than leaving the previous version serving.
+
+The cost of separating them is that a deploy can get ahead of its schema. That
+is why `/api/health` compares the migrations the build expects — baked in at
+build time, since standalone ships neither package.json nor the migrations
+directory — against what the database has run, and names the difference.
+
+**Why drift is `degraded` on a 200 and not a 503.** Failing the health check on
+pending migrations deadlocks the ordinary order of a deploy: the new container
+has to be up and passing before anything runs against it. It would also turn a
+visible, nameable problem into a container that never starts. Alert on
+`degraded`; do not route on it.
+
+**Cost / when to revisit.** Someone has to remember. Revisit when the first
+migration that must land in the same breath as its code does — at that point the
+answer is a Railway pre-deploy command with the owner URL scoped to it, not the
+app's own environment.
