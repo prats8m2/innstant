@@ -34,19 +34,19 @@ Done so far in P1:
 - **The dish screen** — `/r/[qrCode]/menu/[itemId]`. Modifiers, quantity, note,
   and an "Add to order" button whose total moves as you choose. It writes a real
   cart row; verified end to end against the built standalone server.
+- **The cart** — the pill on the menu and `/r/[qrCode]/cart`, a real route drawn
+  as the reference's bottom sheet. Edit quantities, remove a line, see the
+  totals. Works with JavaScript off.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **The cart screen** — `/r/[qrCode]/cart`. The service layer is already
-   there (`getCart`, `setCartItemQuantity`, `removeCartItem`); this is the
-   screen, plus the cart pill on the menu, plus the "a dish went unavailable
-   while it sat here" affordance the cart already reports.
-2. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
+1. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
    transaction (#7), folio line posted. `orders` and `order_items` exist and
-   are still unused.
-3. **Access escalation on the first charge** — the one verification prompt.
+   are still unused. **The cart screen has no send button until this lands** —
+   a primary action that does nothing is worse than none.
+2. **Access escalation on the first charge** — the one verification prompt.
    `modules/access` already has `requireTier` and the escalation flow from S7.
-4. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
+3. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
 
 **One gap worth naming:** `modules/stay/createStay()` does not exist. CLAUDE.md
 #4 says every stay is created there and nothing else inserts into `stays` — and
@@ -63,6 +63,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `f55118b` | The cart: pill on the menu, `/r/[qrCode]/cart` as the reference's sheet, edit and remove without JavaScript. `NEXT_DIST_DIR` added so a build stops breaking a running dev server. |
 | P1 | `4243149` | The dish screen: modifiers as real radios, quantity, note, and an Add to order whose total moves live. Fixed a non-idempotent `bundle:static` that served a CSS-less page on any rebuild. |
 | P1 | `25aba20` | The server-side cart, keyed to the stay (#10). `calculateTotals()` pure and unit-tested; live prices, not snapshots; selections re-validated server-side. |
 | P1 | `7e22932` | Modifier groups — four reusable ones seeded, `getDish()` reads a dish with its groups in one join. |
@@ -207,6 +208,15 @@ Things that cost time to rediscover.
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
 
+- **`pkill -f "standalone/server.js"` does NOT match the running server.** It
+  renames its process to `next-server (v15.5.24)`, so the pattern misses, the
+  old process keeps the port, the new one dies on EADDRINUSE, and you spend a
+  while testing a build from twenty minutes ago. Kill by port:
+  `lsof -ti :3000 | xargs kill -9`.
+- **Build somewhere else when a dev server is running.**
+  `NEXT_DIST_DIR=.next-e2e PORT=3200 pnpm test:e2e` — both are wired through
+  next.config.ts and playwright.config.ts now. This replaces the note below
+  rather than restating it: the collision is fixable, not just avoidable.
 - **Kill the standalone server before `pnpm build`.** A running
   `node .next/standalone/server.js` holding files while `next build` writes over
   them leaves `.next` in a state where the next build fails with
