@@ -2,6 +2,7 @@ import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import {
   outlets, menuCategories, menuItems, collections, collectionItems,
+  modifierGroups, modifierOptions, menuItemModifierGroups,
 } from '@/db/schema/catalog';
 
 /**
@@ -316,4 +317,146 @@ export async function getInRoomDiningMenu(
   if (!outlet) return null;
 
   return buildMenu(tx, outlet, { outletId: outlet.id });
+}
+
+/* ── One dish, with everything needed to order it ───────────────────────── */
+
+export interface DishModifierOption {
+  id: string;
+  name: string;
+  /** Signed minor units — a modifier may reduce the price. */
+  priceDeltaMinor: number;
+  currency: string;
+  isDefault: boolean;
+  isAvailable: boolean;
+}
+
+export interface DishModifierGroup {
+  id: string;
+  name: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: DishModifierOption[];
+}
+
+export interface DishDetail {
+  dish: MenuDish;
+  outlet: OutletMenu['outlet'];
+  modifierGroups: DishModifierGroup[];
+}
+
+/**
+ * One dish and its modifier groups.
+ *
+ * Scoped by outlet as well as id, so a dish id from another property's menu
+ * resolves to nothing rather than to a dish the guest cannot order. RLS already
+ * confines this to the tenant; the outlet check is what confines it to the menu
+ * actually in front of them.
+ */
+export async function getDish(
+  tx: Tx,
+  input: { propertyId: string; itemId: string },
+): Promise<DishDetail | null> {
+  const rows = await tx
+    .select({
+      id: menuItems.id,
+      name: menuItems.name,
+      description: menuItems.description,
+      priceMinor: menuItems.priceMinor,
+      currency: menuItems.currency,
+      isAvailable: menuItems.isAvailable,
+      dietaryFlags: menuItems.dietaryFlags,
+      spiceLevel: menuItems.spiceLevel,
+      prepTimeMinutes: menuItems.prepTimeMinutes,
+      imageUrl: menuItems.imageUrl,
+      blurhash: menuItems.blurhash,
+      outlet: OUTLET_COLUMNS,
+    })
+    .from(menuItems)
+    .innerJoin(outlets, eq(outlets.id, menuItems.outletId))
+    .where(and(
+      eq(menuItems.id, input.itemId),
+      eq(menuItems.propertyId, input.propertyId),
+      isNull(menuItems.archivedAt),
+      isNull(outlets.archivedAt),
+    ))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+
+  // Groups and options in one query. Two would be a second round trip for a
+  // screen the guest opens by tapping a dish, and the join is small.
+  const modifierRows = await tx
+    .select({
+      groupId: modifierGroups.id,
+      groupName: modifierGroups.name,
+      isRequired: modifierGroups.isRequired,
+      minSelections: modifierGroups.minSelections,
+      maxSelections: modifierGroups.maxSelections,
+      groupSort: menuItemModifierGroups.sortOrder,
+      optionId: modifierOptions.id,
+      optionName: modifierOptions.name,
+      priceDeltaMinor: modifierOptions.priceDeltaMinor,
+      optionCurrency: modifierOptions.currency,
+      isDefault: modifierOptions.isDefault,
+      isOptionAvailable: modifierOptions.isAvailable,
+      optionSort: modifierOptions.sortOrder,
+    })
+    .from(menuItemModifierGroups)
+    .innerJoin(modifierGroups, eq(modifierGroups.id, menuItemModifierGroups.modifierGroupId))
+    .innerJoin(modifierOptions, eq(modifierOptions.groupId, modifierGroups.id))
+    .where(and(
+      eq(menuItemModifierGroups.menuItemId, input.itemId),
+      isNull(modifierGroups.archivedAt),
+      isNull(modifierOptions.archivedAt),
+    ))
+    .orderBy(
+      asc(modifierGroups.sortOrder),
+      asc(modifierGroups.name),
+      asc(modifierOptions.sortOrder),
+    );
+
+  const groups = new Map<string, DishModifierGroup>();
+  for (const m of modifierRows) {
+    let group = groups.get(m.groupId);
+    if (!group) {
+      group = {
+        id: m.groupId,
+        name: m.groupName,
+        isRequired: m.isRequired,
+        minSelections: m.minSelections,
+        maxSelections: m.maxSelections,
+        options: [],
+      };
+      groups.set(m.groupId, group);
+    }
+    group.options.push({
+      id: m.optionId,
+      name: m.optionName,
+      priceDeltaMinor: m.priceDeltaMinor,
+      currency: m.optionCurrency,
+      isDefault: m.isDefault,
+      isAvailable: m.isOptionAvailable,
+    });
+  }
+
+  return {
+    dish: {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      priceMinor: row.priceMinor,
+      currency: row.currency,
+      isAvailable: row.isAvailable,
+      dietaryFlags: Array.isArray(row.dietaryFlags) ? (row.dietaryFlags as string[]) : [],
+      spiceLevel: row.spiceLevel,
+      prepTimeMinutes: row.prepTimeMinutes,
+      imageUrl: row.imageUrl,
+      blurhash: row.blurhash,
+    },
+    outlet: row.outlet,
+    modifierGroups: [...groups.values()],
+  };
 }

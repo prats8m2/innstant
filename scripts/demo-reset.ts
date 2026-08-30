@@ -15,7 +15,7 @@ import pg from 'pg';
 import { withTenant, recordEvent, closePool } from '@/db';
 import { dbSsl } from '@/db/ssl';
 import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } from '@/modules/identity';
-import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
+import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
 import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
 import { guests, stays } from '@/db/schema/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
@@ -118,6 +118,7 @@ async function main(): Promise<void> {
       categories: KESARI_CATEGORIES,
       items: KESARI_MENU,
       collections: KESARI_COLLECTIONS,
+      modifierGroups: KESARI_MODIFIER_GROUPS,
     });
 
     // ── Staff, all with the same demo password ──────────────────────────────
@@ -273,6 +274,7 @@ async function main(): Promise<void> {
   console.log(`    property      ${provisioned.propertyId}`);
   console.log(`    rooms         ${provisioned.roomIds.size} across ${KESARI_FLOORS.length} floors`);
   console.log(`    menu          ${menu.items} dishes in ${menu.categories} categories, ${menu.collections} collections`);
+  console.log(`    modifiers     ${menu.modifierGroups} groups`);
   console.log(`    request types ${provisioned.requestTypeCount}`);
   console.log(`    folio 214     ${formatMoney(money(folioBalance, 'INR'))} across 4 lines`);
   console.log('\n  Staff logins  (password for all: ' + DEMO_PASSWORD + ')');

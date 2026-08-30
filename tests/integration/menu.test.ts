@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type pg from 'pg';
 import { withTenant } from '@/db';
 import {
-  getInRoomDiningOutlet, getMenu, seedMenu,
-  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS,
+  getInRoomDiningOutlet, getMenu, getDish, seedMenu,
+  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import { ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture } from './setup';
 
@@ -37,6 +37,7 @@ describe('menu read', () => {
         categories: KESARI_CATEGORIES,
         items: KESARI_MENU,
         collections: KESARI_COLLECTIONS,
+        modifierGroups: KESARI_MODIFIER_GROUPS,
       }));
   });
 
@@ -138,5 +139,78 @@ describe('menu read', () => {
     // Two identical chips in the rail are indistinguishable to tap.
     const labels = menu!.sections.map((s) => s.label);
     expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  describe('one dish', () => {
+    const laal = 'Laal maas with bajra roti';
+
+    async function dishNamed(name: string) {
+      return withTenant({ tenantId: a.tenantId, propertyId: a.propertyId }, async (tx) => {
+        const menu = await getMenu(tx, { propertyId: a.propertyId, outletId: a.outletId });
+        const item = menu!.sections.flatMap((s) => s.items).find((i) => i.name === name);
+        return item ? getDish(tx, { propertyId: a.propertyId, itemId: item.id }) : null;
+      });
+    }
+
+    it('comes back with its modifier groups in order', async () => {
+      const detail = await dishNamed(laal);
+
+      expect(detail).not.toBeNull();
+      expect(detail!.dish.name).toBe(laal);
+      expect(detail!.modifierGroups.map((g) => g.name)).toEqual(['Chilli', 'Add a roti']);
+    });
+
+    it('marks exactly one default per required group', async () => {
+      const detail = await dishNamed(laal);
+
+      for (const group of detail!.modifierGroups) {
+        const defaults = group.options.filter((o) => o.isDefault);
+        // The screen preselects the default; two of them, or none in a
+        // required group, and the guest is looking at an ambiguous form.
+        expect(defaults, `group "${group.name}"`).toHaveLength(1);
+      }
+
+      const chilli = detail!.modifierGroups.find((g) => g.name === 'Chilli')!;
+      // The heat IS the dish — a guest opts DOWN from what the chef cooks,
+      // never in to it.
+      expect(chilli.options.find((o) => o.isDefault)!.name).toBe('As the chef makes it');
+      expect(chilli.isRequired).toBe(true);
+    });
+
+    it('prices its extras as signed minor units', async () => {
+      const detail = await dishNamed(laal);
+      const add = detail!.modifierGroups.find((g) => g.name === 'Add a roti')!;
+
+      expect(add.isRequired).toBe(false);
+      expect(add.options.find((o) => o.name === 'Nothing')!.priceDeltaMinor).toBe(0);
+      // ₹90 (#5 — integer minor units, never a float).
+      expect(add.options.find((o) => o.name === 'Extra bajra roti')!.priceDeltaMinor).toBe(9_000);
+    });
+
+    it('gives a sweet the serving group and no chilli question', async () => {
+      const detail = await dishNamed('Kesar lassi');
+      expect(detail!.modifierGroups.map((g) => g.name)).toEqual(['Serve it']);
+    });
+
+    it('shares one modifier group across every dish that carries it', async () => {
+      // Reuse is the whole reason menu_item_modifier_groups exists rather than
+      // a column on the item: renaming "Chilli" renames it in seven places.
+      const [laalDetail, soleDetail] = await Promise.all([
+        dishNamed(laal),
+        dishNamed('Rooftop grilled river sole'),
+      ]);
+
+      const laalChilli = laalDetail!.modifierGroups.find((g) => g.name === 'Chilli')!;
+      const soleChilli = soleDetail!.modifierGroups.find((g) => g.name === 'Chilli')!;
+      expect(soleChilli.id).toBe(laalChilli.id);
+    });
+
+    it('cannot be read from another tenant’s property', async () => {
+      const laalDetail = await dishNamed(laal);
+      const leaked = await withTenant({ tenantId: b.tenantId, propertyId: b.propertyId }, (tx) =>
+        getDish(tx, { propertyId: b.propertyId, itemId: laalDetail!.dish.id }));
+
+      expect(leaked).toBeNull();
+    });
   });
 });

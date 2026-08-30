@@ -2,8 +2,9 @@ import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import {
   outlets, outletHours, menuCategories, menuItems, collections, collectionItems,
+  modifierGroups, modifierOptions, menuItemModifierGroups,
 } from '@/db/schema/catalog';
-import type { MenuItemSeed } from './kesari-menu';
+import type { MenuItemSeed, ModifierGroupSeed } from './kesari-menu';
 
 /**
  * Outlet provisioning. Every property gets at least an IN_ROOM_DINING outlet —
@@ -96,8 +97,9 @@ export async function seedMenu(
     categories: readonly string[];
     items: readonly MenuItemSeed[];
     collections?: readonly { name: string; editorialNote?: string; availableFrom?: string; availableUntil?: string }[];
+    modifierGroups?: readonly ModifierGroupSeed[];
   },
-): Promise<{ categories: number; items: number; collections: number }> {
+): Promise<{ categories: number; items: number; collections: number; modifierGroups: number }> {
   const currency = input.currency ?? 'INR';
 
   const categoryIds = new Map<string, string>();
@@ -164,5 +166,84 @@ export async function seedMenu(
     }
   }
 
-  return { categories: categoryIds.size, items: itemIds.size, collections: collectionCount };
+  const modifierGroupCount = await seedModifierGroups(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    outletId: input.outletId,
+    currency,
+    groups: input.modifierGroups ?? [],
+    itemIds,
+  });
+
+  return {
+    categories: categoryIds.size,
+    items: itemIds.size,
+    collections: collectionCount,
+    modifierGroups: modifierGroupCount,
+  };
+}
+
+/**
+ * Modifier groups and their options, plus the join rows that attach a group to
+ * the items that carry it.
+ *
+ * The options and the joins go in as ONE insert each rather than a round trip
+ * per row. Provisioning is a sales moment; a per-row loop here is invisible on
+ * a laptop against a local database and very visible on a real property.
+ */
+async function seedModifierGroups(
+  tx: Tx,
+  input: {
+    tenantId: string;
+    propertyId: string;
+    outletId: string;
+    currency: string;
+    groups: readonly ModifierGroupSeed[];
+    itemIds: Map<string, string>;
+  },
+): Promise<number> {
+  let created = 0;
+
+  for (const [i, group] of input.groups.entries()) {
+    const found = await tx.select({ id: modifierGroups.id }).from(modifierGroups)
+      .where(and(
+        eq(modifierGroups.outletId, input.outletId),
+        eq(modifierGroups.name, group.name),
+      )).limit(1);
+    if (found[0]) continue;
+
+    const [row] = await tx.insert(modifierGroups).values({
+      tenantId: input.tenantId, propertyId: input.propertyId, outletId: input.outletId,
+      name: group.name,
+      minSelections: group.minSelections,
+      maxSelections: group.maxSelections,
+      isRequired: group.isRequired,
+      sortOrder: i,
+    }).returning({ id: modifierGroups.id });
+    const groupId = row!.id;
+    created += 1;
+
+    await tx.insert(modifierOptions).values(
+      group.options.map((option, j) => ({
+        tenantId: input.tenantId,
+        groupId,
+        name: option.name,
+        priceDeltaMinor: option.priceDeltaMinor ?? 0,
+        currency: input.currency,
+        isDefault: option.isDefault ?? false,
+        sortOrder: j,
+      })),
+    );
+
+    const attachments = group.items
+      .map((name) => input.itemIds.get(name))
+      .filter((id): id is string => id !== undefined)
+      .map((menuItemId, j) => ({
+        tenantId: input.tenantId, menuItemId, modifierGroupId: groupId, sortOrder: j,
+      }));
+
+    if (attachments.length) await tx.insert(menuItemModifierGroups).values(attachments);
+  }
+
+  return created;
 }

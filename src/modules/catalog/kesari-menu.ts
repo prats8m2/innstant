@@ -67,6 +67,89 @@ export const KESARI_MENU: readonly MenuItemSeed[] = [
     dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 10, collections: ['After 10pm'] },
 ];
 
+/**
+ * Modifier groups, and which dishes carry them.
+ *
+ * Reusable across items on purpose — that reuse is the whole reason
+ * `menu_item_modifier_groups` exists rather than a column on the item. "Chilli"
+ * is one row shared by seven dishes; renaming it renames it everywhere.
+ *
+ * Taken from the design reference, with one deliberate omission. The export
+ * offers sweets a "Make it two" option priced at the dish's own price — which
+ * our schema cannot express (`price_delta_minor` is a fixed amount per option,
+ * not a formula) and which the quantity stepper on the same screen already
+ * does. Two ways to order two of something is worse than one.
+ */
+export interface ModifierOptionSeed {
+  name: string;
+  /** Signed minor units. A modifier may reduce the price. */
+  priceDeltaMinor?: number;
+  isDefault?: boolean;
+}
+
+export interface ModifierGroupSeed {
+  name: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: readonly ModifierOptionSeed[];
+  /** Menu item names this group attaches to. */
+  items: readonly string[];
+}
+
+const SAVOURY = [
+  'Laal maas with bajra roti', 'Mohan maas', 'Rooftop grilled river sole',
+  'Ker sangri', 'Gatte ki sabzi', 'Dal baati churma',
+  'Udaipur-style pyaaz kachori',
+] as const;
+
+/** The design's SWEET set: served warm or cold, and never asked about chilli. */
+const SWEET = ['Mawa kachori', 'Masala chai', 'Kesar lassi'] as const;
+
+export const KESARI_MODIFIER_GROUPS: readonly ModifierGroupSeed[] = [
+  {
+    name: 'Chilli',
+    isRequired: true, minSelections: 1, maxSelections: 1,
+    options: [
+      { name: 'Gentle' },
+      // The default is what the kitchen actually cooks. "The heat is the dish"
+      // — a guest who wants it milder says so; nobody is asked to opt in to
+      // the chef's own recipe.
+      { name: 'As the chef makes it', isDefault: true },
+      { name: 'Extra fiery' },
+    ],
+    items: SAVOURY,
+  },
+  {
+    name: 'Serve it',
+    isRequired: true, minSelections: 1, maxSelections: 1,
+    options: [{ name: 'Warm', isDefault: true }, { name: 'Cold' }],
+    items: SWEET,
+  },
+  {
+    name: 'Add',
+    isRequired: false, minSelections: 0, maxSelections: 1,
+    options: [
+      { name: 'Nothing', isDefault: true },
+      { name: 'Extra ghee', priceDeltaMinor: 6_000 },
+      { name: 'Steamed rice', priceDeltaMinor: 14_000 },
+    ],
+    items: ['Mohan maas', 'Rooftop grilled river sole', 'Ker sangri',
+            'Gatte ki sabzi', 'Dal baati churma', 'Udaipur-style pyaaz kachori'],
+  },
+  {
+    // Its own group, not an option on the one above: bajra roti belongs with
+    // laal maas and nowhere else on this menu.
+    name: 'Add a roti',
+    isRequired: false, minSelections: 0, maxSelections: 1,
+    options: [
+      { name: 'Nothing', isDefault: true },
+      { name: 'Extra bajra roti', priceDeltaMinor: 9_000 },
+    ],
+    items: ['Laal maas with bajra roti'],
+  },
+];
+
 /** 34-key haveli, 4 floors, 3 room types. */
 export const KESARI_ROOM_TYPES = [
   { code: 'HAV', name: 'Haveli room', maxOccupancy: 2 },
