@@ -321,4 +321,32 @@ describe('cart', () => {
 
     expect(leaked).toBeNull();
   });
+
+  it('marks the no-extra choice so a line does not read "· Nothing"', async () => {
+    const item = await dishId(laal);
+    await add({
+      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      menuItemId: item, quantity: 1,
+      modifierOptionIds: [
+        await optionId(laal, 'As the chef makes it'),
+        await optionId(laal, 'Nothing'),
+      ],
+    });
+
+    const cart = await read();
+    const modifiers = cart!.lines[0]!.modifiers;
+
+    // Both are stored — the guest chose them, and the kitchen ticket is built
+    // from what was chosen, not from what the screen felt like showing.
+    expect(modifiers).toHaveLength(2);
+
+    const nothing = modifiers.find((m) => m.name === 'Nothing')!;
+    const chilli = modifiers.find((m) => m.name === 'As the chef makes it')!;
+
+    // "Nothing" costs nothing and its group can be left empty: no-op.
+    expect(nothing.isNoOp).toBe(true);
+    // The chilli choice also costs nothing, but its group is REQUIRED — the
+    // kitchen needs it, so it is not a no-op.
+    expect(chilli.isNoOp).toBe(false);
+  });
 });

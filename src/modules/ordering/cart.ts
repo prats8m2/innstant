@@ -31,6 +31,8 @@ export interface CartLineModifier {
   optionId: string;
   name: string;
   priceDeltaMinor: number;
+  /** "Nothing" under an optional group. Recorded, but not worth printing. */
+  isNoOp: boolean;
 }
 
 export interface CartLine {
@@ -377,6 +379,7 @@ export async function getCart(
       // vanishing and quietly reducing the price.
       name: option?.name ?? 'No longer offered',
       priceDeltaMinor: option?.priceDeltaMinor ?? 0,
+      isNoOp: option?.isNoOp ?? false,
     }));
 
     const modifiersMinor = lineModifiers.reduce((sum, m) => sum + m.priceDeltaMinor, 0);

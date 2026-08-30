@@ -26,6 +26,20 @@ const migrations = readdirSync(join(process.cwd(), 'src/db/migrations'))
   .join(',');
 
 const nextConfig: NextConfig = {
+  /**
+   * Where the build goes.
+   *
+   * Overridable because `next dev` and `next build` share `.next`, and a build
+   * run while a dev server is watching it leaves BOTH broken: the dev server
+   * starts 500ing on a missing vendor chunk, and the next build fails with
+   * `PageNotFoundError: Cannot find module for page: /admin`. Neither error
+   * names the real cause.
+   *
+   * `NEXT_DIST_DIR=.next-e2e pnpm test:e2e` therefore builds somewhere else,
+   * and a dev server can keep running through it.
+   */
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   // The app runs as a persistent Node process on Railway, not serverless.
   // Long-lived DB pools, SSE connections and in-process schedulers depend on
   // this. See CLAUDE.md "Stack" and D-002.

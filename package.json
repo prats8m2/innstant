@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && pnpm bundle:static",
-    "start": "node .next/standalone/server.js",
+    "start": "node ${NEXT_DIST_DIR:-.next}/standalone/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -24,7 +24,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration",
     "design:decode": "tsx scripts/decode-design-export.ts",
-    "bundle:static": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null || true"
+    "bundle:static": "D=${NEXT_DIST_DIR:-.next}; rm -rf $D/standalone/$D/static $D/standalone/public && cp -r $D/static $D/standalone/$D/static && cp -r public $D/standalone/public 2>/dev/null || true"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.1.0",

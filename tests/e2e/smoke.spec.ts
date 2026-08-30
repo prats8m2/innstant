@@ -147,6 +147,58 @@ test.describe('a scanned sticker', () => {
     expect(res!.status()).toBe(404);
   });
 
+  test('carries the order to the cart, edits it, and empties it', async ({ page }) => {
+    // Room 105, not 214. A cart is keyed to the stay (#10), the suite runs
+    // fully parallel, and the dish test above is adding to 214's cart at the
+    // same moment — two tests sharing one cart is a flake waiting to happen.
+    const code = seed!.qrCodes['105'];
+    await page.goto(`/r/${code}`);
+
+    // Start from a known cart. A previous failed run leaves lines behind, and
+    // this asserts on exact totals.
+    await page.goto(`/r/${code}/cart`);
+    for (let i = 0; i < 12; i += 1) {
+      const remove = page.getByRole('button', { name: /^Remove / }).first();
+      if (!(await remove.count())) break;
+      await remove.click();
+      await page.waitForTimeout(300);
+    }
+
+    await page.goto(`/r/${code}/menu`);
+
+    // Nothing chosen yet: the pill is the one useful fact, not a dead button.
+    await expect(page.getByText(/Kitchen open until/)).toBeVisible();
+
+    await page.getByRole('link', { name: /Laal maas/ }).first().click();
+    await page.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await page.getByRole('button', { name: /Add to order/ }).click();
+    await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
+
+    await page.goto(`/r/${code}/menu`);
+    const pill = page.getByRole('link', { name: /Review order/ });
+    await expect(pill).toContainText('₹1,207.50');   // 1150 + 5% tax
+
+    await pill.click();
+    await page.waitForURL(/\/cart$/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Your order');
+    // Regex, not a string: a plain substring also matches the ancestors that
+    // contain it, which is a strict-mode violation rather than a failure.
+    await expect(page.getByText(/To room 105/)).toBeVisible();
+
+    // "Nothing" is a stored choice, and it is not printed on the line.
+    await expect(page.getByText('As the chef makes it')).toBeVisible();
+    await expect(page.getByText(/· Nothing/)).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'One more Laal maas with bajra roti' }).click();
+    await expect(page.getByText('₹2,415')).toBeVisible({ timeout: 20_000 });  // 2300 + 5%
+
+    // One control, one job: at a quantity of one the minus says Remove.
+    await page.getByRole('button', { name: 'One fewer Laal maas with bajra roti' }).click();
+    await expect(page.getByText('₹1,207.50')).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Remove Laal maas with bajra roti' }).click();
+    await expect(page.getByText('Nothing in the order yet.')).toBeVisible({ timeout: 20_000 });
+  });
+
   test('does not mint a new session on every reload', async ({ page }) => {
     // The redirect hop exists so the cookie survives a refresh. Without it
     // every reload created a guest_sessions row and re-prompted a verified

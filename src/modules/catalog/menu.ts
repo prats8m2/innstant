@@ -293,6 +293,30 @@ export async function getMenu(
 }
 
 /**
+ * The in-room dining outlet's money configuration, without its menu.
+ *
+ * The cart screen needs the tax and service rates and nothing else; loading
+ * every dish to get at them would be several queries for four integers.
+ */
+export async function getInRoomDiningOutletConfig(
+  tx: Tx,
+  propertyId: string,
+): Promise<OutletMenu['outlet'] | null> {
+  const rows = await tx
+    .select(OUTLET_COLUMNS)
+    .from(outlets)
+    .where(and(
+      eq(outlets.propertyId, propertyId),
+      eq(outlets.kind, 'IN_ROOM_DINING'),
+      isNull(outlets.archivedAt),
+    ))
+    .orderBy(asc(outlets.createdAt))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+/**
  * What the guest menu screen calls. One outlet lookup, not two.
  *
  * A property may run several outlets later — a rooftop bar with its own hours.
@@ -470,7 +494,21 @@ export async function getDish(
  */
 export interface CartPricing {
   items: Map<string, { name: string; priceMinor: number; currency: string; isAvailable: boolean }>;
-  options: Map<string, { name: string; priceDeltaMinor: number; isAvailable: boolean }>;
+  options: Map<string, {
+    name: string;
+    priceDeltaMinor: number;
+    isAvailable: boolean;
+    /**
+     * The "no extra" choice in an optional group — "Nothing" under Add.
+     *
+     * A real recorded choice, so it is stored, but printing it on a cart line
+     * or a kitchen ticket is noise: "Laal maas · As the chef makes it ·
+     * Nothing" tells the kitchen nothing it did not already know. Derived
+     * rather than name-matched — an option costs nothing AND its group can be
+     * left empty.
+     */
+    isNoOp: boolean;
+  }>;
 }
 
 export async function getCartPricing(
@@ -509,15 +547,20 @@ export async function getCartPricing(
         name: modifierOptions.name,
         priceDeltaMinor: modifierOptions.priceDeltaMinor,
         isAvailable: modifierOptions.isAvailable,
+        minSelections: modifierGroups.minSelections,
       })
       .from(modifierOptions)
+      .innerJoin(modifierGroups, eq(modifierGroups.id, modifierOptions.groupId))
       .where(and(
         inArray(modifierOptions.id, [...input.optionIds]),
         isNull(modifierOptions.archivedAt),
       ));
     for (const r of rows) {
       options.set(r.id, {
-        name: r.name, priceDeltaMinor: r.priceDeltaMinor, isAvailable: r.isAvailable,
+        name: r.name,
+        priceDeltaMinor: r.priceDeltaMinor,
+        isAvailable: r.isAvailable,
+        isNoOp: r.priceDeltaMinor === 0 && r.minSelections === 0,
       });
     }
   }

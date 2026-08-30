@@ -72,7 +72,8 @@ const moduleBoundaries = MODULES.map((name) => {
 export default tseslint.config(
   {
     ignores: [
-      '.next/**', 'node_modules/**', 'next-env.d.ts',
+      // `.next-*` covers an alternate NEXT_DIST_DIR build (see next.config.ts).
+      '.next/**', '.next-*/**', 'node_modules/**', 'next-env.d.ts',
       // Derived from the design export by `pnpm design:decode` — vendored
       // React/runtime bundles, never edited, never shipped.
       'design/reference/decoded/**',

@@ -1,0 +1,252 @@
+/*
+ * The order sheet. Rebuilt from design/reference/ — matched, not pasted.
+ * Every value is a custom property from theme.css.
+ */
+.shell {
+  position: relative;
+  min-height: 100dvh;
+  max-width: 430px;
+  margin-inline: auto;
+}
+
+/* Tapping outside closes it. A link, so the gesture people actually use works
+   with no JavaScript at all. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink-900) 62%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.sheet {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(430px, 100%);
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--ink-700);
+  border-top: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
+  /* The one place in the product with a large radius, and only on two corners:
+     it is what makes a sheet read as a sheet rather than a page. */
+  border-radius: 18px 18px 0 0;
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+}
+
+/* Drawn because the shape reads wrong without it. Not interactive — the scrim
+   is the dismiss target. */
+.handle {
+  flex: none;
+  width: 44px;
+  height: 4px;
+  margin: var(--space-3) auto var(--space-2);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--plaster) 30%, transparent);
+}
+
+.head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-5) 0;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.room {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+/* ── Empty ──────────────────────────────────────────────────────────────── */
+.empty {
+  padding: var(--space-8) var(--space-5) var(--space-10);
+  text-align: center;
+}
+
+.emptyLine {
+  margin: 0 0 var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+}
+
+.emptyLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── Lines ──────────────────────────────────────────────────────────────── */
+.lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--space-5) var(--space-5) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.line {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.line[data-unavailable='true'] .lineName { text-decoration: line-through; }
+.line[data-unavailable='true'] .thumb { opacity: 0.4; }
+
+/* The arch again, smaller. Same shape language as the menu and the dish hero. */
+.thumb {
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 46% 46% var(--radius-sm) var(--radius-sm) / 34% 34% 0 0;
+  background-color: var(--surface-raised);
+  background-image:
+    radial-gradient(circle at 50% 108%, color-mix(in srgb, var(--saffron) 20%, transparent) 0 24%, transparent 24.5%),
+    radial-gradient(circle at 50% 108%, transparent 0 44%, color-mix(in srgb, var(--plaster) 12%, transparent) 44% 45.4%, transparent 46%),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--plaster) 3.5%, transparent) 0 1px, transparent 1px 5px);
+}
+
+.lineBody { flex: 1; min-width: 0; }
+
+.lineName {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.lineMods {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: color-mix(in srgb, var(--plaster) 52%, transparent);
+  text-wrap: pretty;
+}
+
+.lineNote {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--plaster-faint);
+}
+
+/* Says what happened and what it means for the bill. It does not apologise. */
+.lineGone {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+/* ── Controls ───────────────────────────────────────────────────────────── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, var(--plaster) 16%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.step {
+  width: 44px;
+  height: 40px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.step:hover:not(:disabled) { background: color-mix(in srgb, var(--plaster) 7%, transparent); }
+.step:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.count {
+  width: 34px;
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.lineTotal {
+  margin-left: auto;
+  font-size: var(--text-base);
+  color: var(--accent);
+}
+
+.lineError {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+/* ── Totals ─────────────────────────────────────────────────────────────── */
+.foot {
+  flex: none;
+  padding: var(--space-4) var(--space-5) var(--space-6);
+  border-top: 1px solid var(--border-soft);
+}
+
+.totals { margin: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: color-mix(in srgb, var(--plaster) 60%, transparent);
+}
+.row dt, .row dd { margin: 0; }
+
+.grand {
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.warning {
+  margin: var(--space-4) 0 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--saffron) 10%, transparent);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* The single most reassuring sentence on the screen, and it is literal. */
+.folioNote {
+  margin: var(--space-5) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--plaster-faint);
+  text-align: center;
+}

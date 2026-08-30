@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getInRoomDiningMenu } from '@/modules/catalog';
+import { getCart } from '@/modules/ordering';
 import { formatMoney, money } from '@/lib/money';
 import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from './category-rail';
@@ -36,9 +37,29 @@ export default async function MenuScreen({
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
 
-  const menu = await withTenant(
+  // Menu and cart in one transaction — the pill is part of this screen, not a
+  // second render, and a guest who has already chosen must not see it appear
+  // late.
+  const { menu, cart } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
-    (tx) => getInRoomDiningMenu(tx, session.propertyId),
+    async (tx) => {
+      const loaded = await getInRoomDiningMenu(tx, session.propertyId);
+      if (!loaded) return { menu: null, cart: null };
+      return {
+        menu: loaded,
+        cart: await getCart(tx, {
+          propertyId: session.propertyId,
+          stayId: session.stayId,
+          outlet: {
+            outletId: loaded.outlet.id,
+            currency: loaded.outlet.currency as CurrencyCode,
+            taxRateBps: loaded.outlet.taxRateBps,
+            serviceChargeBps: loaded.outlet.serviceChargeBps,
+            deliveryFeeMinor: loaded.outlet.deliveryFeeMinor,
+          },
+        }),
+      };
+    },
   );
 
   // A property with no in-room dining outlet is a configuration state, not an
@@ -111,6 +132,27 @@ export default async function MenuScreen({
           Chef Bhairav Singh · kitchen closes 11:30
         </p>
       </div>
+
+      {/* The pill. Two states, exactly as the reference: a quiet status line
+          when there is nothing in the order, and the way into the cart when
+          there is. It is a link, not a button — the cart is a real route. */}
+      {cart && cart.itemCount > 0 ? (
+        <Link href={`${base}/cart`} className={styles.pill}>
+          <span className={`${styles.pillCount} tabular`}>{cart.itemCount}</span>
+          <span className={styles.pillLabel}>Review order</span>
+          <span className={`${styles.pillTotal} tabular`}>
+            {formatMoney(cart.totals.total)}
+          </span>
+          <span className={styles.pillArrow} aria-hidden="true">→</span>
+        </Link>
+      ) : (
+        <p className={styles.pillIdle}>
+          <span className={styles.pillDot} aria-hidden="true" />
+          {outlet.isAcceptingOrders
+            ? 'Kitchen open until 11:30pm'
+            : 'The kitchen has closed for tonight'}
+        </p>
+      )}
     </main>
   );
 }

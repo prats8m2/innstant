@@ -114,7 +114,9 @@
 }
 
 /* ── The scrolling menu ─────────────────────────────────────────────────── */
-.scroll { padding: var(--space-6) var(--space-4) var(--space-10); }
+/* Bottom padding clears the pinned pill — without it the last dish sits
+   under it and cannot be tapped. */
+.scroll { padding: var(--space-6) var(--space-4) 110px; }
 
 .section {
   padding-bottom: var(--space-8);
@@ -247,4 +249,97 @@
   color: var(--plaster-faint);
   padding-bottom: var(--space-2);
   margin: 0;
+}
+
+/* ── The pill ───────────────────────────────────────────────────────────── */
+/* Pinned in the thumb zone over the scrolling menu (DESIGN-SPEC "Viewport").
+   Centred by hand because the shell is a 430px column on a wider screen. */
+.pill,
+.pillIdle {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(398px, calc(100% - 32px));
+  z-index: 3;
+}
+
+/* Nothing chosen yet: not a disabled button, just the one fact worth knowing
+   at 9:40pm. */
+.pillIdle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 46px;
+  margin: 0;
+  padding: 0 18px;
+  border-radius: 23px;
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: color-mix(in srgb, var(--plaster) 62%, transparent);
+}
+
+.pillDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+}
+
+/* Something chosen: the one light element in the whole product, which is what
+   makes it impossible to miss against the indigo. */
+.pill {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 58px;
+  padding: 0 var(--space-2) 0 18px;
+  border-radius: 29px;
+  background: var(--plaster);
+  color: var(--surface);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink-900) 55%, transparent);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.pill:hover { background: var(--plaster); color: var(--surface); }
+
+.pillCount {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 var(--space-1);
+  border-radius: 13px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pillLabel {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--surface);
+}
+
+.pillTotal {
+  margin-left: auto;
+  font-size: var(--text-base);
+  color: var(--surface);
+}
+
+.pillArrow {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 21px;
+  background: var(--accent);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
 }
