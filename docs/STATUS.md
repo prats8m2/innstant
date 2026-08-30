@@ -44,22 +44,32 @@ Done so far in P1:
   `billing` gets its first service.
 - **The confirmation** — `/r/[qrCode]/order/[orderId]`, read entirely from the
   order's snapshots.
+- **The one verification prompt (D-012)** — wired to the charge. Pressing Send
+  on a REQUEST-tier session asks for the last four digits of the booking phone
+  and then completes the order in the same request. `placeOrder()` refuses
+  below CHARGE regardless of what the screen did.
 
 **The guest ordering path is complete end to end**: scan → browse → dish →
-cart → send → placed, charged to the room. Verified on the built standalone
-server, not just in tests: KE-1186 at ₹1,953, the folio balance recomputed by
-its trigger, one `order.placed` event with actor GUEST.
+cart → send → verify once → placed, charged to the room. Verified on the built
+standalone server, not just in tests: the prompt appears only at the charge, a
+wrong answer keeps it, the right one places the order, and the second order asks
+nothing. The folio balance is recomputed by its trigger and the event log shows
+`guest_session.escalated` REQUEST→CHARGE followed by `order.placed`.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **Access escalation on the first charge** — the one verification prompt, and
-   the last piece of D-012 that is designed but not wired. `modules/access` has
-   `requireTier`, `startPhoneLast4Challenge` and the escalation flow from S7;
-   `placeOrder()` does not consult any of it yet, so a bare REQUEST-tier scan
-   can currently charge the room. That is the next thing to fix.
-2. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the order state
-   machine beyond PLACED. Nothing yet moves an order out of PLACED.
-3. **Order tracking** — the `track` screen in the reference, once SSE exists.
+1. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, and the order state
+   machine beyond PLACED. Nothing moves an order out of PLACED today, which is
+   the last gap between this and the P1 exit criterion.
+2. **Order tracking** — the `track` screen in the reference, once SSE exists.
+3. **Catalog admin** — outlet, category and item CRUD, image upload to R2. The
+   read side is done; nothing can edit a menu except the seeder.
+
+**Two things still designed but not wired**, both from S7 and both fine to leave
+until they have a screen: `vouchForGuest()` (front desk grants CHARGE with no
+prompt at all — needs the admin panel) and `OTP_SMS` as a second escalation
+method (`access_policies.allow_otp_sms` is read, and no SMS provider is
+configured).
 
 **One gap worth naming:** `modules/stay/createStay()` does not exist. CLAUDE.md
 #4 says every stay is created there and nothing else inserts into `stays` — and
@@ -76,6 +86,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `4c6be0c` | D-012 wired: the one prompt at the charge, escalate-don't-403, order completed in the same request. `placeOrder()` refuses below CHARGE. Fixed a demo:reset wipe order that FK-failed the moment escalations existed. |
 | P1 | `2006880` | Send the order and the confirmation screen. Idempotency key minted at render so a double-tap carries one key. Promise time in the property's timezone. |
 | P1 | `4d14eef` | `placeOrder()` — snapshots, idempotency, event log and folio line in one transaction. `billing`'s first service. |
 | P1 | `525b220` | `createStay()` — #4 enforced rather than asserted; `identity` gains findRoomAtProperty(). |
