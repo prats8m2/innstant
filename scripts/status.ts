@@ -167,7 +167,13 @@ async function main(): Promise<void> {
   console.log('─'.repeat(64));
   const status = existsSync('docs/STATUS.md') ? readFileSync('docs/STATUS.md', 'utf8') : '';
   const now = /^## +Now *\n([\s\S]*?)(?=\n## |\n---)/m.exec(status);
-  console.log(now ? now[1]!.trim().split('\n').map((l) => '  ' + l).join('\n') : '  (docs/STATUS.md has no "## Now" section)');
+  if (now?.[1]?.trim()) {
+    console.log(now[1].trim().split('\n').map((l) => '  ' + l).join('\n'));
+  } else {
+    // Loud on purpose: a status file that cannot be read is the same failure
+    // as one that is stale, and this is the line a new session reads first.
+    console.log('  \x1b[31m! docs/STATUS.md has no readable "## Now" section — fix it before continuing.\x1b[0m');
+  }
   console.log('\n  Full history and next steps: docs/STATUS.md');
   console.log('  Session prompts:              docs/P0-TASKS.md\n');
 }

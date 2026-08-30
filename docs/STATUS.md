@@ -10,7 +10,12 @@ reachable and correctly configured). If the two disagree, the command is right
 and this file is stale — fix it.
 
 **Keep this current.** At the end of a session: move the finished session into
-Done, rewrite `## Now
+Done, rewrite `## Now`, and append anything learned to Environment notes. A
+stale status file is worse than none.
+
+---
+
+## Now
 
 **P0 · Foundation. S3a is COMPLETE. Next: S3b — database wiring.**
 
