@@ -48,13 +48,25 @@ Done so far in P1:
   on a REQUEST-tier session asks for the last four digits of the booking phone
   and then completes the order in the same request. `placeOrder()` refuses
   below CHARGE regardless of what the screen did.
+- **The order state machine** — `advanceOrder()`, compare-and-set, every hop in
+  `event_log`, `pg_notify` inside the same transaction.
+- **LISTEN/NOTIFY → SSE** — its own connection, capped-backoff reconnect,
+  in-process fan-out. `/api/kds/stream`.
+- **The kitchen display** — `/kds`. Live rail, accept / reject with a reason /
+  bump, oldest first.
+- **Staff sign-in** — `/admin/login`. The middleware has redirected there since
+  S5 and it 404'd until now.
 
-**The guest ordering path is complete end to end**: scan → browse → dish →
-cart → send → verify once → placed, charged to the room. Verified on the built
-standalone server, not just in tests: the prompt appears only at the charge, a
-wrong answer keeps it, the right one places the order, and the second order asks
-nothing. The folio balance is recomputed by its trigger and the event log shows
-`guest_session.escalated` REQUEST→CHARGE followed by `order.placed`.
+**P1's exit criterion is met, on two real devices.** A guest on a phone scans,
+browses, orders with modifiers, answers the one prompt, and the ticket appears
+on a kitchen screen **in 379ms with no reload** — the criterion asks for two
+seconds. It can then be accepted, cooked and bumped, and a second kitchen screen
+sees it leave the rail in 794ms. The charge is on the folio, and the event log
+reads `guest_session.escalated` REQUEST→CHARGE, `order.placed`, `order.accepted`,
+`order.preparing`, `order.ready`.
+
+What that criterion still wants before it is honestly signed off: **hotel-grade
+wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
@@ -64,6 +76,13 @@ nothing. The folio balance is recomputed by its trigger and the event log shows
 2. **Order tracking** — the `track` screen in the reference, once SSE exists.
 3. **Catalog admin** — outlet, category and item CRUD, image upload to R2. The
    read side is done; nothing can edit a menu except the seeder.
+
+**A tenancy question is now open and deliberately unanswered.** The staff login
+needs to know which tenant a browser is signing in to, and that is part of the
+tenancy model, so it reads `STAFF_TENANT_ID` and refuses to guess. The two real
+answers — a subdomain, or an email → tenant lookup through a SECURITY DEFINER
+function like `resolve_qr_routing()` — are written up in
+`src/app/(admin)/admin/login/actions.ts`. Decide before a second tenant exists.
 
 **Two things still designed but not wired**, both from S7 and both fine to leave
 until they have a screen: `vouchForGuest()` (front desk grants CHARGE with no
@@ -86,6 +105,9 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `c7585ad` | The kitchen display, live: 379ms from a guest's phone to the ticket. Staff sign-in. Found that placeOrder never notified — every hop was live except the order arriving. |
+| P1 | `13ab3e8` | LISTEN/NOTIFY fan-out on its own connection, and `/api/kds/stream`. `subscribeToChannel` returns a `ready` promise so a screen cannot miss what happened while it was connecting. |
+| P1 | `331e7c6` | The order state machine: `advanceOrder()` with compare-and-set, every hop in event_log, `pg_notify` in the same transaction. |
 | P1 | `4c6be0c` | D-012 wired: the one prompt at the charge, escalate-don't-403, order completed in the same request. `placeOrder()` refuses below CHARGE. Fixed a demo:reset wipe order that FK-failed the moment escalations existed. |
 | P1 | `2006880` | Send the order and the confirmation screen. Idempotency key minted at render so a double-tap carries one key. Promise time in the property's timezone. |
 | P1 | `4d14eef` | `placeOrder()` — snapshots, idempotency, event log and folio line in one transaction. `billing`'s first service. |
@@ -235,6 +257,14 @@ Things that cost time to rediscover.
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
 
+- **The e2e suite reseeds before it runs** (`tests/e2e/global-setup.ts`), and it
+  has to. `verification_challenges` counts failed attempts PER ROOM across
+  challenges, so the escalation test — which answers wrong once on purpose —
+  locked its own room out after a few runs. The rate limiter was working; the
+  suite was not repeatable.
+- **`STAFF_TENANT_ID` must be set** for anything on a staff surface. Without it
+  the login refuses rather than guessing which hotel to sign someone in to.
+  `deadbeef-0000-4000-8000-000000000001` for the demo.
 - **The e2e suite runs fully parallel against ONE database.** Each test that
   touches a cart uses its own room — 214 for the dish screen, 105 for the cart,
   301 for placement — because a cart is keyed to the stay (#10). Two tests
