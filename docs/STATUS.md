@@ -21,45 +21,40 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 · Foundation. S8 (deploy and CI) is COMPLETE IN THE REPO, NOT YET ON
-RAILWAY.** Everything code-side is written and verified; the two steps that
-need an account holder are not done, because this repo has no git remote and
-there is no Railway app service yet.
+**P0 is done. P1 · in-room dining is in progress.**
 
-Landed and verified locally:
+The guest menu screen is built and green: `/r/[qrCode]/menu`, rebuilt from the
+design reference as real components, with the sticky category rail and the
+scroll spy. It browses editorially the way the reference does — collections
+first ("From the rooftop", "After 10pm", "Chef Bhairav's table"), categories
+after — and CLAUDE.md #9 holds: prices render for an anonymous REQUEST-tier
+session with no verification screen anywhere.
 
-- GitHub Actions — `checks` / `integration` / `e2e`, on every push and PR. The
-  integration job runs against an ephemeral Postgres 18 with the real two-role
-  setup (D-024). Rehearsed against a local container: 65 tests in **6 seconds**,
-  against minutes on Railway.
-- `Dockerfile` + `railway.json`. The image was built and run: it serves a
-  scanned QR through to the room home **with CSS**, and drains the pool on
-  SIGTERM (exit 0). It carries no migrations and no owner credentials (D-025).
-- `/api/health` reports version, commit, DB latency and migration drift by name.
-- Pino, one JSON line per event, with an `x-request-id` minted at the edge and
-  returned on every response.
+**Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-**Next, and it needs you, not Claude** — see `docs/DEPLOYMENT.md` for the exact
-steps:
+1. **Dish detail** — `/r/[qrCode]/menu/[itemId]`. Modifier groups, quantity,
+   notes. The menu already links to it; the route does not exist yet, so every
+   dish card is currently a 404.
+2. **Server-side cart**, keyed `(stay, outlet)` — the first table `ordering`
+   owns.
+3. **Totals** — subtotal, tax, service charge, delivery fee, tip, all through
+   `src/lib/money.ts`. Every calculation needs a unit test.
+4. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
+   transaction (#7), folio line posted.
+5. **Access escalation on the first charge** — the one verification prompt.
+6. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
 
-1. Create the GitHub repo, `git remote add origin …`, push `main`. CI needs no
-   secrets.
-2. Create the Railway app service (Singapore, Dockerfile builder, private
-   `postgres.railway.internal` host, no `DATABASE_MIGRATION_URL`).
-3. Then the only assertion left in S8's done condition: **print a QR and scan it
-   from a phone on mobile data.** Nothing local proves that path — it crosses
-   DNS, TLS, the Railway proxy, a cellular NAT and iOS Safari.
-
-After P0, **P1 is the demo**: menu, dish detail, cart, ordering, KDS, SSE. The
-remaining seven screens in `design/reference/DESIGN-SPEC.md` (`menu`, `dish`,
-`track`, `amenities`, `service`, `stay`, `nearby`) are built the same way the
-room home was — read the decoded export, rebuild with components, values from
-`theme.css` only.
+**Still not deployed.** P0 shipped the Dockerfile, `railway.json` and the CI
+workflow, all verified locally, but this repo has no git remote and there is no
+Railway app service. `pnpm status` reports both under DEPLOY, and
+`docs/DEPLOYMENT.md` has the steps. That is an account-holder task, not a
+code one.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `f2b4331` | The guest menu: `getInRoomDiningMenu()`, editorial sections, sticky rail with a scroll spy. Fixed a seeded collection that was silently empty, and an e2e suite that had been asserting S1 behaviour since S7. |
 | S8 | `c370d9a` | GitHub Actions with an ephemeral Postgres (D-024). Pinned three-stage Dockerfile carrying no owner credentials (D-025). `/api/health` reports migration drift by name. Pino + `x-request-id`. Pool drained on SIGTERM. e2e rewritten against the seeded property. |
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
@@ -200,6 +195,18 @@ Things that cost time to rediscover.
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
 
+- **A guest page that reads the database takes ~3.6s from a laptop and ~0.5s
+  in CI.** The menu render is about nine round trips (BEGIN, two `set_config`,
+  five SELECTs, COMMIT) and each one is ~350ms to Railway Singapore. In
+  production the app and Postgres are in the same region and this is
+  milliseconds — but it makes local Playwright waits misleading. A click that
+  "does nothing" for three seconds is latency, not a broken navigation; that
+  cost most of a debugging session before the timing was measured. Give
+  navigation assertions a generous timeout locally.
+- **A dish appears in more than one section on purpose.** Laal maas is in both
+  "From the rooftop" and "Chef Bhairav's table", exactly as the reference draws
+  it. So `getByText` on a price matches twice — use `.first()`, do not
+  "fix" the duplication.
 - **Run the integration suite against a LOCAL Postgres.** It is roughly twenty
   times faster (6s vs minutes), it cannot wipe a database someone is demoing on,
   and it is exactly what CI does:
