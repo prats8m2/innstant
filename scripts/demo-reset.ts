@@ -17,7 +17,7 @@ import { dbSsl } from '@/db/ssl';
 import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } from '@/modules/identity';
 import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
 import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
-import { guests, stays } from '@/db/schema/stay';
+import { createStay } from '@/modules/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
 import { serviceRequests, requestTypes } from '@/db/schema/requests';
@@ -158,26 +158,26 @@ async function main(): Promise<void> {
           `Demo references room ${g.room}, which KESARI_ROOMS does not create. ` +
           `Available: ${[...provisioned.roomIds.keys()].join(', ')}`);
       }
-      const [guest] = await tx.insert(guests).values({
-        tenantId: TENANT_ID, fullName: g.name, phone: g.phone,
-      }).returning({ id: guests.id });
-
       // Thursday 11am, property-local. Rendered in properties.timezone, never
       // the server's — CLAUDE.md "Dates".
       const checkout = new Date();
       checkout.setDate(checkout.getDate() + 2);
       checkout.setHours(11, 0, 0, 0);
 
-      const [stay] = await tx.insert(stays).values({
-        tenantId: TENANT_ID, propertyId: provisioned.propertyId,
+      // Through createStay(), like the front desk and the PMS import — #4.
+      // The seeder used to insert the guest and the stay itself, which meant
+      // the demo exercised a shape nothing in production ever creates.
+      const created = await createStay(tx, {
+        tenantId: TENANT_ID,
+        propertyId: provisioned.propertyId,
         roomId: provisioned.roomIds.get(g.room)!,
-        guestId: guest!.id,
+        guest: { fullName: g.name, phone: g.phone },
         status: 'CHECKED_IN',
         source: 'FRONT_DESK',
         checkedInAt: new Date(Date.now() - 86_400_000),
         scheduledCheckoutAt: checkout,
-      }).returning({ id: stays.id });
-      stayIds.set(g.room, stay!.id);
+      });
+      stayIds.set(g.room, created.stayId);
     }
 
     // ── Two in-flight orders, at different states ───────────────────────────

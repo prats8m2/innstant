@@ -2,6 +2,7 @@ import pg from 'pg';
 import { dbSsl } from '@/db/ssl';
 import { withTenant } from '@/db';
 import { provisionProperty } from '@/modules/identity';
+import { createStay } from '@/modules/stay';
 
 /**
  * Integration-test fixtures. These run against a REAL Postgres — the whole
@@ -87,6 +88,39 @@ export async function seedTenant(
     outletId: provisioned.outletId,
     qrCode: provisioned.qrCodes.get('214')!,
   };
+}
+
+/**
+ * A checked-in stay, through `createStay()` — the same function the front desk,
+ * the PMS import and the seeder call (#4).
+ *
+ * These suites used to hand-roll `INSERT INTO stays`, which meant they proved
+ * things about a shape nothing in production creates: no guest matching, no
+ * property profile, and no `stay.created` in the event log. A change that
+ * breaks createStay() now breaks the test suite, which is the point.
+ */
+export async function checkInGuest(
+  fixture: Fixture,
+  options: { roomId?: string; name?: string; phone?: string | null } = {},
+): Promise<string> {
+  const checkout = new Date();
+  checkout.setDate(checkout.getDate() + 2);
+
+  const created = await withTenant(
+    { tenantId: fixture.tenantId, propertyId: fixture.propertyId },
+    (tx) => createStay(tx, {
+      tenantId: fixture.tenantId,
+      propertyId: fixture.propertyId,
+      roomId: options.roomId ?? fixture.roomId,
+      guest: {
+        fullName: options.name ?? 'Anjali Menon',
+        phone: options.phone === undefined ? '+919820011111' : options.phone,
+      },
+      status: 'CHECKED_IN',
+      scheduledCheckoutAt: checkout,
+    }),
+  );
+  return created.stayId;
 }
 
 /**

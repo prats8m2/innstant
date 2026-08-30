@@ -8,7 +8,9 @@ import {
 import { addToCart, getCart, setCartItemQuantity, removeCartItem } from '@/modules/ordering';
 import type { CartOutletConfig } from '@/modules/ordering';
 import { ValidationError, ConflictError, NotFoundError } from '@/lib/errors';
-import { ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture } from './setup';
+import {
+  ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
+} from './setup';
 
 /**
  * The cart, against a real Postgres under RLS.
@@ -25,15 +27,6 @@ describe('cart', () => {
   let stayId: string;
   let outlet: CartOutletConfig;
   const laal = 'Laal maas with bajra roti';
-
-  async function stayFor(fixture: Fixture, roomId = fixture.roomId): Promise<string> {
-    const r = await owner.query<{ id: string }>(`
-      INSERT INTO stays (tenant_id, property_id, room_id, guest_id, status,
-                         checked_in_at, scheduled_checkout_at)
-      VALUES ($1,$2,$3,$4,'CHECKED_IN', now(), now() + interval '2 days') RETURNING id`,
-      [fixture.tenantId, fixture.propertyId, roomId, fixture.guestId]);
-    return r.rows[0]!.id;
-  }
 
   /**
    * A second room, because D-007 allows only one active stay per room — two
@@ -87,7 +80,7 @@ describe('cart', () => {
         }));
     }
 
-    stayId = await stayFor(a);
+    stayId = await checkInGuest(a);
     outlet = {
       outletId: a.outletId,
       currency: 'INR',
@@ -278,7 +271,11 @@ describe('cart', () => {
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
     const cart = await read();
-    const otherStay = await stayFor(a, await neighbourRoom());
+    const otherStay = await checkInGuest(a, {
+      roomId: await neighbourRoom(),
+      name: 'Thomas Beckett',
+      phone: '+919820022222',
+    });
 
     // Same tenant, same property, real line id — and still not theirs. RLS
     // confines this to the hotel; the stay check confines it to the guest.
