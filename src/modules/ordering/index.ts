@@ -12,5 +12,8 @@ export {
 } from './cart';
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
+export { placeOrder } from './place-order';
+export type { PlaceOrderInput, PlacedOrder } from './place-order';
+
 export { calculateTotals, lineTotal } from './totals';
 export type { OrderTotals, TotalsConfig, TotalsLine } from './totals';
