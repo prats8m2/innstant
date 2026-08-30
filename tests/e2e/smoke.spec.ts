@@ -65,6 +65,48 @@ test.describe('a scanned sticker', () => {
     await expect(page.getByRole('button', { name: /sign in|log in|verify/i })).toHaveCount(0);
   });
 
+  test('browses the whole menu with no verification in the way', async ({ page }) => {
+    const code = seed!.qrCodes['214'];
+    await page.goto(`/r/${code}`);
+    await page.getByRole('link', { name: /order to the room/i }).click();
+
+    // Generous, and deliberately so: this render is several round trips to
+    // Postgres, and against a database in another region it is seconds rather
+    // than milliseconds. CI runs it against a local one and it is fast.
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/menu$`), { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: 'In-room dining' })).toBeVisible();
+
+    // CLAUDE.md #9 — prices are visible to an anonymous REQUEST-tier session.
+    // The one verification prompt comes at the first charge, not here.
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    // .first() because laal maas is deliberately in two sections — the price
+    // appears twice, and that duplication is the design, not a bug.
+    await expect(page.getByText('₹1,150').first()).toBeVisible();
+
+    // The editorial sections lead, exactly as the reference browses.
+    const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
+    expect(headings.slice(0, 3)).toEqual([
+      'From the rooftop', 'After 10pm', 'Chef Bhairav’s table',
+    ]);
+    // One section per name — "From the rooftop" is both a category and a
+    // collection here, and only the collection may render.
+    expect(new Set(headings).size).toBe(headings.length);
+  });
+
+  test('the category rail follows the section under the header', async ({ page }) => {
+    const code = seed!.qrCodes['214'];
+    // Scan first. Going straight to /menu with no cookie is correct behaviour
+    // — it bounces through the link, which mints a session and lands on the
+    // room home — but it means there is no rail on the page to assert about.
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/menu`);
+
+    await expect(page.locator('[aria-selected="true"]')).toHaveText('Rooftop');
+
+    await page.locator('[data-section]').nth(2).scrollIntoViewIfNeeded();
+    await expect(page.locator('[aria-selected="true"]')).toHaveText('Chef Bhairav');
+  });
+
   test('does not mint a new session on every reload', async ({ page }) => {
     // The redirect hop exists so the cookie survives a refresh. Without it
     // every reload created a guest_sessions row and re-prompted a verified

@@ -1,0 +1,116 @@
+import { cookies } from 'next/headers';
+import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { withTenant } from '@/db';
+import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { getInRoomDiningMenu } from '@/modules/catalog';
+import { formatMoney, money } from '@/lib/money';
+import type { CurrencyCode } from '@/lib/money';
+import { CategoryRail } from './category-rail';
+import styles from './menu.module.css';
+
+/**
+ * In-room dining — the menu.
+ *
+ * Rebuilt from `design/reference/` as real components; the export is a picture
+ * to match, not markup to copy. Every value comes from `theme.css`.
+ *
+ * CLAUDE.md #9 — browsing is never gated. This renders for an anonymous
+ * REQUEST-tier session: prices, dishes and the whole menu, with no
+ * verification. The one prompt comes later, at the first charge to the room.
+ */
+export const dynamic = 'force-dynamic';
+
+export default async function MenuScreen({
+  params,
+}: {
+  params: Promise<{ qrCode: string }>;
+}) {
+  const { qrCode } = await params;
+  const store = await cookies();
+  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+
+  // Cookie missing or stale — checked out, expired, revoked. Back through the
+  // link, which issues a fresh session or 404s (#10).
+  if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
+
+  const base = `/r/${encodeURIComponent(qrCode)}`;
+
+  const menu = await withTenant(
+    { tenantId: session.tenantId, propertyId: session.propertyId },
+    (tx) => getInRoomDiningMenu(tx, session.propertyId),
+  );
+
+  // A property with no in-room dining outlet is a configuration state, not an
+  // error page with an apology — but there is nothing to render here.
+  if (!menu) notFound();
+
+  const { outlet, sections } = menu;
+  const prepWindow = `${outlet.prepTimeMinutes}–${outlet.prepTimeMinutes + 10} min`;
+
+  return (
+    <main className={styles.shell}>
+      <header className={styles.bar}>
+        <div className={styles.barTop}>
+          <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
+            ←
+          </Link>
+          <h1 className={styles.title}>{outlet.name}</h1>
+          <span className={`${styles.eta} tabular`}>
+            {outlet.isAcceptingOrders ? prepWindow : 'Closed'}
+          </span>
+        </div>
+
+        <CategoryRail
+          sections={sections.map((s) => ({ id: s.id, label: s.label }))}
+        />
+      </header>
+
+      <div className={styles.scroll}>
+        {sections.map((section) => (
+          <section key={section.id} id={section.id} data-section className={styles.section}>
+            <div className={styles.sectionHead}>
+              <h2 className={styles.sectionTitle}>{section.title}</h2>
+              <span className={`${styles.sectionCount} tabular`}>
+                {section.items.length} {section.items.length === 1 ? 'dish' : 'dishes'}
+              </span>
+            </div>
+            {section.blurb ? <p className={styles.blurb}>{section.blurb}</p> : null}
+
+            <ul className={styles.dishes}>
+              {section.items.map((dish) => (
+                <li key={`${section.id}-${dish.id}`}>
+                  <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
+                    <span className={styles.thumb} aria-hidden="true" />
+                    <span className={styles.dishBody}>
+                      <span className={styles.dishName}>{dish.name}</span>
+                      {dish.description ? (
+                        <span className={styles.dishShort}>{dish.description}</span>
+                      ) : null}
+                      <span className={styles.dishMeta}>
+                        <span className={`${styles.price} tabular`}>
+                          {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
+                        </span>
+                        {dish.isAvailable ? (
+                          dish.prepTimeMinutes ? (
+                            <span className={styles.tag}>{dish.prepTimeMinutes} min</span>
+                          ) : null
+                        ) : (
+                          <span className={styles.soldOut}>Off the menu tonight</span>
+                        )}
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+
+        <p className={styles.footer}>
+          Chef Bhairav Singh · kitchen closes 11:30
+        </p>
+      </div>
+    </main>
+  );
+}

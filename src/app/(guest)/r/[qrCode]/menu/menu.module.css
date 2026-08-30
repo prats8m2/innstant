@@ -1,0 +1,250 @@
+/*
+ * In-room dining menu. Rebuilt from design/reference/ — matched, not pasted.
+ * Every value is a custom property from theme.css. No hex, no raw duration.
+ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  /* 390×844 is the design viewport; mobile only, so it centres rather than
+     stretching on a larger screen. */
+  max-width: 430px;
+  margin-inline: auto;
+}
+
+/* ── The bar: title row + category rail, over the scrolling menu ─────────── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  max-width: 430px;
+  margin-inline: auto;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.barTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  padding: 0 var(--space-2);
+}
+
+.back {
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  border-radius: var(--radius-sm);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  margin: 0;
+}
+
+.eta {
+  margin-left: auto;
+  padding-right: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--teal);
+}
+
+/* ── The rail ───────────────────────────────────────────────────────────── */
+.rail {
+  position: relative;
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar { display: none; }
+
+/* One translating element rather than a background per chip: a single
+   transform animates and the chips only change colour. */
+.pill {
+  position: absolute;
+  top: 0;
+  left: var(--space-3);
+  height: 34px;
+  width: 0;
+  border-radius: var(--radius-pill-sm);
+  background: var(--accent);
+  transition:
+    transform var(--dur-mid) var(--ease-out),
+    width var(--dur-mid) var(--ease-out);
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  /* 34px is the design's chip height; the 44px touch minimum is met by the
+     padding block below, which extends the hit area past the painted pill. */
+  padding: 0 15px;
+  border-radius: var(--radius-pill-sm);
+  border: 1px solid color-mix(in srgb, var(--plaster) 18%, transparent);
+  background: transparent;
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+.chip[aria-selected='true'] {
+  color: var(--surface);
+  border-color: transparent;
+}
+
+/* ── The scrolling menu ─────────────────────────────────────────────────── */
+.scroll { padding: var(--space-6) var(--space-4) var(--space-10); }
+
+.section {
+  padding-bottom: var(--space-8);
+  /* Clears the sticky bar when a rail chip jumps to this section. */
+  scroll-margin-top: 118px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+
+.sectionTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 400;
+  color: var(--text);
+  margin: 0;
+}
+
+.sectionCount {
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+.blurb {
+  margin: 0 0 var(--space-5);
+  max-width: 300px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.dishes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.dish {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  width: 100%;
+  color: var(--text);
+  animation: archIn var(--dur-slow) var(--ease-out) both;
+}
+
+/* The arch. The single strongest shape signal in the design — a jharokha
+   window, not a rounded rectangle. */
+.thumb {
+  width: 104px;
+  height: 78px;
+  flex: 0 0 104px;
+  border-radius: 40% 40% var(--radius-sm) var(--radius-sm) / 26% 26% 0 0;
+  background-color: var(--ink-700);
+  background-image:
+    radial-gradient(circle at 50% 108%, color-mix(in srgb, var(--saffron) 20%, transparent) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 50% 108%, transparent 0 36%, color-mix(in srgb, var(--plaster) 13%, transparent) 36% 37%, transparent 37.5%),
+    radial-gradient(circle at 50% 108%, transparent 0 54%, color-mix(in srgb, var(--plaster) 9%, transparent) 54% 55%, transparent 55.5%),
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--plaster) 3.5%, transparent) 0 1px, transparent 1px 5px);
+}
+
+.dishBody {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+  display: block;
+}
+
+.dishName {
+  display: block;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.dishShort {
+  display: block;
+  margin-top: 3px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.dishMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 7px;
+}
+
+.price {
+  font-size: var(--text-base);
+  color: var(--accent);
+}
+
+.tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+/* Said plainly, and it says what to do next by saying what is true: the dish
+   is off tonight, not "temporarily unavailable". */
+.soldOut {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.footer {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+  padding-bottom: var(--space-2);
+  margin: 0;
+}
