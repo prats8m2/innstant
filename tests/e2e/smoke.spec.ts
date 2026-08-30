@@ -301,3 +301,89 @@ test.describe('a scanned sticker', () => {
     expect(second).toBe(first);
   });
 });
+
+/**
+ * The kitchen, and the claim P1 exists to make: an order placed on a phone
+ * appears on a second device, without a reload, in under two seconds.
+ */
+test.describe('the kitchen display', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  async function signInToKitchen(page: Page): Promise<void> {
+    await page.goto('/kds');
+    // The middleware is a turnstile: no cookie, no page.
+    await expect(page).toHaveURL(/\/admin\/login/);
+
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/kds');
+    await expect(page.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
+  }
+
+  test('turns a wrong password away without saying which half was wrong', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('not-the-password');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+
+    // A distinct "no such user" enumerates a hotel's staff list, and staff
+    // emails are usually firstname@thehotel.com.
+    // `.filter` because Next renders an always-present, always-empty route
+    // announcer with role="alert" — see the note in the dish test above.
+    await expect(page.getByRole('alert').filter({ hasText: /\S/ }))
+      .toContainText(/email and password/i, { timeout: 25_000 });
+    await expect(page).toHaveURL(/\/admin\/login/);
+  });
+
+  test('shows an order the moment it is placed, on another device', async ({ browser }) => {
+    const code = seed!.qrCodes['214'];
+
+    const kitchen = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const kds = await kitchen.newPage();
+    await signInToKitchen(kds);
+
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/menu`);
+    await guest.getByRole('link', { name: /Laal maas/ }).first().click();
+    await guest.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await guest.getByRole('button', { name: /Add to order/ }).click();
+    await expect(guest.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
+
+    await guest.goto(`/r/${code}/cart`);
+    await guest.getByRole('button', { name: /Send to the kitchen/ }).click();
+    await guest.locator('input[name="answer"]').waitFor({ timeout: 25_000 });
+    await guest.locator('input[name="answer"]').fill(seed!.guests['214']!.phoneLast4);
+    await guest.getByRole('button', { name: /Confirm and send/ }).click();
+    await guest.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+
+    const orderNumber = (await guest.getByText(/ORDER KE-\d+/i).textContent())!
+      .replace(/order\s*/i, '').trim();
+
+    // The claim. No reload anywhere in this test — the KDS page was loaded
+    // before the order existed.
+    const ticket = kds.locator('li').filter({ hasText: orderNumber });
+    await expect(ticket).toBeVisible({ timeout: 10_000 });
+    await expect(ticket).toContainText('Laal maas with bajra roti');
+    await expect(ticket).toContainText('214');
+
+    // And it can be worked. Each bump is a real transition through the machine.
+    await ticket.getByRole('button', { name: 'Accept' }).click();
+    await expect(ticket).toHaveAttribute('data-status', 'ACCEPTED', { timeout: 15_000 });
+    await ticket.getByRole('button', { name: 'Start cooking' }).click();
+    await expect(ticket).toHaveAttribute('data-status', 'PREPARING', { timeout: 15_000 });
+    await ticket.getByRole('button', { name: 'Ready' }).click();
+    await expect(ticket).toHaveAttribute('data-status', 'READY', { timeout: 15_000 });
+
+    // Off the rail once it leaves the kitchen.
+    await ticket.getByRole('button', { name: 'Picked up' }).click();
+    await expect(ticket).toHaveCount(0, { timeout: 15_000 });
+
+    await kitchen.close();
+    await phone.close();
+  });
+});

@@ -27,15 +27,28 @@ describe('order notifications', () => {
   const scoped = <T>(fn: Parameters<typeof withTenant<T>>[1]) =>
     withTenant<T>({ tenantId: a.tenantId, propertyId: a.propertyId }, fn);
 
-  /** Collects notifications until `count` arrive, or the timeout expires. */
-  function collect(count: number, timeoutMs = 8_000) {
+  /**
+   * Collects notifications until `count` match, or the timeout expires.
+   *
+   * The filter is not optional in practice. A notification arrives some
+   * milliseconds AFTER the commit that produced it, so an order created during
+   * setup can land in a collector subscribed immediately afterwards — which is
+   * how this suite started failing the moment placement began notifying.
+   */
+  function collect(
+    count: number,
+    options: { timeoutMs?: number; where?: (e: OrderChangedPayload) => boolean } = {},
+  ) {
+    const { timeoutMs = 8_000, where = () => true } = options;
     const received: OrderChangedPayload[] = [];
     let resolve!: () => void;
     const done = new Promise<void>((r) => { resolve = r; });
     const timer = setTimeout(() => resolve(), timeoutMs);
 
-    const subscription = subscribeToChannel(ORDER_CHANNEL, (payload) => {
-      received.push(payload as OrderChangedPayload);
+    const subscription = subscribeToChannel(ORDER_CHANNEL, (raw) => {
+      const payload = raw as OrderChangedPayload;
+      if (!where(payload)) return;
+      received.push(payload);
       if (received.length >= count) {
         clearTimeout(timer);
         resolve();
@@ -103,7 +116,7 @@ describe('order notifications', () => {
 
   it('delivers a transition to a listening process', async () => {
     const orderId = await anOrder('notify-1');
-    const collector = collect(1);
+    const collector = collect(1, { where: (e) => e.orderId === orderId && e.status === 'ACCEPTED' });
     await collector.ready;
 
     await scoped((tx) => advanceOrder(tx, {
@@ -121,7 +134,7 @@ describe('order notifications', () => {
 
   it('carries routing and status, and nothing a subscriber should not see', async () => {
     const orderId = await anOrder('notify-payload');
-    const collector = collect(1);
+    const collector = collect(1, { where: (e) => e.orderId === orderId && e.status === 'ACCEPTED' });
     await collector.ready;
 
     await scoped((tx) => advanceOrder(tx, {
@@ -140,7 +153,10 @@ describe('order notifications', () => {
 
   it('says nothing at all when the transaction rolls back', async () => {
     const orderId = await anOrder('notify-rollback');
-    const collector = collect(1, 2_500);
+    const collector = collect(1, {
+      timeoutMs: 2_500,
+      where: (e) => e.orderId === orderId && e.status === 'ACCEPTED',
+    });
     await collector.ready;
 
     await expect(
@@ -161,7 +177,7 @@ describe('order notifications', () => {
 
   it('delivers every hop, in order', async () => {
     const orderId = await anOrder('notify-many');
-    const collector = collect(3);
+    const collector = collect(3, { where: (e) => e.orderId === orderId && e.status !== 'PLACED' });
     await collector.ready;
 
     for (const to of ['ACCEPTED', 'PREPARING', 'READY'] as const) {
@@ -176,9 +192,22 @@ describe('order notifications', () => {
   });
 
   it('reports the listener as connected once something is subscribed', async () => {
-    const collector = collect(1, 500);
+    const collector = collect(1, { timeoutMs: 500 });
     await collector.ready;
     await collector.settle();
     expect(notifyStatus().channels).toContain(ORDER_CHANNEL);
+  });
+
+  it('announces the order arriving, not only what happens to it after', async () => {
+    const collector = collect(1, { where: (e) => e.status === 'PLACED' });
+    await collector.ready;
+
+    const orderId = await anOrder('notify-placed');
+
+    // A ticket appearing IS the event a kitchen is waiting for. Notifying only
+    // on later transitions means every hop is live except the one that matters.
+    const [event] = await collector.settle();
+    expect(event?.orderId).toBe(orderId);
+    expect(event?.status).toBe('PLACED');
   });
 });

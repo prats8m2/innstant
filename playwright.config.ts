@@ -18,6 +18,9 @@ const PORT = process.env.PORT ?? '3000';
 const BASE_URL = process.env.APP_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
+  // Reseed first — see the note in tests/e2e/global-setup.ts. Without it the
+  // suite passes only on the first run after a manual `pnpm demo:reset`.
+  globalSetup: './tests/e2e/global-setup.ts',
   testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

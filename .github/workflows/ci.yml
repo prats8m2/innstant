@@ -138,6 +138,9 @@ jobs:
       DATABASE_URL: postgres://app_user:app_user_ci@localhost:5432/guest_services
       DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/guest_services
       APP_URL: http://localhost:3000
+      # The staff login's tenant. A stopgap for the single-tenant demo — see the
+      # note in src/app/(admin)/admin/login/actions.ts. Fixed for the seeder.
+      STAFF_TENANT_ID: deadbeef-0000-4000-8000-000000000001
 
     steps:
       - uses: actions/checkout@v4

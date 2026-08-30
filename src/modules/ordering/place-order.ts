@@ -10,6 +10,7 @@ import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { getCart } from './cart';
+import { notifyOrderChanged } from './advance-order';
 
 /**
  * Placing the order. The one function in P1 that touches money, and the reason
@@ -234,6 +235,26 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       totalMinor: totals.total.amountMinor,
       currency,
     },
+  });
+
+  /**
+   * Tell the kitchen. Same transaction, same reason as every other transition:
+   * a notification Postgres holds until COMMIT cannot announce an order that
+   * then rolls back.
+   *
+   * This was missed at first — `advanceOrder()` notified and placement did not,
+   * so every hop after the first appeared live on the KDS and the arrival of
+   * the order itself did not. That is exactly backwards: a ticket appearing is
+   * the event a kitchen is waiting for.
+   */
+  await notifyOrderChanged(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    outletId: outlet.id,
+    orderId,
+    orderNumber,
+    stayId: input.stayId,
+    status: 'PLACED',
   });
 
   // The cart is emptied in the same transaction. Leaving it would let a reload
