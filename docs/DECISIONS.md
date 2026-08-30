@@ -132,3 +132,25 @@ so a policy written as `current_setting('app.tenant_id', true)::uuid` makes any
 query outside `withTenant()` fail with a cast error rather than return zero
 rows. `nullif` restores the documented behaviour: return nothing, never
 everything, and never a 500. Verified on PostgreSQL 18.
+
+### D-021 · Three database connections, because the pooler and `LISTEN/NOTIFY` are incompatible
+`DATABASE_URL` (app queries) goes through PgBouncer in transaction pooling mode.
+`DATABASE_MIGRATION_URL` (migrations, owner role) and `DATABASE_LISTEN_URL`
+(the realtime listener, app_user) both go **direct**, bypassing the pooler.
+
+CLAUDE.md #3 requires transaction pooling. D-015 makes realtime Postgres
+`LISTEN/NOTIFY` → SSE. These cannot share a connection: in transaction pooling
+mode the server connection is returned to the pool the instant the transaction
+ends, so a `LISTEN` registration is either lost or, worse, left on a connection
+subsequently handed to a different client. The listener must therefore hold one
+long-lived session that never goes through PgBouncer — a single connection for
+the whole process, not one per request, which the persistent Node process of
+D-002 makes cheap.
+
+Migrations bypass the pooler for a simpler reason: DDL and the RLS verification
+block in `0001` want one uninterrupted session.
+
+**Cost:** three URLs to keep straight, and a pooler whose correct configuration
+is infrastructure rather than code. `pnpm db:check-pooler` is the compensating
+control — it proves transaction mode is actually in effect rather than assumed,
+and S4's `SET LOCAL` leak test is not meaningful until it passes.

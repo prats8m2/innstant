@@ -46,12 +46,15 @@ S2a (design tokens) remains independent and unstarted.
 
 ## Blocked / open questions
 
-- **PgBouncer does not exist yet.** CLAUDE.md #3 assumes transaction pooling.
-  Railway Postgres is a direct connection on the TCP proxy port. `set_config(...,
-  true)` inside an explicit transaction is correct either way, so this does not
-  block S3b — but **S4's `SET LOCAL` leak test is not meaningful until a real
-  pooler is in front of the database.** Decide before S4: add PgBouncer as a
-  Railway service, or amend #3 and record it as a superseding decision.
+- **PgBouncer is enabled on Railway but the app is not pointed at it yet.**
+  `pnpm db:check-pooler` currently fails: `DATABASE_URL` is still on the direct
+  port 57355, and a bare `SET` persists — session-mode behaviour, which is what
+  #3 exists to prevent. Needs the PgBouncer TCP-proxy host:port in
+  `DATABASE_URL`. **S4's leak test means nothing until this passes.**
+- **`DATABASE_LISTEN_URL` is unset.** D-021 — the realtime listener needs a
+  direct connection because `LISTEN/NOTIFY` cannot survive transaction pooling.
+  Not needed until P1, but the variable should be set at the same time as the
+  pooler so it is not discovered mid-P1.
 - **Fonts are not chosen or licensed.** `design/fonts/` is empty. A hotel
   deployment is commercial use — the licence has to be checked and the LICENCE
   file committed next to each `.woff2`. Blocks the end of S2b.

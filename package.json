@@ -20,7 +20,8 @@
     "db:studio": "drizzle-kit studio",
     "tokens:build": "tsx scripts/build-tokens.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
-    "status": "tsx scripts/status.ts"
+    "status": "tsx scripts/status.ts",
+    "db:check-pooler": "tsx --env-file=.env scripts/check-pooler.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
