@@ -13,6 +13,8 @@ import { test, expect, type Page } from '@playwright/test';
 interface DemoSeed {
   propertyId: string;
   qrCodes: Record<string, string>;
+  /** Last four digits, for answering the one verification prompt (D-012). */
+  guests: Record<string, { name: string; phoneLast4: string }>;
 }
 
 const seedPath = '.demo-seed.json';
@@ -219,7 +221,7 @@ test.describe('a scanned sticker', () => {
     await expect(page.getByText('Nothing in the order yet.')).toBeVisible({ timeout: 20_000 });
   });
 
-  test('sends the order to the kitchen and lands on the confirmation', async ({ page }) => {
+  test('asks its one question at the charge, then sends the order', async ({ page }) => {
     // Room 301 — its own stay, so this does not race the cart test on 105 or
     // the dish test on 214 (the suite runs fully parallel against one database).
     const code = seed!.qrCodes['301'];
@@ -233,9 +235,30 @@ test.describe('a scanned sticker', () => {
     await page.getByRole('button', { name: /Add to order/ }).click();
     await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
 
+    // Nothing has been asked so far — a bare scan grants REQUEST and browsing
+    // was never gated (#9).
     await page.goto(`/r/${code}/cart`);
+    await expect(page.locator('input[name="answer"]')).toHaveCount(0);
+
     await page.getByRole('button', { name: /Send to the kitchen/ }).click();
 
+    // D-012: the ONE prompt, and it appears HERE — at the first attempt to
+    // charge the room, not at the scan.
+    await expect(page.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText(/last four digits of the phone number/i)).toBeVisible();
+
+    // A wrong answer keeps the prompt and says so. It does not 403 and it does
+    // not lose the order.
+    await page.locator('input[name="answer"]').fill('9999');
+    await page.getByRole('button', { name: /Confirm and send/ }).click();
+    await expect(page.getByText(/does not match/i)).toBeVisible({ timeout: 25_000 });
+    await expect(page).toHaveURL(/\/cart$/);
+
+    await page.locator('input[name="answer"]').fill(seed!.guests['301']!.phoneLast4);
+    await page.getByRole('button', { name: /Confirm and send/ }).click();
+
+    // Verifying finishes the original action — the guest does not press Send
+    // a second time.
     await page.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('It is with the kitchen');
     await expect(page.getByText(/ORDER KE-\d+/i)).toBeVisible();
@@ -249,6 +272,18 @@ test.describe('a scanned sticker', () => {
     // The cart is empty: the pill must not advertise an order already sent.
     await page.goto(`/r/${code}/menu`);
     await expect(page.getByText(/Kitchen open until/)).toBeVisible();
+
+    // And the second order asks nothing at all. The prompt is once per
+    // session, not once per order.
+    await page.getByRole('link', { name: /Ker sangri/ }).first().click();
+    await page.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await page.getByRole('button', { name: /Add to order/ }).click();
+    await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
+
+    await page.goto(`/r/${code}/cart`);
+    await page.getByRole('button', { name: /Send to the kitchen/ }).click();
+    await page.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.locator('input[name="answer"]')).toHaveCount(0);
   });
 
   test('does not mint a new session on every reload', async ({ page }) => {

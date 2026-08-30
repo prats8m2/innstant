@@ -6,7 +6,8 @@ import { idempotencyKeys } from '@/db/schema/core';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { postFolioLine } from '@/modules/billing';
 import { dietaryFlagsForStay } from '@/modules/stay';
-import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
+import { tierAtLeast, type AccessTier } from '@/modules/access';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { getCart } from './cart';
 
@@ -40,6 +41,17 @@ export interface PlaceOrderInput {
   roomNumber: string;
   /** Stable per attempt, minted by the screen. Two taps send the same key. */
   idempotencyKey: string;
+
+  /**
+   * The tier the caller has established. CLAUDE.md #9 / D-012 — placing an
+   * order posts money to the room, so it needs CHARGE.
+   *
+   * Required rather than defaulted, and asserted here rather than only at the
+   * screen: the escalation flow is a UI affordance, and a UI affordance is not
+   * a control. A future caller — a staff member ordering on a guest's behalf,
+   * the PMS — has to state what it established.
+   */
+  accessTier: AccessTier;
   guestSessionId?: string;
   tipMinor?: number;
   guestNotes?: string | null;
@@ -58,6 +70,13 @@ export interface PlacedOrder {
 export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<PlacedOrder> {
   if (!input.idempotencyKey.trim()) {
     throw new ValidationError('That order could not be identified. Try again.');
+  }
+
+  if (!tierAtLeast(input.accessTier, 'CHARGE')) {
+    // Deliberately not the guest-facing path: by the time anything reaches
+    // here the screen should already have asked its one question. This is the
+    // backstop that makes the rule true rather than customary.
+    throw new ForbiddenError('This order has not been verified for room charges.');
   }
 
   const replayed = await claimIdempotencyKey(tx, input);

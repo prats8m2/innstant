@@ -7,7 +7,7 @@ import {
 } from '@/modules/catalog';
 import { addToCart, getCart, placeOrder, getOrderForStay } from '@/modules/ordering';
 import { getFolioForStay } from '@/modules/billing';
-import { ConflictError } from '@/lib/errors';
+import { ConflictError, ForbiddenError } from '@/lib/errors';
 import {
   ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, type Fixture,
 } from './setup';
@@ -71,6 +71,9 @@ describe('placeOrder', () => {
       stayId,
       roomNumber: '214',
       idempotencyKey: key,
+      // The screen establishes this by escalating (D-012); these tests are
+      // about what happens once it has. The refusal below covers the other side.
+      accessTier: 'CHARGE',
       ...extra,
     }));
 
@@ -260,7 +263,7 @@ describe('placeOrder', () => {
       scoped(async (tx) => {
         await placeOrder(tx, {
           tenantId: a.tenantId, propertyId: a.propertyId, stayId,
-          roomNumber: '214', idempotencyKey: 'rollback',
+          roomNumber: '214', idempotencyKey: 'rollback', accessTier: 'CHARGE',
         });
         throw new Error('caller changed its mind');
       }),
@@ -331,5 +334,40 @@ describe('placeOrder', () => {
     const leaked = await scoped((tx) =>
       getOrderForStay(tx, { stayId: otherStay, orderId: placed.orderId }));
     expect(leaked).toBeNull();
+  });
+
+  it('refuses a bare REQUEST-tier session, whatever the screen did (#9, D-012)', async () => {
+    await fillCart(1);
+
+    // A bare QR scan grants REQUEST. Browsing was never gated; charging the
+    // room is the boundary the one prompt defends, and this is the backstop
+    // that makes it a control rather than a convention.
+    await expect(place('unverified', { accessTier: 'REQUEST' }))
+      .rejects.toBeInstanceOf(ForbiddenError);
+
+    const orders = await owner.query(`SELECT 1 FROM orders WHERE tenant_id = $1`, [TENANT_A]);
+    const lines = await owner.query(`SELECT 1 FROM folio_lines WHERE tenant_id = $1`, [TENANT_A]);
+    expect(orders.rowCount).toBe(0);
+    expect(lines.rowCount).toBe(0);
+  });
+
+  it('does not burn the idempotency key on a refused attempt', async () => {
+    await fillCart(1);
+
+    await expect(place('verify-then-send', { accessTier: 'REQUEST' }))
+      .rejects.toBeInstanceOf(ForbiddenError);
+
+    // The guest verifies and the SAME key is sent again — which is exactly what
+    // the escalation flow does, and it must still place the order rather than
+    // replay a claim from the attempt that was refused.
+    const placed = await place('verify-then-send', { accessTier: 'CHARGE' });
+    expect(placed.wasAlreadyPlaced).toBe(false);
+    expect(placed.orderNumber).toMatch(/^KE-\d+$/);
+  });
+
+  it('accepts FULL, because a tier above CHARGE is still allowed to charge', async () => {
+    await fillCart(1);
+    const placed = await place('full-tier', { accessTier: 'FULL' });
+    expect(placed.orderId).toBeTruthy();
   });
 });

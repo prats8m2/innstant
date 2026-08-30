@@ -33,6 +33,17 @@ const PROPERTY_SLUG = 'the-kesari';
 const DEMO_PASSWORD = 'kesari-demo-2026';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
 
+/**
+ * The three in-house guests. Module scope because the seed artifact written at
+ * the end needs their last four digits — that is what the e2e suite answers the
+ * verification prompt with (D-012).
+ */
+const DEMO_GUESTS = [
+  { name: 'Anjali Menon',   phone: '+919820011111', room: '214' },
+  { name: 'Thomas Beckett', phone: '+919820022222', room: '105' },
+  { name: 'Rhea Kapoor',    phone: '+919820033333', room: '301' },
+];
+
 const DEMO_STAFF = [
   { email: 'gm@thekesari.example',        name: 'Vikram Rathore',  role: 'PROPERTY_ADMIN' },
   { email: 'frontdesk@thekesari.example', name: 'Anjali Sharma',   role: 'FRONT_DESK' },
@@ -42,7 +53,19 @@ const DEMO_STAFF = [
   { email: 'housekeeping@thekesari.example', name: 'Sunita Devi',  role: 'HOUSEKEEPING' },
 ] as const;
 
-/** Rows are deleted children-first; the demo tenant only. */
+/**
+ * Every tenant-scoped table. ORDER DOES NOT MATTER — see wipe().
+ *
+ * It used to, and the list was wrong: `guest_sessions` sat before
+ * `access_escalations`, which references it. Nothing noticed for three sessions
+ * because nothing had ever written an escalation row. The moment D-012 was
+ * wired up, `pnpm demo:reset` started failing with a foreign key violation
+ * naming a constraint rather than the mistake.
+ *
+ * The integration fixtures hit this twice and stopped hand-ordering; this list
+ * now only has to be COMPLETE, which a missing entry makes obvious (rows
+ * survive the reset) rather than silent.
+ */
 const WIPE_ORDER = [
   'event_log', 'order_item_modifiers', 'order_items', 'orders',
   'cart_item_modifiers', 'cart_items', 'carts',
@@ -68,14 +91,26 @@ async function wipe(): Promise<void> {
   });
   await owner.connect();
   try {
-    // One statement, not fifty round trips. TENANT_ID is a hardcoded constant
-    // in this file, never user input, so interpolating it is safe — and a
-    // parameterised multi-statement query is not allowed by pg anyway.
+    /**
+     * FK triggers are suspended for this connection, the same way the
+     * integration fixtures do it — so the delete order cannot be wrong.
+     *
+     * `session_replication_role = replica` is owner-only, this script already
+     * connects as the owner, and it is restored immediately. The application
+     * may never do this; a dev script that wipes one hardcoded demo tenant is
+     * exactly where it belongs.
+     *
+     * One statement, not fifty round trips. TENANT_ID is a constant in this
+     * file, never user input, so interpolating it is safe — and pg does not
+     * allow parameters in a multi-statement query anyway.
+     */
+    await owner.query(`SET session_replication_role = replica`);
     const statements = WIPE_ORDER
       .map((t) => `DELETE FROM ${t} WHERE tenant_id = '${TENANT_ID}';`)
       .join('\n');
     await owner.query(`${statements}\nDELETE FROM tenants WHERE id = '${TENANT_ID}';`);
   } finally {
+    await owner.query(`SET session_replication_role = origin`).catch(() => {});
     await owner.end();
   }
 }
@@ -145,13 +180,8 @@ async function main(): Promise<void> {
     }
 
     // ── Three in-house stays ────────────────────────────────────────────────
-    const guestSeeds = [
-      { name: 'Anjali Menon',  phone: '+919820011111', room: '214' },
-      { name: 'Thomas Beckett', phone: '+919820022222', room: '105' },
-      { name: 'Rhea Kapoor',   phone: '+919820033333', room: '301' },
-    ];
     const stayIds = new Map<string, string>();
-    for (const g of guestSeeds) {
+    for (const g of DEMO_GUESTS) {
       // Loud rather than a NOT NULL violation forty lines later.
       if (!provisioned.roomIds.has(g.room)) {
         throw new Error(
@@ -303,6 +333,14 @@ async function main(): Promise<void> {
         tenantId: TENANT_ID,
         propertyId: provisioned.propertyId,
         qrCodes: Object.fromEntries(provisioned.qrCodes),
+        // The e2e suite needs these to answer the one verification prompt
+        // (D-012). Demo data, in a gitignored file, for a demo property.
+        guests: Object.fromEntries(
+          DEMO_GUESTS.map((g) => [g.room, {
+            name: g.name,
+            phoneLast4: g.phone.replace(/\D/g, '').slice(-4),
+          }]),
+        ),
         staffPassword: DEMO_PASSWORD,
         staff: DEMO_STAFF.map((s) => ({ role: s.role, email: s.email })),
       },

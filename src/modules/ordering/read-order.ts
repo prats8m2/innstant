@@ -97,6 +97,11 @@ export async function getOrderForStay(
         priceDeltaMinor: orderItemModifiers.priceDeltaMinor,
       }).from(orderItemModifiers)
         .where(inArray(orderItemModifiers.orderItemId, items.map((i) => i.id)))
+        // Deterministic, because a receipt that lists the same two modifiers in
+        // a different order on a second read looks unreliable. `created_at` is
+        // not the key: they are inserted in one transaction and share a
+        // timestamp to the microsecond.
+        .orderBy(asc(orderItemModifiers.nameSnapshot))
     : [];
 
   return {

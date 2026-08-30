@@ -5,7 +5,10 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import {
+  resolveGuestSession, GUEST_SESSION_COOKIE,
+  requireTier, startPhoneLast4Challenge, answerChallenge,
+} from '@/modules/access';
 import { setCartItemQuantity, removeCartItem, placeOrder } from '@/modules/ordering';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -29,6 +32,20 @@ const EditLine = z.object({
 
 export interface CartEditState {
   error?: string;
+  /**
+   * Set when sending hit the product's ONE verification prompt (D-012).
+   *
+   * Its presence is what makes the screen show the prompt instead of the send
+   * button. Everything needed to finish the original action is carried in it —
+   * including the idempotency key, so a guest who tapped Send twice before
+   * verifying still gets one order (#8).
+   */
+  escalation?: {
+    challengeId: string;
+    escalationId: string;
+    idempotencyKey: string;
+    attemptsLeft?: number;
+  };
 }
 
 async function withStay<T>(
@@ -132,34 +149,141 @@ export async function sendOrder(
 
   let orderId: string;
   try {
-    const store = await cookies();
-    const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
-    if (!session) throw new UnauthenticatedError('no guest session');
+    const session = await currentSession();
 
-    const placed = await withTenant(
-      { tenantId: session.tenantId, propertyId: session.propertyId },
-      (tx) => placeOrder(tx, {
-        tenantId: session.tenantId,
-        propertyId: session.propertyId,
-        stayId: session.stayId,
-        roomNumber: session.roomNumber,
-        idempotencyKey: parsed.data.idempotencyKey,
-        guestSessionId: session.id,
-      }),
-    );
+    /**
+     * D-012, and the single most important branch in the product.
+     *
+     * An insufficient tier does NOT 403 here. A bare scan grants REQUEST and
+     * browsing was never gated (#9); this is the first moment money is about to
+     * move, which is exactly where the one prompt belongs. The guest is asked
+     * one question and then let through — a refusal here would be the design
+     * that was built, rejected and removed.
+     */
+    const check = await requireTier(session, 'place_order');
+    if (check.required) {
+      const challengeId = await startPhoneLast4Challenge(session);
+      logger.info(
+        { escalationId: check.escalationId, from: check.fromTier, to: check.toTier },
+        'escalation prompted',
+      );
+      return {
+        escalation: {
+          challengeId,
+          escalationId: check.escalationId,
+          idempotencyKey: parsed.data.idempotencyKey,
+        },
+      };
+    }
 
-    logger.info(
-      { orderNumber: placed.orderNumber, replay: placed.wasAlreadyPlaced },
-      'order placed',
-    );
-
-    revalidatePath(`/r/${parsed.data.qrCode}/menu`);
-    orderId = placed.orderId;
+    orderId = await send(session, parsed.data.qrCode, parsed.data.idempotencyKey, session.accessTier);
   } catch (error) {
     return handle(error);
   }
 
-  // Outside the try: redirect() throws a control-flow signal that must not be
-  // caught and reported to the guest as a failure.
   redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}/order/${orderId}`);
+}
+
+const VerifyAndSend = z.object({
+  qrCode: z.string().min(1).max(64),
+  challengeId: z.uuid(),
+  escalationId: z.uuid(),
+  idempotencyKey: z.uuid(),
+  answer: z.string().min(1).max(8),
+});
+
+/**
+ * Answer the prompt, and then finish what the guest was doing.
+ *
+ * Verifying and then making them press Send again would turn one interruption
+ * into two. The order is placed in the same request, with the SAME idempotency
+ * key the send carried, so the whole detour is still one order.
+ */
+export async function verifyAndSend(
+  _previous: CartEditState,
+  formData: FormData,
+): Promise<CartEditState> {
+  const parsed = VerifyAndSend.safeParse({
+    qrCode: formData.get('qrCode'),
+    challengeId: formData.get('challengeId'),
+    escalationId: formData.get('escalationId'),
+    idempotencyKey: formData.get('idempotencyKey'),
+    answer: formData.get('answer'),
+  });
+  if (!parsed.success) {
+    return { error: 'Enter the last four digits of the phone number on your booking.' };
+  }
+
+  const carry = {
+    challengeId: parsed.data.challengeId,
+    escalationId: parsed.data.escalationId,
+    idempotencyKey: parsed.data.idempotencyKey,
+  };
+
+  let orderId: string;
+  try {
+    const session = await currentSession();
+    const result = await answerChallenge(
+      session,
+      parsed.data.challengeId,
+      parsed.data.answer,
+      parsed.data.escalationId,
+    );
+
+    if (!result.ok) {
+      // Still escalating — the prompt stays, with the count. Saying how many
+      // attempts remain is the difference between a form and a dead end.
+      return {
+        escalation: { ...carry, attemptsLeft: result.attemptsLeft },
+        error: result.attemptsLeft === 1
+          ? 'That does not match. One more attempt before this room is locked for 30 minutes.'
+          : 'That does not match the number on your booking. Try again.',
+      };
+    }
+
+    logger.info({ escalationId: parsed.data.escalationId }, 'escalation succeeded');
+    orderId = await send(session, parsed.data.qrCode, parsed.data.idempotencyKey, result.newTier!);
+  } catch (error) {
+    const handled = handle(error);
+    // Keep the prompt on screen for anything the guest can retry — a lockout
+    // message under a vanished form is not actionable.
+    return { ...handled, escalation: carry };
+  }
+
+  redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}/order/${orderId}`);
+}
+
+/** Resolve the guest session, or say plainly that there is not one. */
+async function currentSession() {
+  const store = await cookies();
+  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  if (!session) throw new UnauthenticatedError('no guest session');
+  return session;
+}
+
+async function send(
+  session: Awaited<ReturnType<typeof currentSession>>,
+  qrCode: string,
+  idempotencyKey: string,
+  accessTier: Parameters<typeof placeOrder>[1]['accessTier'],
+): Promise<string> {
+  const placed = await withTenant(
+    { tenantId: session.tenantId, propertyId: session.propertyId },
+    (tx) => placeOrder(tx, {
+      tenantId: session.tenantId,
+      propertyId: session.propertyId,
+      stayId: session.stayId,
+      roomNumber: session.roomNumber,
+      idempotencyKey,
+      guestSessionId: session.id,
+      accessTier,
+    }),
+  );
+
+  logger.info(
+    { orderNumber: placed.orderNumber, replay: placed.wasAlreadyPlaced },
+    'order placed',
+  );
+  revalidatePath(`/r/${qrCode}/menu`);
+  return placed.orderId;
 }

@@ -271,6 +271,45 @@
   letter-spacing: 0.06em;
 }
 
+/* ── The one verification prompt (D-012) ────────────────────────────────── */
+.verify { margin-top: var(--space-5); }
+
+.verifyWhy {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.verifyLabel { display: block; }
+
+.verifyLabelText {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+/* Wide letter spacing and a large face: four digits typed on a phone, at
+   night, by someone who wants their dinner. */
+.verifyInput {
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--plaster) 20%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-2xl);
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+.verifyInput::placeholder { color: var(--plaster-faint); }
+
 /* The single most reassuring sentence on the screen, and it is literal. */
 .folioNote {
   margin: var(--space-5) 0 0;
