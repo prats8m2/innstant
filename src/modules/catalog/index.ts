@@ -1,8 +1,10 @@
 export { createOutlet, seedMenu, DEFAULT_IRD_HOURS } from './provision';
-export { getMenu, getInRoomDiningMenu, getInRoomDiningOutlet, getDish } from './menu';
+export {
+  getMenu, getInRoomDiningMenu, getInRoomDiningOutlet, getDish, getCartPricing,
+} from './menu';
 export type {
   OutletMenu, MenuSection, MenuDish,
-  DishDetail, DishModifierGroup, DishModifierOption,
+  DishDetail, DishModifierGroup, DishModifierOption, CartPricing,
 } from './menu';
 export type { OutletHoursSeed } from './provision';
 export {

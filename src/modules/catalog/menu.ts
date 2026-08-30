@@ -460,3 +460,67 @@ export async function getDish(
     modifierGroups: [...groups.values()],
   };
 }
+
+/**
+ * Prices for a set of items and modifier options, in two round trips.
+ *
+ * Exists so `ordering` can price a whole cart without importing catalog's
+ * tables (D-001) and without a `getDish()` per line — a cart of six dishes
+ * would otherwise be twelve queries.
+ */
+export interface CartPricing {
+  items: Map<string, { name: string; priceMinor: number; currency: string; isAvailable: boolean }>;
+  options: Map<string, { name: string; priceDeltaMinor: number; isAvailable: boolean }>;
+}
+
+export async function getCartPricing(
+  tx: Tx,
+  input: { propertyId: string; itemIds: readonly string[]; optionIds: readonly string[] },
+): Promise<CartPricing> {
+  const items: CartPricing['items'] = new Map();
+  const options: CartPricing['options'] = new Map();
+
+  if (input.itemIds.length) {
+    const rows = await tx
+      .select({
+        id: menuItems.id,
+        name: menuItems.name,
+        priceMinor: menuItems.priceMinor,
+        currency: menuItems.currency,
+        isAvailable: menuItems.isAvailable,
+      })
+      .from(menuItems)
+      .where(and(
+        eq(menuItems.propertyId, input.propertyId),
+        inArray(menuItems.id, [...input.itemIds]),
+        isNull(menuItems.archivedAt),
+      ));
+    for (const r of rows) {
+      items.set(r.id, {
+        name: r.name, priceMinor: r.priceMinor, currency: r.currency, isAvailable: r.isAvailable,
+      });
+    }
+  }
+
+  if (input.optionIds.length) {
+    const rows = await tx
+      .select({
+        id: modifierOptions.id,
+        name: modifierOptions.name,
+        priceDeltaMinor: modifierOptions.priceDeltaMinor,
+        isAvailable: modifierOptions.isAvailable,
+      })
+      .from(modifierOptions)
+      .where(and(
+        inArray(modifierOptions.id, [...input.optionIds]),
+        isNull(modifierOptions.archivedAt),
+      ));
+    for (const r of rows) {
+      options.set(r.id, {
+        name: r.name, priceDeltaMinor: r.priceDeltaMinor, isAvailable: r.isAvailable,
+      });
+    }
+  }
+
+  return { items, options };
+}
