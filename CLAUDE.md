@@ -117,10 +117,20 @@ request-handling code.
 role. If you ever find RLS "not working", check which role is connected before
 changing a policy.
 
-### 3. PgBouncer runs in transaction pooling mode
+### 3. Never issue a bare `SET` — always `set_config(..., true)` inside a transaction
 
-`SET LOCAL` is transaction-scoped. In session mode it leaks between requests.
-Never issue a bare `SET`; always `set_config(..., true)` inside a transaction.
+**Superseded in part by D-022: there is no PgBouncer.** The app connects
+directly to Postgres, and the connection pool is node-postgres inside our own
+process.
+
+The rule itself is unchanged and still load-bearing. Our pool reuses
+connections across requests, so a session-scoped `SET` leaks from one guest's
+request into the next one that picks up that connection — a cross-tenant leak
+with no error attached. `set_config(..., true)` is transaction-scoped and
+cannot. `withTenant()` is the only place this is done.
+
+Keeping the discipline also means a pooler can be put back later without
+touching a line of application code.
 
 ### 4. Stays are created in exactly one place
 

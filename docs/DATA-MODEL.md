@@ -49,10 +49,16 @@ export async function withTenant<T>(
 
 Two gotchas that will bite you:
 
-- **`SET LOCAL` is transaction-scoped.** With PgBouncer in transaction pooling
-  mode this is correct and safe. In session mode it leaks across requests. Use
-  transaction pooling, or `set_config(..., true)` inside an explicit transaction
-  as above — never a bare `SET`.
+- **`SET LOCAL` is transaction-scoped.** Always `set_config(..., true)` inside
+  an explicit transaction, never a bare `SET`. There is no PgBouncer (D-022),
+  but node-postgres reuses connections across requests, so a session-scoped
+  setting still leaks from one guest's request into the next one that picks up
+  that connection.
+- **After the transaction commits the GUC reverts to the EMPTY STRING, not to
+  unset.** `''::uuid` raises, so every policy wraps it in
+  `nullif(current_setting('app.tenant_id', true), '')` — otherwise a query
+  outside `withTenant()` fails with a cast error instead of returning nothing.
+  See D-020.
 - **Table owners and superusers bypass RLS silently.** The app connects as
   `app_user`, which owns nothing and lacks `BYPASSRLS`. Migrations run as a
   different role. If you skip this, RLS is decorative.

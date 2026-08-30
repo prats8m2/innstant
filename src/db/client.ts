@@ -42,10 +42,10 @@ if (!connectionString) {
 /**
  * Module-private on purpose — see the note above.
  *
- * `max` is deliberately small: PgBouncer holds the real fan-out, and a large
- * client-side pool in front of a pooler just moves the queue. D-002's
- * persistent Node process means this pool is created once per process, not
- * per request — the thing serverless cannot do.
+ * There is no external pooler (D-022) — this IS the pool. D-002's persistent
+ * Node process means it is created once per process rather than per request,
+ * which is the thing serverless cannot do. `max` is kept modest because
+ * Postgres spends roughly 10MB per connection and idle ones are pure cost.
  */
 const pool = new pg.Pool({
   connectionString,
@@ -54,9 +54,6 @@ const pool = new pg.Pool({
   connectionTimeoutMillis: 10_000,
   // Railway requires TLS; its proxy certificate is not in the system CA store.
   ssl: { rejectUnauthorized: false },
-  // PgBouncer in transaction mode cannot carry named prepared statements
-  // between transactions. node-postgres uses unnamed statements by default;
-  // this is here so nobody "optimises" it on later.
   statement_timeout: Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? 15_000),
 });
 
@@ -111,11 +108,11 @@ function assertUuid(value: string, field: string): void {
  * RLS policies read.
  *
  * `set_config(..., true)` — the `true` is `is_local`, scoping the setting to
- * this transaction. Never a bare `SET`: with PgBouncer in transaction pooling
- * mode the server connection is returned to the pool when the transaction ends,
- * and a session-scoped setting would leak into whichever request picks that
- * connection up next. That is a cross-tenant leak with no error attached to it
- * (CLAUDE.md #3).
+ * this transaction. Never a bare `SET`. There is no PgBouncer (D-022), but the
+ * rule is unchanged and still load-bearing: THIS pool reuses connections across
+ * requests, so a session-scoped setting would leak from one guest's request
+ * into the next request that picks up that connection. A cross-tenant leak with
+ * no error attached to it (CLAUDE.md #3).
  *
  * Note that after the transaction commits the GUC reverts to the EMPTY STRING,
  * not to unset — which is why every policy wraps it in `nullif(..., '')`. See

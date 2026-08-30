@@ -24,9 +24,10 @@ required tests plus the extras below have been verified by hand against the
 live database, but only once, and nothing re-runs them. S4 turns them into a
 CI suite with a Postgres service container.
 
-**S4 is partly blocked:** its `SET LOCAL` leak test is not meaningful until
-`pnpm db:check-pooler` passes — see Blocked below. The other five tests can be
-written now.
+**S4 is no longer blocked.** PgBouncer is out (D-022); the leak test now
+asserts that the tenant context does not survive between two sequential
+requests reusing the same node-postgres connection, which is a real risk with
+our own pool and testable today.
 
 S2a (design tokens) remains independent and unstarted.
 
@@ -44,17 +45,6 @@ S2a (design tokens) remains independent and unstarted.
 
 ## Blocked / open questions
 
-- **PgBouncer is enabled on Railway but the app is not pointed at it yet.**
-  `pnpm db:check-pooler` fails: `DATABASE_URL` is on the direct port and a bare
-  `SET` persists — session-mode behaviour, which is what #3 exists to prevent.
-  **What is needed:** the PgBouncer *service's own* TCP Proxy host:port from
-  Railway (Settings → Networking → TCP Proxy on the PgBouncer service, not the
-  Postgres one), and `POOL_MODE=transaction` in its variables.
-  **S4's leak test means nothing until this passes.**
-- **`DATABASE_LISTEN_URL` is unset.** D-021 — the realtime listener needs a
-  direct connection because `LISTEN/NOTIFY` cannot survive transaction pooling.
-  Not needed until P1, but the variable should be set at the same time as the
-  pooler so it is not discovered mid-P1.
 - **Fonts are not chosen or licensed.** `design/fonts/` is empty. A hotel
   deployment is commercial use — the licence has to be checked and the LICENCE
   file committed next to each `.woff2`. Blocks the end of S2b.

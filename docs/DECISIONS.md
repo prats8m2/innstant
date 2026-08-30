@@ -31,6 +31,9 @@ hotels a scheduled outage; hotel data volumes don't justify it.
 A forgotten `WHERE tenant_id = ...` becomes a returns-nothing bug instead of a
 cross-hotel leak. Requires the app to connect as `app_user` (owns nothing, no
 `BYPASSRLS`) and PgBouncer in transaction pooling mode.
+*Amended by D-022: the `app_user` requirement stands and is what makes this
+work; the PgBouncer requirement does not. The tenant context is still set with
+`set_config(..., true)` inside a transaction, which is what the policies read.*
 
 ### D-006 · `Tenant` and `Property` are separate
 Tenant = customer account and billing relationship. Property = one physical
@@ -134,6 +137,9 @@ rows. `nullif` restores the documented behaviour: return nothing, never
 everything, and never a 500. Verified on PostgreSQL 18.
 
 ### D-021 · Three database connections, because the pooler and `LISTEN/NOTIFY` are incompatible
+> **SUPERSEDED by D-022.** There is no pooler, so there are two connections and
+> the listener uses an ordinary one. Kept because the incompatibility it
+> documents is real and will matter again if PgBouncer is ever reintroduced.
 `DATABASE_URL` (app queries) goes through PgBouncer in transaction pooling mode.
 `DATABASE_MIGRATION_URL` (migrations, owner role) and `DATABASE_LISTEN_URL`
 (the realtime listener, app_user) both go **direct**, bypassing the pooler.
@@ -154,3 +160,36 @@ block in `0001` want one uninterrupted session.
 is infrastructure rather than code. `pnpm db:check-pooler` is the compensating
 control — it proves transaction mode is actually in effect rather than assumed,
 and S4's `SET LOCAL` leak test is not meaningful until it passes.
+
+### D-022 · No PgBouncer — SUPERSEDES the pooling half of CLAUDE.md #3 and all of D-021
+The app connects directly to Railway Postgres. Connection pooling is
+node-postgres inside our own process (`max` 10 by default), which the
+persistent Node process of D-002 makes viable — the pool is created once per
+process, not per request.
+
+**Why the reversal.** PgBouncer was carried over from a serverless-shaped
+instinct that D-002 had already rejected. At the scale this product actually
+runs at — one process, a handful of staff screens, a few dozen guest sessions
+per property — a direct connection with a small in-process pool is sufficient,
+and the pooler was costing a Railway service, a third connection string, and a
+class of silent misconfiguration that had already produced two dead ends.
+
+**What it buys, beyond simplicity.** D-021 is dissolved rather than deferred:
+`LISTEN/NOTIFY` cannot survive transaction pooling, so a pooler would have
+forced a separate long-lived direct connection for D-015's realtime layer.
+Without PgBouncer the listener uses an ordinary connection and the whole
+three-URL arrangement collapses back to two.
+
+**What does NOT change.** `withTenant()` still uses `set_config(..., true)`
+inside an explicit transaction, and a bare `SET` is still forbidden. That was
+never really about PgBouncer: node-postgres reuses connections across requests
+too, so a session-scoped setting leaks between guests either way. The rule
+stands on its own, and keeping it means a pooler can be reintroduced later
+without touching application code.
+
+**Cost / when to revisit.** Postgres spends roughly 10MB per connection and
+Railway's default `max_connections` is finite. Revisit when the app runs more
+than one replica, or when idle connections become a measurable share of the
+database's memory. At that point PgBouncer goes back in front of
+`DATABASE_URL` only, and `DATABASE_LISTEN_URL` is reintroduced pointing
+direct — the design is already shaped for it.

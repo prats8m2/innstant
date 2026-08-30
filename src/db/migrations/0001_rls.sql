@@ -11,8 +11,9 @@
 -- DATABASE_MIGRATION_URL; the app connects as app_user.
 --
 -- Policies read `app.tenant_id`, set per transaction by withTenant() using
--- set_config(..., true). Never a bare SET — with PgBouncer in transaction
--- pooling mode a session-scoped GUC leaks across requests (CLAUDE.md #3).
+-- set_config(..., true). Never a bare SET — node-postgres reuses connections
+-- across requests, so a session-scoped GUC leaks from one guest's request into
+-- the next one on that connection (CLAUDE.md #3, D-022).
 --
 -- The nullif() is load-bearing, not defensive noise. After a transaction that
 -- used set_config(..., true) commits, the GUC does NOT revert to unset — it

@@ -25,8 +25,9 @@ Nothing here is demoable. All of it is expensive to retrofit.
 - [ ] Migration runner using the migration role (not `app_user`)
 - [ ] `0001_rls.sql` and `0002_constraints.sql` applied
 - [ ] `withTenant()` helper + a test proving a cross-tenant read returns nothing
-- [ ] PgBouncer transaction pooling verified — a test asserting `SET LOCAL`
-      does not leak between two sequential requests
+- [ ] A test asserting the tenant context does not leak between two sequential
+      requests that reuse the same pooled connection (no PgBouncer — D-022;
+      node-postgres reuses connections, so the leak is still possible)
 
 **Identity & access**
 - [ ] Staff auth: email + password, session cookie
