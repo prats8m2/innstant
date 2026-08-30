@@ -1,0 +1,1 @@
+export { createDefaultAccessPolicy } from './provision';

@@ -19,7 +19,7 @@
     "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "tokens:build": "tsx scripts/build-tokens.ts",
-    "demo:reset": "tsx scripts/demo-reset.ts",
+    "demo:reset": "tsx --env-file=.env scripts/demo-reset.ts",
     "status": "tsx scripts/status.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration"

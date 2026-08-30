@@ -15,6 +15,9 @@ export default defineConfig({
     // They share one database; parallel files would fight over fixtures.
     fileParallelism: false,
     testTimeout: 30_000,
-    hookTimeout: 60_000,
+    // Fixtures now run real provisioning against a REMOTE database. Even
+    // batched that is a few seconds per tenant; a tight timeout here fails the
+    // suite for latency rather than for a defect.
+    hookTimeout: 180_000,
   },
 });

@@ -12,23 +12,34 @@ and this file is stale — fix it.
 **Keep this current.** At the end of a session: move the finished session into
 Done, rewrite `## Now
 
-**P0 · Foundation. S5 is COMPLETE.** 58 unit + 41 integration tests green;
-typecheck, lint and build clean.
+**P0 · Foundation. S6 is COMPLETE.** 58 unit + 47 integration tests green;
+typecheck, lint, build clean. `pnpm demo:reset` runs repeatedly and prints
+working QR codes.
 
-**Next: S6 — property provisioning and the demo seeder.**
-`provisionProperty()` in `modules/identity/` as ONE transaction (property, the
-8 roles via `seedSystemRoles`, floors, rooms, QR codes at version 1, an
-IN_ROOM_DINING outlet with hours, ~20 request types, a default
-`access_policies` row, and the first PROPERTY_ADMIN invite), then
-`pnpm demo:reset` for The Kesari. Write it so tests can call it directly with
-an override object — it is also the integration fixture, and
-`tests/integration/setup.ts` should be rewritten to use it rather than hand-
-rolling rows.
+**Next: S7 — QR resolution, guest sessions, access tiers.**
+`docs/P0-TASKS.md` has the prompt. **Read D-012 and CLAUDE.md #9 and #10 before
+writing a line of it** — this is the session most likely to be built wrong,
+because the obvious implementation (verify on scan) is the one that was
+explicitly rejected.
 
-Then **S7** (QR resolution + guest sessions — read D-012 first), **S8**
-(deploy + CI), and **S2a** (design tokens, still independent and unstarted).
+What S7 must produce:
+- `/r/[code]` resolves publicCode → property + room + active CHECKED_IN stay,
+  rejecting a revoked or version-mismatched QR
+- an anonymous session at `access_policies.base_tier` (REQUEST) with **no
+  verification screen** — `guest_sessions.isAnonymous = true`
+- `requireTier(session, 'CHARGE')` that ESCALATES rather than 403s
+- escalation via PHONE_LAST4 / OTP_SMS, rate limited per room and per phone
+- staff vouching, writing `staff_vouches`, with zero guest-side interaction
+- sessions revoked at checkout; tokens SHA-256 only
 
-**Still not in CI.** Nothing re-runs any suite on push; that is S8.
+Then **S8** (deploy + CI) and **S2a** (design tokens — still unstarted, still
+independent of everything else).
+
+**Still not in CI.** Nothing re-runs any suite on push. That is S8, and until it
+exists the suites are only as good as someone remembering to run them.
+
+**To resume, run `pnpm demo:reset` first** — it prints a live QR URL and the
+staff logins, which is the fastest way to see the current state of the product.
 
 ## Done
 
@@ -37,6 +48,7 @@ Then **S7** (QR resolution + guest sessions — read D-012 first), **S8**
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S6 | _pending_ | `provisionProperty()` as one transaction across four modules via their service interfaces. 23 request types, D-012 access policy, QR at v1, first PROPERTY_ADMIN. `pnpm demo:reset` seeds The Kesari. Integration fixtures rewritten to use real provisioning. |
 | S5 | `2adb1fa` | Argon2id, SHA-256 session tokens, `authorize()` in one place, 8 seeded roles, typed errors mapped to HTTP once, edge-safe middleware. 403 at your property / 404 at another. |
 | S4 | `a667728` | 26 integration tests: cross-tenant reads, the unscoped case, WITH CHECK on INSERT and UPDATE, context non-leakage across pooled connections, event_log append-only, D-007 under real concurrency, and app_user's inability to dismantle its own constraints. |
 | S3b | `61997df` | `withTenant()` + typed `Tx`, `recordEvent(tx, …)`, `src/db/index.ts` public surface. Pool kept unexported; second-pool lint rule. Health endpoint reports real DB state. |
@@ -53,6 +65,26 @@ Then **S7** (QR resolution + guest sessions — read D-012 first), **S8**
   which is right, but if a real hotel is already interested, the four
   objection-killers in P5 (CSV menu import, QR print sheets, WhatsApp alerts,
   daily digest) should be pulled forward. Product decision, not a code one.
+
+---
+
+## Demo credentials (seeded, never real — D-018)
+
+`pnpm demo:reset` wipes and reseeds The Kesari and prints these. Password for
+every staff account is `kesari-demo-2026`.
+
+| Role | Email |
+|---|---|
+| PROPERTY_ADMIN | gm@thekesari.example |
+| FRONT_DESK | frontdesk@thekesari.example |
+| F_AND_B_MANAGER | fnb@thekesari.example |
+| KITCHEN | kitchen@thekesari.example |
+| RUNNER | runner@thekesari.example |
+| HOUSEKEEPING | housekeeping@thekesari.example |
+
+Demo tenant id is fixed at `deadbeef-0000-4000-8000-000000000001` so it is
+identifiable in a shared database. QR codes are regenerated on every reset —
+re-read them from the seeder output, never cache one.
 
 ---
 
@@ -86,6 +118,19 @@ Things that cost time to rediscover.
   the Railway UI is the internal port, correct only for `*.railway.internal`
   hosts (which are unreachable from a laptop). Each service that needs external
   access gets its own TCP Proxy entry with its own generated port.
+- **Provisioning is batched, and must stay batched.** Per-row round trips made
+  `provisionProperty()` O(rooms) network calls — 34 rooms took ~2.5 minutes from
+  a laptop, and a 200-room hotel would have taken fifteen. Rooms, QR codes,
+  request types and role permissions are all bulk inserts now. Onboarding is a
+  sales moment; if you add a per-row loop there, you will not notice locally and
+  it will be very obvious on a real property.
+- **Integration fixtures call `provisionProperty()`**, not hand-rolled inserts.
+  A change that breaks provisioning now breaks the test suite, which is the
+  point. `cleanup()` in tests/integration/setup.ts must track what provisioning
+  creates — a stale entry there surfaces as an FK error in an unrelated test.
+- **Room 214 must exist.** The design reference, the seeded stay and every
+  screenshot are built around Anjali Menon in room 214. `KESARI_ROOMS` has an
+  uneven floor distribution (6/12/14/2 = 34) specifically so 214 is real.
 - The design export is a **compiled** Claude Design bundle with zero CSS custom
   properties. Tokens must be read off the rendered page, not grepped out.
 - **`set_config(..., true)` reverts to the EMPTY STRING after commit, not to

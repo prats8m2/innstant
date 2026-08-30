@@ -22,3 +22,8 @@ export {
 export type { Permission, SystemRoleKey, SystemRole } from './permissions';
 
 export { seedSystemRoles } from './seed-roles';
+
+export { provisionProperty, provisionTenant } from './provision';
+export type {
+  ProvisionPropertyInput, ProvisionedProperty, RoomSeed, RoomTypeSeed, FloorSeed,
+} from './provision';

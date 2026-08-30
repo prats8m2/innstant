@@ -1,4 +1,6 @@
 import pg from 'pg';
+import { withTenant } from '@/db';
+import { provisionProperty } from '@/modules/identity';
 
 /**
  * Integration-test fixtures. These run against a REAL Postgres — the whole
@@ -32,43 +34,57 @@ export interface Fixture {
   roomTypeId: string;
   roomId: string;
   guestId: string;
+  outletId: string;
+  qrCode: string;
 }
 
-/** Two tenants, each a full property, so cross-tenant reads have something to
- *  wrongly return. */
+/**
+ * Builds a tenant through `provisionProperty()` — the SAME function the front
+ * desk and the seeder call (S6).
+ *
+ * These fixtures used to hand-roll rows, which meant the tests exercised a
+ * shape nothing in production ever creates. Now a change that breaks
+ * provisioning breaks the test suite, which is the point.
+ */
 export async function seedTenant(
   owner: pg.Client,
   tenantId: string,
   label: string,
 ): Promise<Fixture> {
-  await owner.query(`INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)`,
+  await owner.query(
+    `INSERT INTO tenants (id, name, slug, status) VALUES ($1, $2, $3, 'ACTIVE')
+     ON CONFLICT (slug) DO NOTHING`,
     [tenantId, `Tenant ${label}`, `t-${label.toLowerCase()}`]);
-  const property = await owner.query<{ id: string }>(
-    `INSERT INTO properties (tenant_id, name, slug, timezone, currency)
-     VALUES ($1, $2, $3, 'Asia/Kolkata', 'INR') RETURNING id`,
-    [tenantId, `Hotel ${label}`, `h-${label.toLowerCase()}`]);
-  const propertyId = property.rows[0]!.id;
 
-  const floor = await owner.query<{ id: string }>(
-    `INSERT INTO floors (tenant_id, property_id, name, level) VALUES ($1,$2,'Ground',0) RETURNING id`,
-    [tenantId, propertyId]);
-  const roomType = await owner.query<{ id: string }>(
-    `INSERT INTO room_types (tenant_id, property_id, name, code) VALUES ($1,$2,'Deluxe','DLX') RETURNING id`,
-    [tenantId, propertyId]);
-  const room = await owner.query<{ id: string }>(
-    `INSERT INTO rooms (tenant_id, property_id, floor_id, room_type_id, number)
-     VALUES ($1,$2,$3,$4,'214') RETURNING id`,
-    [tenantId, propertyId, floor.rows[0]!.id, roomType.rows[0]!.id]);
+  const provisioned = await withTenant({ tenantId }, (tx) =>
+    provisionProperty(tx, {
+      tenantId,
+      name: `Hotel ${label}`,
+      slug: `h-${label.toLowerCase()}`,
+      city: 'Udaipur',
+      roomTypes: [{ code: 'DLX', name: 'Deluxe' }],
+      floors: [{ level: 0, name: 'Ground' }],
+      rooms: [{ number: '214', floorLevel: 0, roomTypeCode: 'DLX' }],
+      adminEmail: `admin@${label.toLowerCase()}.example`,
+    }));
+
+  const details = await owner.query<{ floor_id: string; room_type_id: string }>(
+    `SELECT floor_id, room_type_id FROM rooms WHERE id = $1`,
+    [provisioned.roomIds.get('214')]);
+
   const guest = await owner.query<{ id: string }>(
     `INSERT INTO guests (tenant_id, full_name, phone) VALUES ($1,$2,$3) RETURNING id`,
     [tenantId, `Guest ${label}`, `+9190000000${label === 'A' ? '1' : '2'}`]);
 
   return {
-    tenantId, propertyId,
-    floorId: floor.rows[0]!.id,
-    roomTypeId: roomType.rows[0]!.id,
-    roomId: room.rows[0]!.id,
+    tenantId,
+    propertyId: provisioned.propertyId,
+    floorId: details.rows[0]!.floor_id,
+    roomTypeId: details.rows[0]!.room_type_id,
+    roomId: provisioned.roomIds.get('214')!,
     guestId: guest.rows[0]!.id,
+    outletId: provisioned.outletId,
+    qrCode: provisioned.qrCodes.get('214')!,
   };
 }
 
@@ -77,8 +93,22 @@ export async function cleanup(owner: pg.Client): Promise<void> {
   // query. Order matters — children before parents.
   //
   // event_log has DELETE revoked from app_user, but the owner may clear it.
+  // Children before parents. Provisioning creates far more than the tests do,
+  // so this list must track provisionProperty() — a stale entry here shows up
+  // as a foreign-key error in an unrelated test.
   const tables = [
-    'event_log', 'stays', 'rooms', 'floors', 'room_types', 'guests', 'properties',
+    'event_log',
+    'order_item_modifiers', 'order_items', 'orders',
+    'service_request_items', 'service_requests',
+    'folio_lines', 'folios',
+    'guest_sessions', 'access_escalations', 'verification_challenges',
+    'staff_vouches', 'access_policies',
+    'collection_items', 'collections', 'menu_items', 'menu_categories',
+    'outlet_hours', 'outlets', 'request_types',
+    'stays', 'guest_property_profiles', 'guests',
+    'room_qr_codes', 'rooms', 'floors', 'room_types',
+    'staff_sessions', 'staff_property_roles', 'role_permissions', 'roles', 'staff_users',
+    'properties',
   ];
   for (const table of tables) {
     await owner.query(`DELETE FROM ${table} WHERE tenant_id IN ($1,$2)`, [TENANT_A, TENANT_B]);
