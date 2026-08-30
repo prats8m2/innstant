@@ -17,12 +17,19 @@ stale status file is worse than none.
 
 ## Now
 
-**P0 · Foundation.** S1 and S2a-prep complete. Next session: **S3a — author the
-schema** (`docs/P0-TASKS.md`). It starts by proposing the full table list for
-review before writing a single column; do not skip that review.
+**P0 · Foundation. S3a is IN PROGRESS and paused at its review gate.**
+
+`docs/SCHEMA-PROPOSAL.md` holds the proposed 51-table list and **seven open
+decisions**. Nothing may be written into `src/db/schema/` until those are
+answered — that is S3a's stated done condition, and decision 3 (who owns
+`event_log`) is a genuine conflict between CLAUDE.md #7 and D-001 that must be
+resolved rather than worked around.
+
+After the review: write the schema, then `0001_rls.sql` and
+`0002_constraints.sql`, then S3b.
 
 S2a (extract design tokens from `design/reference/kesari-guest-app.html`) is
-independent of S3a and can be done in either order. Neither needs the database.
+independent and can be done in parallel. Neither needs the database.
 
 ---
 
