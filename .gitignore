@@ -1,0 +1,30 @@
+# env — .env.example is committed, .env is not
+.env
+.env.local
+.env*.local
+
+node_modules/
+.pnpm-store/
+
+.next/
+out/
+build/
+dist/
+
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# NOTE: src/styles/tokens.css and src/lib/theme/types.ts are GENERATED but ARE
+# committed — the S2b CI staleness check regenerates and diffs against them.
+# Never hand-edit either; run pnpm tokens:build.
+
+*.log
+npm-debug.log*
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.tsbuildinfo
