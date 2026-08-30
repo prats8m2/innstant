@@ -37,16 +37,29 @@ Done so far in P1:
 - **The cart** — the pill on the menu and `/r/[qrCode]/cart`, a real route drawn
   as the reference's bottom sheet. Edit quantities, remove a line, see the
   totals. Works with JavaScript off.
+- **`createStay()`** — CLAUDE.md #4 is now enforced rather than asserted. The
+  seeder and both integration suites go through it.
+- **Placement** — `placeOrder()`. Snapshotted (#6), idempotent under a real
+  double-tap (#8), `event_log` in the same transaction (#7), folio line posted.
+  `billing` gets its first service.
+- **The confirmation** — `/r/[qrCode]/order/[orderId]`, read entirely from the
+  order's snapshots.
+
+**The guest ordering path is complete end to end**: scan → browse → dish →
+cart → send → placed, charged to the room. Verified on the built standalone
+server, not just in tests: KE-1186 at ₹1,953, the folio balance recomputed by
+its trigger, one `order.placed` event with actor GUEST.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
-   transaction (#7), folio line posted. `orders` and `order_items` exist and
-   are still unused. **The cart screen has no send button until this lands** —
-   a primary action that does nothing is worse than none.
-2. **Access escalation on the first charge** — the one verification prompt.
-   `modules/access` already has `requireTier` and the escalation flow from S7.
-3. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
+1. **Access escalation on the first charge** — the one verification prompt, and
+   the last piece of D-012 that is designed but not wired. `modules/access` has
+   `requireTier`, `startPhoneLast4Challenge` and the escalation flow from S7;
+   `placeOrder()` does not consult any of it yet, so a bare REQUEST-tier scan
+   can currently charge the room. That is the next thing to fix.
+2. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the order state
+   machine beyond PLACED. Nothing yet moves an order out of PLACED.
+3. **Order tracking** — the `track` screen in the reference, once SSE exists.
 
 **One gap worth naming:** `modules/stay/createStay()` does not exist. CLAUDE.md
 #4 says every stay is created there and nothing else inserts into `stays` — and
@@ -63,6 +76,9 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `2006880` | Send the order and the confirmation screen. Idempotency key minted at render so a double-tap carries one key. Promise time in the property's timezone. |
+| P1 | `4d14eef` | `placeOrder()` — snapshots, idempotency, event log and folio line in one transaction. `billing`'s first service. |
+| P1 | `525b220` | `createStay()` — #4 enforced rather than asserted; `identity` gains findRoomAtProperty(). |
 | P1 | `f55118b` | The cart: pill on the menu, `/r/[qrCode]/cart` as the reference's sheet, edit and remove without JavaScript. `NEXT_DIST_DIR` added so a build stops breaking a running dev server. |
 | P1 | `4243149` | The dish screen: modifiers as real radios, quantity, note, and an Add to order whose total moves live. Fixed a non-idempotent `bundle:static` that served a CSS-less page on any rebuild. |
 | P1 | `25aba20` | The server-side cart, keyed to the stay (#10). `calculateTotals()` pure and unit-tested; live prices, not snapshots; selections re-validated server-side. |
@@ -208,6 +224,15 @@ Things that cost time to rediscover.
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
 
+- **The e2e suite runs fully parallel against ONE database.** Each test that
+  touches a cart uses its own room — 214 for the dish screen, 105 for the cart,
+  301 for placement — because a cart is keyed to the stay (#10). Two tests
+  sharing a room share a cart, and the failure surfaces as a wrong total
+  somewhere unrelated.
+- **A total appears twice on the cart screen** — once in the totals list and
+  once on the send button. `getByText('₹2,415')` matches both and fails as a
+  strict-mode violation, which Playwright reports as "waiting for", so it reads
+  like the value never appeared. Scope to `page.locator('dl')`.
 - **`pkill -f "standalone/server.js"` does NOT match the running server.** It
   renames its process to `next-server (v15.5.24)`, so the pattern misses, the
   old process keeps the port, the new one dies on EADDRINUSE, and you spend a
