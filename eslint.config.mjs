@@ -126,8 +126,14 @@ export default tseslint.config(
   // a connection that withTenant() would hide. Nothing under scripts/ serves a
   // guest request, so the tenant-leak risk the rule guards against does not
   // apply. Do NOT widen this to src/app or src/modules.
+  //
+  // `tests/integration/**` is exempt for the sharpest reason of all: those
+  // tests must connect as raw app_user WITHOUT withTenant, because proving
+  // that an unscoped query returns zero rows is impossible through a helper
+  // that always scopes. The rule would forbid the very test that proves the
+  // rule is not the thing keeping us safe.
   {
-    files: ['src/db/**/*.ts', 'scripts/**/*.ts'],
+    files: ['src/db/**/*.ts', 'scripts/**/*.ts', 'tests/integration/**/*.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
 

@@ -12,24 +12,24 @@ and this file is stale — fix it.
 **Keep this current.** At the end of a session: move the finished session into
 Done, rewrite `## Now
 
-**P0 · Foundation. S3b is COMPLETE. Next: S4 — prove the isolation.**
+**P0 · Foundation. S4 is COMPLETE — the isolation is proven and re-runnable.**
 
-`src/db/client.ts` exposes `withTenant()` and a typed `Tx`; `src/db/events.ts`
-exposes `recordEvent(tx, …)`. The pool is NOT exported — that is the primary
-guard, not the lint rule (see the header comment in client.ts for the three
-layers and why encapsulation beats both alternatives S3b offered).
+`pnpm test:integration` — 26 tests against a real Postgres, covering all six
+of S4's required properties plus the helper layer. `pnpm test` (29 unit tests)
+stays fast and DB-free; the two are separate configs so a green unit run can
+never quietly omit the isolation proofs.
 
-**S4 is the most important session in P0 and it is next.** All six of its
-required tests plus the extras below have been verified by hand against the
-live database, but only once, and nothing re-runs them. S4 turns them into a
-CI suite with a Postgres service container.
+**Next: S5 — staff auth and RBAC.** Argon2id, httpOnly cookie with the token
+hashed at rest, `authorize(session, propertyId, 'resource:action')` in exactly
+one place, and the 8 system roles seeded. S5 asks for the per-role permission
+list to be proposed for review before it is committed — do not skip that.
 
-**S4 is no longer blocked.** PgBouncer is out (D-022); the leak test now
-asserts that the tenant context does not survive between two sequential
-requests reusing the same node-postgres connection, which is a real risk with
-our own pool and testable today.
+Still unstarted and independent: **S2a** (extract design tokens from the
+compiled export), **S6** (provisionProperty + demo seeder), **S7** (QR
+resolution and guest sessions), **S8** (deploy + CI).
 
-S2a (design tokens) remains independent and unstarted.
+**Not yet in CI.** Nothing re-runs any of this on push — that is S8, and until
+it exists the suites are only as good as someone remembering to run them.
 
 ## Done
 
@@ -38,6 +38,7 @@ S2a (design tokens) remains independent and unstarted.
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
 | — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S4 | _pending_ | 26 integration tests: cross-tenant reads, the unscoped case, WITH CHECK on INSERT and UPDATE, context non-leakage across pooled connections, event_log append-only, D-007 under real concurrency, and app_user's inability to dismantle its own constraints. |
 | S3b | `61997df` | `withTenant()` + typed `Tx`, `recordEvent(tx, …)`, `src/db/index.ts` public surface. Pool kept unexported; second-pool lint rule. Health endpoint reports real DB state. |
 | S3a | `6831aa5` | 51 tables across 11 schema files, `0000`/`0001_rls`/`0002_constraints`, migration runner. Applied to Railway. Decisions recorded as D-019, D-020. |
 

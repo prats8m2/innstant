@@ -20,7 +20,9 @@
     "db:studio": "drizzle-kit studio",
     "tokens:build": "tsx scripts/build-tokens.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",
-    "status": "tsx scripts/status.ts"
+    "status": "tsx scripts/status.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "pnpm test && pnpm test:integration"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",
