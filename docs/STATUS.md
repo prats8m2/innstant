@@ -10,7 +10,16 @@ reachable and correctly configured). If the two disagree, the command is right
 and this file is stale — fix it.
 
 **Keep this current.** At the end of a session: move the finished session into
-Done, rewrite `## Now
+Done, rewrite the Now section, and append anything learned to Environment
+notes. A stale status file is worse than none.
+
+> Editing note: do not locate this file's Now heading by searching for the
+> literal string with backticks — that phrase appears in this paragraph too,
+> and splicing on it eats the heading. Match a line that is exactly `## Now`.
+
+---
+
+## Now
 
 **P0 · Foundation. S6 is COMPLETE.** 58 unit + 47 integration tests green;
 typecheck, lint, build clean. `pnpm demo:reset` runs repeatedly and prints
