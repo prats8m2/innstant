@@ -1,7 +1,8 @@
-# env — .env.example is committed, .env is not
-.env
-.env.local
-.env*.local
+# env — .env.example is the ONLY env file that may be committed.
+# Deny-all-then-allow, so a stray .env.bak / .env.save / .env.2 cannot be
+# swept in by `git add -A`. That has already happened once in this repo.
+.env*
+!.env.example
 
 node_modules/
 .pnpm-store/
