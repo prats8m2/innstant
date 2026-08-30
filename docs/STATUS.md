@@ -21,39 +21,51 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 is done. P1 · in-room dining is in progress.**
+**P0 is done. P1 · in-room dining is in progress.** Four of the six guest
+ordering steps are built and green.
 
-The guest menu screen is built and green: `/r/[qrCode]/menu`, rebuilt from the
-design reference as real components, with the sticky category rail and the
-scroll spy. It browses editorially the way the reference does — collections
-first ("From the rooftop", "After 10pm", "Chef Bhairav's table"), categories
-after — and CLAUDE.md #9 holds: prices render for an anonymous REQUEST-tier
-session with no verification screen anywhere.
+Done so far in P1:
+
+- **The menu** — `/r/[qrCode]/menu`. Editorial sections, sticky rail, scroll spy.
+- **Modifier groups** — four reusable groups seeded for The Kesari. "Chilli" is
+  one row shared by seven dishes.
+- **The cart** — `ordering`'s first tables. One per `(stay, outlet)`, live
+  prices rather than snapshots, `calculateTotals()` pure and separately tested.
+- **The dish screen** — `/r/[qrCode]/menu/[itemId]`. Modifiers, quantity, note,
+  and an "Add to order" button whose total moves as you choose. It writes a real
+  cart row; verified end to end against the built standalone server.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **Dish detail** — `/r/[qrCode]/menu/[itemId]`. Modifier groups, quantity,
-   notes. The menu already links to it; the route does not exist yet, so every
-   dish card is currently a 404.
-2. **Server-side cart**, keyed `(stay, outlet)` — the first table `ordering`
-   owns.
-3. **Totals** — subtotal, tax, service charge, delivery fee, tip, all through
-   `src/lib/money.ts`. Every calculation needs a unit test.
-4. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
-   transaction (#7), folio line posted.
-5. **Access escalation on the first charge** — the one verification prompt.
-6. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
+1. **The cart screen** — `/r/[qrCode]/cart`. The service layer is already
+   there (`getCart`, `setCartItemQuantity`, `removeCartItem`); this is the
+   screen, plus the cart pill on the menu, plus the "a dish went unavailable
+   while it sat here" affordance the cart already reports.
+2. **Place order** — idempotent (#8), snapshotted (#6), `event_log` in the same
+   transaction (#7), folio line posted. `orders` and `order_items` exist and
+   are still unused.
+3. **Access escalation on the first charge** — the one verification prompt.
+   `modules/access` already has `requireTier` and the escalation flow from S7.
+4. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, the state machine.
+
+**One gap worth naming:** `modules/stay/createStay()` does not exist. CLAUDE.md
+#4 says every stay is created there and nothing else inserts into `stays` — and
+right now the seeder and both integration suites insert directly. That has to
+land before the folio work in step 2, which is the first thing that really cares
+which stay a charge belongs to.
 
 **Still not deployed.** P0 shipped the Dockerfile, `railway.json` and the CI
 workflow, all verified locally, but this repo has no git remote and there is no
 Railway app service. `pnpm status` reports both under DEPLOY, and
-`docs/DEPLOYMENT.md` has the steps. That is an account-holder task, not a
-code one.
+`docs/DEPLOYMENT.md` has the steps. That is an account-holder task.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `4243149` | The dish screen: modifiers as real radios, quantity, note, and an Add to order whose total moves live. Fixed a non-idempotent `bundle:static` that served a CSS-less page on any rebuild. |
+| P1 | `25aba20` | The server-side cart, keyed to the stay (#10). `calculateTotals()` pure and unit-tested; live prices, not snapshots; selections re-validated server-side. |
+| P1 | `7e22932` | Modifier groups — four reusable ones seeded, `getDish()` reads a dish with its groups in one join. |
 | P1 | `f2b4331` | The guest menu: `getInRoomDiningMenu()`, editorial sections, sticky rail with a scroll spy. Fixed a seeded collection that was silently empty, and an e2e suite that had been asserting S1 behaviour since S7. |
 | S8 | `c370d9a` | GitHub Actions with an ephemeral Postgres (D-024). Pinned three-stage Dockerfile carrying no owner credentials (D-025). `/api/health` reports migration drift by name. Pino + `x-request-id`. Pool drained on SIGTERM. e2e rewritten against the seeded property. |
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
@@ -195,6 +207,15 @@ Things that cost time to rediscover.
   `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
   room resolve to exactly one winner (D-007).
 
+- **Kill the standalone server before `pnpm build`.** A running
+  `node .next/standalone/server.js` holding files while `next build` writes over
+  them leaves `.next` in a state where the next build fails with
+  `PageNotFoundError: Cannot find module for page: /admin`. It is not a code
+  error and no amount of reading the diff finds it — `rm -rf .next` and rebuild.
+- **Never pipe `pnpm build` to /dev/null.** A failed build leaves the previous
+  `.next/standalone` in place, so the server still starts and serves a stale or
+  broken page. One CSS-less screenshot was chased for a while before the
+  swallowed build error turned up.
 - **A guest page that reads the database takes ~3.6s from a laptop and ~0.5s
   in CI.** The menu render is about nine round trips (BEGIN, two `set_config`,
   five SELECTs, COMMIT) and each one is ~350ms to Railway Singapore. In
