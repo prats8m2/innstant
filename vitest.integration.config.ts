@@ -1,5 +1,19 @@
 import { defineConfig } from 'vitest/config';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+
+/**
+ * These tests need DATABASE_URL and DATABASE_MIGRATION_URL, and nothing else in
+ * the chain loads them: `pnpm test:integration` runs vitest directly, not
+ * through `next` or `tsx --env-file`. So the suite failed with "DATABASE_URL is
+ * not set" for anyone who had not exported it into their shell by hand.
+ *
+ * Loaded here, in the config, because Vitest forks its workers from this
+ * process and they inherit its environment. Absent in CI, where the workflow
+ * sets the two URLs directly — hence `-if-exists` semantics rather than a
+ * hard require.
+ */
+if (existsSync('.env')) process.loadEnvFile('.env');
 
 /**
  * Integration tests, separate from the unit config on purpose: these need a

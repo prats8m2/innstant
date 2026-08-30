@@ -18,9 +18,9 @@ playwright-report/
 blob-report/
 .playwright/
 
-# NOTE: src/styles/tokens.css and src/lib/theme/types.ts are GENERATED but ARE
-# committed — the S2b CI staleness check regenerates and diffs against them.
-# Never hand-edit either; run pnpm tokens:build.
+# Written by `pnpm demo:reset` for the e2e suite. Holds live QR codes for
+# whichever database was last seeded — never commit it.
+.demo-seed.json
 
 *.log
 npm-debug.log*

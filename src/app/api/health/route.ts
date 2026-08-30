@@ -30,6 +30,11 @@ export async function GET(): Promise<NextResponse> {
   const log = requestLogger(reqId, { route: '/api/health' });
 
   const [db, migrations] = await Promise.all([pingDatabase(), readMigrationState()]);
+
+  // `migrations` is null when the table does not exist at all — a database
+  // that has never been migrated, or the wrong database entirely. That is a
+  // real state a health check should describe rather than crash on, and with
+  // the connection up it genuinely does mean every migration is pending.
   const applied = migrations?.names ?? [];
   const pending = expected.filter((name) => !applied.includes(name));
 
@@ -49,18 +54,20 @@ export async function GET(): Promise<NextResponse> {
       status: db.ok ? 'up' : 'down',
       latencyMs: db.latencyMs,
     },
-    migrations: migrations
+    // With the database unreachable, migration state is UNKNOWN — not "all
+    // pending". Reporting the full list there reads as a schema problem when
+    // the actual problem is the connection, and that is the wrong thing to
+    // wake someone up about.
+    migrations: db.ok
       ? {
           applied: applied.length,
           expected: expected.length,
           latest: applied.at(-1) ?? null,
-          appliedAt: migrations.appliedAt?.toISOString() ?? null,
+          appliedAt: migrations?.appliedAt?.toISOString() ?? null,
           pending,
           unknown,
         }
-      : // No __drizzle_migrations table at all: never migrated, or connected to
-        // the wrong database entirely.
-        { applied: 0, expected: expected.length, latest: null, appliedAt: null, pending: expected, unknown: [] },
+      : null,
   };
 
   if (!db.ok) log.error({ health: body }, 'health check failed: database unreachable');

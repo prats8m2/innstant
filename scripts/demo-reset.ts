@@ -9,6 +9,8 @@
  * Prints the QR codes and staff logins to stdout, because a demo where you
  * cannot find the URL is not a demo.
  */
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import pg from 'pg';
 import { withTenant, recordEvent, closePool } from '@/db';
 import { dbSsl } from '@/db/ssl';
@@ -281,6 +283,31 @@ async function main(): Promise<void> {
     console.log(`    room ${room}  ${APP_URL}/r/${provisioned.qrCodes.get(room)}`);
   }
   console.log(`\n  ${provisioned.qrCodes.size} QR codes total. Orders KE-1184 (preparing) and KE-1185 (placed) are live.\n`);
+
+  /**
+   * The same facts, machine-readable, for the e2e suite.
+   *
+   * QR codes are regenerated on every reset and must never be cached — so the
+   * e2e tests cannot hardcode one, and they cannot open a database connection
+   * either (they run in Playwright's process, outside the app). This file is
+   * the handoff. It is gitignored: it holds live codes for whatever database
+   * was just seeded.
+   */
+  writeFileSync(
+    join(process.cwd(), '.demo-seed.json'),
+    JSON.stringify(
+      {
+        appUrl: APP_URL,
+        tenantId: TENANT_ID,
+        propertyId: provisioned.propertyId,
+        qrCodes: Object.fromEntries(provisioned.qrCodes),
+        staffPassword: DEMO_PASSWORD,
+        staff: DEMO_STAFF.map((s) => ({ role: s.role, email: s.email })),
+      },
+      null,
+      2,
+    ) + '\n',
+  );
 
   await closePool();
 }

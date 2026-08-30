@@ -1,0 +1,168 @@
+# CI. Everything in "definition of done" (CLAUDE.md, Working style) runs here,
+# on every push and every pull request, because a gate nobody re-runs is a gate
+# that has already been broken.
+#
+# Three jobs, deliberately separate:
+#
+#   checks       — typecheck, lint, unit tests, build. No database. Fast, and
+#                  it is what most pushes actually break.
+#   integration  — the RLS and isolation proofs, against an EPHEMERAL Postgres
+#                  with the two-role setup from CLAUDE.md #2. Never against the
+#                  shared Railway database: these tests wipe tables (D-024).
+#   e2e          — Playwright, including WebKit. Guests are iPhone-heavy and
+#                  WebKit segfaults on some local macOS setups, so CI is the
+#                  only place iOS Safari is actually exercised.
+#
+# There is no "token freshness" check. D-023 removed the token pipeline; the
+# design values live in src/styles/theme.css by hand, and the discipline is
+# guarded by tests/unit/theme-discipline.test.ts, which runs in `checks`.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first one irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Node 18 is past EOL and pnpm 11 refuses to run on it. Kept in step with
+  # .nvmrc — if you change one, change both.
+  NODE_VERSION: '22.23.2'
+
+jobs:
+  checks:
+    name: typecheck · lint · unit · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+
+      # The build imports src/db, which refuses to load without DATABASE_URL —
+      # correctly, since a process that reaches Postgres as the wrong role is
+      # worse than one that will not start. Nothing here connects; the value
+      # only has to parse.
+      - name: Build (standalone)
+        run: pnpm build
+        env:
+          DATABASE_URL: postgres://app_user:build@localhost:5432/build_only
+
+  integration:
+    name: integration (real Postgres, real RLS)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # Match the Railway server version. RLS behaviour is stable across
+        # these, but "it passed on 16" is not an answer when 18 is what runs.
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: guest_services
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # Two roles, exactly as in production (CLAUDE.md #2). app_user owns
+      # nothing and is subject to RLS; postgres owns the tables and runs the
+      # migrations. Running the suite as one role would make every isolation
+      # test pass while proving nothing.
+      DATABASE_URL: postgres://app_user:app_user_ci@localhost:5432/guest_services
+      DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/guest_services
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create app_user (owns nothing, no BYPASSRLS)
+        run: pnpm db:bootstrap
+
+      - name: Apply migrations as the owner
+        run: pnpm db:migrate
+
+      # The suite's timeouts are sized for a database in Singapore. Locally
+      # they are enormous; leaving them means a genuinely hung test takes 90s
+      # to say so, which is an acceptable trade for one config.
+      - run: pnpm test:integration
+
+      - name: Seed the demo property
+        run: pnpm demo:reset
+
+  e2e:
+    name: e2e (Chromium, Pixel 7, iPhone WebKit)
+    runs-on: ubuntu-latest
+    needs: checks
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: guest_services
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://app_user:app_user_ci@localhost:5432/guest_services
+      DATABASE_MIGRATION_URL: postgres://postgres:postgres@localhost:5432/guest_services
+      APP_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm db:bootstrap
+      - run: pnpm db:migrate
+      - run: pnpm demo:reset
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      # playwright.config.ts builds and starts the app itself via `webServer`.
+      - run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

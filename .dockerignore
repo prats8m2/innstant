@@ -1,0 +1,33 @@
+# Keep the build context small and keep secrets out of it. Anything listed
+# here is invisible to `docker build` — including .env, which must never enter
+# an image layer.
+.env*
+!.env.example
+.demo-seed.json
+
+node_modules
+.next
+out
+build
+dist
+
+.git
+.github
+.claude
+
+coverage
+test-results
+playwright-report
+blob-report
+tests
+
+docs
+design
+*.md
+!README.md
+
+*.log
+.DS_Store
+.idea
+.vscode
+*.tsbuildinfo
