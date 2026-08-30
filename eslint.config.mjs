@@ -23,6 +23,11 @@ const MODULES = [
   'housekeeping', 'concierge', 'billing', 'notifications', 'access',
 ];
 
+const NO_SECOND_POOL =
+  'Only src/db may open a database connection. Import withTenant() from ' +
+  '@/db — a second pool would bypass the tenant context that the RLS ' +
+  'policies read (CLAUDE.md #1).';
+
 const TABLES_ARE_PRIVATE =
   'Tables are module-private (D-001). Import the owning module\'s service ' +
   'interface, not src/db/schema.';
@@ -42,6 +47,13 @@ const moduleBoundaries = MODULES.map((name) => {
     files: [`src/modules/${name}/**/*.{ts,tsx}`],
     rules: {
       'no-restricted-imports': ['error', {
+        // Repeated from the global block: flat config resolves a rule to the
+        // LAST matching entry, replacing it wholesale rather than merging, so
+        // omitting these here would silently un-ban them inside every module.
+        paths: [
+          { name: 'pg', message: NO_SECOND_POOL },
+          { name: 'drizzle-orm/node-postgres', message: NO_SECOND_POOL },
+        ],
         patterns: [
           ...(name === 'stay' ? [] : [{
             group: schemaGroup(['stay']),
@@ -85,6 +97,10 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       'no-restricted-imports': ['error', {
+        paths: [
+          { name: 'pg', message: NO_SECOND_POOL },
+          { name: 'drizzle-orm/node-postgres', message: NO_SECOND_POOL },
+        ],
         patterns: [
           { group: schemaGroup(['stay']), message: STAYS_ARE_SEALED },
           {
@@ -102,9 +118,16 @@ export default tseslint.config(
     },
   },
 
-  // src/db owns the schema and may import all of it.
+  // src/db owns the schema and the pool, and may import all of it.
+  //
+  // `scripts/**` is exempt for a narrower reason: those are operational tools
+  // that run outside the request lifecycle and sometimes must test the raw
+  // connection itself — check-pooler.ts exists precisely to assert things about
+  // a connection that withTenant() would hide. Nothing under scripts/ serves a
+  // guest request, so the tenant-leak risk the rule guards against does not
+  // apply. Do NOT widen this to src/app or src/modules.
   {
-    files: ['src/db/**/*.ts'],
+    files: ['src/db/**/*.ts', 'scripts/**/*.ts'],
     rules: { 'no-restricted-imports': 'off' },
   },
 

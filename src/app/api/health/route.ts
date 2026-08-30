@@ -1,22 +1,26 @@
 import { NextResponse } from 'next/server';
+import { pingDatabase } from '@/db';
 
 /**
- * Health check. Route Handler, not a Server Action — this is called by
- * Railway and by uptime monitoring, i.e. a third party. See CLAUDE.md
- * "Conventions".
+ * Health check. A Route Handler, not a Server Action — Railway and uptime
+ * monitoring call this, and those are third parties (CLAUDE.md "Conventions").
  *
- * S8 extends this with DB connectivity and migration state. It reports
- * `db: 'unchecked'` until then rather than claiming a health it has not
- * verified.
+ * Reports database reachability honestly: a 503 when the database is down, so
+ * Railway does not route traffic to a process that cannot serve a menu.
+ * S8 adds migration state.
  */
 export const dynamic = 'force-dynamic';
 
-export function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    version: process.env.npm_package_version ?? '0.0.0',
-    db: 'unchecked',
-    migrations: 'unchecked',
-    uptimeSeconds: Math.round(process.uptime()),
-  });
+export async function GET() {
+  const db = await pingDatabase();
+  return NextResponse.json(
+    {
+      status: db.ok ? 'ok' : 'degraded',
+      version: process.env.npm_package_version ?? '0.0.0',
+      db: db.ok ? 'up' : 'down',
+      dbLatencyMs: db.latencyMs,
+      uptimeSeconds: Math.round(process.uptime()),
+    },
+    { status: db.ok ? 200 : 503 },
+  );
 }

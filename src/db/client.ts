@@ -1,0 +1,172 @@
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { sql } from 'drizzle-orm';
+import pg from 'pg';
+import * as schema from './schema';
+
+/**
+ * The database client. CLAUDE.md #1.
+ *
+ * ─── How the safety here is layered ────────────────────────────────────────
+ *
+ * S3b asks whether unscoped access should be prevented by an ESLint rule or a
+ * runtime guard. The answer is neither, primarily: **the pool is never
+ * exported.** Encapsulation beats both, because there is nothing to forget and
+ * nothing to lint — the unsafe object is not reachable from application code.
+ * A lint rule can be disabled inline; an unexported binding cannot be imported.
+ *
+ * Three layers, weakest last:
+ *
+ *   1. ENCAPSULATION (primary) — `pool` and `db` are module-private. The only
+ *      exported way to reach Postgres is withTenant().
+ *   2. LINT (secondary) — `pg` and `drizzle-orm/node-postgres` may only be
+ *      imported inside `src/db/**`, so nobody can quietly construct a second
+ *      pool that bypasses this file. Enforced in eslint.config.mjs.
+ *   3. RLS (the real backstop) — even if 1 and 2 were both defeated, the
+ *      policies in 0001_rls.sql make an unscoped query return zero rows rather
+ *      than another hotel's data. Verified, not assumed.
+ *
+ * Layer 3 is the one that actually holds the guarantee. 1 and 2 exist so that
+ * a mistake surfaces as a compile error rather than as an empty page in
+ * production.
+ */
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error(
+    'DATABASE_URL is not set. It must point at the app_user role through the ' +
+      'transaction pooler — never the owner role, which would silently bypass ' +
+      'RLS (CLAUDE.md #2).',
+  );
+}
+
+/**
+ * Module-private on purpose — see the note above.
+ *
+ * `max` is deliberately small: PgBouncer holds the real fan-out, and a large
+ * client-side pool in front of a pooler just moves the queue. D-002's
+ * persistent Node process means this pool is created once per process, not
+ * per request — the thing serverless cannot do.
+ */
+const pool = new pg.Pool({
+  connectionString,
+  max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+  // Railway requires TLS; its proxy certificate is not in the system CA store.
+  ssl: { rejectUnauthorized: false },
+  // PgBouncer in transaction mode cannot carry named prepared statements
+  // between transactions. node-postgres uses unnamed statements by default;
+  // this is here so nobody "optimises" it on later.
+  statement_timeout: Number(process.env.DATABASE_STATEMENT_TIMEOUT_MS ?? 15_000),
+});
+
+pool.on('error', (err) => {
+  // An idle client erroring must not take the process down — Railway restarts
+  // Postgres during maintenance and the pool recovers on its own.
+  console.error(JSON.stringify({ level: 'error', msg: 'idle db client error', err: err.message }));
+});
+
+const db = drizzle(pool, { schema, casing: 'snake_case' });
+
+/**
+ * The transaction handle domain services receive.
+ *
+ * Services take a `Tx`, never the pool — that is what makes CLAUDE.md #7
+ * possible: a status change and its `event_log` row are written in the SAME
+ * transaction because they are handed the same object.
+ */
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export interface TenantContext {
+  tenantId: string;
+  /** Optional. Narrows a staff session to one property; guest sessions always
+   *  have it. Policies read it where a table is property-scoped. */
+  propertyId?: string;
+}
+
+/**
+ * Matches what POSTGRES accepts as a uuid, not what RFC 4122 blesses. An
+ * earlier version enforced the version and variant nibbles and rejected
+ * `1111...-1111`, which is every seed fixture and any id minted by a system
+ * that does not use v4. The guard exists to stop an empty or malformed string
+ * reaching set_config — where '' would be silently turned into "match
+ * nothing" by the policy's nullif (D-020) — not to police uuid provenance.
+ */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function assertUuid(value: string, field: string): void {
+  if (!UUID_RE.test(value)) {
+    // set_config takes a string, so a malformed id would otherwise reach the
+    // policy as text and fail there with an opaque cast error — or, worse,
+    // as an empty string, which nullif() turns into "match nothing".
+    throw new TypeError(`${field} must be a UUID, received ${JSON.stringify(value)}`);
+  }
+}
+
+/**
+ * Every database access goes through here. CLAUDE.md #1.
+ *
+ * Opens a transaction and sets `app.tenant_id` / `app.property_id`, which the
+ * RLS policies read.
+ *
+ * `set_config(..., true)` — the `true` is `is_local`, scoping the setting to
+ * this transaction. Never a bare `SET`: with PgBouncer in transaction pooling
+ * mode the server connection is returned to the pool when the transaction ends,
+ * and a session-scoped setting would leak into whichever request picks that
+ * connection up next. That is a cross-tenant leak with no error attached to it
+ * (CLAUDE.md #3).
+ *
+ * Note that after the transaction commits the GUC reverts to the EMPTY STRING,
+ * not to unset — which is why every policy wraps it in `nullif(..., '')`. See
+ * D-020; without that, a query outside this helper fails with a cast error
+ * instead of returning nothing.
+ */
+export async function withTenant<T>(
+  ctx: TenantContext,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  assertUuid(ctx.tenantId, 'tenantId');
+  if (ctx.propertyId !== undefined) assertUuid(ctx.propertyId, 'propertyId');
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT set_config('app.tenant_id', ${ctx.tenantId}, true)`);
+    if (ctx.propertyId !== undefined) {
+      await tx.execute(sql`SELECT set_config('app.property_id', ${ctx.propertyId}, true)`);
+    }
+    return fn(tx);
+  });
+}
+
+/**
+ * Migrations and the provisioning of a brand-new tenant are the only writes
+ * that legitimately have no tenant context yet — you cannot set app.tenant_id
+ * to a tenant that does not exist.
+ *
+ * This is NOT an escape hatch for request-handling code. It is named to be
+ * greppable and it is not exported from src/db/index.ts.
+ */
+export async function withoutTenantForProvisioning<T>(
+  reason: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  if (!reason.trim()) throw new Error('A reason is required — it is written to the log.');
+  console.warn(JSON.stringify({ level: 'warn', msg: 'unscoped db access', reason }));
+  return db.transaction(fn);
+}
+
+/** For graceful shutdown and for tests. */
+export async function closePool(): Promise<void> {
+  await pool.end();
+}
+
+/** Health check only — deliberately does not expose the pool itself. */
+export async function pingDatabase(): Promise<{ ok: boolean; latencyMs: number }> {
+  const started = Date.now();
+  try {
+    await pool.query('SELECT 1');
+    return { ok: true, latencyMs: Date.now() - started };
+  } catch {
+    return { ok: false, latencyMs: Date.now() - started };
+  }
+}
