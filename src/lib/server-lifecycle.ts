@@ -7,7 +7,7 @@
  * bundle; an early `return` does not, since the import still resolves.
  */
 import { logger } from '@/lib/logger';
-import { closePool } from '@/db';
+import { closePool, closeNotifyConnection } from '@/db';
 
 export function startLifecycle(): void {
   logger.info(
@@ -25,6 +25,9 @@ export function startLifecycle(): void {
     shuttingDown = true;
     logger.info({ signal }, 'shutting down: draining the database pool');
     try {
+      // The listener first: it holds an open connection and any SSE stream
+      // feeding off it, and both should stop before in-flight writes finish.
+      await closeNotifyConnection();
       await closePool();
     } catch (err) {
       logger.error({ err: (err as Error).message }, 'pool did not drain cleanly');
