@@ -24,7 +24,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration",
     "design:decode": "tsx scripts/decode-design-export.ts",
-    "bundle:static": "cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null || true"
+    "bundle:static": "rm -rf .next/standalone/.next/static .next/standalone/public && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public 2>/dev/null || true"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.1.0",

@@ -107,6 +107,46 @@ test.describe('a scanned sticker', () => {
     await expect(page.locator('[aria-selected="true"]')).toHaveText('Chef Bhairav');
   });
 
+  test('opens a dish, prices the choice live, and adds it to the order', async ({ page }) => {
+    const code = seed!.qrCodes['214'];
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/menu`);
+
+    await page.getByRole('link', { name: /Laal maas/ }).first().click();
+    await page.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+
+    await expect(page.getByRole('heading', { level: 1 }))
+      .toHaveText('Laal maas with bajra roti');
+
+    // The chef's own recipe is preselected — a guest opts DOWN from the heat,
+    // never in to it.
+    await expect(page.getByRole('radio', { name: 'As the chef makes it' })).toBeChecked();
+
+    const addButton = page.getByRole('button', { name: /Add to order/ });
+    await expect(addButton).toContainText('₹1,150');
+
+    // The button total is the only reason this screen needs JavaScript.
+    await page.getByText('Extra bajra roti').click();
+    await page.getByRole('button', { name: 'One more' }).click();
+    await expect(addButton).toContainText('₹2,480');   // (1150 + 90) x 2
+
+    await addButton.click();
+    await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
+    // Next renders its own always-present, always-empty route announcer with
+    // role="alert" — so this asks for an alert with any content in it.
+    await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0);
+  });
+
+  test('a dish id that is not on this menu is a 404', async ({ page }) => {
+    const code = seed!.qrCodes['214'];
+    // Scan first — without a session the dish route correctly bounces through
+    // the link instead, and this would assert nothing.
+    await page.goto(`/r/${code}`);
+
+    const res = await page.goto(`/r/${code}/menu/00000000-0000-4000-8000-000000000000`);
+    expect(res!.status()).toBe(404);
+  });
+
   test('does not mint a new session on every reload', async ({ page }) => {
     // The redirect hop exists so the cookie survives a refresh. Without it
     // every reload created a guest_sessions row and re-prompted a verified
