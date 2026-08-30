@@ -109,3 +109,26 @@ retention, which is exactly wrong for a sporadically-demoed product.
 `pnpm demo:reset` wipes and reseeds The Kesari (34-key Udaipur haveli) with a
 full menu, ten rooms, in-flight orders and a partial folio. Run before every
 demo. No real guest PII in a free-tier database.
+
+### D-019 · `event_log` and the other cross-cutting tables are exempt from the module boundary
+`event_log`, `idempotency_keys` and `integration_outbox` live in
+`src/db/schema/core.ts`, owned by no module and importable from anywhere.
+
+D-001 says a module's tables are importable only from that module. #7 says every
+status change writes an `event_log` row **in the same transaction**. Those
+conflict for a table that every module must write. Scoping `event_log` to one
+module would mean either breaking #7 or routing every write through another
+module's service.
+
+`src/db/events.ts` exposes `recordEvent(tx, …)`, which takes the caller's
+transaction. Prefer it. **Cost:** the lint rule can enforce that the table is
+reachable, but not that the write happens in the caller's transaction — that
+part is convention, and S4's tests are what actually hold it up.
+
+### D-020 · RLS policies compare against `nullif(current_setting(...), '')`
+After a transaction using `set_config(..., true)` commits, the GUC does not
+revert to unset — it reverts to the **empty string**. `''::uuid` raises 22P02,
+so a policy written as `current_setting('app.tenant_id', true)::uuid` makes any
+query outside `withTenant()` fail with a cast error rather than return zero
+rows. `nullif` restores the documented behaviour: return nothing, never
+everything, and never a 500. Verified on PostgreSQL 18.

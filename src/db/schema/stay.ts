@@ -1,3 +1,119 @@
-// Placeholder — S3a authors the real schema. Present now only so the boundary
-// lint rule has a real module path to resolve against.
-export const stays = {} as const;
+import { sql } from 'drizzle-orm';
+import { pgTable, uuid, text, integer, boolean, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pk, ts, createdAt, updatedAt, tenantId, propertyId, currency } from './_shared';
+import { stayStatus, staySource, checkoutRequestStatus } from './_shared';
+import { rooms } from './identity';
+
+/**
+ * D-007 — Stay is the aggregate root, not Room.
+ *
+ * Rooms are reused. Keying guest data on room_id would show the guest who
+ * checks into 402 on Tuesday the previous occupant's orders, dietary notes and
+ * folio. Keying on stay_id makes that structurally impossible.
+ *
+ * CLAUDE.md #4: every stay in the system is created by ONE function,
+ * modules/stay/createStay(). Front desk, PMS import and the seeder all call it.
+ * When booking arrives it becomes a fourth caller rather than a sixth code path
+ * someone has to find.
+ */
+
+/**
+ * EXTENSION-POINTS §2 — TENANT-scoped, not property-scoped.
+ * A person books before they arrive and may book across a group's properties.
+ * Widening this later means merging duplicate guest rows that already exist
+ * under different properties, then repointing every order, request, stay and
+ * folio at the survivor. There is no clean automated answer to "are these two
+ * Anjali Menons the same person" once the data is real.
+ */
+export const guests = pgTable('guests', {
+  id: pk(),
+  tenantId: tenantId(),
+
+  phone: text('phone'),
+  email: text('email'),
+  fullName: text('full_name').notNull(),
+  preferredLanguage: text('preferred_language').notNull().default('en'),
+
+  /** Present and unused until v2 booking (EXTENSION-POINTS). */
+  passwordHash: text('password_hash'),
+
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  // The key that matters: (tenant_id, phone), never (property_id, phone).
+  uniqueIndex('guests_tenant_phone_uq').on(t.tenantId, t.phone),
+]);
+
+/** Property-specific view of a tenant-wide guest: VIP flag, staff notes,
+ *  charging block, lifetime value. The extra join is the cost of §2. */
+export const guestPropertyProfiles = pgTable('guest_property_profiles', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  guestId: uuid('guest_id').notNull().references(() => guests.id, { onDelete: 'cascade' }),
+
+  isVip: boolean('is_vip').notNull().default(false),
+  chargingBlocked: boolean('charging_blocked').notNull().default(false),
+  staffNotes: text('staff_notes'),
+  dietaryFlags: jsonb('dietary_flags').notNull().default(sql`'[]'::jsonb`),
+
+  lifetimeValueMinor: integer('lifetime_value_minor').notNull().default(0),
+  currency: currency(),
+
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [uniqueIndex('guest_property_profiles_uq').on(t.propertyId, t.guestId)]);
+
+export const stays = pgTable('stays', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  roomId: uuid('room_id').notNull().references(() => rooms.id),
+  guestId: uuid('guest_id').notNull().references(() => guests.id),
+
+  status: stayStatus('status').notNull().default('RESERVED'),
+
+  /** EXTENSION-POINTS §3 — the discriminator and the opaque pointer. Forces
+   *  the branch to exist so booking adds one enum value and one caller. */
+  source: staySource('source').notNull().default('FRONT_DESK'),
+  sourceRefId: text('source_ref_id'),
+
+  checkedInAt: ts('checked_in_at'),
+  checkedOutAt: ts('checked_out_at'),
+  scheduledCheckoutAt: ts('scheduled_checkout_at').notNull(),
+  adults: integer('adults').notNull().default(1),
+  children: integer('children').notNull().default(0),
+
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  // D-007, enforced by the database rather than by discipline. The partial
+  // unique index is added in 0002_constraints.sql — Drizzle cannot express a
+  // WHERE clause on a unique index, so it lives in raw SQL with a test.
+  index('stays_property_status_idx').on(t.propertyId, t.status),
+  index('stays_room_idx').on(t.roomId),
+  index('stays_guest_idx').on(t.guestId),
+]);
+
+export const checkoutRequests = pgTable('checkout_requests', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  stayId: uuid('stay_id').notNull().references(() => stays.id),
+
+  status: checkoutRequestStatus('status').notNull().default('REQUESTED'),
+  requestedCheckoutAt: ts('requested_checkout_at').notNull(),
+
+  /** #5 — integer minor units plus an explicit currency. */
+  feeMinor: integer('fee_minor').notNull().default(0),
+  currency: currency(),
+  /** Front desk may override the tiered fee; both values are kept. */
+  overriddenFeeMinor: integer('overridden_fee_minor'),
+
+  decidedByStaffId: uuid('decided_by_staff_id'),
+  decidedAt: ts('decided_at'),
+  declineReason: text('decline_reason'),
+
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [index('checkout_requests_stay_idx').on(t.stayId, t.status)]);

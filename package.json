@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
+    "db:migrate": "tsx --env-file=.env src/db/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "tokens:build": "tsx scripts/build-tokens.ts",
     "demo:reset": "tsx scripts/demo-reset.ts",

@@ -34,6 +34,7 @@ const STAYS_ARE_SEALED =
 const schemaGroup = (names) =>
   names.flatMap((m) => [`**/db/schema/${m}`, `@/db/schema/${m}`]);
 
+
 /** Inside module <name>: its own tables are fine, everyone else's are not. */
 const moduleBoundaries = MODULES.map((name) => {
   const others = MODULES.filter((m) => m !== name);
@@ -86,7 +87,16 @@ export default tseslint.config(
       'no-restricted-imports': ['error', {
         patterns: [
           { group: schemaGroup(['stay']), message: STAYS_ARE_SEALED },
-          { group: ['**/db/schema/*', '@/db/schema/*'], message: TABLES_ARE_PRIVATE },
+          {
+            group: ['**/db/schema/*', '@/db/schema/*'],
+            // D-019 — core.ts is exempt: every module writes event_log in its
+            // own transaction (#7), so scoping it to one module would break
+            // either #7 or D-001. Prefer recordEvent(tx, ...) from
+            // src/db/events.ts; the helper is what keeps the write in the
+            // SAME transaction as the status change, which is #7's real
+            // requirement and is not something the lint rule can enforce.
+            message: TABLES_ARE_PRIVATE,
+          },
         ],
       }],
     },

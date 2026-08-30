@@ -1,8 +1,19 @@
 # S3a · Table list, for review
 
-**Status: awaiting review. No columns written yet.** S3a's done condition is
-that this list is agreed *before* a single column exists — so this file is the
-checkpoint, not a record of something already built.
+**Status: REVIEWED AND BUILT.** All 51 tables exist, migrations are applied to
+Railway, and the isolation properties are verified. Kept as the record of what
+was decided and why.
+
+**Decisions taken:**
+1. `role_permissions` table — as recommended.
+2. `staff_property_roles` join table — as proposed.
+3. **`event_log` exempted from the module boundary** rather than the proposed
+   `recordEvent`-only route. `recordEvent(tx, …)` still ships as the preferred
+   path. Recorded as D-019, including what the exemption cannot enforce.
+4. Carts hold live FKs; snapshots happen at placement — as recommended.
+5. `guest_sessions.access_tier`, escalated in place — as proposed.
+6. **All 51 built, including the P4 itinerary tables.**
+7. No reserved name used — verified against the generated SQL.
 
 Derived from `docs/DATA-MODEL.md`, plus tables that `docs/PROJECT-PLAN.md`,
 `docs/P0-TASKS.md` and `docs/EXTENSION-POINTS.md` require but DATA-MODEL never

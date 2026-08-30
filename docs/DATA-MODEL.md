@@ -1,6 +1,8 @@
 # Data model — hotel guest services platform
 
-Postgres + Drizzle. Multi-tenant from day one. 44 tables across 9 domain modules.
+Postgres + Drizzle. Multi-tenant from day one. 51 tables: 48 across 10 domain
+modules, plus 3 cross-cutting ones in `core.ts` (D-019). The full list and the
+reasoning for the tables this document does not name is in `SCHEMA-PROPOSAL.md`.
 
 ---
 

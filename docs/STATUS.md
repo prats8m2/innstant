@@ -10,28 +10,23 @@ reachable and correctly configured). If the two disagree, the command is right
 and this file is stale — fix it.
 
 **Keep this current.** At the end of a session: move the finished session into
-Done, rewrite `## Now`, and append anything learned to Environment notes. A
-stale status file is worse than none.
+Done, rewrite `## Now
 
----
+**P0 · Foundation. S3a is COMPLETE. Next: S3b — database wiring.**
 
-## Now
+The schema exists and is applied to Railway: 51 tables, 11 enums, 70 indexes,
+58 FKs, RLS enabled and forced on all 51.
 
-**P0 · Foundation. S3a is IN PROGRESS and paused at its review gate.**
+S3b writes `src/db/client.ts` — the pool on `DATABASE_URL` plus the
+`withTenant()` helper (CLAUDE.md #1), and a typed `Tx` so domain services take
+a transaction rather than the pool. Then S4 turns the ad-hoc isolation checks
+below into the real CI suite.
 
-`docs/SCHEMA-PROPOSAL.md` holds the proposed 51-table list and **seven open
-decisions**. Nothing may be written into `src/db/schema/` until those are
-answered — that is S3a's stated done condition, and decision 3 (who owns
-`event_log`) is a genuine conflict between CLAUDE.md #7 and D-001 that must be
-resolved rather than worked around.
+**S4 is the most important session in P0 and it is not done.** The seven
+properties below were verified by hand against the live database, once. They
+are not yet tests, and nothing re-runs them on push.
 
-After the review: write the schema, then `0001_rls.sql` and
-`0002_constraints.sql`, then S3b.
-
-S2a (extract design tokens from `design/reference/kesari-guest-app.html`) is
-independent and can be done in parallel. Neither needs the database.
-
----
+S2a (design tokens) remains independent and unstarted.
 
 ## Done
 
@@ -39,6 +34,8 @@ independent and can be done in parallel. Neither needs the database.
 |---|---|---|
 | — | `9fba2a4` | Docs reconciled with filesystem. DATA-MODEL §3 rewritten to match D-012. `modules/tenancy` → `modules/identity`. P0 split into 10 sessions (added S2a, S3a). git init. |
 | S1 | `57be712` | Next.js App Router scaffold, TS strict, `output: 'standalone'`. Route groups, `/api/health`. Module-boundary ESLint rule + 7 probe tests. `src/lib/money.ts` + 20 tests. Vitest + Playwright. Node pinned to 22. |
+| — | `48dd194` | `docs/STATUS.md` + `pnpm status` — the cross-session resume mechanism. |
+| S3a | _pending_ | 51 tables across 11 schema files, `0000`/`0001_rls`/`0002_constraints`, migration runner. Applied to Railway. Decisions recorded as D-019, D-020. |
 
 ---
 
@@ -86,6 +83,18 @@ Things that cost time to rediscover.
   guards it.
 - The design export is a **compiled** Claude Design bundle with zero CSS custom
   properties. Tokens must be read off the rendered page, not grepped out.
+- **`set_config(..., true)` reverts to the EMPTY STRING after commit, not to
+  unset.** So `current_setting('app.tenant_id', true)::uuid` raises 22P02 and a
+  query outside `withTenant()` fails with a cast error instead of returning
+  zero rows. Every policy wraps it in `nullif(..., '')` — see D-020. This cost
+  a debugging cycle and would have shipped as an intermittent 500.
+- **Verified by hand against the live database (not yet tests — that is S4):**
+  cross-tenant reads return only the caller's rows; a query with no tenant
+  context returns 0 rows without erroring; `WITH CHECK` rejects an INSERT
+  stamped with another tenant's id; `SET LOCAL` does not leak to the next
+  transaction; `event_log` UPDATE/DELETE are revoked from `app_user`;
+  `app_user` cannot disable RLS; and two concurrent `CHECKED_IN` stays on one
+  room resolve to exactly one winner (D-007).
 
 ---
 
