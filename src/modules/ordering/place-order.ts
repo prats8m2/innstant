@@ -162,9 +162,19 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       notes: line.notes,
     }).returning({ id: orderItems.id });
 
-    if (line.modifiers.length) {
+    /**
+     * No-op modifiers are not snapshotted.
+     *
+     * "Nothing" under an optional group costs nothing and means nothing that
+     * absence does not already say — and it would otherwise be printed on every
+     * kitchen ticket and every receipt, forever, as "Ker sangri · Nothing".
+     * The cart filters it from display; the receipt simply does not carry it.
+     */
+    const printable = line.modifiers.filter((m) => !m.isNoOp);
+
+    if (printable.length) {
       await tx.insert(orderItemModifiers).values(
-        line.modifiers.map((modifier) => ({
+        printable.map((modifier) => ({
           tenantId: input.tenantId,
           orderItemId: item!.id,
           modifierOptionId: modifier.optionId,

@@ -13,6 +13,8 @@ export {
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
 export { placeOrder } from './place-order';
+export { getOrderForStay } from './read-order';
+export type { PlacedOrderDetail, PlacedOrderLine } from './read-order';
 export type { PlaceOrderInput, PlacedOrder } from './place-order';
 
 export { calculateTotals, lineTotal } from './totals';

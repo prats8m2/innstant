@@ -5,7 +5,7 @@ import {
   seedMenu, getInRoomDiningMenu, getDish,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
-import { addToCart, getCart, placeOrder } from '@/modules/ordering';
+import { addToCart, getCart, placeOrder, getOrderForStay } from '@/modules/ordering';
 import { getFolioForStay } from '@/modules/billing';
 import { ConflictError } from '@/lib/errors';
 import {
@@ -276,5 +276,60 @@ describe('placeOrder', () => {
     const events = await owner.query(
       `SELECT 1 FROM event_log WHERE tenant_id = $1 AND event_type = 'order.placed'`, [TENANT_A]);
     expect(events.rowCount).toBe(0);
+  });
+
+  it('does not print "Nothing" on a receipt that will outlive the menu', async () => {
+    const nothing = await optionId(laal, 'Nothing');
+    await scoped((tx) => addToCart(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      menuItemId: dish, quantity: 1,
+      modifierOptionIds: [chefOption, nothing],
+    }));
+
+    const placed = await place('no-op');
+    const modifiers = await owner.query(
+      `SELECT om.name_snapshot FROM order_item_modifiers om
+       JOIN order_items oi ON oi.id = om.order_item_id WHERE oi.order_id = $1`,
+      [placed.orderId]);
+
+    // The chilli choice is on the ticket because the kitchen needs it. The
+    // declined extra is not, because absence already says it — and this row
+    // would otherwise be printed on every ticket and receipt forever.
+    expect(modifiers.rows.map((r) => r.name_snapshot)).toEqual(['As the chef makes it']);
+  });
+
+  it('reads the order back from snapshots alone', async () => {
+    await fillCart(2);
+    const placed = await place('read-back');
+
+    const detail = await scoped((tx) =>
+      getOrderForStay(tx, { stayId, orderId: placed.orderId }));
+
+    expect(detail!.orderNumber).toBe(placed.orderNumber);
+    expect(detail!.lines).toHaveLength(1);
+    expect(detail!.lines[0]!.name).toBe(laal);
+    expect(detail!.lines[0]!.quantity).toBe(2);
+    expect(detail!.lines[0]!.modifiers.map((m) => m.name))
+      .toEqual(['As the chef makes it', 'Extra bajra roti']);
+  });
+
+  it('will not hand an order to the room next door', async () => {
+    await fillCart(1);
+    const placed = await place('neighbour');
+
+    const neighbourRoom = await owner.query<{ id: string }>(`
+      INSERT INTO rooms (tenant_id, property_id, floor_id, room_type_id, number, status)
+      VALUES ($1,$2,$3,$4,'216','AVAILABLE') RETURNING id`,
+      [a.tenantId, a.propertyId, a.floorId, a.roomTypeId]);
+    const otherStay = await checkInGuest(a, {
+      roomId: neighbourRoom.rows[0]!.id,
+      name: 'Rhea Kapoor',
+      phone: '+919820033333',
+    });
+
+    // Same hotel, real order id, and still not theirs. The id travels in a URL.
+    const leaked = await scoped((tx) =>
+      getOrderForStay(tx, { stayId: otherStay, orderId: placed.orderId }));
+    expect(leaked).toBeNull();
   });
 });

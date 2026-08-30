@@ -7,6 +7,7 @@ import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { getCart } from '@/modules/ordering';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { LineControls } from './line-controls';
+import { SendOrder } from './send-order';
 import styles from './cart.module.css';
 
 /**
@@ -61,6 +62,11 @@ export default async function CartScreen({
 
   const lines = cart?.lines ?? [];
   const unavailable = lines.filter((l) => !l.isAvailable);
+
+  // One key per render of this screen. Every tap of the button that is on the
+  // page right now sends this same value, which is what makes a double-tap
+  // idempotent rather than a second dinner (#8).
+  const idempotencyKey = crypto.randomUUID();
 
   return (
     <main className={styles.shell}>
@@ -156,8 +162,16 @@ export default async function CartScreen({
                 </p>
               ) : null}
 
-              {/* The send button lands with order placement — see docs/STATUS.md.
-                  A primary action that does nothing is worse than none. */}
+              {/* The key is minted HERE, per render, and travels in the form.
+                  Two taps of the same rendered button carry the same key and
+                  place one order (#8). */}
+              <SendOrder
+                qrCode={qrCode}
+                idempotencyKey={idempotencyKey}
+                total={formatMoney(cart!.totals.total)}
+                roomNumber={session.roomNumber}
+              />
+
               <p className={styles.folioNote}>
                 Nothing is charged to a card. It goes on your folio.
               </p>

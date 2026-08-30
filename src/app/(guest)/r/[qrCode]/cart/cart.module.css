@@ -241,6 +241,36 @@
   color: var(--text);
 }
 
+/* The primary action, in the thumb zone at the bottom of the sheet. */
+.send {
+  width: 100%;
+  min-height: 58px;
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--accent);
+  color: var(--surface);
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.send:hover:not(:disabled) { background: var(--accent-hover); }
+.send:disabled { opacity: 0.7; cursor: progress; }
+
+.sendSub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
 /* The single most reassuring sentence on the screen, and it is literal. */
 .folioNote {
   margin: var(--space-5) 0 0;

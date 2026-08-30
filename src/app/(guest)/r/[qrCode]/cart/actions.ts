@@ -2,10 +2,11 @@
 
 import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { setCartItemQuantity, removeCartItem } from '@/modules/ordering';
+import { setCartItemQuantity, removeCartItem, placeOrder } from '@/modules/ordering';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -103,4 +104,62 @@ function handle(error: unknown): CartEditState {
   }
   logger.error({ err: (error as Error).message }, 'cart edit failed');
   throw error;
+}
+
+/**
+ * Sending the order to the kitchen.
+ *
+ * The idempotency key is minted when the cart screen RENDERS and travels in the
+ * form (#8). That is the whole trick: two taps submit the same form, so they
+ * carry the same key, and `placeOrder()` returns the first order to both
+ * instead of cooking dinner twice. A key generated here, inside the action,
+ * would be different per tap and would defeat the mechanism entirely.
+ */
+const SendOrder = z.object({
+  qrCode: z.string().min(1).max(64),
+  idempotencyKey: z.uuid(),
+});
+
+export async function sendOrder(
+  _previous: CartEditState,
+  formData: FormData,
+): Promise<CartEditState> {
+  const parsed = SendOrder.safeParse({
+    qrCode: formData.get('qrCode'),
+    idempotencyKey: formData.get('idempotencyKey'),
+  });
+  if (!parsed.success) return { error: 'That order could not be sent. Try again.' };
+
+  let orderId: string;
+  try {
+    const store = await cookies();
+    const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+    if (!session) throw new UnauthenticatedError('no guest session');
+
+    const placed = await withTenant(
+      { tenantId: session.tenantId, propertyId: session.propertyId },
+      (tx) => placeOrder(tx, {
+        tenantId: session.tenantId,
+        propertyId: session.propertyId,
+        stayId: session.stayId,
+        roomNumber: session.roomNumber,
+        idempotencyKey: parsed.data.idempotencyKey,
+        guestSessionId: session.id,
+      }),
+    );
+
+    logger.info(
+      { orderNumber: placed.orderNumber, replay: placed.wasAlreadyPlaced },
+      'order placed',
+    );
+
+    revalidatePath(`/r/${parsed.data.qrCode}/menu`);
+    orderId = placed.orderId;
+  } catch (error) {
+    return handle(error);
+  }
+
+  // Outside the try: redirect() throws a control-flow signal that must not be
+  // caught and reported to the guest as a failure.
+  redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}/order/${orderId}`);
 }

@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * The P0 smoke suite: the app boots, the database is migrated, and a printed
@@ -19,6 +19,24 @@ const seedPath = '.demo-seed.json';
 const seed: DemoSeed | null = existsSync(seedPath)
   ? (JSON.parse(readFileSync(seedPath, 'utf8')) as DemoSeed)
   : null;
+
+/**
+ * Clear whatever a previous run left in this room's cart.
+ *
+ * The stepper's minus button is labelled "One fewer X" above a quantity of one
+ * and "Remove X" at one, so clearing a line of two takes two clicks and a
+ * locator that matches both. Matching only /^Remove/ leaves the cart full and
+ * every exact-total assertion downstream fails somewhere unrelated.
+ */
+async function emptyCart(page: Page, code: string): Promise<void> {
+  await page.goto(`/r/${code}/cart`);
+  for (let i = 0; i < 30; i += 1) {
+    const step = page.getByRole('button', { name: /^(Remove|One fewer) / }).first();
+    if (!(await step.count())) break;
+    await step.click();
+    await page.waitForTimeout(250);
+  }
+}
 
 test('health reports the app up, the database up, and no migration drift', async ({ request }) => {
   const res = await request.get('/api/health');
@@ -156,13 +174,11 @@ test.describe('a scanned sticker', () => {
 
     // Start from a known cart. A previous failed run leaves lines behind, and
     // this asserts on exact totals.
-    await page.goto(`/r/${code}/cart`);
-    for (let i = 0; i < 12; i += 1) {
-      const remove = page.getByRole('button', { name: /^Remove / }).first();
-      if (!(await remove.count())) break;
-      await remove.click();
-      await page.waitForTimeout(300);
-    }
+    //
+    // Both labels, because the minus button says "One fewer" until the
+    // quantity is one and "Remove" at one — matching only /^Remove/ silently
+    // fails to clear a line of two, which is exactly how this flaked.
+    await emptyCart(page, code);
 
     await page.goto(`/r/${code}/menu`);
 
@@ -189,14 +205,50 @@ test.describe('a scanned sticker', () => {
     await expect(page.getByText('As the chef makes it')).toBeVisible();
     await expect(page.getByText(/· Nothing/)).toHaveCount(0);
 
+    // Scoped to the totals list: the send button carries the same figure, so a
+    // bare getByText matches twice and fails as a strict-mode violation.
+    const totals = page.locator('dl');
+
     await page.getByRole('button', { name: 'One more Laal maas with bajra roti' }).click();
-    await expect(page.getByText('₹2,415')).toBeVisible({ timeout: 20_000 });  // 2300 + 5%
+    await expect(totals.getByText('₹2,415')).toBeVisible({ timeout: 20_000 });  // 2300 + 5%
 
     // One control, one job: at a quantity of one the minus says Remove.
     await page.getByRole('button', { name: 'One fewer Laal maas with bajra roti' }).click();
-    await expect(page.getByText('₹1,207.50')).toBeVisible({ timeout: 20_000 });
+    await expect(totals.getByText('₹1,207.50')).toBeVisible({ timeout: 20_000 });
     await page.getByRole('button', { name: 'Remove Laal maas with bajra roti' }).click();
     await expect(page.getByText('Nothing in the order yet.')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('sends the order to the kitchen and lands on the confirmation', async ({ page }) => {
+    // Room 301 — its own stay, so this does not race the cart test on 105 or
+    // the dish test on 214 (the suite runs fully parallel against one database).
+    const code = seed!.qrCodes['301'];
+    await page.goto(`/r/${code}`);
+
+    await emptyCart(page, code);
+
+    await page.goto(`/r/${code}/menu`);
+    await page.getByRole('link', { name: /Laal maas/ }).first().click();
+    await page.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await page.getByRole('button', { name: /Add to order/ }).click();
+    await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
+
+    await page.goto(`/r/${code}/cart`);
+    await page.getByRole('button', { name: /Send to the kitchen/ }).click();
+
+    await page.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('It is with the kitchen');
+    await expect(page.getByText(/ORDER KE-\d+/i)).toBeVisible();
+    await expect(page.getByText(/On your folio/)).toBeVisible();
+
+    // Everything on this screen came from the order's snapshots, and the
+    // declined extra is not among them.
+    await expect(page.getByText('As the chef makes it')).toBeVisible();
+    await expect(page.getByText(/· Nothing/)).toHaveCount(0);
+
+    // The cart is empty: the pill must not advertise an order already sent.
+    await page.goto(`/r/${code}/menu`);
+    await expect(page.getByText(/Kitchen open until/)).toBeVisible();
   });
 
   test('does not mint a new session on every reload', async ({ page }) => {

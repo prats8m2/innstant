@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { rooms } from '@/db/schema/identity';
+import { properties, rooms } from '@/db/schema/identity';
 
 /**
  * Room lookups, for the modules that reference a room but do not own it.
@@ -42,6 +42,38 @@ export async function findRoomByNumber(
     .select({ id: rooms.id, number: rooms.number, floorId: rooms.floorId })
     .from(rooms)
     .where(and(eq(rooms.propertyId, input.propertyId), eq(rooms.number, input.number)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * The property's own settings, for the screens that render a time or an amount.
+ *
+ * `timezone` is the one that matters: anything a human sees is rendered in the
+ * PROPERTY's timezone, never the server's (CLAUDE.md "Dates"). A guest in
+ * Udaipur reading "by 3:26 am" because the box is in another region is a bug
+ * that only shows up once the app is deployed somewhere real.
+ */
+export interface PropertySettings {
+  id: string;
+  name: string;
+  timezone: string;
+  currency: string;
+}
+
+export async function findProperty(
+  tx: Tx,
+  propertyId: string,
+): Promise<PropertySettings | null> {
+  const rows = await tx
+    .select({
+      id: properties.id,
+      name: properties.name,
+      timezone: properties.timezone,
+      currency: properties.currency,
+    })
+    .from(properties)
+    .where(eq(properties.id, propertyId))
     .limit(1);
   return rows[0] ?? null;
 }
