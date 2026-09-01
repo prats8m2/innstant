@@ -61,6 +61,11 @@ Done so far in P1:
 - **The runner app** — `/runner`. Trays waiting first, oldest on the pass first,
   "Take it up" recording who is carrying it and "Handed over" marking DELIVERED.
   It is the only thing in the product that can end an order.
+- **The menu editor** — `/admin/menu`, and the ops console shell around it.
+  Sections and dishes in one view, a dish form with modifier groups, the 86
+  switch, close-the-kitchen, and a per-dish audit trail read from `event_log`.
+  A reprice logs both prices. `parseMoneyInput()` is the one place a keyboard
+  becomes minor units.
 
 **P1's exit criterion now runs end to end, in one automated test.** A guest
 orders on a phone, a kitchen accepts and plates it, a runner on a third device
@@ -78,17 +83,22 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **Catalog admin** — outlet, category and item CRUD. The read side is done and
-   nothing can edit a menu except the seeder, so this is the largest remaining
-   P1 item and the first one a hotel would ask for. **Its image-upload half is
-   blocked:** R2 is not configured (`pnpm status` lists `R2_ACCESS_KEY_ID` under
-   "not needed yet"), so build the CRUD against the existing `image_url` /
-   blurhash columns and leave upload behind the credential.
-2. **Kitchen polish, from the P1 checklist** — an audible alert with a
-   persistent unacknowledged count, prep timers that age by colour, and marking
-   an item unavailable from the KDS. All three are things a kitchen asks for in
-   the first week and none of them need a new table.
-3. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
+1. **The rest of the catalog admin.** The menu editor covers the outlet's
+   open/closed switch, sections, dishes and their modifier attachments. Still
+   editable only by the seeder: **modifier groups and their options** (the editor
+   attaches existing groups but cannot create one), **editorial collections**,
+   **outlet hours, fees and tax rates**, and **scheduled availability windows**
+   (`menu_item_availability_windows` is written by nothing). Hours and tax are
+   what a second property needs first.
+2. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
+   lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
+   into the same `image_url` column upload will write; what is missing is the
+   upload route, the enforced aspect ratio and the generated blurhash.
+3. **Kitchen polish, from the P1 checklist** — an audible alert with a persistent
+   unacknowledged count, prep timers that age by colour, and marking an item
+   unavailable from the KDS. The last one is `setMenuItemAvailability()` with a
+   KDS button in front of it; the KITCHEN role already holds the permission.
+4. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
    printed sticker. Everything above is verified on localhost against a docker
    Postgres; the criterion asks for the deployed environment and it is the one
    claim still resting on a laptop.
@@ -121,6 +131,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `89ba116` | The menu editor and the ops console shell. `parseMoneyInput()`. Found a client component pulling `pg` into the browser bundle, and `--plaster-faint` at 2.90:1 on a card. |
 | P1 | `8b8f109` | The runner app — the last hop to delivered. `useLiveRefresh()` extracted; three copies of the SSE transport became one. Found that a Date crossing into a client component arrives as a string. |
 | P1 | `8abc240` | A rejected order takes its own charge back off the folio (D-027), netted and in the same transaction. Six integration tests, including one credit under two simultaneous rejections. |
 | P1 | `6033348` | The guest's tracking screen: the five-step timeline, the arriving-between promise, and `/api/guest/order-stream`. Found that a rejected order leaves its folio line standing, which is now the top of Now. |
@@ -360,6 +371,18 @@ Things that cost time to rediscover.
   `/r/demo-code` and expected the code in the body, which is now a bare 404.
   Nothing caught it because nothing ran it. It now reads `.demo-seed.json`,
   written by `pnpm demo:reset`.
+- **A client component must not import a VALUE from a `modules/*` index.** The
+  index pulls the module's db layer, so `pg` follows it into the browser bundle
+  and the build fails with `Module not found: Can't resolve 'net'` — which reads
+  like a broken dependency rather than what it is. `import type` is fine (types
+  are erased); a runtime constant has to arrive as a prop from the server
+  component. Nothing but `pnpm build` catches this — not typecheck, not lint, not
+  the unit tests. The e2e suite builds, so CI does.
+- **`--plaster-faint` is 45%, and the number matters.** At the 38% it started at
+  it was 2.90:1 on `--ink-600`, under even the 3:1 bar for UI text: one token was
+  doing the job of the reference's two values (.38 over the page, .45–.48 on a
+  card). `tests/unit/theme-contrast.test.ts` pins it now, and states that it may
+  never carry body copy.
 - **A `Date` crossing into a client component arrives as a STRING.** The prop
   type still says `Date`, so `readyAt.getTime()` typechecks, lints, and is a 500
   on the server render — which is how the runner queue shipped broken for one
