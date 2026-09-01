@@ -186,7 +186,47 @@ in a cart outside its window does not price into the total and `Send` refuses it
   cooked or rejected. The button only appears while the ticket is the kitchen's
   (placed or accepted), and only for accounts with `catalog:availability`.
 
-## 10 · The rules that only show up when you break them
+## 10 · Asking for things (P2)
+
+From the room home, two rows go somewhere now.
+
+**Amenities** — `/r/<code>/amenities`.
+
+- Four groups: *Bring me*, *The room*, *Something is not working*, *Services*.
+  Free things say **NO CHARGE**; laundry and the airport transfer carry a price
+  chip, stated before anything is committed.
+- Towels have a stepper (up to four); a sewing kit has an **Ask** toggle. That
+  difference comes from `request_types.allows_quantity` and `max_quantity`.
+- Pick two towels, add a note, and send: no prompt, and the request lands on its
+  own screen with what you asked for and *Nothing to pay*.
+- Pick **Laundry service** (₹450) and send: the one verification prompt appears —
+  the same one dinner uses — and answering it completes the request rather than
+  making you send again. The charge is on the folio (see the snippet below).
+- **Actually, never mind** cancels it while it is live.
+
+**Call for service** — `/r/<code>/service`. One tap, an optional note, and it
+lands on the same screen. Free, so nothing is asked.
+
+Nothing sees these requests on the staff side yet — the board is the next task.
+To confirm one was raised:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ const r=await c.query(`
+   SELECT sr.request_number, sr.status, rm.number AS room, sr.total_minor,
+          sr.sla_target_at, i.label_snapshot, i.quantity
+   FROM service_requests sr
+   JOIN stays s ON s.id = sr.stay_id
+   JOIN rooms rm ON rm.id = s.room_id
+   LEFT JOIN service_request_items i ON i.service_request_id = sr.id
+   ORDER BY sr.created_at DESC LIMIT 10`);
+ console.table(r.rows); await c.end();})();'
+```
+
+## 11 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.

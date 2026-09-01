@@ -102,10 +102,12 @@ a git remote and a Railway app service first (see P0's last item).**
 ## P2 · Amenities & service requests — 3 weeks
 
 - [ ] Request-type catalog admin: SLA, price, routing role, quantity rules
-- [ ] Guest amenity browse — free and chargeable in one list
-- [ ] One-tap service call with live "on the way" state
-- [ ] Text note; photo attachment for maintenance
-- [ ] Request state machine + event log
+- [x] Guest amenity browse — free and chargeable in one list
+- [x] One-tap service call · **[ ] live "on the way" state** — the screen shows
+      the status it was rendered with; SSE on the request channel is next
+- [x] Text note · **[ ] photo attachment** — the column and the per-type rule are
+      wired; uploading is blocked with the rest of images (R2)
+- [x] Request state machine + event log
 - [ ] Auto-routing: role ∩ on-shift ∩ covers floor, ranked by open count
 - [ ] SLA worker: sweep, escalate, notify duty manager
 - [ ] Housekeeping board with SLA countdowns

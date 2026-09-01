@@ -15,184 +15,70 @@ notes. A stale status file is worse than none.
 
 > Editing note: do not locate this file's Now heading by searching for the
 > literal string with backticks — that phrase appears in this paragraph too,
-> and splicing on it eats the heading. Match a line that is exactly `## Now`.
+> and splicing on it eats the heading. Match a line that is exactly `## Now
 
----
+**P0 and P1 are done bar two things that are not code. P2 · amenities and
+service requests has begun,** with its foundation and its whole guest surface.
 
-## Now
+**P1's remaining two:**
 
-**P0 is done. P1 · in-room dining is feature-complete on the guest side.** A
-guest can scan, browse, order with modifiers, answer the one prompt, and watch
-the order move on a live timeline; a kitchen can work the ticket.
-
-Done so far in P1:
-
-- **The menu** — `/r/[qrCode]/menu`. Editorial sections, sticky rail, scroll spy.
-- **Modifier groups** — four reusable groups seeded for The Kesari. "Chilli" is
-  one row shared by seven dishes.
-- **The cart** — `ordering`'s first tables. One per `(stay, outlet)`, live
-  prices rather than snapshots, `calculateTotals()` pure and separately tested.
-- **The dish screen** — `/r/[qrCode]/menu/[itemId]`. Modifiers, quantity, note,
-  and an "Add to order" button whose total moves as you choose.
-- **The cart screen** — the pill on the menu and `/r/[qrCode]/cart`, drawn as
-  the reference's bottom sheet. Works with JavaScript off.
-- **`createStay()`** — CLAUDE.md #4 is enforced rather than asserted. The seeder
-  and both integration suites go through it.
-- **Placement** — `placeOrder()`. Snapshotted (#6), idempotent under a real
-  double-tap (#8), `event_log` in the same transaction (#7), folio line posted.
-- **The one verification prompt (D-012)** — wired to the charge, and completing
-  the order in the same request. `placeOrder()` refuses below CHARGE.
-- **The order state machine** — `advanceOrder()`, compare-and-set, every hop in
-  `event_log`, `pg_notify` inside the same transaction.
-- **LISTEN/NOTIFY → SSE** — its own connection, capped-backoff reconnect,
-  in-process fan-out. `/api/kds/stream`.
-- **The kitchen display** — `/kds`. Live rail, accept / reject with a reason /
-  bump, oldest first.
-- **Staff sign-in** — `/admin/login`.
-- **Order tracking** — `/r/[qrCode]/order/[orderId]`, the reference's `track`
-  screen. `trackView()` maps the machine's eleven statuses onto the five steps
-  a waiting guest wants; `/api/guest/order-stream` is the guest's own SSE route,
-  filtered on `stay_id` and one order id (D-026). A rejection replaces the
-  timeline with one sentence and the kitchen's own words.
-- **The folio follows the order (D-027)** — REJECTED and CANCELLED post a
-  negative `ADJUSTMENT` line in the same transaction as the status change, netted
-  against what is already posted so a second attempt credits nothing. Two
-  tablets rejecting one ticket produce one credit, under real concurrency.
-- **The runner app** — `/runner`. Trays waiting first, oldest on the pass first,
-  "Take it up" recording who is carrying it and "Handed over" marking DELIVERED.
-  It is the only thing in the product that can end an order.
-- **The menu editor** — `/admin/menu`, and the ops console shell around it.
-  Sections and dishes in one view, a dish form with modifier groups, the 86
-  switch, close-the-kitchen, and a per-dish audit trail read from `event_log`.
-  A reprice logs both prices. `parseMoneyInput()` is the one place a keyboard
-  becomes minor units.
-- **The kitchen's hours and rates** — `/admin/outlet`. `outlet_hours` was
-  written by provisioning and read by nothing while both guest screens carried
-  the literal "Kitchen open until 11:30pm"; `lib/clock.ts` and
-  `catalog/hours.ts` are the pure halves of fixing that, and the guest screens
-  read the real rows. The guest home also reads its property's own name and
-  checkout time instead of "The Kesari" and "until Thursday".
-- **Editorial collections** — `/admin/menu/collections`. Name, the editorial
-  line, the window, membership and running order. `collections.available_from` /
-  `available_until` had the same disease as the hours — seeded 22:00–01:00 for
-  "After 10pm" and ignored by the read, so it showed at breakfast. The window is
-  honoured now, and `getInRoomDiningMenu()` REQUIRES property-local time rather
-  than defaulting to the server's clock.
-- **Option groups and their options** — `/admin/menu/options`. Signed price
-  deltas behind `catalog:pricing`, the count of affected dishes on every heading,
-  and a two-step archive for a group dishes carry. **The catalog is no longer
-  seeder-only in any part except images.**
-- **`docs/UI-WALKTHROUGH.md`** — every feature with the exact clicks, the logins,
-  and a snippet for reading the folio (which has no screen until P3). Written to
-  be followed by someone who did not build it; also the demo script.
-- **The sweep** — `charging_blocked`, `max_attempts_per_phone`,
-  `allow_staff_vouch`, `lockout_minutes` and `image_url_snapshot` were stored and
-  ignored; all five are read now. It also turned up a real bug: the verification
-  lockout was written and then thrown over inside the same transaction, so the
-  rate limiter discarded the lockout it announced.
-- **Dish schedules** — `menu_item_availability_windows`, the last of the sweep's
-  stored-and-ignored tables. `isItemOnNow()` is pure and tested; the schedule
-  folds into the same `isAvailable` flag every screen already reads, and
-  `placeOrder()` computes property-local time itself so no caller can forget it.
-  Three schedule rows on the dish form.
-- **The kitchen's own tools** — a count of tickets nobody has accepted, a
-  synthesised alert when that count rises, prep timers ageing against each
-  ticket's own promise, and an 86 button on every line behind
-  `catalog:availability` alone. **P1's Kitchen checklist is complete.**
-
-**P1's exit criterion now runs end to end, in one automated test.** A guest
-orders on a phone, a kitchen accepts and plates it, a runner on a third device
-takes it up and hands it over, and the guest's timeline reaches "At your door"
-and stops streaming. Ticket on the kitchen screen **379ms** after Send, with no
-reload. The charge is on the folio and the event log reads
-`guest_session.escalated`, `order.placed`, `order.accepted`, `order.preparing`,
-`order.ready`, `order.out_for_delivery`, `order.delivered`.
-
-Until this session nothing could mark an order DELIVERED, so the criterion's
-"bump it through to delivered" was not actually reachable. It is now.
-
-What that criterion still wants before it is honestly signed off: **hotel-grade
-wifi and the deployed environment**, not localhost. See the deploy note below.
-
-**P1 has one item left, and it is not code.**
-
-1. **Sign the exit criterion off on the deployed environment.** On Railway, on
+1. **Sign the exit criterion off on the deployed environment** — on Railway, on
    hotel wifi, with a printed sticker. The whole chain passes on localhost in one
-   automated test across three devices; what it has never run on is the thing the
-   criterion actually asks for. This needs a git remote and a Railway app service
-   first — P0's last outstanding item, and an account-holder task.
-2. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
-   lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
-   into the same `image_url` column upload will write, and placement snapshots
-   it; what is missing is the upload route, the enforced aspect ratio and the
-   generated blurhash. It is the only P1 checklist item that is not done.
+   automated test across three devices. It needs a git remote and a Railway app
+   service first, which is P0's last item and an account-holder task.
+2. **Image upload** — blocked on R2 credentials. The dish form writes the same
+   `image_url` column and placement snapshots it; what is missing is the upload
+   route, the aspect ratio and the blurhash. `service_requests.photo_url` now
+   waits on the same thing.
 
-**After that, P2 · amenities and service requests** — and the plan's own advice
-applies: ship P1 to one real floor first. Everything about wifi dead zones, how
-staff hold a tablet, and what a kitchen does when two orders land at once will
-rewrite the P2 assumptions, and building P2 before that means building it twice.
+**What landed in P2 so far:**
 
-**The sweep, and what it found.** The pattern had happened twice — a column
-written by `provisionProperty()` and read by nothing, with a hardcoded literal on
-the screen contradicting it — so it was worth looking properly rather than
-waiting for a third. A script matching every column in `src/db/schema` against
-the rest of the tree found 84 unreferenced columns. Most are for unbuilt phases
-(payments, service requests, POIs, shifts, checkout requests) and are exactly
-where they should be. Five belonged to live features and are fixed (see Done).
+- **The request state machine** — pure, 13 tests. ESCALATED is deliberately not
+  a status (a breached request is usually IN_PROGRESS); CANCELLED is reachable
+  from every live state; OPEN → IN_PROGRESS skips ASSIGNED because picking a job
+  off a board and walking is one decision.
+- **`raiseServiceRequest()`** — placement's four invariants on a path where most
+  requests are free. The tier check is conditional on the total, so towels cost
+  no prompt (#9) and laundry gets the one question (D-012). The SLA target is set
+  from the SLOWEST thing in the request.
+- **`advanceRequest()`** — compare-and-set, event and NOTIFY inside the
+  transaction, and handing back clears the assignee.
+- **The guest screens** — `/amenities` grouped by category with free and
+  chargeable in one list, `/service` as the reference's one tap, and where a
+  request lands with a cancel while it is live.
+- **The room home's rows** are real links where the screen exists and say "soon"
+  where it does not.
 
-Two things learned that outlast the fix:
+Every `request_types` flag the seeder has written since S6 is now read by
+something — nine more of the sweep's write-only columns retired.
 
-- **A write followed by a `throw` in the same transaction discards the write.**
-  That is how the verification lockout came to be announced and then rolled back.
-  A heuristic scan found 29 candidates and only that one was real — everywhere
-  else the write had matched zero rows, so rolling back is correct — but the
-  shape is worth recognising: if an error carries information the database was
-  supposed to keep, the throw belongs outside the transaction.
-- **My previous STATUS said `minimum_order_minor` was "enforced NOWHERE". That
-  was wrong** — `placeOrder()` has always enforced it (place-order.ts). The gap
-  was guest-facing: the cart said nothing until the send was refused. Fixed, and
-  worth noting as a caution about this file: a claim here is only as good as the
-  grep behind it.
+**Next, in P2 order:**
 
-**Still stored and unread, deliberately:** `guest_sessions.last_seen_at` (a write
-on every request for a figure nothing shows — left alone on purpose) and the four
-literal `ROWS` on the room home, which are placeholders for P2 and P3 screens.
-`menu_item_availability_windows` is read now.
+1. **The staff board.** Nothing sees these requests yet: `getOpenRequests()` is
+   written and tested and has no screen. A housekeeping board with SLA
+   countdowns, and a claim-and-complete flow. This is the shortest path to the
+   phase feeling real.
+2. **Shifts, then auto-routing.** `shifts` and `shift_zones` are written by
+   nothing. Routing is role ∩ on-shift ∩ covers-floor ranked by open count
+   (DATA-MODEL §7), so shifts have to exist first — and the exit criterion is
+   "reaches the correct on-duty staff member's phone WITHOUT anyone assigning
+   it", which is this.
+3. **The SLA worker.** A sweep that escalates a breach and notifies the duty
+   manager. `escalated_at` / `escalation_level` are written by nothing; the
+   in-process scheduler is fine (CLAUDE.md — this is a persistent Node process).
+4. **Live "on the way" on the guest screen** — the request channel already
+   publishes; the screen needs the same treatment the order timeline got.
 
-**One literal removed rather than fixed:** "Chef Bhairav Singh" on the menu
-footer. It was one hotel's name in shared code, and there is nowhere for a
-property to say who cooks — `properties.branding` is the obvious home and nothing
-writes it yet. Worth restoring when branding is real, because the reference's
-voice is part of the design.
-
-**A tenancy question is open and deliberately unanswered.** The staff login
-needs to know which tenant a browser is signing in to, and that is part of the
-tenancy model, so it reads `STAFF_TENANT_ID` and refuses to guess. The two real
-answers — a subdomain, or an email → tenant lookup through a SECURITY DEFINER
-function like `resolve_qr_routing()` — are written up in
-`src/app/(admin)/admin/login/actions.ts`. Decide before a second tenant exists.
-
-**Two things still designed but not wired**, both from S7 and both fine to leave
-until they have a screen: `vouchForGuest()` (front desk grants CHARGE with no
-prompt at all — needs the admin panel) and `OTP_SMS` as a second escalation
-method (`access_policies.allow_otp_sms` is read, and no SMS provider is
-configured).
-
-**The tracking screen names no staff.** The reference writes "Bhairav has
-started cooking" and "Kishan is crossing the third courtyard", which is the
-right voice — but a name has to come from a row. When the runner queue lands and
-`assignedRunnerId` is read, put the names back: the copy hooks are in `SUB` in
-`src/modules/ordering/track.ts`.
-
-**Still not deployed.** P0 shipped the Dockerfile, `railway.json` and the CI
-workflow, all verified locally, but this repo has no git remote and there is no
-Railway app service. `pnpm status` reports both under DEPLOY, and
-`docs/DEPLOYMENT.md` has the steps. That is an account-holder task.
+**A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
+before starting P2, because wifi dead zones and how staff hold a tablet will
+rewrite the P2 assumptions. That has not happened; P2 was started on request.
+Worth remembering when the routing rules meet a real corridor.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P2 | `e9e7e51` | The request state machine, `raiseServiceRequest()`, `/amenities` and the one tap. Nine more write-only columns retired. |
 | P1 | `04fe4f1` | Dish schedules, and the kitchen's board: a waiting count, an audible alert, timers ageing against the promise, and 86 from the line. Two more literals on the menu screen went with them. |
 | P1 | `4e2d6c9` | The sweep: five stored-and-ignored settings now read, and a rate limiter that was rolling back its own lockout. |
 | P1 | `d70b306` | Option groups and their options — the last seeder-only part of the catalog. Signed deltas, the shared-dish count on every heading, and `docs/UI-WALKTHROUGH.md`. |
