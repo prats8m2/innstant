@@ -57,28 +57,43 @@ service requests has begun,** with its foundation and its whole guest surface.
   says "on the way" without a reload.
 - **Shifts and auto-routing** — `modules/housekeeping` owns `shifts` and
   `shift_zones`, which nothing wrote before. Routing is role ∩ on-shift ∩
-  covers-floor ranked by open count, and **P2's exit criterion is half met**: a
-  guest asks, a clocked-in housekeeper gets it, the guest reads their name, and
-  nobody tapped anything. Nobody matching leaves the request OPEN and records
-  whether the rota had nobody at all or nobody with the role.
+  covers-floor ranked by open count: a guest asks, a clocked-in housekeeper gets
+  it, the guest reads their name, and nobody tapped anything. Nobody matching
+  leaves the request OPEN and records whether the rota had nobody at all or
+  nobody with the role.
+- **The SLA worker (D-028)** — breaches escalate on a 60-second in-process timer:
+  level 1 tells the assignee, level 2 at ten minutes past tells the duty manager,
+  level 3 at half an hour, then it stops. Escalation is not a status. Migration
+  0004 adds `sla_sweep_properties()`, the second and last unscoped query in the
+  product, because a job on a timer has no request to derive a tenant from.
+- **`modules/notifications`** — rows are written before anything is sent, so "we
+  never told them" and "we told them and their phone was off" stay different
+  problems. Nothing delivers them yet.
 
 Every `request_types` flag the seeder has written since S6 is now read by
 something — nine more of the sweep's write-only columns retired.
 
+**P2's exit criterion is met** — routed without anyone assigning, and breaches
+escalate visibly — **with one honest asterisk: nothing delivers the notification
+row.** A duty manager who is not looking at the board is not actually
+interrupted.
+
 **Next, in P2 order:**
 
-1. **The SLA worker — the other half of the exit criterion.** "Breaches visibly
-   escalate" is not true yet: `slaState()` computes a breach and the board shows
-   it, but nothing sweeps for one, `escalated_at` / `escalation_level` are still
-   written by nothing, and no duty manager is told. The scheduler can live in
-   process (CLAUDE.md — this is a persistent Node process, and D-022 removed the
-   pooler that would have made it awkward). `notifications` is a table nothing
-   writes, so "notify the duty manager" needs deciding: a row plus a screen, or a
-   row plus WhatsApp, which is a P5 objection-killer pulled forward.
+1. **Deliver the notifications.** The rows are there with a PENDING status and a
+   template name. Two options, and it is a product decision:
+   - **In-app** — a bell on the ops console reading `notificationsFor()`, which
+     needs no external service and works today. Modest, honest, and it makes the
+     rows visible.
+   - **WhatsApp** — a P5 objection-killer pulled forward, and the one a GM would
+     actually notice. It needs an external service, which CLAUDE.md says to ask
+     about first.
+   The in-app bell is worth doing either way: it is the fallback when a channel
+   fails, and the drainer needs somewhere to mark things delivered.
 2. **Request-type admin.** SLA, price, routing role and quantity rules are
    editable columns with no screen — a property cannot change "towels in 12
-   minutes" or route maintenance somewhere else without a seeder. The menu editor
-   is the pattern; `request_type:manage` already exists as a permission.
+   minutes" or route maintenance elsewhere without a seeder. The menu editor is
+   the pattern; `request_type:manage` already exists.
 3. **Photo attachment** — `service_requests.photo_url` is read by the board and
    written by nothing. Blocked with the rest of images on R2.
 
@@ -91,6 +106,7 @@ Worth remembering when the routing rules meet a real corridor.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P2 | `784f95f` | The SLA worker (D-028) and `modules/notifications`. Found the duty-manager lookup excluding INVITED admins — a new property's escalations would have gone nowhere. |
 | P2 | `320a3b3` | Shifts, zones, and auto-routing. P2's exit criterion is half met — routed without anyone assigning; breaches do not escalate yet. |
 | P2 | `2e18c03` | The floor board, and the request streams both ways. Found `useLiveRefresh` hardcoding the event name, and a seeded request with no lines. |
 | P2 | `e9e7e51` | The request state machine, `raiseServiceRequest()`, `/amenities` and the one tap. Nine more write-only columns retired. |

@@ -108,7 +108,8 @@ a git remote and a Railway app service first (see P0's last item).**
       wired; uploading is blocked with the rest of images (R2)
 - [x] Request state machine + event log
 - [x] Auto-routing: role ∩ on-shift ∩ covers floor, ranked by open count
-- [ ] SLA worker: sweep, escalate, notify duty manager
+- [x] SLA worker: sweep, escalate, notify duty manager *(the notification is a
+      row; nothing delivers it yet — the channel needs an external service)*
 - [x] Housekeeping board with SLA countdowns
 - [x] Runner/housekeeping mobile view *(the board IS the mobile view — one
       column, phone-first; a dedicated runner variant can come with routing)*
@@ -118,11 +119,17 @@ a git remote and a Railway app service first (see P0's last item).**
 **Exit criterion:** a request raised by a guest reaches the correct on-duty staff
 member's phone without anyone assigning it, and breaches visibly escalate.
 
-**Status: the first half is met** — clocked in for a floor, a housekeeper gets
-the request already assigned and the guest reads their name, with nobody tapping
-anything (`tests/e2e` · "routing a request to whoever is on duty"). The second
-half is not: a breach is visible on the board and in `slaState()`, but nothing
-sweeps for it and nobody is notified. That is the SLA worker, next.
+**Status: met, with one honest asterisk.** Clocked in for a floor, a housekeeper
+gets the request already assigned and the guest reads their name, with nobody
+tapping anything (`tests/e2e` · "routing a request to whoever is on duty"). A
+request that misses its promise escalates on a 60-second timer, the board says
+"Manager told", and a notification row is written for the duty manager — proven
+against the running server, not only in tests.
+
+The asterisk: nothing DELIVERS that row. "Notify the duty manager" means a row
+in `notifications` today, which a screen or a WhatsApp drainer turns into an
+actual interruption. That is the last P2 item and it needs an external service,
+which CLAUDE.md says to ask about.
 
 ---
 

@@ -244,6 +244,35 @@ towels (wrong role), a housekeeper covering only the **third** floor does not ge
 a second-floor request, and with two housekeepers on duty the second request goes
 to whoever is carrying less.
 
+**A breach escalating itself.** The sweep runs every 60 seconds inside the server
+process, so this is a real wait rather than a button:
+
+```
+# Make the seeded request twelve minutes late.
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ await c.query(`UPDATE service_requests SET sla_target_at = now() - interval '"'"'12 minutes'"'"'`);
+ await c.end();})();'
+```
+
+Within a minute the server log says `sla breaches escalated`, and the board's
+card gains **MANAGER TOLD** next to a countdown reading *13m over*. The duty
+manager's notification is a row — nothing delivers it yet, which is the next
+task:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT n.template, n.status, n.payload, su.email
+   FROM notifications n JOIN staff_users su ON su.id = n.recipient_staff_id`)).rows);
+ await c.end();})();'
+```
+
 To see the rows behind it:
 
 ```
