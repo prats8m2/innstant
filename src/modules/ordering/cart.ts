@@ -47,6 +47,9 @@ export interface CartLine {
   notes: string | null;
   /** The dish or one of its modifiers went off the menu while this sat here. */
   isAvailable: boolean;
+  /** Carried so placement can snapshot it (#6) — a receipt shows the dish as it
+   *  was sold. Nothing displays it yet; no screen has images until R2 exists. */
+  imageUrl: string | null;
 }
 
 export interface Cart {
@@ -396,6 +399,7 @@ export async function getCart(
       notes: row.notes,
       isAvailable:
         (item?.isAvailable ?? false) && chosen.every(({ option }) => option?.isAvailable ?? false),
+      imageUrl: item?.imageUrl ?? null,
     };
   });
 

@@ -18,11 +18,14 @@ export function SendOrder({
   idempotencyKey,
   total,
   roomNumber,
+  /** The outlet has a minimum and this order is under it. */
+  belowMinimum = false,
 }: {
   qrCode: string;
   idempotencyKey: string;
   total: string;
   roomNumber: string;
+  belowMinimum?: boolean;
 }) {
   const [state, action] = useActionState<CartEditState, FormData>(sendOrder, {});
 
@@ -48,7 +51,13 @@ export function SendOrder({
         <p className={styles.warning} role="alert">{state.error}</p>
       ) : null}
 
-      <SendButton total={total} roomNumber={roomNumber} />
+      {/*
+        Disabled, not hidden. A guest a few rupees short needs to see the button
+        they are working towards — and the shortfall is printed directly above
+        it. `placeOrder()` refuses regardless, so this is guidance rather than
+        the rule.
+      */}
+      <SendButton total={total} roomNumber={roomNumber} disabled={belowMinimum} />
     </form>
   );
 }
@@ -125,11 +134,26 @@ function VerifyButton({ total }: { total: string }) {
   );
 }
 
-function SendButton({ total, roomNumber }: { total: string; roomNumber: string }) {
+function SendButton({
+  total,
+  roomNumber,
+  disabled = false,
+}: {
+  total: string;
+  roomNumber: string;
+  disabled?: boolean;
+}) {
   // useFormStatus must be inside the form — hence the split.
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={styles.send} disabled={pending}>
+    <button
+      type="submit"
+      className={styles.send}
+      disabled={pending || disabled}
+      // `:disabled` alone would give this the pending cursor, which says
+      // "loading" when the truth is "not yet".
+      data-blocked={disabled && !pending}
+    >
       {pending ? 'Sending…' : `Send to the kitchen · ${total}`}
       <span className={styles.sendSub}>Charged to room {roomNumber}</span>
     </button>

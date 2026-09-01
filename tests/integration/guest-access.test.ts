@@ -5,7 +5,7 @@ import {
   scanQrCode, resolveGuestSession, revokeSessionsForStay, requireTier,
   startPhoneLast4Challenge, answerChallenge, vouchForGuest, QrNotUsableError,
 } from '@/modules/access';
-import { TooManyAttemptsError } from '@/lib/errors';
+import { ForbiddenError, TooManyAttemptsError } from '@/lib/errors';
 import { ownerClient, seedTenant, cleanup, TENANT_A, type Fixture } from './setup';
 
 /**
@@ -236,6 +236,91 @@ describe('S7 · staff vouching — the guest sees no prompt at all', () => {
     const vouch = await owner.query(
       `SELECT granted_tier, reason FROM staff_vouches WHERE tenant_id=$1`, [TENANT_A]);
     expect(vouch.rows[0].granted_tier).toBe('CHARGE');
+  });
+
+  it('refuses when the property has turned vouching off', async () => {
+    await clearSessions();
+    const scan = await scanQrCode(a.qrCode);
+    const staff = await owner.query<{ id: string }>(
+      `SELECT id FROM staff_users WHERE tenant_id=$1 LIMIT 1`, [TENANT_A]);
+
+    // `allow_staff_vouch` exists so a group with a strict finance policy can
+    // insist on the guest's own phone. It sat unread until a sweep found it,
+    // which made the setting decorative.
+    await owner.query(
+      `UPDATE access_policies SET allow_staff_vouch = false WHERE property_id = $1`,
+      [a.propertyId]);
+
+    await expect(vouchForGuest({
+      tenantId: TENANT_A, propertyId: a.propertyId, stayId,
+      staffUserId: staff.rows[0]!.id, guestSessionId: scan.session.id,
+    })).rejects.toBeInstanceOf(ForbiddenError);
+
+    // And the session is untouched — a refused vouch must not half-apply.
+    expect((await resolveGuestSession(scan.cookieValue))?.accessTier).toBe('REQUEST');
+    const vouches = await owner.query(
+      `SELECT id FROM staff_vouches WHERE tenant_id=$1 AND stay_id=$2`,
+      [TENANT_A, stayId]);
+    expect(vouches.rows).toHaveLength(0);
+
+    await owner.query(
+      `UPDATE access_policies SET allow_staff_vouch = true WHERE property_id = $1`,
+      [a.propertyId]);
+  });
+});
+
+describe('S7 · the access policy is read, not decorative', () => {
+  it('takes the challenge attempt budget from the policy, not the column default', async () => {
+    await clearSessions();
+    // Both are 5 by default, which is exactly why nobody noticed the policy was
+    // being ignored: a property that set 3 got 5.
+    await owner.query(
+      `UPDATE access_policies SET max_attempts_per_phone = 2 WHERE property_id = $1`,
+      [a.propertyId]);
+
+    const scan = await scanQrCode(a.qrCode);
+    const challengeId = await startPhoneLast4Challenge(scan.session);
+
+    const row = await owner.query(
+      `SELECT max_attempts FROM verification_challenges WHERE id = $1`, [challengeId]);
+    expect(row.rows[0].max_attempts).toBe(2);
+
+    // And it is the budget the answer path actually spends: one wrong answer
+    // leaves one, and the second crosses the policy's cap and locks the room.
+    const first = await answerChallenge(scan.session, challengeId, '0000');
+    expect(first.attemptsLeft).toBe(1);
+    await expect(answerChallenge(scan.session, challengeId, '0000'))
+      .rejects.toBeInstanceOf(TooManyAttemptsError);
+
+    await owner.query(
+      `UPDATE access_policies SET max_attempts_per_phone = 5 WHERE property_id = $1`,
+      [a.propertyId]);
+  });
+
+  it('locks out for the policy\'s minutes, not a hardcoded thirty', async () => {
+    await clearSessions();
+    await owner.query(
+      `UPDATE access_policies
+         SET max_attempts_per_phone = 1, lockout_minutes = 7
+       WHERE property_id = $1`, [a.propertyId]);
+
+    const scan = await scanQrCode(a.qrCode);
+    const challengeId = await startPhoneLast4Challenge(scan.session);
+
+    await expect(answerChallenge(scan.session, challengeId, '0000'))
+      .rejects.toBeInstanceOf(TooManyAttemptsError);
+
+    const row = await owner.query<{ locked_until: Date }>(
+      `SELECT locked_until FROM verification_challenges WHERE id = $1`, [challengeId]);
+    const minutes = (row.rows[0]!.locked_until.getTime() - Date.now()) / 60_000;
+    // Seven, give or take the round trip — and nowhere near thirty.
+    expect(minutes).toBeGreaterThan(6);
+    expect(minutes).toBeLessThan(8);
+
+    await owner.query(
+      `UPDATE access_policies
+         SET max_attempts_per_phone = 5, lockout_minutes = 30
+       WHERE property_id = $1`, [a.propertyId]);
   });
 });
 

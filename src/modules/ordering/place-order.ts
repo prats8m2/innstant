@@ -5,7 +5,7 @@ import { carts, cartItems, orders, orderItems, orderItemModifiers } from '@/db/s
 import { idempotencyKeys } from '@/db/schema/core';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { postFolioLine } from '@/modules/billing';
-import { dietaryFlagsForStay } from '@/modules/stay';
+import { guestProfileForStay } from '@/modules/stay';
 import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -134,13 +134,31 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
 
   const orderNumber = await nextOrderNumber(tx, input.propertyId);
 
-  // The kitchen must see the allergy that applied ON THE NIGHT, not today's —
-  // so this is copied onto the order, not read through a join later
-  // (DATA-MODEL §4).
-  const dietaryFlags = await dietaryFlagsForStay(tx, {
+  /**
+   * What the property knows about this guest. One read, two uses.
+   *
+   * The kitchen must see the allergy that applied ON THE NIGHT, not today's, so
+   * the flags are copied onto the order rather than joined later
+   * (DATA-MODEL §4).
+   *
+   * And `charging_blocked` is honoured here. It is the flag a front desk sets
+   * when a card has been declined or a guest disputes everything, and it sat in
+   * the schema unread until a sweep found it — a charge path that ignores it
+   * overrules the desk. Checked before anything is written, and phrased so the
+   * guest knows who to talk to rather than being told "no".
+   */
+  const profile = await guestProfileForStay(tx, {
     propertyId: input.propertyId,
     stayId: input.stayId,
   });
+
+  if (profile.chargingBlocked) {
+    throw new ForbiddenError(
+      'Charges to this room are on hold. The front desk can take the order.',
+    );
+  }
+
+  const dietaryFlags = profile.dietaryFlags;
 
   const [order] = await tx.insert(orders).values({
     tenantId: input.tenantId,
@@ -175,6 +193,10 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       orderId,
       menuItemId: line.menuItemId,
       nameSnapshot: line.name,
+      // The image as it was sold. Unread by any screen today — nothing has
+      // images until R2 is configured — but it is a snapshot column, and a
+      // snapshot taken later is not a snapshot (#6).
+      imageUrlSnapshot: line.imageUrl,
       unitPriceMinor: line.unitPriceMinor,
       currency,
       quantity: line.quantity,

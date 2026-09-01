@@ -41,27 +41,44 @@ export default async function CartScreen({
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
 
-  const cart = await withTenant(
+  const loaded = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       const outlet = await getInRoomDiningOutletConfig(tx, session.propertyId);
       if (!outlet) return null;
-      return getCart(tx, {
-        propertyId: session.propertyId,
-        stayId: session.stayId,
-        outlet: {
-          outletId: outlet.id,
-          currency: outlet.currency as CurrencyCode,
-          taxRateBps: outlet.taxRateBps,
-          serviceChargeBps: outlet.serviceChargeBps,
-          deliveryFeeMinor: outlet.deliveryFeeMinor,
-        },
-      });
+      return {
+        minimumOrderMinor: outlet.minimumOrderMinor,
+        currency: outlet.currency as CurrencyCode,
+        cart: await getCart(tx, {
+          propertyId: session.propertyId,
+          stayId: session.stayId,
+          outlet: {
+            outletId: outlet.id,
+            currency: outlet.currency as CurrencyCode,
+            taxRateBps: outlet.taxRateBps,
+            serviceChargeBps: outlet.serviceChargeBps,
+            deliveryFeeMinor: outlet.deliveryFeeMinor,
+          },
+        }),
+      };
     },
   );
 
+  const cart = loaded?.cart ?? null;
   const lines = cart?.lines ?? [];
   const unavailable = lines.filter((l) => !l.isAvailable);
+
+  /**
+   * How far short of the outlet's minimum this order is.
+   *
+   * `placeOrder()` has always refused below the minimum — it is the money path
+   * and that is where the rule belongs. What was missing is telling the guest
+   * BEFORE they press send: being refused after committing is the worst moment
+   * to learn a rule, and the number was sitting one field away.
+   */
+  const shortfallMinor = loaded
+    ? Math.max(0, loaded.minimumOrderMinor - (cart?.totals.subtotal.amountMinor ?? 0))
+    : 0;
 
   // One key per render of this screen. Every tap of the button that is on the
   // page right now sends this same value, which is what makes a double-tap
@@ -165,11 +182,20 @@ export default async function CartScreen({
               {/* The key is minted HERE, per render, and travels in the form.
                   Two taps of the same rendered button carry the same key and
                   place one order (#8). */}
+              {shortfallMinor > 0 ? (
+                <p className={styles.warning} role="status">
+                  Orders start at{' '}
+                  {formatMoney(money(loaded!.minimumOrderMinor, loaded!.currency))}
+                  {' '}— {formatMoney(money(shortfallMinor, loaded!.currency))} to go.
+                </p>
+              ) : null}
+
               <SendOrder
                 qrCode={qrCode}
                 idempotencyKey={idempotencyKey}
                 total={formatMoney(cart!.totals.total)}
                 roomNumber={session.roomNumber}
+                belowMinimum={shortfallMinor > 0}
               />
 
               <p className={styles.folioNote}>

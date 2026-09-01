@@ -235,13 +235,33 @@ export async function activeStayForRoom(
   return rows[0] ?? null;
 }
 
-/** Dietary flags for the guest on this stay, for the kitchen ticket (#DATA-MODEL §4). */
-export async function dietaryFlagsForStay(
+/**
+ * What the property knows about the guest on this stay.
+ *
+ * One read for both facts a charge needs: the dietary flags the kitchen ticket
+ * copies (DATA-MODEL §4) and whether the desk has blocked charges to this room.
+ *
+ * `chargingBlocked` sat in the schema unread until a sweep found it. It is the
+ * flag a front desk sets when a card has been declined or a guest disputes
+ * everything, and a charge path that ignores it is a charge path that overrules
+ * the desk.
+ */
+export interface StayGuestProfile {
+  dietaryFlags: string[];
+  chargingBlocked: boolean;
+  isVip: boolean;
+}
+
+export async function guestProfileForStay(
   tx: Tx,
   input: { propertyId: string; stayId: string },
-): Promise<string[]> {
+): Promise<StayGuestProfile> {
   const rows = await tx
-    .select({ flags: guestPropertyProfiles.dietaryFlags })
+    .select({
+      flags: guestPropertyProfiles.dietaryFlags,
+      chargingBlocked: guestPropertyProfiles.chargingBlocked,
+      isVip: guestPropertyProfiles.isVip,
+    })
     .from(stays)
     .innerJoin(guestPropertyProfiles, and(
       eq(guestPropertyProfiles.guestId, stays.guestId),
@@ -250,8 +270,21 @@ export async function dietaryFlagsForStay(
     .where(eq(stays.id, input.stayId))
     .limit(1);
 
-  const flags = rows[0]?.flags;
-  return Array.isArray(flags) ? (flags as string[]) : [];
+  const row = rows[0];
+  return {
+    dietaryFlags: Array.isArray(row?.flags) ? (row.flags as string[]) : [],
+    // No profile row means nothing is known, which is not the same as blocked.
+    chargingBlocked: row?.chargingBlocked ?? false,
+    isVip: row?.isVip ?? false,
+  };
+}
+
+/** Dietary flags alone, for callers that only need the kitchen ticket. */
+export async function dietaryFlagsForStay(
+  tx: Tx,
+  input: { propertyId: string; stayId: string },
+): Promise<string[]> {
+  return (await guestProfileForStay(tx, input)).dietaryFlags;
 }
 
 /** Guarded so a caller cannot accidentally count another property's stays. */

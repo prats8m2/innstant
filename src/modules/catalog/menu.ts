@@ -544,7 +544,15 @@ export async function getDish(
  * would otherwise be twelve queries.
  */
 export interface CartPricing {
-  items: Map<string, { name: string; priceMinor: number; currency: string; isAvailable: boolean }>;
+  items: Map<string, {
+    name: string;
+    priceMinor: number;
+    currency: string;
+    isAvailable: boolean;
+    /** For `order_items.image_url_snapshot` — a receipt shows the dish as it
+     *  looked when it was sold, not as it looks after a photoshoot (#6). */
+    imageUrl: string | null;
+  }>;
   options: Map<string, {
     name: string;
     priceDeltaMinor: number;
@@ -577,6 +585,7 @@ export async function getCartPricing(
         priceMinor: menuItems.priceMinor,
         currency: menuItems.currency,
         isAvailable: menuItems.isAvailable,
+        imageUrl: menuItems.imageUrl,
       })
       .from(menuItems)
       .where(and(
@@ -586,7 +595,8 @@ export async function getCartPricing(
       ));
     for (const r of rows) {
       items.set(r.id, {
-        name: r.name, priceMinor: r.priceMinor, currency: r.currency, isAvailable: r.isAvailable,
+        name: r.name, priceMinor: r.priceMinor, currency: r.currency,
+        isAvailable: r.isAvailable, imageUrl: r.imageUrl,
       });
     }
   }

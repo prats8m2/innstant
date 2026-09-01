@@ -381,4 +381,103 @@ describe('placeOrder', () => {
     const placed = await place('full-tier', { accessTier: 'FULL' });
     expect(placed.orderId).toBeTruthy();
   });
+
+  /**
+   * What the sweep found: settings and flags that were stored, editable, and
+   * read by nothing. Each of these is a rule the hotel thinks it has set.
+   */
+  describe('settings that were being ignored', () => {
+    it('refuses an order under the outlet minimum, naming the figure', async () => {
+      await owner.query(
+        `UPDATE outlets SET minimum_order_minor = 500000 WHERE id = $1`, [a.outletId]);
+
+      await fillCart();
+      await expect(place('under-minimum')).rejects.toThrow(/Orders start at ₹5,000/);
+
+      await owner.query(
+        `UPDATE outlets SET minimum_order_minor = 0 WHERE id = $1`, [a.outletId]);
+    });
+
+    it('accepts an order exactly on the minimum', async () => {
+      const price = await scoped(async (tx) => {
+        const menu = await getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM);
+        return menu!.sections.flatMap((s) => s.items)
+          .find((i) => i.name.startsWith('Laal maas'))!.priceMinor;
+      });
+
+      // fillCart() adds the extra roti too, so the subtotal is the dish plus
+      // that delta — read it back rather than assuming.
+      await fillCart();
+      const subtotal = await scoped(async (tx) => {
+        const cart = await getCart(tx, {
+          propertyId: a.propertyId, stayId,
+          outlet: {
+            outletId: a.outletId, currency: 'INR',
+            taxRateBps: 500, serviceChargeBps: 1000, deliveryFeeMinor: 0,
+          },
+        });
+        return cart!.totals.subtotal.amountMinor;
+      });
+      expect(subtotal).toBeGreaterThanOrEqual(price);
+
+      await owner.query(
+        `UPDATE outlets SET minimum_order_minor = $2 WHERE id = $1`, [a.outletId, subtotal]);
+      const placed = await place('on-the-minimum');
+      expect(placed.orderId).toBeTruthy();
+
+      await owner.query(
+        `UPDATE outlets SET minimum_order_minor = 0 WHERE id = $1`, [a.outletId]);
+    });
+
+    it('refuses to charge a room the desk has blocked', async () => {
+      // `charging_blocked` is what a front desk sets after a declined card. It
+      // sat unread in the schema until a sweep found it — a charge path that
+      // ignores it overrules the desk.
+      await owner.query(
+        `UPDATE guest_property_profiles SET charging_blocked = true WHERE property_id = $1`,
+        [a.propertyId]);
+
+      await fillCart();
+      await expect(place('blocked')).rejects.toBeInstanceOf(ForbiddenError);
+      await expect(place('blocked-again')).rejects.toThrow(/front desk can take the order/);
+
+      // And nothing was written: no order, no folio line, no burnt key.
+      const orders = await owner.query(
+        `SELECT id FROM orders WHERE stay_id = $1 AND status <> 'DRAFT'`, [stayId]);
+      expect(orders.rows).toHaveLength(0);
+
+      await owner.query(
+        `UPDATE guest_property_profiles SET charging_blocked = false WHERE property_id = $1`,
+        [a.propertyId]);
+    });
+
+    it('lets the same guest order once the block is lifted', async () => {
+      await fillCart();
+      const placed = await place('after-unblock');
+      expect(placed.orderId).toBeTruthy();
+    });
+
+    it('snapshots the dish image at placement (#6)', async () => {
+      await owner.query(
+        `UPDATE menu_items SET image_url = 'https://cdn.example/laal-2026.jpg'
+         WHERE property_id = $1 AND name LIKE 'Laal maas%'`, [a.propertyId]);
+
+      await fillCart();
+      const placed = await place('image-snapshot');
+
+      // Nothing displays it yet — no screen has images until R2 exists — but a
+      // snapshot taken later is not a snapshot.
+      const rows = await owner.query(
+        `SELECT image_url_snapshot FROM order_items WHERE order_id = $1`, [placed.orderId]);
+      expect(rows.rows[0].image_url_snapshot).toBe('https://cdn.example/laal-2026.jpg');
+
+      // And it survives the image being changed afterwards.
+      await owner.query(
+        `UPDATE menu_items SET image_url = 'https://cdn.example/new.jpg'
+         WHERE property_id = $1 AND name LIKE 'Laal maas%'`, [a.propertyId]);
+      const after = await owner.query(
+        `SELECT image_url_snapshot FROM order_items WHERE order_id = $1`, [placed.orderId]);
+      expect(after.rows[0].image_url_snapshot).toBe('https://cdn.example/laal-2026.jpg');
+    });
+  });
 });

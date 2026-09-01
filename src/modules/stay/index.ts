@@ -8,6 +8,7 @@
  * rather than a sixth code path.
  */
 export {
-  createStay, activeStayForRoom, dietaryFlagsForStay, countActiveStays,
+  createStay, activeStayForRoom, dietaryFlagsForStay, guestProfileForStay,
+  countActiveStays,
 } from './create-stay';
-export type { CreateStayInput, CreatedStay } from './create-stay';
+export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';

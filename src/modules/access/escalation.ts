@@ -3,7 +3,7 @@ import { withTenant, recordEvent, type Tx } from '@/db';
 import {
   accessPolicies, accessEscalations, verificationChallenges, staffVouches,
 } from '@/db/schema/access';
-import { ConflictError, TooManyAttemptsError, ValidationError } from '@/lib/errors';
+import { ConflictError, ForbiddenError, TooManyAttemptsError, ValidationError } from '@/lib/errors';
 import { hashToken } from '@/lib/tokens';
 import { raiseSessionTier, type GuestSession } from './guest-sessions';
 import { tierAtLeast, tierForAction, type AccessTier, type GuestAction } from './tiers';
@@ -80,14 +80,44 @@ export async function abandonEscalation(session: GuestSession, escalationId: str
       .where(eq(accessEscalations.id, escalationId)));
 }
 
-async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> {
-  const policy = await tx.select({
+/**
+ * The property's access policy, or the defaults.
+ *
+ * One read, because three separate call sites reading three columns each is how
+ * `max_attempts_per_phone` and `allow_staff_vouch` came to sit in this table
+ * unread while the code used the schema's own column defaults instead. A policy
+ * nobody reads is a setting that lies.
+ */
+async function policyFor(
+  tx: Tx,
+  propertyId: string,
+): Promise<{
+  maxPerRoom: number;
+  maxPerPhone: number;
+  lockoutMinutes: number;
+  allowStaffVouch: boolean;
+}> {
+  const rows = await tx.select({
     maxPerRoom: accessPolicies.maxAttemptsPerRoom,
+    maxPerPhone: accessPolicies.maxAttemptsPerPhone,
     lockoutMinutes: accessPolicies.lockoutMinutes,
-  }).from(accessPolicies).where(eq(accessPolicies.propertyId, session.propertyId)).limit(1);
+    allowStaffVouch: accessPolicies.allowStaffVouch,
+  }).from(accessPolicies).where(eq(accessPolicies.propertyId, propertyId)).limit(1);
 
-  const maxPerRoom = policy[0]?.maxPerRoom ?? 5;
-  const lockoutMinutes = policy[0]?.lockoutMinutes ?? 30;
+  const policy = rows[0];
+  return {
+    maxPerRoom: policy?.maxPerRoom ?? 5,
+    maxPerPhone: policy?.maxPerPhone ?? 5,
+    lockoutMinutes: policy?.lockoutMinutes ?? 30,
+    // A property with no policy row can still be vouched for: the front desk
+    // standing in front of the guest is the fallback, not the thing to disable
+    // by omission.
+    allowStaffVouch: policy?.allowStaffVouch ?? true,
+  };
+}
+
+async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> {
+  const { maxPerRoom, lockoutMinutes } = await policyFor(tx, session.propertyId);
 
   const recent = await tx.select({
     attempts: verificationChallenges.attempts,
@@ -137,6 +167,11 @@ export async function startPhoneLast4Challenge(session: GuestSession): Promise<s
     }
 
     const last4 = phone.replace(/\D/g, '').slice(-4);
+    // From the POLICY, not from the column's own default. Both are 5 today,
+    // which is exactly why nobody noticed the policy was being ignored: a
+    // property that set 3 got 5.
+    const { maxPerPhone } = await policyFor(tx, session.propertyId);
+
     const [row] = await tx.insert(verificationChallenges).values({
       tenantId: session.tenantId,
       propertyId: session.propertyId,
@@ -145,6 +180,7 @@ export async function startPhoneLast4Challenge(session: GuestSession): Promise<s
       method: 'PHONE_LAST4',
       challengeHash: hashToken(last4),
       phoneLast4: null, // never stored in the clear
+      maxAttempts: maxPerPhone,
       expiresAt: new Date(Date.now() + 10 * 60_000),
     }).returning({ id: verificationChallenges.id });
 
@@ -164,7 +200,22 @@ export async function answerChallenge(
 ): Promise<{ ok: boolean; newTier?: AccessTier; attemptsLeft?: number }> {
   if (!answer.trim()) throw new ValidationError('Enter the last four digits.');
 
-  return withTenant({ tenantId: session.tenantId, propertyId: session.propertyId }, async (tx) => {
+  /**
+   * ─── Why this returns an outcome instead of throwing inside the transaction ─
+   *
+   * The lockout is a WRITE. Throwing `TooManyAttemptsError` from inside
+   * `withTenant()` rolls that write back with everything else, so the attempt
+   * that crossed the limit recorded neither the attempt nor the lockout — the
+   * rate limiter announced a lockout it had just discarded. It looked correct
+   * from the outside because the error still reached the guest.
+   *
+   * So the transaction decides and COMMITS, and the throw happens after it.
+   */
+
+  const outcome = await withTenant(
+    { tenantId: session.tenantId, propertyId: session.propertyId },
+    async (tx) => {
+    // Throws before anything is written, so there is nothing to lose here.
     await assertNotLockedOut(tx, session);
 
     const rows = await tx.select({
@@ -192,15 +243,21 @@ export async function answerChallenge(
     const correct = challenge.challengeHash === hashToken(answer.replace(/\D/g, ''));
 
     if (!correct) {
+      // From the POLICY. This was a hardcoded 30 minutes while
+      // `access_policies.lockout_minutes` sat next to it being read by
+      // `assertNotLockedOut()` only — so a property that set 10 was locked out
+      // for 30 on this path and 10 on the other.
+      const { lockoutMinutes } = await policyFor(tx, session.propertyId);
       const lockedUntil = attempts >= challenge.maxAttempts
-        ? new Date(Date.now() + 30 * 60_000)
+        ? new Date(Date.now() + lockoutMinutes * 60_000)
         : null;
       await tx.update(verificationChallenges)
         .set({ attempts, lockedUntil })
         .where(eq(verificationChallenges.id, challenge.id));
 
-      if (lockedUntil) throw new TooManyAttemptsError(30 * 60);
-      return { ok: false, attemptsLeft: challenge.maxAttempts - attempts };
+      return lockedUntil
+        ? { kind: 'LOCKED' as const, seconds: lockoutMinutes * 60 }
+        : { kind: 'WRONG' as const, attemptsLeft: challenge.maxAttempts - attempts };
     }
 
     await tx.update(verificationChallenges)
@@ -228,8 +285,15 @@ export async function answerChallenge(
       payload: { method: 'PHONE_LAST4' },
     });
 
-    return { ok: true, newTier };
-  });
+    return { kind: 'OK' as const, newTier };
+  },
+  );
+
+  // Outside the transaction, which has committed by now: the lockout it wrote
+  // survives the error this raises.
+  if (outcome.kind === 'LOCKED') throw new TooManyAttemptsError(outcome.seconds);
+  if (outcome.kind === 'WRONG') return { ok: false, attemptsLeft: outcome.attemptsLeft };
+  return { ok: true, newTier: outcome.newTier };
 }
 
 /**
@@ -251,6 +315,16 @@ export async function vouchForGuest(input: {
   const grantedTier = input.grantedTier ?? 'CHARGE';
 
   await withTenant({ tenantId: input.tenantId, propertyId: input.propertyId }, async (tx) => {
+    // `allow_staff_vouch` exists so a property CAN turn this off — a group with
+    // a strict finance policy may want the prompt and nothing else. It sat
+    // unread until a sweep found it, which made the setting decorative.
+    const { allowStaffVouch } = await policyFor(tx, input.propertyId);
+    if (!allowStaffVouch) {
+      throw new ForbiddenError(
+        'This property does not allow staff to vouch for a guest. They must verify on their phone.',
+      );
+    }
+
     await tx.insert(staffVouches).values({
       tenantId: input.tenantId,
       propertyId: input.propertyId,
