@@ -25,11 +25,21 @@ import styles from './room-home.module.css';
  */
 export const dynamic = 'force-dynamic';
 
+/**
+ * The four rows, verbatim from the reference (design/README.md — the copy is
+ * part of the design, not filler).
+ *
+ * `built` says whether the row goes anywhere yet. Amenities and service are
+ * real screens as of P2; the stay and nearby rows are P3 and P4, and they read
+ * as coming rather than as links that do nothing. The subtitles that stated
+ * facts we could not back — "Out Thursday, 11am" — say what the row IS instead,
+ * because the real checkout time is printed at the top of this screen.
+ */
 const ROWS = [
-  { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · transfer' },
-  { key: 'service', title: 'Call for service', sub: 'Someone comes up' },
-  { key: 'stay', title: 'Your stay', sub: 'Out Thursday, 11am' },
-  { key: 'nearby', title: 'Nearby', sub: 'Seven places we vouch for' },
+  { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · a charger', built: true },
+  { key: 'service', title: 'Call for service', sub: 'Someone comes up', built: true },
+  { key: 'stay', title: 'Your stay', sub: 'Folio and checkout', built: false },
+  { key: 'nearby', title: 'Nearby', sub: 'Places we vouch for', built: false },
 ] as const;
 
 export default async function RoomHome({
@@ -120,7 +130,7 @@ export default async function RoomHome({
       </Link>
 
       <nav className={styles.rows} aria-label="Services">
-        {ROWS.map((row) => (
+        {ROWS.map((row) => (row.built ? (
           <Link key={row.key} href={`${base}/${row.key}`} className={styles.row}>
             <span>
               <p className={styles.rowTitle}>{row.title}</p>
@@ -128,11 +138,22 @@ export default async function RoomHome({
             </span>
             <span className={styles.chevron} aria-hidden="true">→</span>
           </Link>
-        ))}
+        ) : (
+          /* Not a link. A row that looks tappable and does nothing is worse
+             than a row that says it is coming. */
+          <span key={row.key} className={styles.row} data-soon="true">
+            <span>
+              <p className={styles.rowTitle}>{row.title}</p>
+              <p className={styles.rowSub}>{row.sub} · soon</p>
+            </span>
+          </span>
+        )))}
       </nav>
 
       <footer className={styles.footer}>
-        <span>The Kesari · Udaipur</span>
+        {/* The property's own name, not a literal — a second hotel was greeted
+            by the first one's until this screen started reading its property. */}
+        <span>{property?.name ?? 'Your stay'}</span>
         <span className="tabular">Room {session.roomNumber}</span>
       </footer>
     </main>

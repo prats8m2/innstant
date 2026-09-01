@@ -146,3 +146,14 @@
   justify-content: space-between;
   gap: var(--space-4);
 }
+
+/*
+ * A row for a screen that does not exist yet. Visibly not tappable — the P3 and
+ * P4 rows are in the reference's design and pretending they work is worse than
+ * saying they are coming.
+ */
+.row[data-soon='true'] {
+  cursor: default;
+  opacity: 0.55;
+}
+.row[data-soon='true']:hover { background: transparent; }

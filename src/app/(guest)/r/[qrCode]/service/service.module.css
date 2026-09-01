@@ -1,0 +1,285 @@
+/*
+ * Service — the one tap, and where it lands.
+ * The arches are the reference's own shapes; values from theme.css.
+ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 0 var(--space-4) var(--space-8);
+  display: flex;
+  flex-direction: column;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-2);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+
+.barTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.barRef {
+  margin-left: auto;
+  padding-right: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+/* ── The arches ─────────────────────────────────────────────────────────── */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.archOuter,
+.archMid,
+.archInner {
+  position: absolute;
+  border: 1px solid var(--border-soft);
+}
+
+.archOuter {
+  width: 240px;
+  height: 300px;
+  border-radius: 120px 120px var(--radius-md) var(--radius-md);
+  background: radial-gradient(120% 80% at 50% 100%,
+    color-mix(in srgb, var(--saffron) 13%, transparent),
+    transparent 62%);
+}
+
+.archMid {
+  width: 176px;
+  height: 226px;
+  border-radius: 88px 88px var(--radius-sm) var(--radius-sm);
+}
+
+.archInner {
+  width: 112px;
+  height: 152px;
+  border-radius: 56px 56px var(--radius-md) var(--radius-md);
+  border-color: color-mix(in srgb, var(--saffron) 30%, transparent);
+  animation: glow 4.2s ease-in-out infinite;
+}
+
+.sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--saffron) 0%, transparent),
+    color-mix(in srgb, var(--saffron) 7%, transparent),
+    color-mix(in srgb, var(--saffron) 0%, transparent));
+  animation: sweep 11s ease-in-out infinite;
+}
+
+.pitch {
+  position: relative;
+  text-align: center;
+  padding: 0 var(--space-6);
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.sub {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── The tap ────────────────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+}
+
+.note {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+.note:focus { border-color: var(--accent); }
+
+.call {
+  width: 100%;
+  min-height: 62px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--ink-800);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.call:hover:not(:disabled) { background: var(--accent-hover); }
+.call:disabled { opacity: 0.7; cursor: progress; }
+
+.unavailable,
+.error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--accent);
+  text-wrap: pretty;
+}
+
+/* ── Where a request lands ──────────────────────────────────────────────── */
+.status {
+  padding: var(--space-6) 0 0;
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
+}
+
+.eta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.pulse {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: glow 2.6s ease-in-out infinite;
+}
+
+.reason {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-base);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.asked {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.askedLine {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.askedQty {
+  min-width: 28px;
+  color: var(--plaster-faint);
+}
+
+.askedPrice { margin-left: auto; color: var(--accent); }
+
+.echo {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.folioNote {
+  margin: var(--space-5) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--plaster-faint);
+  text-wrap: pretty;
+}
+
+.cancelForm { margin-top: var(--space-6); }
+
+.cancel {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.cancel:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
+.cancel:disabled { opacity: 0.6; cursor: progress; }
+
+.actions {
+  margin-top: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+.secondary:hover { background: var(--surface); color: var(--text); }

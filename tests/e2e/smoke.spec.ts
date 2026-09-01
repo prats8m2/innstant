@@ -461,6 +461,17 @@ test.describe('the kitchen display', () => {
  * property.
  */
 test.describe('the menu editor', () => {
+  /**
+   * Serial within this file.
+   *
+   * These tests share one menu: repricing a dish and 86ing it are two tests
+   * touching the same row, and `fullyParallel` runs them at once. The failure
+   * surfaces as a price that is 387 in one assertion and 380 in the next, which
+   * reads like a bug in the editor. Each browser project still runs in parallel
+   * with the others, on its own dishes.
+   */
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
   /**
@@ -708,6 +719,17 @@ test.describe('the kitchen settings', () => {
  * admin that changes the shape of what a guest sees rather than a value in it.
  */
 test.describe('collections', () => {
+  /**
+   * Serial within this file.
+   *
+   * These tests share one menu: repricing a dish and 86ing it are two tests
+   * touching the same row, and `fullyParallel` runs them at once. The failure
+   * surfaces as a price that is 387 in one assertion and 380 in the next, which
+   * reads like a bug in the editor. Each browser project still runs in parallel
+   * with the others, on its own dishes.
+   */
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
   /** Per project, because both run against one database. */
@@ -824,6 +846,17 @@ test.describe('collections', () => {
  * pick it.
  */
 test.describe('option groups', () => {
+  /**
+   * Serial within this file.
+   *
+   * These tests share one menu: repricing a dish and 86ing it are two tests
+   * touching the same row, and `fullyParallel` runs them at once. The failure
+   * surfaces as a price that is 387 in one assertion and 380 in the next, which
+   * reads like a bug in the editor. Each browser project still runs in parallel
+   * with the others, on its own dishes.
+   */
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
   function ownGroup(): string {
@@ -999,6 +1032,17 @@ test.describe('option groups', () => {
  * dish from the board.
  */
 test.describe('the kitchen board', () => {
+  /**
+   * Serial within this file.
+   *
+   * These tests share one menu: repricing a dish and 86ing it are two tests
+   * touching the same row, and `fullyParallel` runs them at once. The failure
+   * surfaces as a price that is 387 in one assertion and 380 in the next, which
+   * reads like a bug in the editor. Each browser project still runs in parallel
+   * with the others, on its own dishes.
+   */
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
   /** Its own dish, and one no ordering or menu-editor test touches. */
@@ -1064,5 +1108,116 @@ test.describe('the kitchen board', () => {
 
     await kitchen.close();
     await phone.close();
+  });
+});
+
+/**
+ * P2 — amenities and the one-tap service call.
+ *
+ * The claims: a free request costs a guest no prompt (#9), a chargeable one gets
+ * the same one question a dinner does (D-012), and the one tap is one tap.
+ */
+test.describe('asking for things', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  /** Its own room, like every guest test here — a request belongs to a stay. */
+  function ownRoom(): string {
+    return { 'staff-desktop': '214', 'guest-mobile': '105', 'guest-ios': '301' }[
+      test.info().project.name
+    ] ?? '214';
+  }
+
+  test('a free request needs no prompt at all', async ({ page }) => {
+    const code = seed!.qrCodes[ownRoom()]!;
+    await page.goto(`/r/${code}`);
+
+    // From the room home, which now goes somewhere.
+    await page.getByRole('link', { name: /Amenities/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/amenities$`), { timeout: 20_000 });
+
+    // #9 — the whole list is readable at REQUEST tier, prices and all.
+    await expect(page.getByText('Extra towels')).toBeVisible();
+    await expect(page.getByText('Laundry service')).toBeVisible();
+    await expect(page.locator('input[name="answer"]')).toHaveCount(0);
+
+    // Two towels, sent.
+    const towels = page.locator('li').filter({ hasText: 'Extra towels' }).first();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await page.locator('input[name="guestNote"]').fill('Leave them by the door.');
+    await page.getByRole('button', { name: /Send 2 to room/ }).click();
+
+    // Lands on the request, with no question asked.
+    await page.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.getByText(/Someone is coming up|on the way/)).toBeVisible();
+    await expect(page.getByText('2×')).toBeVisible();
+    await expect(page.getByText('Extra towels')).toBeVisible();
+    await expect(page.getByText(/Nothing to pay/)).toBeVisible();
+    await expect(page.getByText('Leave them by the door.')).toBeVisible();
+
+    // And it can be called off while it is live.
+    await page.getByRole('button', { name: /never mind/i }).click();
+    await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('a chargeable request asks the one question', async ({ page }) => {
+    const room = ownRoom();
+    const code = seed!.qrCodes[room]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/amenities`);
+
+    // Laundry costs ₹450 — the price is stated before anything is committed.
+    const laundry = page.locator('li').filter({ hasText: 'Laundry service' }).first();
+    await expect(laundry).toContainText('₹450');
+    await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
+    await page.getByRole('button', { name: /Send 1 to room/ }).click();
+
+    // D-012: the one prompt, HERE, at the first attempt to charge.
+    await expect(page.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText(/₹450 goes on room/)).toBeVisible();
+
+    // A wrong answer keeps the prompt and does not lose the request.
+    await page.locator('input[name="answer"]').fill('9999');
+    await page.getByRole('button', { name: 'Confirm and send' }).click();
+    await expect(page.getByText(/does not match/i)).toBeVisible({ timeout: 25_000 });
+
+    await page.locator('input[name="answer"]').fill(seed!.guests[room]!.phoneLast4);
+    await page.getByRole('button', { name: 'Confirm and send' }).click();
+
+    // Verifying completes the original action — no second send.
+    await page.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.getByText(/₹450 is on room/)).toBeVisible();
+
+    await page.getByRole('button', { name: /never mind/i }).click();
+    await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('the one tap is one tap', async ({ page }) => {
+    const code = seed!.qrCodes[ownRoom()]!;
+    await page.goto(`/r/${code}`);
+    await page.getByRole('link', { name: /Call for service/ }).click();
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/service$`), { timeout: 20_000 });
+
+    await expect(page.getByText(/Someone comes up to room/)).toBeVisible();
+    await expect(page.getByText(/No queue, no call, no reason needed/)).toBeVisible();
+
+    await page.getByRole('button', { name: /Ask someone to come up/ }).click();
+    await page.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.getByText(/Someone is coming up|on the way/)).toBeVisible();
+    // Free, so nothing was asked and nothing is owed.
+    await expect(page.getByText(/Nothing to pay/)).toBeVisible();
+
+    await page.getByRole('button', { name: /never mind/i }).click();
+    await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('the rows that go nowhere yet say so', async ({ page }) => {
+    const code = seed!.qrCodes[ownRoom()]!;
+    await page.goto(`/r/${code}`);
+
+    // P3 and P4. A row that looks tappable and does nothing is worse than one
+    // that says it is coming.
+    await expect(page.getByText(/Folio and checkout · soon/)).toBeVisible();
+    await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(0);
   });
 });
