@@ -20,7 +20,7 @@ import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema
 import { createStay } from '@/modules/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
-import { serviceRequests, requestTypes } from '@/db/schema/requests';
+import { serviceRequests, serviceRequestItems, requestTypes } from '@/db/schema/requests';
 import { folios, folioLines } from '@/db/schema/billing';
 import { formatMoney, money } from '@/lib/money';
 import { and, eq } from 'drizzle-orm';
@@ -260,13 +260,32 @@ async function main(): Promise<void> {
       .limit(1);
     const room214 = await tx.select({ floorId: roomsTable.floorId }).from(roomsTable)
       .where(eq(roomsTable.id, provisioned.roomIds.get('214')!)).limit(1);
-    await tx.insert(serviceRequests).values({
+    const [seededRequest] = await tx.insert(serviceRequests).values({
       tenantId: TENANT_ID, propertyId: provisioned.propertyId,
       stayId: stayIds.get('214')!, floorId: room214[0]!.floorId,
       requestTypeId: towels[0]!.id,
       requestNumber: 'SR-4471', status: 'OPEN',
       guestNote: 'Two extra towels please',
       slaTargetAt: new Date(Date.now() + towels[0]!.slaMinutes * 60_000),
+    }).returning({ id: serviceRequests.id });
+
+    /**
+     * With its line, which it did not have.
+     *
+     * A request with no `service_request_items` renders on the floor board as a
+     * room number and a note and nothing to bring — the demo's own screen made
+     * that obvious the first time it was looked at. Every request a guest raises
+     * has lines (`raiseServiceRequest` snapshots them, #6); the seeded one has
+     * to as well or the demo shows a shape the product never produces.
+     */
+    await tx.insert(serviceRequestItems).values({
+      tenantId: TENANT_ID,
+      serviceRequestId: seededRequest!.id,
+      requestTypeId: towels[0]!.id,
+      labelSnapshot: towels[0]!.name,
+      unitPriceMinor: 0,
+      quantity: 2,
+      lineTotalMinor: 0,
     });
 
     // ── A partially populated folio for room 214 ────────────────────────────

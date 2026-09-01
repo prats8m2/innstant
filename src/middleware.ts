@@ -32,7 +32,7 @@ import { REQUEST_ID_HEADER, requestIdFrom } from '@/lib/request-id';
  *
  * Treat a redirect from here as a UX affordance, never as a security boundary.
  */
-const STAFF_PREFIXES = ['/admin', '/kds', '/runner'];
+const STAFF_PREFIXES = ['/admin', '/kds', '/runner', '/housekeeping'];
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;

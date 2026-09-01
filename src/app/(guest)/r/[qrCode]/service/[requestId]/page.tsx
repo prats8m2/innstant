@@ -7,6 +7,7 @@ import { getRequestForStay } from '@/modules/requests';
 import { findProperty } from '@/modules/identity';
 import { formatMoney, money } from '@/lib/money';
 import { CancelRequest } from './cancel-form';
+import { LiveRequest } from './live-request';
 import styles from '../service.module.css';
 
 /**
@@ -123,6 +124,8 @@ export default async function RequestScreen({
           <p className={styles.folioNote}>Nothing to pay.</p>
         )}
       </section>
+
+      <LiveRequest requestId={request.id} live={live} />
 
       {live ? (
         <CancelRequest qrCode={qrCode} requestId={request.id} />

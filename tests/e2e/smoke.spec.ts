@@ -1221,3 +1221,88 @@ test.describe('asking for things', () => {
     await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(0);
   });
 });
+
+/**
+ * The floor board.
+ *
+ * The claim: a request a guest raises appears on a staff phone without a reload,
+ * with the clock on it, and can be taken and finished from there.
+ */
+test.describe('the floor board', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  function ownRoom(): string {
+    return { 'staff-desktop': '214', 'guest-mobile': '105', 'guest-ios': '301' }[
+      test.info().project.name
+    ] ?? '214';
+  }
+
+  test('a guest request appears on the board, and can be worked', async ({ browser }) => {
+    // A housekeeper's phone, opened BEFORE the request exists.
+    const pocket = await browser.newContext({ ...devices['Pixel 7'] });
+    const board = await pocket.newPage();
+    await board.goto('/housekeeping');
+    // The middleware is a turnstile: no cookie, no board.
+    await expect(board).toHaveURL(/\/admin\/login/);
+
+    await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
+    await board.locator('input[name="password"]').fill('kesari-demo-2026');
+    await board.getByRole('button', { name: 'Sign in' }).click();
+    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await board.goto('/housekeeping');
+    await expect(board.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
+
+    // The guest asks for two towels.
+    const room = ownRoom();
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes[room]}`);
+    await guest.goto(`/r/${seed!.qrCodes[room]}/amenities`);
+    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await guest.locator('input[name="guestNote"]').fill('By the door is fine.');
+    await guest.getByRole('button', { name: /Send 2 to room/ }).click();
+    await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+
+    const ref = (await guest.getByText(/SR-\d+/).first().textContent())!.trim();
+
+    // The claim: no reload anywhere on the board's side.
+    const card = board.locator('li').filter({ hasText: ref });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText(room);
+    await expect(card).toContainText('Extra towels');
+    await expect(card).toContainText('By the door is fine.');
+    // The clock is on it — 12 minutes for towels, so it reads as minutes left.
+    await expect(card).toContainText(/\d+m left/);
+
+    // Take it and finish it.
+    await card.getByRole('button', { name: 'I am going' }).click();
+    await expect(card).toHaveAttribute('data-status', 'IN_PROGRESS', { timeout: 15_000 });
+    await expect(card).toContainText('Yours');
+
+    await card.getByRole('button', { name: 'Done' }).click();
+    // COMPLETED is still on the board — a supervisor may verify it — but the
+    // clock has stopped.
+    await expect(card).toHaveAttribute('data-status', 'COMPLETED', { timeout: 15_000 });
+    await expect(card).not.toContainText(/m left|m over/);
+
+    // And the guest was told, without touching their phone.
+    await expect(guest.getByText('Done')).toBeVisible({ timeout: 20_000 });
+
+    await pocket.close();
+    await phone.close();
+  });
+
+  test('turns away an account that cannot see requests', async ({ page }) => {
+    // KITCHEN holds no request permission at all.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/housekeeping');
+    await expect(page.getByText(/cannot see service requests/i)).toBeVisible({ timeout: 20_000 });
+  });
+});

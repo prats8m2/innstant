@@ -22,6 +22,7 @@ export function LiveOrder({ orderId, live }: { orderId: string; live: boolean })
 function Feed({ orderId }: { orderId: string }) {
   const { connected } = useLiveRefresh({
     streamUrl: `/api/guest/order-stream?orderId=${encodeURIComponent(orderId)}`,
+    eventName: 'order',
   });
 
   return (

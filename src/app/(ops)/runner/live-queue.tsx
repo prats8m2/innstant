@@ -14,6 +14,7 @@ import styles from './runner.module.css';
 export function LiveQueue({ propertyId }: { propertyId: string }) {
   const { connected } = useLiveRefresh({
     streamUrl: `/api/kds/stream?propertyId=${encodeURIComponent(propertyId)}`,
+    eventName: 'order',
   });
 
   return (

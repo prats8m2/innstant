@@ -23,11 +23,24 @@ import { useRouter } from 'next/navigation';
  */
 export function useLiveRefresh({
   streamUrl,
+  /**
+   * The SSE event name that means "something moved".
+   *
+   * Named per surface — `order` from the kitchen's stream, `request` from the
+   * floor board's — because a stream that says what changed is easier to read in
+   * a network tab than one that says `message`. It defaulted to `order` when
+   * this hook served one caller, and the floor board then connected, saw
+   * nothing, and looked broken: the stream was delivering `request` events
+   * nobody was listening for. There is no default now, so the next surface
+   * cannot make the same mistake silently.
+   */
+  eventName,
   /** Coalescing window. A kitchen bumping two states in one breath is one
    *  re-render, and 250ms is well under what reads as a delay. */
   coalesceMs = 250,
 }: {
   streamUrl: string;
+  eventName: string;
   coalesceMs?: number;
 }): { connected: boolean } {
   const router = useRouter();
@@ -45,7 +58,7 @@ export function useLiveRefresh({
       router.refresh();
     });
 
-    source.addEventListener('order', () => {
+    source.addEventListener(eventName, () => {
       if (pending.current !== null) return;
       pending.current = window.setTimeout(() => {
         pending.current = null;
@@ -61,7 +74,7 @@ export function useLiveRefresh({
       if (pending.current !== null) window.clearTimeout(pending.current);
       source.close();
     };
-  }, [streamUrl, coalesceMs, router]);
+  }, [streamUrl, eventName, coalesceMs, router]);
 
   return { connected };
 }

@@ -21,6 +21,7 @@ export function LiveTickets({
 }) {
   const { connected } = useLiveRefresh({
     streamUrl: `/api/kds/stream?propertyId=${encodeURIComponent(propertyId)}`,
+    eventName: 'order',
   });
 
   useKitchenAlert(unacknowledged);

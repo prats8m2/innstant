@@ -74,14 +74,23 @@ export default async function AdminHome() {
           </Link>
         </li>
 
+        <li className={styles.card}>
+          <Link href="/housekeeping" className={styles.cardLink}>
+            <span className={styles.cardTitle}>The floors</span>
+            <span className={styles.cardBody}>
+              Amenities, housekeeping and repairs, with the clock on each one.
+            </span>
+          </Link>
+        </li>
+
         {/* Named rather than hidden: these are the next phases in
             docs/PROJECT-PLAN.md, and staff asking "where is the folio" deserve
             an answer better than a missing tile. */}
         <li className={`${styles.card} ${styles.soon}`}>
-          <span className={styles.cardTitle}>Front desk, folios, requests</span>
+          <span className={styles.cardTitle}>Front desk and folios</span>
           <span className={styles.cardBody}>
-            Not built yet — P2 and P3. Check-in, service requests and checkout
-            still happen wherever they happen today.
+            Not built yet — P3. Check-in, the guest folio and checkout still
+            happen wherever they happen today.
           </span>
         </li>
       </ul>

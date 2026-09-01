@@ -177,6 +177,8 @@ export interface RequestDetail {
   status: RequestStatus;
   roomNumber: string;
   floorId: string;
+  /** "Second floor" — what a housekeeper reads, not a uuid. */
+  floorName: string;
   guestNote: string | null;
   photoUrl: string | null;
   totalMinor: number;
@@ -270,7 +272,7 @@ async function readRequests(
    */
   const rows = await tx.execute<{
     id: string; request_number: string; status: RequestStatus; room_number: string;
-    floor_id: string; guest_note: string | null; photo_url: string | null;
+    floor_id: string; floor_name: string; guest_note: string | null; photo_url: string | null;
     total_minor: number; currency: string; sla_target_at: Date | null;
     escalated_at: Date | null; escalation_level: number;
     assigned_staff_id: string | null; assigned_staff_name: string | null;
@@ -279,7 +281,8 @@ async function readRequests(
     lines: unknown;
   }>(sql`
     SELECT
-      sr.id, sr.request_number, sr.status, r.number AS room_number, sr.floor_id,
+      sr.id, sr.request_number, sr.status, r.number AS room_number,
+      sr.floor_id, f.name AS floor_name,
       sr.guest_note, sr.photo_url, sr.total_minor, sr.currency,
       sr.sla_target_at, sr.escalated_at, sr.escalation_level,
       sr.assigned_staff_id, su.full_name AS assigned_staff_name,
@@ -296,6 +299,7 @@ async function readRequests(
     FROM service_requests sr
     JOIN stays s      ON s.id = sr.stay_id
     JOIN rooms r      ON r.id = s.room_id
+    JOIN floors f     ON f.id = sr.floor_id
     LEFT JOIN staff_users su ON su.id = sr.assigned_staff_id
     WHERE ${input.where}
     ORDER BY ${input.orderBySla
@@ -320,6 +324,7 @@ async function readRequests(
       status,
       roomNumber: row.room_number,
       floorId: row.floor_id,
+      floorName: row.floor_name,
       guestNote: row.guest_note,
       photoUrl: row.photo_url,
       totalMinor: row.total_minor,

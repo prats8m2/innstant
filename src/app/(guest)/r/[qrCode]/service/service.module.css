@@ -283,3 +283,26 @@
   font-weight: 600;
 }
 .secondary:hover { background: var(--surface); color: var(--text); }
+
+/* ── The live line ────────────────────────────────────────────────────────── */
+.liveLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-5) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--plaster-faint);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.liveLine[data-connected='true'] .liveDot {
+  background: var(--teal);
+  animation: glow 2.8s ease-in-out infinite;
+}
