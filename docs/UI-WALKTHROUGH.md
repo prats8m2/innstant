@@ -538,7 +538,55 @@ how many phones stopped working. Checking out does **not** take the money —
 settlement is the card machine until the rest of P3 lands, and the balance stays
 on the folio until it is.
 
-## 15 · The rules that only show up when you break them
+## 15 · A guest, and what we know — `/admin/guests/[id]`
+
+From **Rooms**, click a guest's name. Room 214 gets you Anjali Menon: her phone,
+how many stays she has had here, what she has spent across all of them, her
+allergies, and the bill that is on the room right now — the same one she reads on
+her own phone.
+
+**The allergies are not a note.** They print on every kitchen ticket she sends.
+Tick *nut allergy*, save, then order something as her and look at `/kds` — it is
+on the ticket.
+
+**The hold is the one control here that refuses money.** Tick *Hold charges to
+the room*, save, and a banner appears at the top. Now, as the guest:
+
+- **Extra towels** still works. No prompt, nothing in the way. A hold on charging
+  must never stop somebody asking for a towel (#9) — turning a billing dispute
+  into a guest who cannot call for help is the wrong failure.
+- **Laundry service** is refused: *"Charges to this room are on hold. The front
+  desk can arrange this for you."*
+
+That second sentence is newer than it looks. Until this session the guest read
+*"You do not have permission to do that"* — `ForbiddenError` held a fixed public
+message and threw away whatever the thrower had written, so five carefully worded
+refusals had never been seen by anybody (D-037). And the hold itself only covered
+orders, not chargeable requests, so the laundry would have gone through (D-036).
+
+Untick it, save, and the same request goes through.
+
+**One guest, one group.** She is one row for the whole tenant, matched on her
+phone number — so if The Kesari's owners open a second hotel, her history follows
+her. What you write on this screen is this property's own: a hold set in Udaipur
+is not a hold in Jaipur. The footnote on the screen says so.
+
+Who changed what:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT el.event_type, su.email, el.payload
+   FROM event_log el LEFT JOIN staff_users su ON su.id = el.actor_staff_id
+   WHERE el.entity_type = $1 ORDER BY el.occurred_at DESC LIMIT 5`,
+   ["guest"])).rows);
+ await c.end();})();'
+```
+
+## 16 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.
@@ -597,8 +645,8 @@ desk can both see what happened.
 
 ## Not built yet
 
-Guest 360 (a guest's history in one place), express checkout and folio
-settlement, the PMS adapter and its outbox, concierge, image upload. The ops console says so on its own
+Express checkout and folio settlement, the PMS adapter and its outbox,
+concierge, image upload. The ops console says so on its own
 front page rather than showing dead tiles, and the guest's stay screen offers no
 extra night for the same reason — the rate would have to be invented (D-033). See `docs/PROJECT-PLAN.md` for the phase
 each one belongs to.

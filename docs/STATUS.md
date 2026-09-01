@@ -22,9 +22,8 @@ notes. A stale status file is worse than none.
 ## Now
 
 **P0, P1 and P2 are done bar two things that are not code. P3 · stay and folio
-is most of the way there** — a stay can now be started and ended from a screen,
-the guest can read their bill and change when they leave, and the desk can
-answer.
+has one thing left that is code** — settlement — and one that is a seam worth
+closing before anything else needs it.
 
 **P1's remaining two:**
 
@@ -32,9 +31,8 @@ answer.
    hotel wifi, with a printed sticker. The whole chain passes on localhost in one
    automated test across three devices. It needs a git remote and a Railway app
    service first, which is P0's last item and an account-holder task.
-2. **Image upload** — blocked on R2 credentials. The dish form writes the same
-   `image_url` column and placement snapshots it; `service_requests.photo_url`
-   and `request_types.allows_photo` wait on the same thing.
+2. **Image upload** — blocked on R2 credentials. `service_requests.photo_url` and
+   `request_types.allows_photo` wait on the same thing.
 
 **One thing to do before the next demo:** migration `0005_checkout_fee_tiers` is
 applied locally and **not** on Railway — `pnpm status` reads `.env`, which points
@@ -45,64 +43,65 @@ database is next wanted. `/api/health` reports the drift as `degraded` until the
 **What P3 has built:**
 
 - **The guest folio** — `/r/[qrCode]/stay`, behind the one prompt.
-  `buildGuestStatement()` holds the wording: "Total so far" becomes "Left to pay"
-  when a payment lands, credits sit beside the charges they cancel, and the total
-  is recomputed from the lines drawn.
+  `buildGuestStatement()` holds the wording decisions.
 - **The FULL tier is reachable (D-031).** Answering the prompt grants it; a staff
   vouch still grants CHARGE, which is what keeps the two apart.
-- **A cancelled request credits the room (D-032)** — D-027's reversal, which the
-  requests path never had.
+- **A cancelled request credits the room (D-032).**
 - **Leaving later (D-033)** — tiers, the guest's options, `/admin/checkouts`.
-  Approving moves the stay, posts the fee and extends every session on it in one
-  transaction. The fee is snapshot at request and posted only on approval, which
-  is why this path needs no reversal.
-- **The front desk (D-035)** — `/admin/rooms`. Check-in through `createStay()`,
-  the only door (#4); check-out, which did not exist at all and is what finally
-  makes #10 true rather than merely unreachable. It also completes an approved
-  late checkout, which D-033 had left with no way to reach COMPLETED.
-- **`guest:vouch` has a screen**, having existed since S5 as D-012's front-desk
-  bypass with no way to use it.
+  Approving moves the stay, posts the fee and extends every session in one
+  transaction. The fee posts on approval, which is why this path needs no
+  reversal.
+- **The front desk (D-035)** — `/admin/rooms`. Check-in through the one door
+  (#4); check-out, which did not exist and is what makes #10 true rather than
+  merely unreachable.
+- **Guest 360 (D-036)** — `/admin/guests/[id]`. Who they are, their stays, the
+  bill on the room, and what this property has written down. `staffNotes` was
+  read by nobody until it. A charging hold now covers BOTH charge paths, and
+  still never stops a free request (#9).
+- **`ForbiddenError` says what the thrower wrote (D-037).** It held a fixed
+  public message, so five specific refusals — including "Charges to this room are
+  on hold", live since P1 — all rendered as "You do not have permission to do
+  that."
+- **`guest:vouch` has a screen**, having existed since S5 with no way to use it.
 - **The lockout counts wrong answers (D-034)**, not every attempt.
 
-**Next, in P3 order:**
+**Next:**
 
-1. **Guest 360.** A guest's history in one place — their stays, orders, requests
-   and folio. The room list answers "who is in 214 and what do they owe", which
-   is the desk's minute-to-minute question; this is the conversation that happens
-   when something has gone wrong.
-2. **Express checkout with Razorpay, folio settle, digital receipt.** The one
-   thing that would let checking out actually take the money. Needs an external
-   service, so the account holder decides when. `postFolioLine()` deliberately
-   cannot post a PAYMENT — settling wants its own function writing the `payments`
-   row in the same transaction.
-3. **`PmsAdapter` + `ManualAdapter`, `integration_outbox` + drain worker.**
-   D-011 calls the adapter the most important seam in the codebase, and it is
+1. **`PmsAdapter` + `ManualAdapter`, `integration_outbox` + drain worker.**
+   D-011 calls the adapter the most important seam in the codebase and it is
    still an interface with no implementation. Every operation it names —
-   `checkIn`, `checkOut`, `extendStay`, `postCharge` — is now a real thing this
-   product does through `modules/stay`, so writing `ManualAdapter` is mostly
-   naming what exists. Worth doing before a second implementation is ever needed,
-   not after.
-4. **A tier editor** for `checkout_fee_tiers`, when a property wants to change
-   ₹2,500 without a seeder — the argument `/admin/requests` settled for request
-   types.
+   `findStayByRoom`, `checkIn`, `checkOut`, `extendStay`, `postCharge` — is now a
+   real thing `modules/stay` does, so writing `ManualAdapter` is largely naming
+   what exists. Doing it now is cheap; doing it when an Opera integration is
+   waiting is not, and every screen built in the meantime is another caller to
+   unpick.
+2. **Express checkout with Razorpay, folio settle, digital receipt.** The one
+   thing that would let checking out take the money. Needs an external service,
+   so the account holder decides when. `postFolioLine()` deliberately cannot post
+   a PAYMENT — settling wants its own function writing the `payments` row in the
+   same transaction.
+3. **A tier editor** for `checkout_fee_tiers`, when a property wants to change
+   ₹2,500 without a seeder.
+4. **P4 · concierge** is otherwise the next phase.
 
-**Still worth doing before the next charge path.** Three now post to the folio
-and they do not agree on when: orders and requests post at placement and reverse
-at their terminal states, checkout fees post at approval and never reverse. Both
+**Still worth doing before the next charge path.** Three post to the folio and
+they do not agree on when: orders and requests post at placement and reverse at
+their terminal states, checkout fees post at approval and never reverse. Both
 are right for what they charge for, and nothing writes that down where a fourth
 would have to read it.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That has not happened and P3 is a third unshipped phase. The
-routing rules, the SLA thresholds, the catalog ranges, the folio wording, the
-checkout tiers and now the desk's own flow are all guesses until a corridor and a
-front desk argue with them.
+before starting P2. That has not happened and P3 is a third unshipped phase. Two
+of the last three sessions found a rule that had never once been true in front of
+a real person — a hold that only covered half the charge paths, and an error
+message nobody could read. Neither would have survived a week on a real floor.
 
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3 | `fbc56f4` | Guest 360. Found a charging hold that only covered orders, and `ForbiddenError` throwing away every specific message it was given since P1. |
 | P3 | `a5d56cf` | The front desk: the room list, check in, check out. Found that #10 was unreachable rather than true, and that a sixth nav item broke a screen three clicks away. |
 | P3 | `6b17364` | Leaving later — the checkout-change flow, both ends. Found the verification lockout counting successful verifications as brute-force attempts. |
 | P3 | `9299d4d` | The guest folio, and the FULL tier that reaches it. Found that FULL was unreachable by any path, and that a cancelled chargeable request was never credited back. |
@@ -519,6 +518,20 @@ Things that cost time to rediscover.
 - **A JSX comment cannot sit in the true-branch position of a ternary.**
   `{cond ? ({/* … */}<span/>) : null}` is a parse error, not a comment. Put it
   above the expression.
+- **The guest menu's bottom pill is EITHER the kitchen line or the cart** — one
+  slot, and the cart wins. Room 214's cart is shared between the dish-screen test
+  and the kitchen-settings test, so whether the second could see the line at all
+  depended on which ran first. It passed for months and failed the day a new
+  suite changed the interleaving. `emptyCart()` first when asserting on that pill.
+- **`ForbiddenError` used to hold a fixed public message.** Five throw sites had
+  each written a specific sentence and every one was replaced before a person saw
+  it. If you add an error class, make the constructor argument the thing the
+  person reads — and if a refusal genuinely should not explain itself, say the
+  vague sentence AT the throw site and put the detail in `context` (D-037).
+- **RLS policies are tenant-scoped, not property-scoped.** Any query that spans
+  properties in a group needs an explicit `property_id` filter; the database will
+  not catch a missing one, and a group's second hotel is the first place it
+  shows.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -530,9 +543,9 @@ Things that cost time to rediscover.
 Paste this:
 
 > Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
-> `pnpm status`. **P3 · stay and folio is most of the way there** — the folio,
-> the checkout-change flow and the front desk have landed; settlement has not.
-> Pick up the first item under the Now section and follow it to the
+> `pnpm status`. **P3 · stay and folio has one code item left** — settlement —
+> plus the PMS adapter seam. Pick up the first item under the Now section and
+> follow it to the
 > definition of done in CLAUDE.md — types, lint, unit, integration and e2e all
 > green, the happy path working against the seeded demo property, and the event
 > log showing the transitions you expect. Update this file before you finish.
@@ -551,9 +564,9 @@ Two things that will save you an hour:
 
 The three that are ready to start, in the order this file argues for:
 
-1. **The rest of P3.** The folio, the checkout-change flow and the front desk
-   have landed; guest 360, settlement and the PMS adapter have not. Every
-   operation `PmsAdapter` names is now a real thing `modules/stay` does.
+1. **`ManualAdapter`.** Every operation `PmsAdapter` names is now a real thing
+   `modules/stay` does, so writing it is largely naming what exists — and it gets
+   cheaper the sooner it happens.
 2. **Photo attachment**, the last P2 leftover — blocked with the rest of images
    on R2. The board reads `service_requests.photo_url`, `allows_photo` is
    editable and honoured, and nothing writes the column.

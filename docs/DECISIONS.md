@@ -767,3 +767,72 @@ orders, their requests, their folio in one place. The room list carries the
 answer to "who is in 214 and what do they owe", which is the desk's minute-to-
 minute question; the rest is the conversation that happens when something has
 gone wrong, and it wants its own screen.
+
+### D-036 · One guest per tenant, one profile per property — and the property's view is what a screen edits
+`guests` is keyed on `(tenant_id, phone)` and never on property
+(EXTENSION-POINTS §2), so a group's returning guest is one row and their history
+follows them between hotels. What each hotel thinks of them — VIP, a charging
+hold, dietary flags, the note somebody left at 2am — is
+`guest_property_profiles`, one row per property. `/admin/guests/[guestId]` reads
+both and edits the second.
+
+**Stays at sister properties are counted, not detailed.** They are the same
+customer to the tenant and none of this front desk's business line by line: a
+number ("3 elsewhere in the group") is the fact a desk can act on, and a list of
+another hotel's folios is not. The property filter is explicit in every query
+here because the RLS policies are tenant-scoped — without it a group's other
+hotels appear, which is a leak the database will not catch for you.
+
+**Two fields on this screen are not decoration.** `charging_blocked` refuses
+every charge to the room, and `dietary_flags` prints on every kitchen ticket the
+guest sends. Both leave a diff in `event_log`: "who put a hold on 214, and when"
+and "who took the nut allergy off" both have to be answerable. A save that
+changes nothing writes no event — a no-op is not an audit record.
+
+**The hold now covers both charge paths.** `placeOrder()` has honoured it since
+P1 and `raiseServiceRequest()` did not, so a guest who could not order a chai
+could still put ₹450 of laundry on the same room. It is conditional on the
+request total for the same reason the tier check above it is: a hold on CHARGING
+must never stop somebody asking for a towel (#9). Turning a billing dispute into
+a guest who cannot call for help is the wrong failure, and it is the one #9
+exists to prevent.
+
+**Lifetime spend is computed, and `lifetime_value_minor` stays unused.** The
+column exists, is written by nobody and read by nobody. The choice was to
+maintain it or to compute from the folios, and computing wins here: a
+denormalised total that nothing maintains is worse than no total, and one that
+something maintains is a second source that can drift from the lines — which is
+exactly why `folio_lines_recompute` computes the folio's own totals in the
+database rather than trusting a caller. At 34 keys it is one indexed sum. If it
+stops being cheap, the answer is a trigger-maintained total like the folio's, not
+the column that has been sitting there.
+
+### D-037 · A `ForbiddenError` says what the thrower wrote, like every other error
+`ForbiddenError.publicMessage` was a class constant: `'You do not have permission
+to do that.'` Five throw sites had each written a specific, actionable sentence
+as the constructor argument, and every one of them was silently replaced by that
+one before it reached a person.
+
+The worst was the oldest. A guest whose card had been declined at the desk read
+"You do not have permission to do that" when they tried to order dinner, instead
+of "Charges to this room are on hold. The front desk can take the order" — and
+had since P1. CLAUDE.md's own rule is that guest-facing messages "say what
+happened and what to do; they do not apologise and are never vague", and the one
+error class most likely to need a specific sentence was hardcoded to the vaguest
+available.
+
+It now behaves like `ValidationError`, `ConflictError` and `TooManyAttemptsError`:
+the constructor argument is the public message. Found by building the guest 360
+screen, whose charging hold is refused on a path the e2e follows all the way to
+what the guest reads.
+
+**The vague sentence is still available and still used, once.** `authorize()`
+throws it deliberately: which permission is missing is a fact about our
+authorization model and a staff member cannot act on it, so it goes in `context`,
+which is logged and never sent. The difference is that the vagueness is now a
+decision at the throw site rather than a property of the class.
+
+**What this does not change.** `NotFoundError` keeps its fixed message on
+purpose: it is what a staff member reaching across properties gets, and a
+specific one would confirm the resource exists. That vagueness is a security
+property, not an oversight, and the comment above it says so.

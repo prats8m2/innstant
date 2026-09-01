@@ -191,6 +191,31 @@ per-property in `access_policies`.
 
 ---
 
+### What a property knows about a guest (D-036)
+
+`guests` is keyed on `(tenant_id, phone)` and never on property — one row per
+customer per group, so a returning guest's history follows them between hotels.
+`guest_property_profiles` is the per-property view: VIP, a charging hold, dietary
+flags, staff notes. `/admin/guests/[guestId]` reads both and edits the second.
+
+Two of those columns change what the product DOES:
+
+| Column | Read by |
+|---|---|
+| `charging_blocked` | `placeOrder()` and `raiseServiceRequest()` — both refuse when it is set, and both only for requests that cost money. A hold must never stop a free request (#9). |
+| `dietary_flags` | every kitchen ticket and runner card the guest's orders produce |
+
+`staff_notes` is read by the desk's own screen and by nothing else.
+`lifetime_value_minor` is read by nothing at all: lifetime spend is computed from
+the folios, because an unmaintained denormalised total is worse than none and a
+maintained one is a second source that can drift from the lines (D-036).
+
+Queries here filter on `property_id` explicitly. The RLS policies are
+tenant-scoped, so a group's other hotels appear in any query that forgets — the
+database will not catch this one.
+
+---
+
 ### Which tier a proof buys (D-031)
 
 | Proof | Tier | Reaches |
