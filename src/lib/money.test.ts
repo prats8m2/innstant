@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   money, formatMoney, addMoney, subtractMoney, sumMoney,
   multiplyMoney, applyRateBps, isZero, isNegative,
+  parseMoneyInput, MoneyInputError,
 } from './money';
 
 const inr = (m: number) => money(m, 'INR');
@@ -116,5 +117,40 @@ describe('predicates', () => {
     expect(isZero(inr(1))).toBe(false);
     expect(isNegative(inr(-1))).toBe(true);
     expect(isNegative(inr(0))).toBe(false);
+  });
+});
+
+describe('parseMoneyInput', () => {
+  const inr = (text: string) => parseMoneyInput(text, 'INR');
+
+  it('reads what an F&B manager actually types', () => {
+    expect(inr('1150').amountMinor).toBe(115000);
+    expect(inr('1,150').amountMinor).toBe(115000);
+    expect(inr('₹1,150').amountMinor).toBe(115000);
+    expect(inr('  1150  ').amountMinor).toBe(115000);
+    expect(inr('0').amountMinor).toBe(0);
+  });
+
+  it('treats decimals as digits, not as a multiplication', () => {
+    // Number('11.50') * 100 is 1149.9999999999998. This is the whole reason
+    // the parser exists rather than a one-line coercion.
+    expect(inr('11.50').amountMinor).toBe(1150);
+    expect(inr('11.5').amountMinor).toBe(1150);
+    expect(inr('11.05').amountMinor).toBe(1105);
+    expect(inr('1150.99').amountMinor).toBe(115099);
+  });
+
+  it('refuses what it cannot be sure about', () => {
+    for (const bad of ['', '  ', 'free', '11.505', '-50', '1e3', '11..5', '₹', '1 150']) {
+      expect(() => inr(bad), bad).toThrow(MoneyInputError);
+    }
+  });
+
+  it('round-trips through formatMoney', () => {
+    for (const text of ['1150', '11.50', '0', '99999']) {
+      const parsed = inr(text);
+      expect(inr(formatMoney(parsed, { showDecimals: true }).replace('₹', '')).amountMinor)
+        .toBe(parsed.amountMinor);
+    }
   });
 });

@@ -38,7 +38,11 @@
      Lime plaster, not white — it is the wall colour of the haveli. */
   --plaster: #E3E5DB;
   --plaster-dim: color-mix(in srgb, var(--plaster) 62%, transparent);
-  --plaster-faint: color-mix(in srgb, var(--plaster) 38%, transparent);
+  /* 45%, not the 38% this started at. The reference uses .38 for metadata over
+     the page background and .45–.48 for the same thing on a card, and this one
+     token had collapsed both — which put it at 2.90:1 on --ink-600, below even
+     the 3:1 bar for UI text. tests/unit/theme-contrast.test.ts holds the line. */
+  --plaster-faint: color-mix(in srgb, var(--plaster) 45%, transparent);
 
   /* ── Semantic aliases ────────────────────────────────────────────────────
      Components should reach for these, not the raw ramp. */

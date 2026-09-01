@@ -70,6 +70,27 @@ describe('WCAG AA contrast', () => {
     expect(contrast(hexOf('--teal'), surface)).toBeGreaterThanOrEqual(4.5);
   });
 
+  /**
+   * `--plaster-faint` carries de-emphasized metadata — an order number, a
+   * timestamp, a hint under a field — and does NOT reach 4.5:1. It must never
+   * carry body copy or anything a guest has to read in order to act.
+   *
+   * It does have to clear 3:1, the bar for large text and UI components, on
+   * every surface it is used over. At the 38% it started at it was 2.90:1 on
+   * --ink-600 and failed that: one token was doing the job of the reference's
+   * two values (.38 over the page, .45–.48 on a card). 45% clears it on all
+   * three. P5's accessibility pass can revisit; until then the number is here
+   * rather than a surprise.
+   */
+  it('--plaster-faint clears 3:1 everywhere, and is never claimed to pass AA', () => {
+    for (const on of [bg, surface, card]) {
+      const ratio = contrast(plasterOver(0.45, on), on);
+      expect(ratio, 'below 3:1 would fail even for UI components').toBeGreaterThanOrEqual(3);
+      expect(ratio, 'if this ever passes 4.5, promote it and delete this test')
+        .toBeLessThan(4.5);
+    }
+  });
+
   it('--ink-300 is NOT used as a text colour anywhere', () => {
     // It is 2.39:1 on --surface. It is a border, and only a border.
     expect(contrast(hexOf('--ink-300'), surface)).toBeLessThan(4.5);

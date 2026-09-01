@@ -436,3 +436,136 @@ test.describe('the kitchen display', () => {
     await phone.close();
   });
 });
+
+/**
+ * The ops console.
+ *
+ * The claim: a hotel can change its own menu, and the change is in front of the
+ * guest on the next page load. Until this existed the only way to edit a menu
+ * was to edit `kesari-menu.ts` and re-run the seeder, which also wipes the
+ * property.
+ */
+test.describe('the menu editor', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  /**
+   * A dish of this project's own.
+   *
+   * Both browser projects run every test against ONE database (see the note in
+   * docs/STATUS.md), so two projects repricing the same dish race each other and
+   * the failure surfaces as a wrong price somewhere unrelated. The cart tests
+   * solve the same problem by giving each project its own room.
+   */
+  function ownDish(): string {
+    return {
+      'staff-desktop': 'Ker sangri',
+      'guest-mobile': 'Mawa kachori',
+      'guest-ios': 'Masala chai',
+    }[test.info().project.name] ?? 'Ker sangri';
+  }
+
+  async function signInAsFnb(page: Page): Promise<void> {
+    await page.goto('/admin/menu');
+    // The middleware is a turnstile: no cookie, no page.
+    await expect(page).toHaveURL(/\/admin\/login/);
+
+    await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/menu');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('In-room dining', {
+      timeout: 25_000,
+    });
+  }
+
+  test('reprices a dish, and the guest sees the new price', async ({ browser }) => {
+    // Room 105 has its own stay; this test only reads the guest menu.
+    const code = seed!.qrCodes['105'];
+
+    const desk = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const admin = await desk.newPage();
+    await signInAsFnb(admin);
+
+    const dish = ownDish();
+    await admin.getByRole('link', { name: dish }).click();
+    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+
+    const price = admin.locator('input[name="price"]');
+    const before = await price.inputValue();
+    // +7 rather than a round number: the assertion below looks for the price on
+    // the guest's menu, and a round increment can collide with another dish.
+    const after = String(Number(before) + 7);
+
+    await price.fill(after);
+    await admin.getByRole('button', { name: /Add the dish|Save the dish/ }).click();
+    await admin.waitForURL(/\/admin\/menu$/, { timeout: 25_000 });
+
+    // The guest's own menu, rendered per request from the same rows.
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/menu`);
+    await expect(guest.getByText(`₹${Number(after).toLocaleString('en-IN')}`).first())
+      .toBeVisible({ timeout: 25_000 });
+
+    // And the reprice is in the audit trail, with both numbers.
+    await admin.getByRole('link', { name: dish }).click();
+    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // `.first()` — the suite is repeatable, so this dish accumulates reprices.
+    await expect(admin.getByText(/Repriced from ₹/).first()).toBeVisible({ timeout: 20_000 });
+
+    // Put it back, so the suite is repeatable.
+    await admin.locator('input[name="price"]').fill(before);
+    await admin.getByRole('button', { name: /Save the dish/ }).click();
+    await admin.waitForURL(/\/admin\/menu$/, { timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('takes a dish off tonight and puts it back, without deleting anything',
+    async ({ page }) => {
+      await signInAsFnb(page);
+
+      const name = ownDish();
+      const row = () => page.locator('li').filter({ hasText: name }).first();
+
+      await row().getByRole('button', { name: 'Take off' }).click();
+      await expect(row()).toContainText('off tonight', { timeout: 20_000 });
+
+      await row().getByRole('button', { name: 'Put back on' }).click();
+      await expect(row()).not.toContainText('off tonight', { timeout: 20_000 });
+    });
+
+  test('will not archive a section while it still holds dishes', async ({ page }) => {
+    await signInAsFnb(page);
+
+    const section = page.locator('section').filter({ hasText: 'Rajasthani classics' }).first();
+    await section.getByRole('button', { name: 'Archive section' }).click();
+
+    // A count, not a refusal with no way forward.
+    await expect(section.getByRole('alert')).toContainText(/dishes in this section first/i, {
+      timeout: 20_000,
+    });
+  });
+
+  test('a kitchen account can 86 a dish and nothing more', async ({ page }) => {
+    // KITCHEN holds catalog:availability but not catalog:manage — the whole
+    // point of splitting them (permissions.ts). The screen must reflect that
+    // rather than offering buttons the action will refuse.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/menu');
+    await expect(page.getByRole('button', { name: 'Take off' }).first())
+      .toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Archive section' })).toHaveCount(0);
+    await expect(page.getByText('Add a section')).toHaveCount(0);
+  });
+});

@@ -77,6 +77,48 @@ function assertSameCurrency(a: Money, b: Money): void {
   }
 }
 
+/**
+ * The other direction: what a human typed, into minor units.
+ *
+ * This is the only place a price enters the system from a keyboard, and it is
+ * where #5 is most easily broken — `Number('11.50') * 100` is 1149.9999999999998,
+ * and rounding it quietly is how a menu ends up a paisa out for a year. So the
+ * decimals are parsed as INTEGER digits and never multiplied.
+ *
+ * Accepts what an F&B manager actually types: `1150`, `1,150`, `₹1,150`,
+ * `1150.50`, ` 1150 `. Rejects everything else rather than guessing, including
+ * more decimal places than the currency has and a negative price — a menu item
+ * that pays the guest is a typo, not a promotion.
+ */
+export class MoneyInputError extends Error {}
+
+export function parseMoneyInput(input: string, currency: CurrencyCode): Money {
+  const meta = metaFor(currency);
+  const cleaned = input.trim().replace(meta.symbol, '').replace(/,/g, '').trim();
+
+  if (!cleaned) throw new MoneyInputError('Enter a price.');
+
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(cleaned);
+  if (!match) {
+    throw new MoneyInputError('A price is digits, with up to two decimals — like 1150 or 1150.50.');
+  }
+
+  const [, whole, decimals = ''] = match;
+  if (decimals.length > meta.minorUnits) {
+    throw new MoneyInputError(`${currency} has ${meta.minorUnits} decimal places, no more.`);
+  }
+
+  // Pad rather than multiply: '5' means 50 paise, not 5.
+  const minor = decimals.padEnd(meta.minorUnits, '0');
+  const amountMinor = Number(whole) * 10 ** meta.minorUnits + Number(minor || 0);
+
+  if (!Number.isSafeInteger(amountMinor)) {
+    throw new MoneyInputError('That price is too large.');
+  }
+
+  return money(amountMinor, currency);
+}
+
 export function addMoney(a: Money, b: Money): Money {
   assertSameCurrency(a, b);
   return money(a.amountMinor + b.amountMinor, a.currency);
