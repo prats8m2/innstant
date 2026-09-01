@@ -2,10 +2,10 @@ import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
 import {
   outlets, outletHours, menuCategories, menuItems, modifierGroups, modifierOptions,
-  menuItemModifierGroups,
+  menuItemModifierGroups, menuItemAvailabilityWindows,
 } from '@/db/schema/catalog';
 import { parseClock } from '@/lib/clock';
-import type { OutletHoursDay } from './hours';
+import type { OutletHoursDay, ItemAvailabilityWindow } from './hours';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import type { CurrencyCode } from '@/lib/money';
 
@@ -170,6 +170,8 @@ export async function getAdminMenu(
 export interface AdminMenuItemDetail extends AdminMenuItem {
   categoryId: string;
   modifierGroupIds: string[];
+  /** When the dish is on, if it is not on all the time. */
+  availabilityWindows: ItemAvailabilityWindow[];
 }
 
 export async function getAdminMenuItem(
@@ -207,11 +209,20 @@ export async function getAdminMenuItem(
     .where(eq(menuItemModifierGroups.menuItemId, item.id))
     .orderBy(asc(menuItemModifierGroups.sortOrder));
 
+  const windows = await tx.select({
+    dayOfWeek: menuItemAvailabilityWindows.dayOfWeek,
+    startsAt: menuItemAvailabilityWindows.startsAt,
+    endsAt: menuItemAvailabilityWindows.endsAt,
+  }).from(menuItemAvailabilityWindows)
+    .where(eq(menuItemAvailabilityWindows.menuItemId, item.id))
+    .orderBy(asc(menuItemAvailabilityWindows.startsAt));
+
   return {
     ...item,
     currency: item.currency as CurrencyCode,
     dietaryFlags: Array.isArray(item.dietaryFlags) ? (item.dietaryFlags as string[]) : [],
     modifierGroupIds: groups.map((g) => g.id),
+    availabilityWindows: windows,
   };
 }
 
@@ -669,6 +680,90 @@ export async function setOutletAcceptingOrders(
     eventType: input.isAcceptingOrders ? 'outlet.opened' : 'outlet.closed',
     actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
     payload: { name: updated[0].name },
+  });
+}
+
+/**
+ * When a dish is on, if it is not on all the time.
+ *
+ * `menu_item_availability_windows` — written by nothing and read by nothing
+ * until the sweep. Distinct from `is_available`, which is tonight's 86 list;
+ * this is "breakfast until 10:30", written once and then true every day.
+ *
+ * Replace, not merge: the form posts every row it has, and a dish with no rows
+ * is a dish on all day — which is both the default and the way to clear a
+ * schedule.
+ */
+export async function setMenuItemAvailabilityWindows(
+  tx: Tx,
+  input: {
+    tenantId: string; propertyId: string; outletId: string; itemId: string;
+    windows: readonly ItemAvailabilityWindow[];
+    actorStaffId: string;
+  },
+): Promise<void> {
+  const item = await tx.select({ id: menuItems.id, name: menuItems.name }).from(menuItems)
+    .where(and(
+      eq(menuItems.id, input.itemId),
+      eq(menuItems.outletId, input.outletId),
+      isNull(menuItems.archivedAt),
+    ))
+    .limit(1);
+  if (!item[0]) throw new NotFoundError('That dish is not on this menu.');
+
+  for (const w of input.windows) {
+    if (w.dayOfWeek !== null
+        && (!Number.isInteger(w.dayOfWeek) || w.dayOfWeek < 0 || w.dayOfWeek > 6)) {
+      throw new ValidationError('A day of the week is 0 (Sunday) to 6, or every day.');
+    }
+
+    let starts: number;
+    let ends: number;
+    try {
+      starts = parseClock(w.startsAt);
+      ends = parseClock(w.endsAt);
+    } catch {
+      throw new ValidationError('Times are 24-hour, like 07:00 and 10:30.');
+    }
+
+    // `isItemOnNow()` reads an equal pair as contributing nothing, which would
+    // take the dish off the menu. Refuse it here rather than have someone
+    // wonder why breakfast vanished.
+    if (starts === ends) {
+      throw new ValidationError('A window that starts and ends at the same minute shows nothing.');
+    }
+  }
+
+  await tx.delete(menuItemAvailabilityWindows)
+    .where(eq(menuItemAvailabilityWindows.menuItemId, input.itemId));
+
+  if (input.windows.length) {
+    await tx.insert(menuItemAvailabilityWindows).values(
+      input.windows.map((w) => ({
+        tenantId: input.tenantId,
+        menuItemId: input.itemId,
+        dayOfWeek: w.dayOfWeek,
+        startsAt: w.startsAt,
+        endsAt: w.endsAt,
+        // Stored rather than inferred, so the row says what it means. The read
+        // derives the same answer from the times; keeping the column truthful
+        // costs nothing and a future query may filter on it.
+        crossesMidnight: parseClock(w.endsAt) < parseClock(w.startsAt),
+      })),
+    );
+  }
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'menu_item',
+    entityId: input.itemId,
+    eventType: 'menu_item.schedule_changed',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: {
+      name: item[0].name,
+      windows: input.windows.map((w) => `${w.dayOfWeek ?? 'all'}:${w.startsAt}-${w.endsAt}`),
+    },
   });
 }
 

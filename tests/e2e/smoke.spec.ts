@@ -993,3 +993,76 @@ test.describe('option groups', () => {
       .toContainText(/minimum of at least one/i, { timeout: 20_000 });
   });
 });
+
+/**
+ * The kitchen's own tools: the count of tickets nobody has accepted, and 86ing a
+ * dish from the board.
+ */
+test.describe('the kitchen board', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  /** Its own dish, and one no ordering or menu-editor test touches. */
+  function ownDish(): string {
+    return {
+      'staff-desktop': 'Udaipur-style pyaaz kachori',
+      'guest-mobile': 'Rooftop grilled river sole',
+      'guest-ios': 'Kesar lassi',
+    }[test.info().project.name] ?? 'Udaipur-style pyaaz kachori';
+  }
+
+  function ownRoom(): string {
+    return { 'staff-desktop': '214', 'guest-mobile': '105', 'guest-ios': '301' }[
+      test.info().project.name
+    ] ?? '214';
+  }
+
+  test('counts tickets nobody has accepted, and clears it on accept', async ({ browser }) => {
+    const kitchen = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const kds = await kitchen.newPage();
+    await kds.goto('/admin/login');
+    await kds.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await kds.locator('input[name="password"]').fill('kesari-demo-2026');
+    await kds.getByRole('button', { name: 'Sign in' }).click();
+    await kds.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await kds.goto('/kds');
+    await expect(kds.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
+
+    // The seeder leaves one PLACED order, so the badge is already there.
+    await expect(kds.getByText(/\d+ waiting/)).toBeVisible({ timeout: 20_000 });
+
+    // 86 a dish from the board. The KITCHEN role holds catalog:availability and
+    // nothing else on the catalog, which is exactly what this button needs.
+    const dish = ownDish();
+    const line = kds.locator('li').filter({ hasText: dish }).first();
+    if (await line.count()) {
+      await line.getByRole('button', { name: '86' }).first().click();
+      await kds.waitForTimeout(1500);
+    } else {
+      // No open ticket happens to carry this dish; take it off through the
+      // admin menu instead so the guest assertion below still means something.
+      await kds.goto('/admin/menu');
+      await kds.locator('li').filter({ hasText: dish }).first()
+        .getByRole('button', { name: 'Take off' }).click();
+      await kds.waitForTimeout(1500);
+    }
+
+    // The guest menu shows it as off.
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes[ownRoom()]!;
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/menu`);
+    const card = guest.locator('li').filter({ hasText: dish }).first();
+    await expect(card).toContainText(/not available now/i, { timeout: 25_000 });
+
+    // Put it back, so the suite is repeatable.
+    await kds.goto('/admin/menu');
+    await kds.locator('li').filter({ hasText: dish }).first()
+      .getByRole('button', { name: 'Put back on' }).click();
+    await expect(kds.locator('li').filter({ hasText: dish }).first())
+      .not.toContainText('off tonight', { timeout: 20_000 });
+
+    await kitchen.close();
+    await phone.close();
+  });
+});

@@ -170,3 +170,75 @@ export function isWithinWindow(
   if (from !== null) return now >= from;
   return now < until!;
 }
+
+
+/**
+ * Today's window, whatever the time is now.
+ *
+ * `outletOpenState()` answers "is it open, and until when" — the live question.
+ * This answers "when is it open today", which is what a menu footer says: the
+ * two are complementary, and printing the live line twice on one screen was how
+ * an e2e caught this being a duplicate rather than a second fact.
+ *
+ * Returns the row for the day the guest is currently in, not the row whose
+ * window covers this instant — at 00:30 the kitchen is open on yesterday's row,
+ * but "today's hours" still means today's.
+ */
+export function hoursForDay(
+  hours: readonly OutletHoursDay[],
+  dayOfWeek: number,
+): OutletHoursDay | null {
+  return hours.find((h) => h.dayOfWeek === dayOfWeek) ?? null;
+}
+
+/**
+ * A dish's own schedule. `menu_item_availability_windows`.
+ *
+ * Distinct from the `is_available` kill switch a kitchen flips mid-service (the
+ * schema says so in a comment, and it is the right distinction): this is
+ * "breakfast stops at 10:30", written once and then true every day. The switch
+ * is "we are out of sole", true for one evening.
+ *
+ * Written by nothing and read by nothing until now — the third and last of the
+ * stored-and-ignored columns the sweep turned up.
+ *
+ * `dayOfWeek: null` means every day. A window whose end is before its start
+ * crosses midnight, exactly as a collection's does.
+ */
+export interface ItemAvailabilityWindow {
+  /** null = every day. 0 = Sunday. */
+  dayOfWeek: number | null;
+  startsAt: string;
+  endsAt: string;
+}
+
+export function isItemOnNow(
+  windows: readonly ItemAvailabilityWindow[],
+  at: LocalTime,
+): boolean {
+  // No schedule is the common case and means "always", not "never". Getting
+  // this the wrong way round would empty every menu in the product.
+  if (!windows.length) return true;
+
+  return windows.some((w) => {
+    if (w.dayOfWeek === null) return isWithinWindow(w.startsAt, w.endsAt, at);
+
+    const opens = parseClock(w.startsAt);
+    const closes = parseClock(w.endsAt);
+    // Equal start and end is a data error, and `closes <= opens` would read it
+    // as a full 24 hours — the widest possible reading of a mistake. Contribute
+    // nothing instead: the dish then looks off, which is visible and fixable,
+    // rather than on all week, which is not. Rejected on write as well.
+    if (closes === opens) return false;
+
+    const duration = closes < opens ? 1440 - opens + closes : closes - opens;
+
+    const start = w.dayOfWeek * 1440 + opens;
+    const end = start + duration;
+    const now = at.dayOfWeek * 1440 + at.minutes;
+
+    // `now + WEEK` catches a Saturday window running into Sunday — the same
+    // wraparound the outlet hours have.
+    return (now >= start && now < end) || (now + WEEK >= start && now + WEEK < end);
+  });
+}

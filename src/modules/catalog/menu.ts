@@ -3,8 +3,11 @@ import type { Tx } from '@/db';
 import {
   outlets, outletHours, menuCategories, menuItems, collections, collectionItems,
   modifierGroups, modifierOptions, menuItemModifierGroups,
+  menuItemAvailabilityWindows,
 } from '@/db/schema/catalog';
-import { isWithinWindow, type OutletHoursDay } from './hours';
+import {
+  isWithinWindow, isItemOnNow, type OutletHoursDay, type ItemAvailabilityWindow,
+} from './hours';
 import type { LocalTime } from '@/lib/clock';
 
 /**
@@ -86,6 +89,40 @@ export async function getInRoomDiningOutlet(
     .orderBy(asc(outlets.createdAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * A dish's own schedule, for the items given.
+ *
+ * `menu_item_availability_windows` was written by nothing and read by nothing
+ * until the sweep. It is what makes "breakfast until 10:30" a property of the
+ * dish rather than something a kitchen has to remember to switch off — and it is
+ * distinct from `is_available`, which is tonight's 86 list.
+ *
+ * One query for every item on the screen, keyed by item. Most dishes have no
+ * windows at all, so this is usually a handful of rows.
+ */
+async function windowsByItem(
+  tx: Tx,
+  itemIds: readonly string[],
+): Promise<Map<string, ItemAvailabilityWindow[]>> {
+  const byItem = new Map<string, ItemAvailabilityWindow[]>();
+  if (!itemIds.length) return byItem;
+
+  const rows = await tx.select({
+    menuItemId: menuItemAvailabilityWindows.menuItemId,
+    dayOfWeek: menuItemAvailabilityWindows.dayOfWeek,
+    startsAt: menuItemAvailabilityWindows.startsAt,
+    endsAt: menuItemAvailabilityWindows.endsAt,
+  }).from(menuItemAvailabilityWindows)
+    .where(inArray(menuItemAvailabilityWindows.menuItemId, [...itemIds]));
+
+  for (const row of rows) {
+    const list = byItem.get(row.menuItemId) ?? [];
+    list.push({ dayOfWeek: row.dayOfWeek, startsAt: row.startsAt, endsAt: row.endsAt });
+    byItem.set(row.menuItemId, list);
+  }
+  return byItem;
 }
 
 /**
@@ -188,6 +225,16 @@ async function buildMenu(
     .where(and(eq(menuItems.outletId, input.outletId), isNull(menuItems.archivedAt)))
     .orderBy(asc(menuItems.sortOrder), asc(menuItems.name));
 
+  /**
+   * The schedule folded into `isAvailable`.
+   *
+   * One flag out of two facts on purpose: every screen downstream — the dish
+   * card, the cart, `placeOrder()`'s "came off the menu" check — already asks
+   * "can this be ordered", and answering it in two places is how one of them
+   * ends up forgetting the schedule.
+   */
+  const schedules = await windowsByItem(tx, dishes.map((d) => d.id));
+
   const byId = new Map<string, MenuDish>(
     dishes.map((d) => [d.id, {
       id: d.id,
@@ -195,7 +242,7 @@ async function buildMenu(
       description: d.description,
       priceMinor: d.priceMinor,
       currency: d.currency,
-      isAvailable: d.isAvailable,
+      isAvailable: d.isAvailable && isItemOnNow(schedules.get(d.id) ?? [], input.at),
       // jsonb comes back as unknown; the column defaults to '[]' and is only
       // ever written as an array of flag strings.
       dietaryFlags: Array.isArray(d.dietaryFlags) ? (d.dietaryFlags as string[]) : [],
@@ -431,7 +478,17 @@ export interface DishDetail {
  */
 export async function getDish(
   tx: Tx,
-  input: { propertyId: string; itemId: string },
+  input: {
+    propertyId: string;
+    itemId: string;
+    /**
+     * Property-local time, for the dish's own schedule. Optional here and
+     * nowhere else: this function is also used by the ops console, where "is it
+     * on right now" is not the question being asked. Omitting it means the
+     * schedule is not applied, and the guest screens always pass it.
+     */
+    at?: LocalTime;
+  },
 ): Promise<DishDetail | null> {
   const rows = await tx
     .select({
@@ -460,6 +517,11 @@ export async function getDish(
 
   const row = rows[0];
   if (!row) return null;
+
+  // The dish's schedule, folded into the same flag the screen already reads.
+  const onNow = input.at
+    ? isItemOnNow((await windowsByItem(tx, [row.id])).get(row.id) ?? [], input.at)
+    : true;
 
   // Groups and options in one query. Two would be a second round trip for a
   // screen the guest opens by tapping a dish, and the join is small.
@@ -524,7 +586,7 @@ export async function getDish(
       description: row.description,
       priceMinor: row.priceMinor,
       currency: row.currency,
-      isAvailable: row.isAvailable,
+      isAvailable: row.isAvailable && onNow,
       dietaryFlags: Array.isArray(row.dietaryFlags) ? (row.dietaryFlags as string[]) : [],
       spiceLevel: row.spiceLevel,
       prepTimeMinutes: row.prepTimeMinutes,
@@ -572,7 +634,17 @@ export interface CartPricing {
 
 export async function getCartPricing(
   tx: Tx,
-  input: { propertyId: string; itemIds: readonly string[]; optionIds: readonly string[] },
+  input: {
+    propertyId: string;
+    itemIds: readonly string[];
+    optionIds: readonly string[];
+    /**
+     * Property-local time. Without it a dish outside its window still prices,
+     * and `placeOrder()` would accept a breakfast order at dinner — this is the
+     * path where the schedule stops being a display decision and becomes a rule.
+     */
+    at?: LocalTime;
+  },
 ): Promise<CartPricing> {
   const items: CartPricing['items'] = new Map();
   const options: CartPricing['options'] = new Map();
@@ -593,10 +665,18 @@ export async function getCartPricing(
         inArray(menuItems.id, [...input.itemIds]),
         isNull(menuItems.archivedAt),
       ));
+    const schedules = input.at
+      ? await windowsByItem(tx, rows.map((r) => r.id))
+      : new Map<string, ItemAvailabilityWindow[]>();
+
     for (const r of rows) {
       items.set(r.id, {
-        name: r.name, priceMinor: r.priceMinor, currency: r.currency,
-        isAvailable: r.isAvailable, imageUrl: r.imageUrl,
+        name: r.name,
+        priceMinor: r.priceMinor,
+        currency: r.currency,
+        isAvailable: r.isAvailable
+          && (!input.at || isItemOnNow(schedules.get(r.id) ?? [], input.at)),
+        imageUrl: r.imageUrl,
       });
     }
   }

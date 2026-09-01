@@ -64,7 +64,19 @@ export default async function KitchenDisplay() {
     accept: can(session, propertyId, 'order:accept'),
     reject: can(session, propertyId, 'order:reject'),
     advance: can(session, propertyId, 'order:advance'),
+    // The 86 button. KITCHEN holds this and nothing else on the catalog.
+    availability: can(session, propertyId, 'catalog:availability'),
   };
+
+  /**
+   * Tickets nobody has accepted yet.
+   *
+   * Counted from the list already on the page rather than through
+   * `openTicketCount()` — that function counts every open status and would be a
+   * second query for data sitting in `tickets`. What a kitchen needs to see is
+   * the number waiting for someone to say yes.
+   */
+  const unacknowledged = tickets.filter((t) => t.status === 'PLACED').length;
 
   return (
     <main className={styles.shell}>
@@ -73,7 +85,12 @@ export default async function KitchenDisplay() {
         <span className={`${styles.count} tabular`}>
           {tickets.length} {tickets.length === 1 ? 'ticket' : 'tickets'}
         </span>
-        <LiveTickets propertyId={propertyId} />
+        {unacknowledged > 0 ? (
+          <span className={`${styles.unacked} tabular`} role="status">
+            {unacknowledged} waiting
+          </span>
+        ) : null}
+        <LiveTickets propertyId={propertyId} unacknowledged={unacknowledged} />
       </header>
 
       <TicketRail

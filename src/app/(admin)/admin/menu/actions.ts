@@ -9,8 +9,10 @@ import {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
+  setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
+import type { ItemAvailabilityWindow } from '@/modules/catalog';
 import { parseMoneyInput, MoneyInputError, type CurrencyCode } from '@/lib/money';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -68,6 +70,52 @@ const ItemForm = z.object({
   dietaryFlags: z.array(Flags),
   modifierGroupIds: z.array(z.uuid()),
 });
+
+/**
+ * A row of the schedule table on the dish form.
+ *
+ * Three fixed rows rather than an add-a-row control: this form works with
+ * JavaScript off, and a variable number of fields without it means a round trip
+ * per row. Three covers breakfast, lunch and dinner; a fourth is a schema-free
+ * change if anyone needs it.
+ */
+const SCHEDULE_ROWS = 3;
+
+const ScheduleRow = z.object({
+  dayOfWeek: z.union([z.literal(''), z.coerce.number().int().min(0).max(6)]),
+  startsAt: z.string().regex(/^\d{1,2}:\d{2}$/, 'Times are 24-hour, like 07:00.'),
+  endsAt: z.string().regex(/^\d{1,2}:\d{2}$/, 'Times are 24-hour, like 10:30.'),
+});
+
+function readSchedule(formData: FormData):
+  { ok: true; windows: ItemAvailabilityWindow[] } | { ok: false; error: string } {
+  const windows: ItemAvailabilityWindow[] = [];
+
+  for (let i = 0; i < SCHEDULE_ROWS; i += 1) {
+    const startsAt = String(formData.get(`windowStart-${i}`) ?? '').trim();
+    const endsAt = String(formData.get(`windowEnd-${i}`) ?? '').trim();
+    // A row with neither time is an empty row, not an error — that is how a
+    // schedule is cleared.
+    if (!startsAt && !endsAt) continue;
+
+    const parsed = ScheduleRow.safeParse({
+      dayOfWeek: formData.get(`windowDay-${i}`) ?? '',
+      startsAt,
+      endsAt,
+    });
+    if (!parsed.success) {
+      return { ok: false, error: 'A schedule row needs both a start and an end.' };
+    }
+
+    windows.push({
+      dayOfWeek: parsed.data.dayOfWeek === '' ? null : parsed.data.dayOfWeek,
+      startsAt: parsed.data.startsAt,
+      endsAt: parsed.data.endsAt,
+    });
+  }
+
+  return { ok: true, windows };
+}
 
 const AvailabilityForm = z.object({
   propertyId: z.uuid(),
@@ -218,6 +266,9 @@ export async function saveItem(
   }
   const input = parsed.data;
 
+  const schedule = readSchedule(formData);
+  if (!schedule.ok) return { error: schedule.error };
+
   const state = await guard('save item', async () => {
     const session = await requirePermission(input.propertyId, 'catalog:manage');
     // A price is a separate permission, and this payload carries one whether it
@@ -256,6 +307,15 @@ export async function saveItem(
           outletId: input.outletId,
           itemId: id,
           groupIds: input.modifierGroupIds,
+        });
+
+        await setMenuItemAvailabilityWindows(tx, {
+          tenantId: session.tenantId,
+          propertyId: input.propertyId,
+          outletId: input.outletId,
+          itemId: id,
+          windows: schedule.windows,
+          actorStaffId: session.staffUserId,
         });
 
         return id;

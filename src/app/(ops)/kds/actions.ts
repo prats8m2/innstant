@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
 import { advanceOrder, type OrderStatus } from '@/modules/ordering';
-import { AppError, publicPayloadFor } from '@/lib/errors';
+import { getInRoomDiningOutletConfig, setMenuItemAvailability } from '@/modules/catalog';
+import { AppError, NotFoundError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import type { Permission } from '@/modules/identity';
 
@@ -90,6 +91,69 @@ export async function bumpOrder(
       return { error: publicPayloadFor(error).message };
     }
     logger.error({ err: (error as Error).message }, 'bump failed');
+    throw error;
+  }
+}
+
+/**
+ * 86 a dish from the kitchen display.
+ *
+ * `catalog:availability` and nothing more — the KITCHEN role holds exactly that
+ * (permissions.ts), which is the whole reason the permission was split out from
+ * `catalog:manage`. A cook who has run out of sole must be able to say so from
+ * the screen in front of them, at 9pm, without holding the permission to
+ * reprice the menu.
+ *
+ * Its own action rather than a branch in `bumpOrder`: that one moves an ORDER
+ * through the state machine, and this changes the CATALOG. Same screen, two
+ * different things, two different permissions.
+ */
+const EightySix = z.object({
+  propertyId: z.uuid(),
+  menuItemId: z.uuid(),
+});
+
+export async function markItemUnavailable(
+  _previous: BumpState,
+  formData: FormData,
+): Promise<BumpState> {
+  const parsed = EightySix.safeParse({
+    propertyId: formData.get('propertyId'),
+    menuItemId: formData.get('menuItemId'),
+  });
+  if (!parsed.success) return { error: 'That did not come through. Try the ticket again.' };
+
+  try {
+    const session = await requirePermission(parsed.data.propertyId, 'catalog:availability');
+
+    const outletAndItem = await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      async (tx) => {
+        const outlet = await getInRoomDiningOutletConfig(tx, parsed.data.propertyId);
+        if (!outlet) throw new NotFoundError('No kitchen here.');
+        return setMenuItemAvailability(tx, {
+          tenantId: session.tenantId,
+          propertyId: parsed.data.propertyId,
+          outletId: outlet.id,
+          itemId: parsed.data.menuItemId,
+          isAvailable: false,
+          actorStaffId: session.staffUserId,
+        });
+      },
+    );
+
+    logger.info({ name: outletAndItem.name }, 'dish 86d from the kds');
+
+    // The guest menu is rendered per request, so there is nothing to invalidate
+    // there — the next guest to look simply does not see it.
+    revalidatePath('/kds');
+    return {};
+  } catch (error) {
+    if (error instanceof AppError) {
+      logger.info({ code: error.code }, '86 refused');
+      return { error: publicPayloadFor(error).message };
+    }
+    logger.error({ err: (error as Error).message }, '86 failed');
     throw error;
   }
 }

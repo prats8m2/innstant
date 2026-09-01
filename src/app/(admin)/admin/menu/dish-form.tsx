@@ -25,6 +25,8 @@ import styles from '../admin.module.css';
  * build says `Can't resolve 'net'`, which does not read like what it is. Types
  * are fine: they are erased.
  */
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export function DishForm({
   propertyId,
   outletId,
@@ -211,6 +213,67 @@ export function DishForm({
         </fieldset>
       ) : null}
 
+      <fieldset className={styles.fieldset}>
+        <legend className={styles.legend}>When it is on</legend>
+        <p className={styles.hint}>
+          Leave every row blank and the dish is on whenever the kitchen is. Fill
+          one in for a dish that stops — &ldquo;breakfast until 10:30&rdquo; is a row, not
+          something a kitchen has to remember to switch off each morning.
+        </p>
+
+        <table className={styles.hoursTable}>
+          <thead>
+            <tr>
+              <th scope="col">Day</th>
+              <th scope="col">From</th>
+              <th scope="col">Until</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[0, 1, 2].map((i) => {
+              const row = item?.availabilityWindows[i];
+              return (
+                <tr key={i}>
+                  <td>
+                    <select
+                      name={`windowDay-${i}`}
+                      className={styles.input}
+                      defaultValue={row?.dayOfWeek === null || row === undefined
+                        ? ''
+                        : String(row.dayOfWeek)}
+                      aria-label={`Schedule row ${i + 1} day`}
+                    >
+                      <option value="">Every day</option>
+                      {DAYS.map((day, dayOfWeek) => (
+                        <option key={day} value={dayOfWeek}>{day}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      name={`windowStart-${i}`}
+                      type="time"
+                      className={styles.timeInput}
+                      defaultValue={row?.startsAt ?? ''}
+                      aria-label={`Schedule row ${i + 1} starts at`}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      name={`windowEnd-${i}`}
+                      type="time"
+                      className={styles.timeInput}
+                      defaultValue={row?.endsAt ?? ''}
+                      aria-label={`Schedule row ${i + 1} ends at`}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </fieldset>
+
       <label className={styles.check}>
         <input
           type="checkbox"
@@ -219,6 +282,10 @@ export function DishForm({
         />
         <span>On the menu tonight</span>
       </label>
+      <p className={styles.hint}>
+        Tonight only — this is the switch the kitchen flips when it runs out. The
+        schedule above is the standing rule.
+      </p>
 
       {state.error ? <p className={styles.formError} role="alert">{state.error}</p> : null}
 

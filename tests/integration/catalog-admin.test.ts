@@ -11,12 +11,13 @@ import {
   archiveCollection, setCollectionItems,
   listModifierGroupsForAdmin, createModifierGroup, updateModifierGroup,
   archiveModifierGroup, createModifierOption, updateModifierOption,
-  archiveModifierOption,
+  archiveModifierOption, setMenuItemAvailabilityWindows,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
+import { addToCart, getCart } from '@/modules/ordering';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
-  ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
+  ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
 } from './setup';
 
 /**
@@ -355,6 +356,204 @@ describe('catalog admin', () => {
     await scoped((tx) => setOutletAcceptingOrders(tx, { ...base(), isAcceptingOrders: true }));
     expect((await scoped((tx) => getAdminMenu(tx, { outletId: a.outletId })))!
       .outlet.isAcceptingOrders).toBe(true);
+  });
+
+  describe('a dish with its own schedule', () => {
+    const menuAt = (hhmm: string, dayOfWeek = 3) => {
+      const [h, m] = hhmm.split(':').map(Number) as [number, number];
+      return scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, {
+        dayOfWeek, minutes: h * 60 + m,
+      }));
+    };
+
+    const availableAt = async (itemId: string, hhmm: string, dayOfWeek = 3) => {
+      const menu = await menuAt(hhmm, dayOfWeek);
+      return menu!.sections.flatMap((s) => s.items).find((i) => i.id === itemId)?.isAvailable;
+    };
+
+    it('is on all day when it has no schedule', async () => {
+      const categoryId = await aCategory('All day');
+      const itemId = await aDish(categoryId, 'Club sandwich');
+
+      // The default, and the one that must not be got backwards: no rows means
+      // always, not never.
+      expect(await availableAt(itemId, '04:00')).toBe(true);
+      expect(await availableAt(itemId, '21:00')).toBe(true);
+    });
+
+    it('stops when its window does', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Kachori and chai');
+
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: null, startsAt: '07:00', endsAt: '10:30' }],
+      }));
+
+      expect(await availableAt(itemId, '08:00')).toBe(true);
+      expect(await availableAt(itemId, '10:29')).toBe(true);
+      expect(await availableAt(itemId, '10:30')).toBe(false);
+      expect(await availableAt(itemId, '21:00')).toBe(false);
+      // Still ON the menu — a guest sees it and sees that it is not available,
+      // which is the existing read's decision for `is_available` too.
+      const menu = await menuAt('21:00');
+      expect(menu!.sections.flatMap((s) => s.items).map((i) => i.id)).toContain(itemId);
+    });
+
+    it('can be on twice a day', async () => {
+      const categoryId = await aCategory('Two sittings');
+      const itemId = await aDish(categoryId, 'Thali');
+
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [
+          { dayOfWeek: null, startsAt: '12:00', endsAt: '15:00' },
+          { dayOfWeek: null, startsAt: '19:00', endsAt: '22:30' },
+        ],
+      }));
+
+      expect(await availableAt(itemId, '13:00')).toBe(true);
+      expect(await availableAt(itemId, '17:00')).toBe(false);
+      expect(await availableAt(itemId, '20:00')).toBe(true);
+    });
+
+    it('can be on one day of the week', async () => {
+      const categoryId = await aCategory('Sunday');
+      const itemId = await aDish(categoryId, 'Sunday biryani');
+
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: 0, startsAt: '12:00', endsAt: '16:00' }],
+      }));
+
+      expect(await availableAt(itemId, '13:00', 0)).toBe(true);
+      expect(await availableAt(itemId, '13:00', 3)).toBe(false);
+    });
+
+    it('stops the ORDER, not just the display', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Morning-only kachori');
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: null, startsAt: '07:00', endsAt: '10:30' }],
+      }));
+
+      const stayId = await checkInGuest(a);
+      await scoped((tx) => addToCart(tx, {
+        tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+        menuItemId: itemId, quantity: 1, modifierOptionIds: [],
+      }));
+
+      /**
+       * The cart is priced with the property's clock, so the line reads as
+       * unavailable outside the window and `placeOrder()` refuses it — the same
+       * path that stops a dish taken off the menu mid-choice. Which of the two
+       * happens depends on the hour this suite runs at, and both are correct.
+       */
+      const priced = await scoped((tx) => getCart(tx, {
+        propertyId: a.propertyId, stayId, at: { dayOfWeek: 3, minutes: 21 * 60 },
+        outlet: {
+          outletId: a.outletId, currency: 'INR',
+          taxRateBps: 0, serviceChargeBps: 0, deliveryFeeMinor: 0,
+        },
+      }));
+      expect(priced!.lines[0]!.isAvailable).toBe(false);
+      // And it does not price into the total: a guest is not charged for a dish
+      // the kitchen will not cook.
+      expect(priced!.totals.subtotal.amountMinor).toBe(0);
+
+      const inWindow = await scoped((tx) => getCart(tx, {
+        propertyId: a.propertyId, stayId, at: { dayOfWeek: 3, minutes: 8 * 60 },
+        outlet: {
+          outletId: a.outletId, currency: 'INR',
+          taxRateBps: 0, serviceChargeBps: 0, deliveryFeeMinor: 0,
+        },
+      }));
+      expect(inWindow!.lines[0]!.isAvailable).toBe(true);
+      expect(inWindow!.totals.subtotal.amountMinor).toBeGreaterThan(0);
+    });
+
+    it('replaces the schedule, and an empty one means always', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Kachori');
+
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: null, startsAt: '07:00', endsAt: '10:30' }],
+      }));
+      expect(await availableAt(itemId, '21:00')).toBe(false);
+
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, { ...base(), itemId, windows: [] }));
+      expect(await availableAt(itemId, '21:00')).toBe(true);
+
+      const detail = await scoped((tx) => getAdminMenuItem(tx, {
+        outletId: a.outletId, itemId,
+      }));
+      expect(detail!.availabilityWindows).toEqual([]);
+    });
+
+    it('reads back what the editor needs to show', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Kachori');
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: 0, startsAt: '12:00', endsAt: '16:00' }],
+      }));
+
+      const detail = await scoped((tx) => getAdminMenuItem(tx, {
+        outletId: a.outletId, itemId,
+      }));
+      expect(detail!.availabilityWindows).toEqual([
+        { dayOfWeek: 0, startsAt: '12:00', endsAt: '16:00' },
+      ]);
+
+      // And `crosses_midnight` is stored truthfully rather than left default.
+      const row = await owner.query(
+        `SELECT crosses_midnight FROM menu_item_availability_windows WHERE menu_item_id = $1`,
+        [itemId]);
+      expect(row.rows[0].crosses_midnight).toBe(false);
+    });
+
+    it('stores crossesMidnight for a window that runs past midnight', async () => {
+      const categoryId = await aCategory('Late');
+      const itemId = await aDish(categoryId, 'Midnight maggi');
+      await scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: null, startsAt: '23:00', endsAt: '02:00' }],
+      }));
+
+      const row = await owner.query(
+        `SELECT crosses_midnight FROM menu_item_availability_windows WHERE menu_item_id = $1`,
+        [itemId]);
+      expect(row.rows[0].crosses_midnight).toBe(true);
+
+      expect(await availableAt(itemId, '23:30')).toBe(true);
+      expect(await availableAt(itemId, '01:00')).toBe(true);
+      expect(await availableAt(itemId, '03:00')).toBe(false);
+    });
+
+    it('refuses a zero-length window, which would hide the dish', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Kachori');
+
+      await expect(scoped((tx) => setMenuItemAvailabilityWindows(tx, {
+        ...base(), itemId,
+        windows: [{ dayOfWeek: null, startsAt: '10:00', endsAt: '10:00' }],
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('refuses a schedule on another property\'s dish', async () => {
+      const categoryId = await aCategory('Breakfast');
+      const itemId = await aDish(categoryId, 'Kachori');
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => setMenuItemAvailabilityWindows(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: b.outletId,
+          itemId, windows: [], actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 
   describe('option groups', () => {

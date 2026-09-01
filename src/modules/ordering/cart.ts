@@ -5,6 +5,7 @@ import { getDish, getCartPricing } from '@/modules/catalog';
 import type { DishModifierGroup } from '@/modules/catalog';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import { type CurrencyCode, money, formatMoney } from '@/lib/money';
+import type { LocalTime } from '@/lib/clock';
 import { calculateTotals, type OrderTotals } from './totals';
 
 /**
@@ -327,7 +328,18 @@ async function lineInStayCart(
  */
 export async function getCart(
   tx: Tx,
-  input: { propertyId: string; stayId: string; outlet: CartOutletConfig },
+  input: {
+    propertyId: string;
+    stayId: string;
+    outlet: CartOutletConfig;
+    /**
+     * Property-local time, so a dish outside its schedule prices as unavailable
+     * (`menu_item_availability_windows`). Optional because the pricing read
+     * treats absence as "no schedule applied" — every guest-facing caller and
+     * `placeOrder()` pass it.
+     */
+    at?: LocalTime;
+  },
 ): Promise<Cart | null> {
   const cartRows = await tx.select({ id: carts.id, outletId: carts.outletId })
     .from(carts)
@@ -368,6 +380,7 @@ export async function getCart(
     propertyId: input.propertyId,
     itemIds: rows.map((r) => r.menuItemId),
     optionIds: modifiers.map((m) => m.optionId),
+    at: input.at,
   });
 
   const lines: CartLine[] = rows.map((row) => {

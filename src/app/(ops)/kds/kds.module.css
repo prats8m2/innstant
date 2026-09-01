@@ -115,6 +115,13 @@
   font-size: var(--text-base);
   color: var(--text-muted);
 }
+/*
+ * Ageing, against the ticket's own promise rather than a flat number of minutes
+ * — a 40-minute dish and a 10-minute chai are not late at the same age.
+ * `soon` is the last quarter of the promise; `late` is past it.
+ */
+.age[data-heat='soon'] { color: var(--accent); font-weight: 600; }
+
 /* Late is the one thing on this screen that shouts. */
 .age[data-late='true'] {
   color: var(--surface);
@@ -250,3 +257,47 @@
   font-size: var(--text-base);
 }
 .reason::placeholder { color: var(--plaster-faint); }
+
+/* ── The unacknowledged count ─────────────────────────────────────────────── */
+/*
+ * Tickets nobody has accepted. It sits next to the total and it is deliberately
+ * loud: the audible alert can be blocked by the browser, so this is the channel
+ * that always works.
+ */
+.unacked {
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: var(--surface);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+/* ── 86 ───────────────────────────────────────────────────────────────────── */
+.eightySixForm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/*
+ * Small and quiet. It is next to every line on the board and it takes a dish off
+ * the guest menu — a cook should have to mean it, and nobody should hit it while
+ * reaching for a bump button.
+ */
+.eightySix {
+  min-width: var(--touch-min);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--plaster-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.eightySix:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.eightySix:disabled { opacity: 0.6; cursor: progress; }

@@ -6,6 +6,8 @@ import { idempotencyKeys } from '@/db/schema/core';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { postFolioLine } from '@/modules/billing';
 import { guestProfileForStay } from '@/modules/stay';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -90,9 +92,23 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
   }
 
   const currency = outlet.currency as CurrencyCode;
+
+  /**
+   * The hotel's own clock, read here rather than taken from the caller.
+   *
+   * A dish's schedule (`menu_item_availability_windows`) decides whether it can
+   * be ordered at all, and this is the path where that becomes a rule instead
+   * of a display decision. Computing it inside the function means no caller can
+   * forget to pass it — a server action that omitted it would silently accept a
+   * breakfast order at dinner.
+   */
+  const property = await findProperty(tx, input.propertyId);
+  const at = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata');
+
   const cart = await getCart(tx, {
     propertyId: input.propertyId,
     stayId: input.stayId,
+    at,
     outlet: {
       outletId: outlet.id,
       currency,
@@ -118,7 +134,7 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
   const gone = cart.lines.find((line) => !line.isAvailable);
   if (gone) {
     throw new ConflictError(
-      `${gone.name} came off the menu while you were choosing. Remove it and send again.`,
+      `${gone.name} is not available now. Remove it and send again.`,
     );
   }
 

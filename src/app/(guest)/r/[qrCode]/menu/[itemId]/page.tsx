@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getDish } from '@/modules/catalog';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { DishForm } from './dish-form';
 import styles from './dish.module.css';
@@ -34,7 +36,17 @@ export default async function DishScreen({
 
   const detail = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
-    (tx) => getDish(tx, { propertyId: session.propertyId, itemId }),
+    async (tx) => {
+      // The property's clock decides whether this dish is on right now — a
+      // breakfast dish opened at dinner reads as unavailable rather than
+      // taking an order the kitchen will refuse.
+      const property = await findProperty(tx, session.propertyId);
+      return getDish(tx, {
+        propertyId: session.propertyId,
+        itemId,
+        at: localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata'),
+      });
+    },
   );
 
   // A dish id that is not on this property's menu — a stale link, a guessed id,

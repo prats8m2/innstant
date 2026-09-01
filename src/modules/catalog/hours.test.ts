@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  outletOpenState, describeOpenState, isWithinWindow, type OutletHoursDay,
+  outletOpenState, describeOpenState, isWithinWindow, isItemOnNow,
+  type OutletHoursDay,
 } from './hours';
 import { formatClock } from '@/lib/clock';
 
@@ -162,5 +163,54 @@ describe('isWithinWindow', () => {
     expect(isWithinWindow('18:00', null, t('12:00'))).toBe(false);
     expect(isWithinWindow(null, '11:00', t('09:00'))).toBe(true);
     expect(isWithinWindow(null, '11:00', t('12:00'))).toBe(false);
+  });
+});
+
+describe('isItemOnNow', () => {
+  const at = (dayOfWeek: number, hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number) as [number, number];
+    return { dayOfWeek, minutes: h * 60 + m };
+  };
+
+  it('is on when it has no schedule at all', () => {
+    // The common case. The wrong way round would empty every menu.
+    expect(isItemOnNow([], at(3, '04:00'))).toBe(true);
+  });
+
+  it('honours an every-day window', () => {
+    const breakfast = [{ dayOfWeek: null, startsAt: '07:00', endsAt: '10:30' }];
+    expect(isItemOnNow(breakfast, at(3, '08:00'))).toBe(true);
+    expect(isItemOnNow(breakfast, at(0, '08:00'))).toBe(true);
+    expect(isItemOnNow(breakfast, at(3, '11:00'))).toBe(false);
+  });
+
+  it('honours a single-day window', () => {
+    const sundayRoast = [{ dayOfWeek: 0, startsAt: '12:00', endsAt: '16:00' }];
+    expect(isItemOnNow(sundayRoast, at(0, '13:00'))).toBe(true);
+    expect(isItemOnNow(sundayRoast, at(1, '13:00'))).toBe(false);
+    expect(isItemOnNow(sundayRoast, at(0, '17:00'))).toBe(false);
+  });
+
+  it('is on if ANY window says so', () => {
+    const twice = [
+      { dayOfWeek: null, startsAt: '07:00', endsAt: '10:30' },
+      { dayOfWeek: null, startsAt: '19:00', endsAt: '22:00' },
+    ];
+    expect(isItemOnNow(twice, at(3, '08:00'))).toBe(true);
+    expect(isItemOnNow(twice, at(3, '20:00'))).toBe(true);
+    expect(isItemOnNow(twice, at(3, '15:00'))).toBe(false);
+  });
+
+  it('carries a Saturday-night window into Sunday morning', () => {
+    const lateSaturday = [{ dayOfWeek: 6, startsAt: '22:00', endsAt: '02:00' }];
+    expect(isItemOnNow(lateSaturday, at(6, '23:00'))).toBe(true);
+    expect(isItemOnNow(lateSaturday, at(0, '01:00'))).toBe(true);
+    expect(isItemOnNow(lateSaturday, at(0, '03:00'))).toBe(false);
+    expect(isItemOnNow(lateSaturday, at(6, '21:00'))).toBe(false);
+  });
+
+  it('reads a zero-length day window as never, not always', () => {
+    expect(isItemOnNow([{ dayOfWeek: 2, startsAt: '10:00', endsAt: '10:00' }], at(2, '10:00')))
+      .toBe(false);
   });
 });

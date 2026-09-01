@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import { getCart } from '@/modules/ordering';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { LineControls } from './line-controls';
@@ -46,12 +48,19 @@ export default async function CartScreen({
     async (tx) => {
       const outlet = await getInRoomDiningOutletConfig(tx, session.propertyId);
       if (!outlet) return null;
+      // The property's clock, for the dish schedules — a breakfast dish sitting
+      // in a cart at dinner is not orderable, and this screen must say so
+      // rather than let the send fail.
+      const property = await findProperty(tx, session.propertyId);
+      const at = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata');
+
       return {
         minimumOrderMinor: outlet.minimumOrderMinor,
         currency: outlet.currency as CurrencyCode,
         cart: await getCart(tx, {
           propertyId: session.propertyId,
           stayId: session.stayId,
+          at,
           outlet: {
             outletId: outlet.id,
             currency: outlet.currency as CurrencyCode,

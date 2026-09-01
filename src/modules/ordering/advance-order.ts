@@ -267,7 +267,16 @@ export interface KitchenTicket {
   assignedRunnerId: string | null;
   guestNotes: string | null;
   dietaryFlags: string[];
-  lines: Array<{ name: string; quantity: number; modifiers: string[]; notes: string | null }>;
+  lines: Array<{
+    /** Null once the dish has been archived (the FK is ON DELETE SET NULL, and
+     *  the snapshot is what the ticket actually shows). Without it the kitchen
+     *  cannot 86 the dish from here. */
+    menuItemId: string | null;
+    name: string;
+    quantity: number;
+    modifiers: string[];
+    notes: string | null;
+  }>;
 }
 
 /**
@@ -300,6 +309,7 @@ export async function kitchenTickets(
         (SELECT jsonb_agg(line ORDER BY line->>'name')
          FROM (
            SELECT jsonb_build_object(
+             'menuItemId', oi.menu_item_id,
              'name', oi.name_snapshot,
              'quantity', oi.quantity,
              'notes', oi.notes,

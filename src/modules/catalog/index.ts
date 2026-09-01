@@ -3,8 +3,10 @@ export {
   getMenu, getInRoomDiningMenu, getInRoomDiningOutlet, getInRoomDiningOutletConfig,
   getDish, getCartPricing, getOutletHours,
 } from './menu';
-export { outletOpenState, describeOpenState } from './hours';
-export type { OutletHoursDay, OutletOpenState } from './hours';
+export { outletOpenState, describeOpenState, isItemOnNow, hoursForDay } from './hours';
+export type {
+  OutletHoursDay, OutletOpenState, ItemAvailabilityWindow,
+} from './hours';
 export type {
   OutletMenu, MenuSection, MenuDish,
   DishDetail, DishModifierGroup, DishModifierOption, CartPricing,
@@ -26,6 +28,7 @@ export {
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours,
+  setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
 } from './admin';
 export type {

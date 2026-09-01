@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import {
-  getInRoomDiningMenu, getOutletHours, outletOpenState, describeOpenState,
+  getInRoomDiningMenu, getOutletHours, outletOpenState, describeOpenState, hoursForDay,
 } from '@/modules/catalog';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt, formatClock } from '@/lib/clock';
@@ -67,6 +67,9 @@ export default async function MenuScreen({
         cart: await getCart(tx, {
           propertyId: session.propertyId,
           stayId: session.stayId,
+          // A dish outside its schedule must price as unavailable here too, or
+          // the pill's total and the send would disagree with the menu above it.
+          at: localNow,
           outlet: {
             outletId: loaded.outlet.id,
             currency: loaded.outlet.currency as CurrencyCode,
@@ -97,6 +100,12 @@ export default async function MenuScreen({
   const kitchenLine = outlet.isAcceptingOrders
     ? describeOpenState(outletOpenState(hours, at), formatClock)
     : 'The kitchen has closed for tonight';
+
+  // Today's window, as a range. Complementary to the line above, not a repeat.
+  const today = hoursForDay(hours, at.dayOfWeek);
+  const todaysHours = today
+    ? `Kitchen ${formatClock(today.opensAt)} – ${formatClock(today.closesAt)}`
+    : null;
 
   const prepWindow = `${outlet.prepTimeMinutes}–${outlet.prepTimeMinutes + 10} min`;
 
@@ -143,12 +152,16 @@ export default async function MenuScreen({
                         <span className={`${styles.price} tabular`}>
                           {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
                         </span>
+                        {/* One flag, two reasons: the kitchen has 86'd it, or it
+                            is outside its own hours. "Not available now" is true
+                            of both; "off tonight" was not true of a breakfast
+                            dish at dinner. */}
                         {dish.isAvailable ? (
                           dish.prepTimeMinutes ? (
                             <span className={styles.tag}>{dish.prepTimeMinutes} min</span>
                           ) : null
                         ) : (
-                          <span className={styles.soldOut}>Off the menu tonight</span>
+                          <span className={styles.soldOut}>Not available now</span>
                         )}
                       </span>
                     </span>
@@ -159,9 +172,15 @@ export default async function MenuScreen({
           </section>
         ))}
 
-        <p className={styles.footer}>
-          Chef Bhairav Singh · kitchen closes 11:30
-        </p>
+        {/*
+          The closing time here was the literal "kitchen closes 11:30" — the same
+          bug as the pill, on the same screen. It reads the hours now, and it
+          reads TODAY'S HOURS rather than the live line: the pill already says
+          whether the kitchen is open, and saying it twice is what an e2e
+          caught. The chef's name went with the literal — it belonged to one
+          hotel, and there is nowhere yet for a property to say who cooks.
+        */}
+        {todaysHours ? <p className={styles.footer}>{todaysHours}</p> : null}
       </div>
 
       {/* The pill. Two states, exactly as the reference: a quiet status line
