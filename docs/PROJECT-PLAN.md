@@ -14,29 +14,32 @@ nobody can see; everything after is expansion. Optimise for reaching P1.
 Nothing here is demoable. All of it is expensive to retrofit.
 
 **Repo & tooling**
-- [ ] Next.js App Router, TypeScript strict, `output: 'standalone'`
-- [ ] Tailwind + shadcn/ui installed, tokens overridden from `design-tokens.json`
-- [ ] ESLint with the module-boundary `no-restricted-imports` rule
-- [ ] Vitest + Playwright wired, one passing test each
+- [x] Next.js App Router, TypeScript strict, `output: 'standalone'`
+- [x] Tailwind + shadcn/ui installed, tokens overridden from `design-tokens.json`
+- [x] ESLint with the module-boundary `no-restricted-imports` rule
+- [x] Vitest + Playwright wired, one passing test each
 - [ ] GitHub → Railway auto-deploy on `main`, preview env on PR
+      **— the only P0 item outstanding. The Dockerfile, `railway.json` and the CI
+      workflow exist and are verified locally; there is no git remote and no
+      Railway app service. Account-holder task.**
 
 **Database**
-- [ ] Drizzle config, schema files from `src/db/schema/` generating cleanly
-- [ ] Migration runner using the migration role (not `app_user`)
-- [ ] `0001_rls.sql` and `0002_constraints.sql` applied
-- [ ] `withTenant()` helper + a test proving a cross-tenant read returns nothing
-- [ ] A test asserting the tenant context does not leak between two sequential
+- [x] Drizzle config, schema files from `src/db/schema/` generating cleanly
+- [x] Migration runner using the migration role (not `app_user`)
+- [x] `0001_rls.sql` and `0002_constraints.sql` applied
+- [x] `withTenant()` helper + a test proving a cross-tenant read returns nothing
+- [x] A test asserting the tenant context does not leak between two sequential
       requests that reuse the same pooled connection (no PgBouncer — D-022;
       node-postgres reuses connections, so the leak is still possible)
 
 **Identity & access**
-- [ ] Staff auth: email + password, session cookie
-- [ ] The 8 system roles seeded, `authorize()` helper on `resource:action`
-- [ ] `provisionProperty()` — one transaction, creates property, roles, floors,
+- [x] Staff auth: email + password, session cookie
+- [x] The 8 system roles seeded, `authorize()` helper on `resource:action`
+- [x] `provisionProperty()` — one transaction, creates property, roles, floors,
       rooms, QR codes, an outlet, and ~20 request types
-- [ ] QR resolution: `/r/[code]` → property + room + active stay
-- [ ] Access tiers + `access_policies`, default policy row on provisioning
-- [ ] Guest session issue / escalate / revoke, tokens hashed
+- [x] QR resolution: `/r/[code]` → property + room + active stay
+- [x] Access tiers + `access_policies`, default policy row on provisioning
+- [x] Guest session issue / escalate / revoke, tokens hashed
 
 **Exit criterion:** two properties exist in one database; a staff user at
 property A cannot read a single row belonging to property B, proven by a test
@@ -51,39 +54,51 @@ This is the whole product in miniature: catalog, transaction, realtime, two
 roles. It is also the demo.
 
 **Catalog (ops)**
-- [ ] Outlet CRUD with hours, fees, tax rates
-- [ ] Menu category and item CRUD
-- [ ] Image upload → R2, enforced aspect ratio, blurhash generated
-- [ ] Modifier groups, reusable across items
-- [ ] Availability toggle + scheduled windows
-- [ ] Editorial collections
+- [x] Outlet CRUD with hours, fees, tax rates *(edit only — a second outlet is
+      created by `provisionProperty()`, not from a screen)*
+- [x] Menu category and item CRUD
+- [ ] Image upload → R2, enforced aspect ratio, blurhash generated **— blocked:
+      R2 is not configured. The dish form takes a URL into the same column, and
+      placement snapshots it.**
+- [x] Modifier groups, reusable across items
+- [x] Availability toggle · **[ ] scheduled windows** — `menu_item_availability_windows`
+      is still written by nothing
+- [x] Editorial collections
 
 **Guest ordering**
-- [ ] Menu browse: sticky category rail, collections, dish cards
-- [ ] Dish detail with modifiers, quantity, notes
-- [ ] Server-side cart keyed to `(stay, outlet)`
-- [ ] Totals: subtotal, tax, service charge, delivery fee, tip
-- [ ] Place order — idempotent, snapshotted, folio line posted
-- [ ] Access escalation on first charge (the one verification prompt)
-- [ ] Live order tracking via SSE
+- [x] Menu browse: sticky category rail, collections, dish cards
+- [x] Dish detail with modifiers, quantity, notes
+- [x] Server-side cart keyed to `(stay, outlet)`
+- [x] Totals: subtotal, tax, service charge, delivery fee, tip
+- [x] Place order — idempotent, snapshotted, folio line posted
+- [x] Access escalation on first charge (the one verification prompt)
+- [x] Live order tracking via SSE
 
 **Kitchen**
-- [ ] KDS ticket rail per outlet, oldest first
-- [ ] Audible alert + persistent unacknowledged count
-- [ ] Accept / reject with reason
-- [ ] Bump preparing → ready, prep timers with colour ageing
-- [ ] Mark an item unavailable from the KDS
-- [ ] Runner pickup queue, mark delivered
+- [x] KDS ticket rail per outlet, oldest first
+- [ ] Audible alert + persistent unacknowledged count — `openTicketCount()` exists
+      and nothing calls it
+- [x] Accept / reject with reason
+- [x] Bump preparing → ready · prep timers *(late shouts; no gradual ageing yet)*
+- [ ] Mark an item unavailable from the KDS — `setMenuItemAvailability()` exists
+      and the KITCHEN role already holds the permission; it needs a button
+- [x] Runner pickup queue, mark delivered
 
 **Plumbing**
-- [ ] `LISTEN/NOTIFY` → SSE fan-out, reconnect handling
-- [ ] Order state machine with every transition writing `event_log`
-- [ ] `demo:reset` seeder producing The Kesari with realistic data
+- [x] `LISTEN/NOTIFY` → SSE fan-out, reconnect handling
+- [x] Order state machine with every transition writing `event_log`
+- [x] `demo:reset` seeder producing The Kesari with realistic data
 
 **Exit criterion:** on the deployed Railway environment, scan a printed QR with a
 real phone, order three dishes with modifiers, watch the ticket appear on a
 second device within two seconds, bump it through to delivered, and see the
 charge on the folio. Do this on hotel-grade wifi, not your desk.
+
+**Status: the whole chain passes on localhost against a docker Postgres, in one
+automated test across three devices — 379ms from Send to the ticket, and
+delivered by a runner. What it has NOT been done on is Railway, a printed
+sticker, and hotel wifi. That is the one thing between P1 and done, and it needs
+a git remote and a Railway app service first (see P0's last item).**
 
 ---
 
