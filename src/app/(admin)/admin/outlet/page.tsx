@@ -41,7 +41,7 @@ export default async function OutletAdmin() {
 
   if (!outlet) {
     return (
-      <AdminShell session={session} propertyName={propertyName} current="outlet">
+      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="outlet">
         <h1 className={styles.title}>The kitchen</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
       </AdminShell>
@@ -56,7 +56,7 @@ export default async function OutletAdmin() {
   );
 
   return (
-    <AdminShell session={session} propertyName={propertyName} current="outlet">
+    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="outlet">
       <h1 className={styles.title}>The kitchen</h1>
       <p className={styles.lede}>
         A guest looking at the menu right now reads: <strong>{guestLine}</strong>

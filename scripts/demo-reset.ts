@@ -21,6 +21,7 @@ import { createStay } from '@/modules/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
 import { serviceRequests, serviceRequestItems, requestTypes } from '@/db/schema/requests';
+import { escalateBreachesFor } from '@/modules/requests';
 import { folios, folioLines } from '@/db/schema/billing';
 import { formatMoney, money } from '@/lib/money';
 import { and, eq } from 'drizzle-orm';
@@ -288,6 +289,55 @@ async function main(): Promise<void> {
       lineTotalMinor: 0,
     });
 
+    /**
+     * ── And one that is already late ──────────────────────────────────────
+     *
+     * A wake-up call, promised in five minutes and now fourteen minutes past.
+     *
+     * The demo needs it. Everything else on the floor board is inside its
+     * promise, so the SLA worker, the red countdown and the duty manager's
+     * bell — the whole second half of P2 — had nothing to show unless somebody
+     * sat watching a screen for a quarter of an hour first.
+     *
+     * Escalated by calling the sweep's own function rather than writing
+     * `escalation_level` and a notification row by hand. A seeder that
+     * hand-rolls what the product does is a seeder that keeps working after the
+     * product breaks (setup.ts learned this, and now calls
+     * `provisionProperty()` for the same reason). Fourteen minutes late is
+     * level 2 in one step: the assignee is told and so is the duty manager, and
+     * level 3 is not due for another sixteen minutes.
+     */
+    const wakeUp = await tx.select({ id: requestTypes.id, name: requestTypes.name })
+      .from(requestTypes)
+      .where(and(eq(requestTypes.propertyId, provisioned.propertyId), eq(requestTypes.key, 'WAKE_UP_CALL')))
+      .limit(1);
+    const room105 = await tx.select({ floorId: roomsTable.floorId }).from(roomsTable)
+      .where(eq(roomsTable.id, provisioned.roomIds.get('105')!)).limit(1);
+    const [lateRequest] = await tx.insert(serviceRequests).values({
+      tenantId: TENANT_ID, propertyId: provisioned.propertyId,
+      stayId: stayIds.get('105')!, floorId: room105[0]!.floorId,
+      requestTypeId: wakeUp[0]!.id,
+      requestNumber: 'SR-4468', status: 'OPEN',
+      guestNote: 'For 6am, I have a train.',
+      slaTargetAt: new Date(Date.now() - 14 * 60_000),
+    }).returning({ id: serviceRequests.id });
+
+    await tx.insert(serviceRequestItems).values({
+      tenantId: TENANT_ID,
+      serviceRequestId: lateRequest!.id,
+      requestTypeId: wakeUp[0]!.id,
+      labelSnapshot: wakeUp[0]!.name,
+      unitPriceMinor: 0,
+      quantity: 1,
+      lineTotalMinor: 0,
+    });
+
+    const escalated = await escalateBreachesFor(tx, {
+      tenantId: TENANT_ID,
+      propertyId: provisioned.propertyId,
+      now: new Date(),
+    });
+
     // ── A partially populated folio for room 214 ────────────────────────────
     const [folio] = await tx.insert(folios).values({
       tenantId: TENANT_ID, propertyId: provisioned.propertyId,
@@ -314,10 +364,13 @@ async function main(): Promise<void> {
     const outletRow = await tx.select({ id: outlets.id }).from(outlets)
       .where(eq(outlets.id, provisioned.outletId)).limit(1);
 
-    return { provisioned, menu, folioBalance: totals[0]?.balanceMinor ?? 0, outlet: outletRow[0]!.id };
+    return {
+      provisioned, menu, escalated,
+      folioBalance: totals[0]?.balanceMinor ?? 0, outlet: outletRow[0]!.id,
+    };
   });
 
-  const { provisioned, menu, folioBalance } = result;
+  const { provisioned, menu, folioBalance, escalated } = result;
 
   console.log('  ✓ The Kesari — 34-key haveli, Udaipur\n');
   console.log(`    property      ${provisioned.propertyId}`);
@@ -326,6 +379,7 @@ async function main(): Promise<void> {
   console.log(`    modifiers     ${menu.modifierGroups} groups`);
   console.log(`    request types ${provisioned.requestTypeCount}`);
   console.log(`    folio 214     ${formatMoney(money(folioBalance, 'INR'))} across 4 lines`);
+  console.log(`    late request  SR-4468, 14 minutes past — ${escalated} escalated, the GM's bell is lit`);
   console.log('\n  Staff logins  (password for all: ' + DEMO_PASSWORD + ')');
   for (const s of DEMO_STAFF) console.log(`    ${s.role.padEnd(16)} ${s.email}`);
 

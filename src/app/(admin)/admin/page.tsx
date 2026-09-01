@@ -36,6 +36,7 @@ export default async function AdminHome() {
   return (
     <AdminShell
       session={session}
+      propertyId={propertyId}
       propertyName={property?.name ?? 'This property'}
       current="home"
     >

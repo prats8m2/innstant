@@ -43,7 +43,7 @@ export default async function MenuAdmin() {
 
   if (!outlet || !menu) {
     return (
-      <AdminShell session={session} propertyName={propertyName} current="menu">
+      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
         <h1 className={styles.title}>Menu</h1>
         <p className={styles.empty}>
           No in-room dining outlet is configured here. One is created with the
@@ -54,7 +54,7 @@ export default async function MenuAdmin() {
   }
 
   return (
-    <AdminShell session={session} propertyName={propertyName} current="menu">
+    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
       <MenuEditor
         propertyId={propertyId}
         menu={menu}

@@ -53,6 +53,7 @@ export default async function EditDish({
   return (
     <AdminShell
       session={session}
+      propertyId={propertyId}
       propertyName={property?.name ?? 'This property'}
       current="menu"
     >

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { StaffSession } from '@/modules/identity';
+import { Alerts } from '@/components/alerts';
 import { signOut } from './actions';
 import styles from './admin.module.css';
 
@@ -12,15 +13,22 @@ import styles from './admin.module.css';
  * until someone screenshots it.
  *
  * Desktop-first, unlike everything under `(guest)`. This is used sitting down.
+ *
+ * Async, because the alert bell lives here rather than in each page: the duty
+ * manager's escalations should reach them on whichever admin screen they happen
+ * to have open, and seven pages each remembering to load a bell is seven places
+ * for one of them to forget.
  */
-export function AdminShell({
+export async function AdminShell({
   session,
+  propertyId,
   propertyName,
   /** Which nav item is the current page. */
   current,
   children,
 }: {
   session: StaffSession;
+  propertyId: string;
   propertyName: string;
   current: 'home' | 'menu' | 'outlet';
   children: React.ReactNode;
@@ -57,6 +65,7 @@ export function AdminShell({
         </nav>
 
         <span className={styles.who}>
+          <Alerts session={session} propertyId={propertyId} />
           <span className={styles.whoName}>{session.fullName}</span>
           {/* A form, not a link: signing out is a mutation, and a GET that
               revokes a session can be fired by a prefetch. */}

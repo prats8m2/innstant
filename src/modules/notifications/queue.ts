@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { notifications } from '@/db/schema/notifications';
 
@@ -11,13 +11,24 @@ import { notifications } from '@/db/schema/notifications';
  * their phone was off" are different problems with different fixes, and only a
  * row written first can tell them apart.
  *
- * ─── Nothing delivers these yet, and that is deliberate ────────────────────
+ * ─── IN_APP is delivered; the outside channels are not ─────────────────────
  *
- * The channel is a product decision — in-app, WhatsApp (a P5 objection-killer),
- * email — and it needs an external service, which CLAUDE.md says to ask about.
- * Writing the row now means the SLA sweep is complete and testable today, and
- * the day a channel is chosen it drains a table that already has the history in
- * it rather than starting empty.
+ * `deliverInApp()` below is the drainer, and the bell in the ops console and on
+ * the floor board is where the rows land. It needs no external service, so it
+ * could be built without asking anybody, and it is the fallback every other
+ * channel wants anyway — when WhatsApp is added and a send fails, the row is
+ * still on somebody's screen.
+ *
+ * PUSH, WHATSAPP and EMAIL stay unwritten. They need an external service, which
+ * CLAUDE.md says to ask about first.
+ *
+ * What the statuses mean for IN_APP:
+ *   PENDING  — written, and no screen belonging to the recipient has read it.
+ *   SENT     — handed to a screen. `sent_at` is when.
+ *   plus `acknowledged_at`, which is the recipient saying they have seen it.
+ *
+ * A row that stays PENDING is therefore a real signal rather than a shrug: the
+ * duty manager has not opened the console since it was queued.
  */
 
 export interface QueuedNotification {
@@ -56,6 +67,83 @@ export async function queueNotifications(
     status: 'PENDING',
   })));
 
+  /**
+   * Tell the listening processes, inside the same transaction (D-015, and the
+   * same shape as `notifyRequestChanged`). A bell can never be lit for a row
+   * that then rolls back.
+   *
+   * One notify per distinct recipient rather than one per row: the payload
+   * carries no content at all, only who should re-read, and two escalations
+   * queued in the same breath are one nudge.
+   */
+  const recipients = new Set(
+    rows.filter((row) => row.channel === 'IN_APP' && row.recipientStaffId)
+      .map((row) => `${row.propertyId}:${row.recipientStaffId}`),
+  );
+
+  for (const key of recipients) {
+    const [propertyId, recipientStaffId] = key.split(':');
+    const payload: StaffNotifiedPayload = { propertyId: propertyId!, recipientStaffId: recipientStaffId! };
+    await tx.execute(
+      sql`SELECT pg_notify(${NOTIFICATION_CHANNEL}, ${JSON.stringify(payload)})`,
+    );
+  }
+
+  return rows.length;
+}
+
+/**
+ * The channel a staff bell listens on.
+ *
+ * Deliberately NOT the request channel. The floor board already refreshes on
+ * `service_request_changed`, and folding notifications into it would mean every
+ * screen at the property re-reading every other screen's alerts — the filter
+ * that matters here is one staff member, not one property.
+ */
+export const NOTIFICATION_CHANNEL = 'staff_notification';
+
+/** Routing only. What was said is re-read through RLS by the screen (D-026). */
+export interface StaffNotifiedPayload {
+  propertyId: string;
+  recipientStaffId: string;
+}
+
+/**
+ * The drainer for the in-app channel: hand this person's pending alerts to the
+ * screen that is asking for them.
+ *
+ * Called by the bell's own read, in the same transaction, because for an in-app
+ * alert "delivered" means precisely "a screen belonging to the recipient
+ * rendered it". There is nothing else it could honestly mean, and marking rows
+ * SENT at write time would make the status say a screen had it when nobody was
+ * logged in.
+ *
+ * Scoped to one staff member, so one person opening the console does not mark
+ * the whole property's alerts as delivered.
+ *
+ * Idempotent: the second call updates nothing, because the WHERE no longer
+ * matches. `attempts` is incremented anyway — for IN_APP that counts how many
+ * times a screen picked the row up, which is what a "why did I see this twice"
+ * question needs.
+ */
+export async function deliverInApp(
+  tx: Tx,
+  input: { propertyId: string; staffUserId: string; now?: Date },
+): Promise<number> {
+  const rows = await tx.update(notifications)
+    .set({
+      status: 'SENT',
+      sentAt: input.now ?? new Date(),
+      attempts: sql`${notifications.attempts} + 1`,
+    })
+    .where(and(
+      eq(notifications.propertyId, input.propertyId),
+      eq(notifications.recipientStaffId, input.staffUserId),
+      eq(notifications.channel, 'IN_APP'),
+      eq(notifications.status, 'PENDING'),
+    ))
+    .returning({ id: notifications.id });
+
   return rows.length;
 }
 
@@ -92,7 +180,13 @@ export async function notificationsFor(
       eq(notifications.propertyId, input.propertyId),
       eq(notifications.recipientStaffId, input.staffUserId),
     ))
-    .orderBy(desc(notifications.createdAt))
+    /**
+     * Unacknowledged first, then newest first — which is what the bell wants
+     * and what this function has always claimed to do. It did not: the order
+     * was `created_at` alone, so a fortnight of acknowledged rows could push
+     * an unseen escalation off the end of the list.
+     */
+    .orderBy(asc(sql`${notifications.acknowledgedAt} is not null`), desc(notifications.createdAt))
     .limit(input.limit ?? 20);
 
   return rows.map((row) => ({

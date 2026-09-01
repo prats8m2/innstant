@@ -1456,3 +1456,97 @@ test.describe('a breach on the board', () => {
     await expect(card).not.toContainText('Manager told');
   });
 });
+
+/**
+ * The alert bell — the delivery half of D-028.
+ *
+ * The sweep has always written a row before anything was sent. Until this
+ * landed, nothing sent it: a duty manager who was not already staring at the
+ * floor board was not actually interrupted by a breach. That was the one
+ * asterisk on P2's exit criterion, and this is the test that closes it.
+ *
+ * `pnpm demo:reset` seeds SR-4468 fourteen minutes past its promise and runs
+ * the sweep's own function over it, so the GM's bell is lit before the suite
+ * starts. Nothing here waits for the 60-second timer.
+ */
+test.describe('the alert bell', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'acknowledging is state on one shared staff account — one project owns it',
+  );
+
+  async function signIn(page: Page, email: string): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  test('tells the duty manager a request breached, and stops when told it was seen',
+    async ({ page }) => {
+      await signIn(page, 'gm@thekesari.example');
+      await page.goto('/admin');
+
+      // The badge is the whole point: a number on a screen the GM already has
+      // open, without them going looking for the floor board.
+      const bell = page.getByRole('group', { name: 'Alerts' });
+      const trigger = page.getByLabel(/^Alerts, \d+ unseen$/);
+      await expect(trigger).toBeVisible({ timeout: 25_000 });
+
+      await trigger.click();
+      await expect(bell).toBeVisible();
+
+      // A sentence, rendered from the template and the payload — not "SLA
+      // breach on SR-4468", which is an alert nobody reads.
+      await expect(bell).toContainText(/SR-4468 is \d+ minutes late/);
+      await expect(bell).toContainText('Nobody has finished it');
+
+      // And it goes where the work is.
+      await expect(bell.getByRole('link').first()).toHaveAttribute('href', '/housekeeping');
+
+      await bell.getByRole('button', { name: 'Mark all seen' }).click();
+
+      // The badge clears; the row does NOT vanish. Acknowledging is not
+      // deleting — the row is the audit record of what was sent, and a bell
+      // that emptied itself leaves the GM unable to answer "what did it say".
+      //
+      // No second click here: the panel is a `<details>`, its open state is DOM
+      // rather than React, so `router.refresh()` leaves it standing open — which
+      // is the behaviour the component wants and the reason clicking again
+      // (which shuts it) failed this assertion the first time it was written.
+      await expect(page.getByLabel('Alerts, none unseen')).toBeVisible({ timeout: 20_000 });
+      await expect(bell).toContainText(/SR-4468 is \d+ minutes late/);
+      await expect(bell.getByRole('button', { name: 'Mark all seen' })).toHaveCount(0);
+    });
+
+  test('survives a reload — seen stays seen', async ({ page }) => {
+    await signIn(page, 'gm@thekesari.example');
+    await page.goto('/admin');
+    await expect(page.getByLabel('Alerts, none unseen')).toBeVisible({ timeout: 25_000 });
+  });
+
+  test('follows the GM onto every console screen', async ({ page }) => {
+    await signIn(page, 'gm@thekesari.example');
+    await page.goto('/admin/menu');
+    await expect(page.getByLabel(/^Alerts, /)).toBeVisible({ timeout: 25_000 });
+  });
+
+  /**
+   * An alert is addressed to a person, not to a role or a property. The night
+   * porter must not read the duty manager's escalations, and the filter that
+   * makes that true is the staff id in the session cookie.
+   */
+  test('is not somebody else\'s bell', async ({ page }) => {
+    await signIn(page, 'housekeeping@thekesari.example');
+    await page.goto('/housekeeping');
+
+    const trigger = page.getByLabel(/^Alerts, /);
+    await expect(trigger).toBeVisible({ timeout: 25_000 });
+    await trigger.click();
+    await expect(page.getByRole('group', { name: 'Alerts' })).not.toContainText('SR-4468');
+  });
+});

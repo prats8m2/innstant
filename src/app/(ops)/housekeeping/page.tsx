@@ -3,6 +3,7 @@ import { requireStaffSession } from '@/lib/auth-context';
 import { can, findProperty, listFloors } from '@/modules/identity';
 import { getOpenRequests, OPEN_REQUEST_STATUSES } from '@/modules/requests';
 import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
+import { Alerts } from '@/components/alerts';
 import { RequestBoard } from './request-board';
 import { LiveBoard } from './live-board';
 import { ShiftBar } from './shift-bar';
@@ -90,6 +91,11 @@ export default async function HousekeepingBoard() {
         ) : null}
         <span className={`${styles.count} tabular`}>{onDuty} on duty</span>
         <LiveBoard propertyId={propertyId} breached={breached} unclaimed={unclaimed} />
+        {/* Level 1 of an escalation goes to the ASSIGNEE (D-028), and the
+            assignee is holding this phone, not sitting in the ops console. A
+            bell only on `/admin` would deliver two thirds of what the sweep
+            writes. */}
+        <Alerts session={session} propertyId={propertyId} />
       </header>
 
       {can(session, propertyId, 'shift:clock') ? (

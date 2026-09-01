@@ -39,7 +39,7 @@ export default async function OptionsAdmin() {
 
   if (!outlet) {
     return (
-      <AdminShell session={session} propertyName={propertyName} current="menu">
+      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
         <h1 className={styles.title}>Option groups</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
       </AdminShell>
@@ -49,7 +49,7 @@ export default async function OptionsAdmin() {
   const shared = groups.filter((g) => g.dishCount > 1).length;
 
   return (
-    <AdminShell session={session} propertyName={propertyName} current="menu">
+    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Option groups</h1>

@@ -42,7 +42,7 @@ export default async function CollectionsAdmin() {
 
   if (!menu) {
     return (
-      <AdminShell session={session} propertyName={propertyName} current="menu">
+      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
         <h1 className={styles.title}>Collections</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
       </AdminShell>
@@ -58,7 +58,7 @@ export default async function CollectionsAdmin() {
     .map((c) => c.id);
 
   return (
-    <AdminShell session={session} propertyName={propertyName} current="menu">
+    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Collections</h1>
