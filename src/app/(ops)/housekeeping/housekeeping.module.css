@@ -305,3 +305,83 @@
   text-transform: uppercase;
   color: var(--text-muted);
 }
+
+/* ── The shift bar ────────────────────────────────────────────────────────── */
+/*
+ * At the top, because it has to be true before the board means anything: a
+ * request can only be routed to someone clocked in and covering the floor.
+ */
+.shiftBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.shiftBar[data-on='true'] { border-color: color-mix(in srgb, var(--teal) 45%, transparent); }
+
+.shiftLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.shiftBar[data-on='true'] .shiftLine { color: var(--text); font-weight: 600; }
+
+.onDutyDot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: glow 2.6s ease-in-out infinite;
+}
+
+.floorPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
+}
+
+.floorCheck {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  font-size: var(--text-base);
+  color: var(--text);
+  cursor: pointer;
+}
+.floorCheck input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+.shiftDetails { display: block; }
+
+.shiftSummary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.shiftSummary::-webkit-details-marker { display: none; }
+.shiftSummary:hover { color: var(--text); }
+
+.changeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}

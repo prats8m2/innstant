@@ -23,8 +23,8 @@ export type { Permission, SystemRoleKey, SystemRole } from './permissions';
 
 export { seedSystemRoles } from './seed-roles';
 
-export { findRoomAtProperty, findRoomByNumber, findProperty } from './rooms';
-export type { RoomRef, PropertySettings } from './rooms';
+export { findRoomAtProperty, findRoomByNumber, findProperty, listFloors } from './rooms';
+export type { RoomRef, PropertySettings, FloorRef } from './rooms';
 
 export { provisionProperty, provisionTenant } from './provision';
 export type {

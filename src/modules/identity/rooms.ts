@@ -1,6 +1,6 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { properties, rooms } from '@/db/schema/identity';
+import { floors, properties, rooms } from '@/db/schema/identity';
 
 /**
  * Room lookups, for the modules that reference a room but do not own it.
@@ -76,4 +76,23 @@ export async function findProperty(
     .where(eq(properties.id, propertyId))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export interface FloorRef {
+  id: string;
+  name: string;
+  level: number;
+}
+
+/**
+ * The property's floors, in the order a person thinks of them.
+ *
+ * `identity` owns floors (D-001), so the shift picker and anything else that
+ * needs to offer them comes through here rather than reaching for the table.
+ */
+export async function listFloors(tx: Tx, propertyId: string): Promise<FloorRef[]> {
+  return tx.select({ id: floors.id, name: floors.name, level: floors.level })
+    .from(floors)
+    .where(eq(floors.propertyId, propertyId))
+    .orderBy(asc(floors.sortOrder), asc(floors.level));
 }

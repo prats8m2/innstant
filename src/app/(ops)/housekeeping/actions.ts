@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
 import { advanceRequest, type RequestStatus } from '@/modules/requests';
+import { clockIn, clockOut } from '@/modules/housekeeping';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 import type { Permission } from '@/modules/identity';
@@ -99,6 +100,88 @@ export async function moveRequest(
       return { error: publicPayloadFor(error).message };
     }
     logger.error({ err: (error as Error).message }, 'request move failed');
+    throw error;
+  }
+}
+
+/* ── Clocking in and out ──────────────────────────────────────────────────── */
+
+const Shift = z.object({
+  propertyId: z.uuid(),
+  floorIds: z.array(z.uuid()).min(1, 'Choose at least one floor to cover.'),
+});
+
+/**
+ * Clock in for the floors you are covering.
+ *
+ * `shift:clock` and nothing more — this is the permission every floor role holds
+ * and no manager needs. Routing is the reason it exists: without a shift with
+ * zones on it, "on shift ∩ covers floor" has no data behind it and every
+ * request waits for someone to notice it.
+ */
+export async function startShift(
+  _previous: BoardState,
+  formData: FormData,
+): Promise<BoardState> {
+  const parsed = Shift.safeParse({
+    propertyId: formData.get('propertyId'),
+    floorIds: formData.getAll('floorIds').map(String),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Choose the floors you are covering.' };
+  }
+
+  try {
+    const session = await requirePermission(parsed.data.propertyId, 'shift:clock');
+
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      (tx) => clockIn(tx, {
+        tenantId: session.tenantId,
+        propertyId: parsed.data.propertyId,
+        staffUserId: session.staffUserId,
+        floorIds: parsed.data.floorIds,
+      }),
+    );
+
+    logger.info(
+      { staffUserId: session.staffUserId, floors: parsed.data.floorIds.length },
+      'clocked in',
+    );
+    revalidatePath('/housekeeping');
+    return {};
+  } catch (error) {
+    if (error instanceof AppError) return { error: publicPayloadFor(error).message };
+    logger.error({ err: (error as Error).message }, 'clock in failed');
+    throw error;
+  }
+}
+
+export async function endShift(
+  _previous: BoardState,
+  formData: FormData,
+): Promise<BoardState> {
+  const propertyId = z.uuid().safeParse(formData.get('propertyId'));
+  if (!propertyId.success) return { error: 'That did not come through. Try again.' };
+
+  try {
+    const session = await requirePermission(propertyId.data, 'shift:clock');
+
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: propertyId.data },
+      (tx) => clockOut(tx, {
+        tenantId: session.tenantId,
+        propertyId: propertyId.data,
+        staffUserId: session.staffUserId,
+      }),
+    );
+
+    logger.info({ staffUserId: session.staffUserId }, 'clocked out');
+    revalidatePath('/housekeeping');
+    return {};
+  } catch (error) {
+    if (error instanceof AppError) return { error: publicPayloadFor(error).message };
+    logger.error({ err: (error as Error).message }, 'clock out failed');
     throw error;
   }
 }

@@ -26,3 +26,8 @@ export {
   REQUEST_STATUSES, OPEN_REQUEST_STATUSES, SLA_ACTIVE_STATUSES,
 } from './transitions';
 export type { RequestStatus } from './transitions';
+
+/** Auto-routing — role ∩ on-shift ∩ covers-floor, ranked by open count (§7). */
+export { routeServiceRequest } from './routing';
+export { pickAssignee } from './assignment';
+export type { RoutingOutcome } from './routing';

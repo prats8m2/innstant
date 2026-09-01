@@ -1,9 +1,11 @@
 import { withTenant } from '@/db';
 import { requireStaffSession } from '@/lib/auth-context';
-import { can, findProperty } from '@/modules/identity';
+import { can, findProperty, listFloors } from '@/modules/identity';
 import { getOpenRequests, OPEN_REQUEST_STATUSES } from '@/modules/requests';
+import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
 import { RequestBoard } from './request-board';
 import { LiveBoard } from './live-board';
+import { ShiftBar } from './shift-bar';
 import styles from './housekeeping.module.css';
 
 /**
@@ -39,10 +41,16 @@ export default async function HousekeepingBoard() {
     );
   }
 
-  const { property, all } = await withTenant(
+  const { property, all, floors, shift, onDuty } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
       property: await findProperty(tx, propertyId),
+      floors: await listFloors(tx, propertyId),
+      // The shift of whoever is holding this phone, and how many people are on
+      // the floors at all — the second number is what tells a lone housekeeper
+      // that nobody else is covering.
+      shift: await getCurrentShift(tx, { propertyId, staffUserId: session.staffUserId }),
+      onDuty: await onDutyCount(tx, propertyId),
       /**
        * COMPLETED as well as the live ones.
        *
@@ -80,8 +88,13 @@ export default async function HousekeepingBoard() {
         {breached > 0 ? (
           <span className={`${styles.late} tabular`} role="status">{breached} late</span>
         ) : null}
+        <span className={`${styles.count} tabular`}>{onDuty} on duty</span>
         <LiveBoard propertyId={propertyId} breached={breached} unclaimed={unclaimed} />
       </header>
+
+      {can(session, propertyId, 'shift:clock') ? (
+        <ShiftBar propertyId={propertyId} floors={floors} shift={shift} />
+      ) : null}
 
       <RequestBoard
         propertyId={propertyId}

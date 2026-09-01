@@ -8,6 +8,7 @@ import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { getRequestCatalog } from './catalog';
+import { routeServiceRequest } from './routing';
 
 /**
  * Raising a service request. P2's counterpart to `placeOrder()`, and the same
@@ -227,15 +228,36 @@ export async function raiseServiceRequest(
     },
   });
 
-  await notifyRequestChanged(tx, {
+  /**
+   * Routed before the transaction commits, so the board and the assignee's phone
+   * hear about it ONCE — already assigned — rather than watching it appear
+   * unowned and then jump a second later.
+   *
+   * It cannot fail the request: `routeServiceRequest` returns an outcome and
+   * records an event when nobody matches, because a guest asking for towels at
+   * 4am is still asking for towels at 4am. The board is the fallback that always
+   * works (DATA-MODEL §7).
+   */
+  const routed = await routeServiceRequest(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
     requestId,
-    requestNumber,
-    floorId: room.floorId,
-    stayId: input.stayId,
-    status: 'OPEN',
   });
+
+  // Only when nobody took it: `advanceRequest` inside the routing already fired
+  // a NOTIFY for the assignment, and two for one request makes a board refresh
+  // twice for one event.
+  if (!routed.assignedStaffId) {
+    await notifyRequestChanged(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      requestId,
+      requestNumber,
+      floorId: room.floorId,
+      stayId: input.stayId,
+      status: 'OPEN',
+    });
+  }
 
   const result = {
     requestId,

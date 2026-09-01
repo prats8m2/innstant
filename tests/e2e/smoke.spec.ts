@@ -612,6 +612,17 @@ test.describe('the menu editor', () => {
 test.describe('the kitchen settings', () => {
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
+  /**
+   * One project. The hours are PROPERTY-wide, not per dish or per room, so two
+   * browser projects changing them at once means one asserts 10:45pm while the
+   * other has already put 1am back. The per-project dish and room split does not
+   * help with state that has only one copy.
+   */
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'the outlet hours are property-wide — one project owns them',
+  );
+
   // Its own room, because the suite runs fully parallel against one database.
   const ROOM = '214';
 
@@ -1304,5 +1315,107 @@ test.describe('the floor board', () => {
 
     await page.goto('/housekeeping');
     await expect(page.getByText(/cannot see service requests/i)).toBeVisible({ timeout: 20_000 });
+  });
+});
+
+/**
+ * P2's exit criterion, end to end:
+ *
+ *   "a request raised by a guest reaches the correct on-duty staff member's
+ *    phone without anyone assigning it"
+ *
+ * Serial, because clocking in is property-wide state that the two projects would
+ * otherwise fight over.
+ */
+test.describe('routing a request to whoever is on duty', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  /**
+   * One project only, and the phone one.
+   *
+   * Clocking in is state on a STAFF USER, not on a room or a dish — and there is
+   * exactly one housekeeping account. Two browser projects running this at once
+   * clock the same person in and out from under each other, which surfaced as
+   * "not clocked in" never appearing after a clock-out. The board is a phone
+   * screen, so the phone project is the one that keeps it.
+   */
+  test.skip(
+    () => test.info().project.name !== 'guest-mobile',
+    'clocking in is property-wide state — one project owns it',
+  );
+
+  function ownRoom(): string {
+    return { 'staff-desktop': '214', 'guest-mobile': '105', 'guest-ios': '301' }[
+      test.info().project.name
+    ] ?? '214';
+  }
+
+  test('nobody on duty means the request waits on the board', async ({ page }) => {
+    // The seeded property has no shifts, so this is the honest starting state:
+    // the request is raised, nothing routes it, and it is still visible.
+    const code = seed!.qrCodes[ownRoom()]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/service`);
+    await page.getByRole('button', { name: /Ask someone to come up/ }).click();
+    await page.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+
+    // "Someone is coming up" — not a name, because there is no name to give.
+    await expect(page.getByText(/Someone is coming up/)).toBeVisible();
+    await page.getByRole('button', { name: /never mind/i }).click();
+    await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+  });
+
+  test('a housekeeper on duty gets it without anyone tapping', async ({ browser }) => {
+    const pocket = await browser.newContext({ ...devices['Pixel 7'] });
+    const board = await pocket.newPage();
+
+    await board.goto('/admin/login');
+    await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
+    await board.locator('input[name="password"]').fill('kesari-demo-2026');
+    await board.getByRole('button', { name: 'Sign in' }).click();
+    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await board.goto('/housekeeping');
+
+    // Clock in, covering every floor — a small hotel's housekeeper does.
+    await expect(board.getByText(/not clocked in/)).toBeVisible({ timeout: 25_000 });
+    for (const box of await board.locator('input[name="floorIds"]').all()) {
+      await box.check();
+    }
+    await board.getByRole('button', { name: 'Clock in' }).click();
+    await expect(board.getByText(/On duty/)).toBeVisible({ timeout: 25_000 });
+
+    // A guest asks for towels.
+    const room = ownRoom();
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes[room]}`);
+    await guest.goto(`/r/${seed!.qrCodes[room]}/amenities`);
+    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await guest.getByRole('button', { name: /Send 1 to room/ }).click();
+    await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+
+    // THE CRITERION. Nobody tapped anything on the board.
+    await expect(guest.getByText(/Sunita Devi is on the way/)).toBeVisible({ timeout: 25_000 });
+
+    const ref = (await guest.getByText(/SR-\d+/).first().textContent())!.trim();
+    const card = board.locator('li').filter({ hasText: ref });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toHaveAttribute('data-status', 'ASSIGNED');
+    await expect(card).toContainText('Yours');
+
+    // Finish it, then clock out so the next run starts where this one did.
+    await card.getByRole('button', { name: 'On my way' }).click();
+    await expect(card).toHaveAttribute('data-status', 'IN_PROGRESS', { timeout: 15_000 });
+    await card.getByRole('button', { name: 'Done' }).click();
+    await expect(guest.getByText('Done')).toBeVisible({ timeout: 20_000 });
+
+    await board.getByRole('button', { name: 'Clock out' }).click();
+    await expect(board.getByText(/not clocked in/)).toBeVisible({ timeout: 20_000 });
+
+    await pocket.close();
+    await phone.close();
   });
 });

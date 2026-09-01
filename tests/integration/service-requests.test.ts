@@ -287,7 +287,14 @@ describe('service requests', () => {
     const raised = await raise('EXTRA_TOWELS', { quantity: 2 });
 
     const events = await scoped((tx) => readEventHistory(tx, 'service_request', raised.requestId));
-    expect(events.map((e) => e.event_type)).toEqual(['service_request.opened']);
+    /**
+     * `unrouted` as well, because no fixture staff are clocked in — auto-routing
+     * records the hole in the rota rather than assigning to nobody. Proven
+     * properly in tests/integration/routing.test.ts.
+     */
+    expect(events.map((e) => e.event_type)).toEqual([
+      'service_request.opened', 'service_request.unrouted',
+    ]);
     const payload = events[0]!.payload as { lines: string[]; roomNumber: string };
     expect(payload.lines).toEqual(['2× Extra towels']);
     expect(payload.roomNumber).toBeTruthy();
@@ -327,8 +334,10 @@ describe('service requests', () => {
     }
 
     const events = await scoped((tx) => readEventHistory(tx, 'service_request', raised.requestId));
+    // `unrouted` sits after `opened`: nobody is on shift in these fixtures, so
+    // routing records why and the transitions below are the manual ones.
     expect(events.map((e) => e.event_type)).toEqual([
-      'service_request.opened', 'service_request.assigned',
+      'service_request.opened', 'service_request.unrouted', 'service_request.assigned',
       'service_request.in_progress', 'service_request.completed',
       'service_request.verified',
     ]);
