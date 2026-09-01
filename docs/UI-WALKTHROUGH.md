@@ -417,7 +417,74 @@ exactly the conversation a deleted row makes unwinnable.
 Room **214** has the longer folio — four lines, ₹21,540 — if you want a fuller
 bill for a screenshot.
 
-## 13 · The rules that only show up when you break them
+## 13 · Leaving later — the guest asks, the desk answers
+
+Scan **room 210** and open **Your stay**. Below the folio:
+
+```
+Leaving
+Staying a little longer?
+
+  Late checkout, 2pm      THREE EXTRA HOURS              ₹2,500
+  Late checkout, 6pm      THE ROOM IS YOURS ALL DAY      ₹5,000
+
+Staying another night? The front desk arranges that one — the rate
+depends on the date.
+
+  Check out now
+```
+
+"Three extra hours" is derived from **this** stay's 11am checkout, so the same
+row reads "One extra hour" for a guest due out at 1pm. The night the reference
+offers is deliberately missing: pricing one needs a rate plan, which is v2
+booking (D-033).
+
+Tap **2pm** — it lights up and a bar appears carrying **Request 2pm checkout ·
+₹2,500**. The price is on the button because agreeing to the amount *is* the
+action. Send it, and the screen says:
+
+> **Asked for Friday, 2pm**
+> ₹2,500 if the desk says yes. Nothing is charged until they do.
+
+Check the folio above it: nothing there yet. That sentence is a promise, and it
+is kept — the fee posts on approval and never on the ask.
+
+**Now be the desk.** Sign in as **frontdesk@thekesari.example** and open
+**Leaving**. Room 210 is waiting, with what they want, what they were due out at,
+and what they agreed to pay. Three things you can do:
+
+- **Approve** — the row leaves the queue for "Already answered". Back on the
+  guest's phone: the header now reads **Friday, 2pm**, the card says *"₹2,500 is
+  on the room"*, and the folio has a **Late checkout · 2pm** line. All three
+  happened in one transaction, along with pushing out every session on the room
+  so the app in it keeps working until the new time.
+- **Charge instead** — type `1000` and approve. The guest is charged ₹1,000; the
+  event log keeps both numbers, so "why is this ₹1,000 when the app said ₹2,500"
+  is answerable. Type `0` and it is waived entirely, and the stay still moves.
+- **Decline** — a reason is required, and the guest reads it verbatim:
+  *"The room turns over for a 3pm arrival."* Nothing is charged and nothing moves.
+
+Before the desk looks, the guest can press **Never mind** and the options come
+back.
+
+The whole trail:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT event_type, from_status, to_status, actor_kind, payload
+   FROM event_log WHERE entity_type = $1 ORDER BY occurred_at`,
+   ["checkout_request"])).rows);
+ await c.end();})();'
+```
+
+`agreedFeeMinor` and `chargedFeeMinor` are both on the approval, and
+`sessionsExtended` says how many phones in that room kept working.
+
+## 14 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.
@@ -476,9 +543,8 @@ desk can both see what happened.
 
 ## Not built yet
 
-Front desk and check-in, the checkout-change request flow, express checkout and
-folio settlement, concierge, image upload. The ops console says so on its own
-front page rather than showing dead tiles, and the guest's stay screen shows the
-folio without the reference's checkout options for the same reason — a dead
-control is worse than an absent one. See `docs/PROJECT-PLAN.md` for the phase
+Front desk and check-in, express checkout and folio settlement, the PMS adapter
+and its outbox, concierge, image upload. The ops console says so on its own
+front page rather than showing dead tiles, and the guest's stay screen offers no
+extra night for the same reason — the rate would have to be invented (D-033). See `docs/PROJECT-PLAN.md` for the phase
 each one belongs to.

@@ -617,3 +617,96 @@ reversal and one of which did not, for four sessions. The seam is
 is nothing that enforces the pair — a third charge path (late checkout fees are
 next) can forget it in exactly the same way. Worth a shared helper the day the
 third one lands, rather than a third copy.
+
+### D-033 · Late checkout is a service fee; another night is a booking, and we sell one of them
+The design reference's `stay` screen offers three things: late checkout at 2pm
+(₹2,500), late checkout at 6pm (₹5,000), and "Stay Thursday night" (₹18,500).
+The product offers the first two.
+
+**Why the night is not there.** Pricing a night means knowing a nightly rate,
+and a nightly rate is a rate plan for a room type on a date. CLAUDE.md #11
+forbids putting a price on `rooms` precisely so that this question cannot be
+answered by a shortcut, #12 reserves `rate_plans` and `rate_calendar` for the
+booking module, and D-013 removed the eleven tables that would have held them.
+`extendStay(stayId, newCheckout)` is on the `PmsAdapter` interface
+(EXTENSION-POINTS §B) — extending a stay across a night is a PMS operation, and
+the price comes from whoever owns the inventory.
+
+The reference could hardcode ₹18,500 because it is a mock with no hotel behind
+it. Drawing the same button here would mean either inventing a rate or asking the
+guest to agree to a number the desk fills in later — and a guest agreeing to an
+unknown amount is worse than not offering it. The screen says "Staying another
+night? The front desk arranges that one — the rate depends on the date", which
+is true and is an answer.
+
+**A tier is an HOUR, not a duration.** `checkout_fee_tiers.hour` is the new
+checkout time; "three extra hours" is derived from the stay's own checkout, so
+one row reads correctly for a guest due out at 11am and for one due out at 1pm.
+Only the editorial line ("The room is yours all day") is stored, because it is
+the only part that cannot be derived.
+
+**Why the fee posts on APPROVAL and not at placement.** Every other charge path
+in this product posts when the guest commits — `placeOrder()` and
+`raiseServiceRequest()` both do, so "charged to room 214" is true the moment the
+guest is told it, and both then need a reversal for the cases that do not happen
+(D-027, D-032). This one is inverted on purpose: a guest who asks for 2pm has
+received nothing until somebody says yes, and a request that charged on the ask
+and refunded on the decline would put the hotel's "no" on the guest's bill twice,
+as two lines they have to read past for the rest of the stay.
+
+So the fee is SNAPSHOT at request — the amount the guest agreed to, which the
+desk may override but not silently inflate — and POSTED once, on approval. The
+useful consequence is that this path needs no reversal to pair with, which is the
+failure D-032 records: two paths that post at placement, one of which forgot to
+reverse, for four sessions.
+
+**Approval is three writes or none.** Moving `scheduled_checkout_at`, posting the
+fee and extending every live session happen in one transaction. A session expires
+at `scheduled_checkout_at + grace`, computed when it was minted — so approving a
+6pm checkout without the third write leaves the guest paying for a room whose app
+stops working at 1pm. Each of the three is discovered by the guest rather than by
+us, which is what makes splitting them the wrong kind of cheap.
+
+**Both fee numbers are kept.** `fee_minor` is what the guest agreed to,
+`overridden_fee_minor` what the desk charged, and the event carries both. "Why is
+this ₹1,000 when the app said ₹2,500" has to be answerable from the log. A waiver
+is an override of ZERO, so the effective fee is `overridden ?? agreed` and never
+`overridden || agreed` — the second charges the full fee every time somebody
+waives one, silently, and there is a unit test that says so.
+
+**One open request per stay**, as a partial unique index rather than an
+idempotency key. The constraint is true however the second row arrives — a double
+tap, a second tab, a second device — and it means the desk decides one thing at a
+time. `requestCheckoutChange()` returns the existing row instead of raising, so a
+double tap is invisible to the guest (#8). Decided requests free the slot, which
+is why a guest can be approved for 2pm and go on to ask for 6pm.
+
+**Cost / when to revisit.** There is no screen for editing the tiers — they are
+seeded, the way request types were before `/admin/requests` existed, and the same
+argument will apply the first time a property wants to change ₹2,500 without a
+seeder. Early checkout is modelled as a request with no fee rather than as its
+own thing, which is right while checkout means settling at the desk and will want
+revisiting when express checkout (P3's remaining bullet) can actually end a stay.
+
+### D-034 · The verification lockout counts wrong answers, not attempts
+`assertNotLockedOut()` summed every attempt on a room's challenges in the lockout
+window, successful ones included. Five is the cap, and a successful challenge
+contributes at least one — so a guest who verified correctly on their phone, then
+on the tablet, then on their partner's phone, then again after a session lapsed,
+was locked out of their own room for thirty minutes having never once got it
+wrong.
+
+The control exists to make a four-digit answer un-guessable (DATA-MODEL §3). A
+correct answer is evidence of legitimacy, not of guessing, and counting it
+punished exactly the person the control protects — a family with three phones in
+one room, or anyone whose session expired while they were out.
+
+Now a challenge contributes `attempts - (succeeded ? 1 : 0)`: one that succeeded
+on the third try still carries its two failures, and only the successful attempt
+itself is forgiven. Five WRONG guesses per room per window is unchanged, which is
+the property that was ever load-bearing.
+
+Found by the e2e suite rather than by a guest: the checkout tests verify once per
+test on one room, and the run locked itself out. The suite's rooms are a shared
+resource and that is a known cost, but a test suite hitting a limit five times in
+a minute is a plausible family on a bad wifi day.

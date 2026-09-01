@@ -90,6 +90,45 @@ At most one active stay per room, enforced by the database. A stale
 
 ---
 
+### Changing when a guest leaves (D-033)
+
+`checkout_fee_tiers` is what a property sells at the end of a stay, and a tier is
+an HOUR — the new checkout time — not a duration. "Three extra hours" is derived
+from the stay's own `scheduled_checkout_at`, so one row reads correctly for a
+guest due out at 11am and for one due out at 1pm; only the editorial line is
+stored.
+
+An extra NIGHT is deliberately absent: pricing one needs a rate plan for a room
+type on a date, which #11 forbids shortcutting and #12 reserves the names for.
+`extendStay()` is on the `PmsAdapter` (EXTENSION-POINTS §B) for the same reason.
+
+`checkout_requests` is the guest's ask and the desk's answer:
+
+```
+REQUESTED → APPROVED → COMPLETED
+          ↘ DECLINED
+          ↘ CANCELLED   (the guest, before the desk looks)
+```
+
+- **One open request per stay**, enforced by a partial unique index on
+  `stay_id WHERE status = 'REQUESTED'` (migration 0005) — the same shape as
+  D-007's one-CHECKED_IN-stay-per-room. A double tap is a conflict the insert
+  absorbs (#8), and it holds however the second row arrives.
+- **The fee is snapshot at request and posted at approval**, which is the reverse
+  of every other charge path here (D-027, D-032) and is why this one needs no
+  reversal: nothing is charged for a request that is declined, cancelled or still
+  waiting. `fee_minor` is what the guest agreed to and `overridden_fee_minor`
+  what the desk charged; both are kept, and a waiver is an override of zero.
+- **Approving is three writes in one transaction** — `scheduled_checkout_at`
+  moves, the `CHECKOUT_FEE` folio line posts, and every live guest session on the
+  stay has its `expires_at` recomputed. A session expires at
+  `scheduled_checkout_at + grace` fixed at mint time, so without the third the
+  guest pays for the room until 6pm and the app in it stops at 1pm.
+- **APPROVED does not go back.** Un-approving would have to unwind all three;
+  that is a credit and a second decision, not a transition.
+
+---
+
 ## 3. Guest identity
 
 The QR sticker is public. `room_qr_codes.public_code` grants **room context
@@ -116,6 +155,9 @@ first action requiring a higher tier
   → requireTier(session, 'CHARGE') fails
   → escalate — it does NOT 403
   → verification challenge (PHONE_LAST4 or OTP_SMS)
+      · rate-limited per ROOM, across challenges: `max_attempts_per_room`
+        WRONG answers inside `lockout_minutes`. A correct answer is evidence of
+        legitimacy and is not counted (D-034).
   → on success, raise the tier on the EXISTING session to FULL; record in
     access_escalations. Abandonment is recorded too.
 
@@ -222,7 +264,11 @@ ServiceRequest
 
 CheckoutRequest
   REQUESTED → APPROVED → COMPLETED
-            ↘ DECLINED   ↘ CANCELLED
+            ↘ DECLINED
+            ↘ CANCELLED
+  (approval moves the stay, posts the fee and extends every live session in ONE
+   transaction — §2. APPROVED does not go back: un-approving would have to
+   unwind all three.)
 ```
 
 Every transition writes an `event_log` row in the same transaction as the
