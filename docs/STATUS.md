@@ -423,7 +423,35 @@ Things that cost time to rediscover.
 
 Paste this:
 
-> Read `CLAUDE.md`, `docs/STATUS.md`, and `docs/DECISIONS.md`. Then run
-> `pnpm status`. We are on P0. Pick up at the session named in `## Now` and
-> follow its prompt in `docs/P0-TASKS.md` exactly — including its stated done
-> condition. Do not start the next session until that condition holds.
+> Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
+> `pnpm status`. We are on **P2 · amenities and service requests**, which is at
+> 9 of 10 with its exit criterion met. Pick up the first item under `## Now` and
+> follow it to the definition of done in CLAUDE.md — types, lint, unit,
+> integration and e2e all green, the happy path working against the seeded demo
+> property, and the event log showing the transitions you expect. Update this
+> file before you finish.
+
+Two things that will save you an hour:
+
+- **Run the suites against the LOCAL Postgres, not Railway.** The recipe is in
+  Environment notes; the e2e suite times out against a remote database because
+  Playwright's per-test default is 30s and one placement test makes a dozen page
+  loads.
+- **`docs/UI-WALKTHROUGH.md` is the fastest way to see what exists.** Every
+  feature with the exact clicks, the logins, and snippets for the tables that
+  have no screen yet (the folio, notifications). It is also the demo script.
+
+### If you are picking a different thread
+
+The three that are ready to start, in the order this file argues for:
+
+1. **Deliver the notification rows** (last P2 item). `notificationsFor()` and
+   `unacknowledgedCount()` exist and nothing calls them. An in-app bell on the
+   ops console needs no external service; WhatsApp needs one, and CLAUDE.md says
+   ask first.
+2. **P3 · stay and folio.** The guest folio is the biggest hole in the product
+   right now — `getFolioForStay()` is written, tested, and has no screen, so a
+   guest cannot see what they have spent. Every charge path already posts to it.
+3. **The two P0/P1 leftovers**, both account-holder tasks rather than code: a git
+   remote plus a Railway service, and then signing P1's exit criterion off on the
+   deployed environment with a printed sticker on hotel wifi.
