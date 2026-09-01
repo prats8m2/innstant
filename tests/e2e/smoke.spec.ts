@@ -260,14 +260,19 @@ test.describe('a scanned sticker', () => {
     // Verifying finishes the original action — the guest does not press Send
     // a second time.
     await page.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('It is with the kitchen');
-    await expect(page.getByText(/ORDER KE-\d+/i)).toBeVisible();
-    await expect(page.getByText(/On your folio/)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Order to room 301/);
+    await expect(page.getByText(/KE-\d+/).first()).toBeVisible();
+    // The tracking timeline, with exactly one step lit — the order has been
+    // placed and the kitchen has not touched it yet.
+    await expect(page.locator('li[data-state="active"]')).toContainText('Order received');
 
-    // Everything on this screen came from the order's snapshots, and the
-    // declined extra is not among them.
+    // The order itself is folded away, as the reference draws it. Everything
+    // inside came from the order's snapshots, and the declined extra is not
+    // among them.
+    await page.getByText('Your order').click();
     await expect(page.getByText('As the chef makes it')).toBeVisible();
     await expect(page.getByText(/· Nothing/)).toHaveCount(0);
+    await expect(page.getByText(/Charged to room 301/)).toBeVisible();
 
     // The cart is empty: the pill must not advertise an order already sent.
     await page.goto(`/r/${code}/menu`);
@@ -361,8 +366,7 @@ test.describe('the kitchen display', () => {
     await guest.getByRole('button', { name: /Confirm and send/ }).click();
     await guest.waitForURL(/\/order\/[0-9a-f-]{36}$/, { timeout: 25_000 });
 
-    const orderNumber = (await guest.getByText(/ORDER KE-\d+/i).textContent())!
-      .replace(/order\s*/i, '').trim();
+    const orderNumber = (await guest.getByText(/KE-\d+/).first().textContent())!.trim();
 
     // The claim. No reload anywhere in this test — the KDS page was loaded
     // before the order existed.
@@ -371,17 +375,33 @@ test.describe('the kitchen display', () => {
     await expect(ticket).toContainText('Laal maas with bajra roti');
     await expect(ticket).toContainText('214');
 
-    // And it can be worked. Each bump is a real transition through the machine.
+    /**
+     * And it can be worked — each bump a real transition through the machine,
+     * and each one visible on the GUEST's phone without a reload. The phone has
+     * been sitting on the tracking screen since before the kitchen signed in;
+     * everything below arrives over its own SSE stream.
+     */
+    const activeStep = guest.locator('li[data-state="active"]');
+    await expect(activeStep).toContainText('Order received');
+
     await ticket.getByRole('button', { name: 'Accept' }).click();
     await expect(ticket).toHaveAttribute('data-status', 'ACCEPTED', { timeout: 15_000 });
+    await expect(activeStep).toContainText('In the kitchen', { timeout: 15_000 });
+
     await ticket.getByRole('button', { name: 'Start cooking' }).click();
     await expect(ticket).toHaveAttribute('data-status', 'PREPARING', { timeout: 15_000 });
+    // Same step, different words: the guest's one piece of news between taken
+    // and cooking is that a pan is on.
+    await expect(activeStep).toContainText(/cooking/i, { timeout: 15_000 });
+
     await ticket.getByRole('button', { name: 'Ready' }).click();
     await expect(ticket).toHaveAttribute('data-status', 'READY', { timeout: 15_000 });
+    await expect(activeStep).toContainText('Plated and covered', { timeout: 15_000 });
 
-    // Off the rail once it leaves the kitchen.
+    // Off the rail once it leaves the kitchen — and on its way up, on the phone.
     await ticket.getByRole('button', { name: 'Picked up' }).click();
     await expect(ticket).toHaveCount(0, { timeout: 15_000 });
+    await expect(activeStep).toContainText('On the way up', { timeout: 15_000 });
 
     await kitchen.close();
     await phone.close();

@@ -1,51 +1,354 @@
 /*
- * Order confirmation. Values from theme.css only.
+ * Tracking an order — the reference's `track` screen.
+ * Values from theme.css only; the step states are driven by [data-state].
  */
 .shell {
   min-height: 100dvh;
   background: var(--bg);
   max-width: 430px;
   margin-inline: auto;
-  padding: var(--space-8) var(--space-5) var(--space-10);
+  padding: 0 var(--space-4) var(--space-10);
 }
 
-.head { animation: riseIn var(--dur-slow) var(--ease-out) both; }
+/* ── The bar ────────────────────────────────────────────────────────────── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-2);
+  /* The reference blurs the page behind this bar rather than hiding it. */
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
 
-.eyebrow {
-  margin: 0 0 var(--space-3);
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--saffron);
+  font-size: var(--text-lg);
+  color: var(--text);
 }
+.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
 
-.title {
+.barTitle {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-3xl);
+  font-size: var(--text-lg);
   font-weight: 400;
-  line-height: 1.1;
   color: var(--text);
 }
 
-.promise {
+.barRef {
+  margin-left: auto;
+  padding-right: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+/* ── The promise ────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin-top: var(--space-2);
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  /* The arch. Same shape language as the room home's hero. */
+  border-radius: 30% 30% var(--radius-md) var(--radius-md) / 16% 16% 0 0;
+  background-color: var(--ink-700);
+  background-image:
+    radial-gradient(circle at 50% 128%,
+      color-mix(in srgb, var(--saffron) 20%, transparent) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 50% 128%, transparent 0 38%,
+      color-mix(in srgb, var(--plaster) 11%, transparent) 38% 38.7%, transparent 39%);
+  animation: archIn var(--dur-slow) var(--ease-out) both;
+}
+
+.sweep {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 46%;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--saffron) 0%, transparent),
+    color-mix(in srgb, var(--saffron) 10%, transparent),
+    color-mix(in srgb, var(--saffron) 0%, transparent));
+  animation: sweep 9s ease-in-out infinite;
+}
+
+.heroLabel {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+
+.heroTime {
+  position: relative;
+  margin: var(--space-1) 0 0;
+  /* Marcellus, not the mono the .tabular utility sets — the reference's 38px
+     display figure. The utility still gives it tabular-nums. */
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: 1.1;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.heroNote {
+  position: relative;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── The halt: rejected, cancelled, disputed ────────────────────────────── */
+.halt {
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
+}
+
+.haltTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.haltReason {
   margin: var(--space-3) 0 0;
   font-size: var(--text-base);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+.haltDetail {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── The timeline ───────────────────────────────────────────────────────── */
+.steps {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.step {
+  display: flex;
+  gap: var(--space-4);
+  min-height: 62px;
+}
+
+.rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 18px;
+  flex: 0 0 18px;
+}
+
+.dotWrap {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  flex: 0 0 10px;
+}
+
+.dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: transparent;
+  /* Plaster at 22%, as the reference draws an unreached step — not --border,
+     which is an indigo and reads as a UI edge rather than a dimmed dot. */
+  border: 1px solid color-mix(in srgb, var(--plaster) 22%, transparent);
+}
+
+.halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  display: none;
+}
+
+.line {
+  width: 1px;
+  flex: 1;
+  margin: var(--space-1) 0;
+  background: color-mix(in srgb, var(--plaster) 12%, transparent);
+}
+/* The last step's connector goes nowhere. */
+.step:last-child .line { display: none; }
+
+.stepBody {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 18px;
+}
+
+.stepHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.stepTitle {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.25;
+  transition: color var(--dur-mid) var(--ease-out);
+  color: var(--plaster-faint);
+}
+
+.stepTime {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+.stepSub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--plaster) 24%, transparent);
+  text-wrap: pretty;
+}
+
+/* Done: behind us, still legible, no longer competing for attention. */
+.step[data-state='done'] .dot { background: color-mix(in srgb, var(--saffron) 55%, transparent); border-color: transparent; }
+.step[data-state='done'] .line { background: color-mix(in srgb, var(--saffron) 35%, transparent); }
+.step[data-state='done'] .stepTitle { color: var(--text-muted); }
+.step[data-state='done'] .stepSub { color: var(--plaster-faint); }
+
+/* Active: the one thing on the screen that is happening. */
+.step[data-state='active'] .dot { background: var(--accent); border-color: transparent; }
+.step[data-state='active'] .halo {
+  display: block;
+  animation: breathe 2.6s var(--ease-out) infinite;
+}
+.step[data-state='active'] .stepTitle { color: var(--text); }
+.step[data-state='active'] .stepSub { color: var(--text-muted); }
+.step[data-state='active'] .stepBody { animation: riseIn var(--dur-slow) var(--ease-out) both; }
+/* The dashed connector, flowing downward — where it is going next. */
+.step[data-state='active'] .line {
+  background-image: repeating-linear-gradient(180deg,
+    color-mix(in srgb, var(--saffron) 85%, transparent) 0 5px,
+    transparent 5px 9px);
+  background-size: 1px 18px;
+  animation: flow 1.1s linear infinite;
+}
+
+/* ── The live indicator ─────────────────────────────────────────────────── */
+.live {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--plaster-faint);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.live[data-connected='true'] .liveDot {
+  background: var(--teal);
+  animation: glow 2.8s ease-in-out infinite;
+}
+
+/* ── The order, folded away ─────────────────────────────────────────────── */
+.summary {
+  margin-top: var(--space-5);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.summaryHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: 0 var(--space-4);
+  cursor: pointer;
+  list-style: none;
+}
+.summaryHead::-webkit-details-marker { display: none; }
+.summaryHead:hover { border-color: var(--border); }
+
+.summaryTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.summaryMeta {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+/* The chevron the reference draws, rotated by the native open state. */
+.summaryHead::after {
+  content: '›';
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text-muted);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.summary[open] .summaryHead::after { transform: rotate(90deg); }
+
+.summaryBody {
+  padding: 0 var(--space-4) var(--space-4);
+  animation: riseIn var(--dur-base) var(--ease-out) both;
 }
 
 .lines {
   list-style: none;
-  margin: var(--space-8) 0 0;
-  padding: 0;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border-soft);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
 }
 
-.line {
+.summaryLine {
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
@@ -91,7 +394,7 @@
 }
 
 .totals {
-  margin: var(--space-6) 0 0;
+  margin: var(--space-5) 0 0;
   padding-top: var(--space-4);
   border-top: 1px solid var(--border-soft);
   display: flex;
@@ -109,20 +412,22 @@
 .row dt, .row dd { margin: 0; }
 
 .grand {
-  font-size: var(--text-lg);
+  font-size: var(--text-base);
   color: var(--text);
 }
+.grand dd { color: var(--accent); }
 
 .folioNote {
-  margin: var(--space-5) 0 0;
+  margin: var(--space-4) 0 0;
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--plaster-faint);
   text-wrap: pretty;
 }
 
+/* ── Where to go next ───────────────────────────────────────────────────── */
 .actions {
-  margin-top: var(--space-8);
+  margin-top: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

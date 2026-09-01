@@ -282,3 +282,27 @@ visible, nameable problem into a container that never starts. Alert on
 migration that must land in the same breath as its code does — at that point the
 answer is a Railway pre-deploy command with the owner URL scoped to it, not the
 app's own environment.
+
+### D-026 · The guest's live feed is its own route, not the kitchen's with a role switch
+`/api/kds/stream` authorizes a staff session with `order:read` and filters
+notifications by outlet. `/api/guest/order-stream` authorizes the guest session
+cookie and filters by `stay_id` **and** one order id. The two share the shape of
+the SSE plumbing — `retry:`, heartbeat, `ready` after LISTEN, abort cleanup —
+and duplicate about forty lines of it deliberately.
+
+**Why.** They differ in the credential they trust, the key they filter on, and
+what a mistake costs. A single handler that switches on "is this a staff session
+or a guest cookie" is one inverted condition away from streaming an entire
+kitchen's traffic to a guest's phone, and that class of bug does not announce
+itself — the stream still works. Two routes make the blast radius of each filter
+readable in one screen.
+
+The guest route filters on `stay_id`, never `room_id` (CLAUDE.md #10): rooms are
+reused, and the next occupant of 214 must not hear about tonight's dinner.
+It checks no access tier — watching your own order arrive is a `REQUEST`-tier
+read, and the charge already happened at the one prompt (#9, D-012).
+
+**Cost / when to revisit.** A third stream (the runner queue, housekeeping)
+makes three copies. At that point factor the *transport* into a helper and keep
+the authorize-and-filter pair written out in each route, which is the half worth
+reading.

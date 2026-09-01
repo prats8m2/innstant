@@ -2,6 +2,8 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import type { CurrencyCode } from '@/lib/money';
+import type { OrderStatus } from './transitions';
+import type { OrderStamps } from './track';
 
 /**
  * Reading a placed order back — the confirmation, and later the tracking
@@ -26,10 +28,10 @@ export interface PlacedOrderLine {
   modifiers: PlacedOrderModifier[];
 }
 
-export interface PlacedOrderDetail {
+export interface PlacedOrderDetail extends OrderStamps {
   id: string;
   orderNumber: string;
-  status: string;
+  status: OrderStatus;
   currency: CurrencyCode;
   subtotalMinor: number;
   taxMinor: number;
@@ -38,8 +40,10 @@ export interface PlacedOrderDetail {
   tipMinor: number;
   totalMinor: number;
   guestNotes: string | null;
-  placedAt: Date | null;
   promisedByAt: Date | null;
+  /** Whichever of the two the status calls for — the tracking screen shows it
+   *  verbatim, so the words a kitchen types reach the guest unedited. */
+  haltReason: string | null;
   lines: PlacedOrderLine[];
 }
 
@@ -66,8 +70,19 @@ export async function getOrderForStay(
     tipMinor: orders.tipMinor,
     totalMinor: orders.totalMinor,
     guestNotes: orders.guestNotes,
-    placedAt: orders.placedAt,
     promisedByAt: orders.promisedByAt,
+    // The status timestamps, for the tracking timeline. Redundant with
+    // `event_log` on purpose (DATA-MODEL §6) — written in the same transaction,
+    // so a screen reading these cannot disagree with the audit trail.
+    placedAt: orders.placedAt,
+    acceptedAt: orders.acceptedAt,
+    preparingAt: orders.preparingAt,
+    readyAt: orders.readyAt,
+    outForDeliveryAt: orders.outForDeliveryAt,
+    deliveredAt: orders.deliveredAt,
+    closedAt: orders.closedAt,
+    rejectionReason: orders.rejectionReason,
+    cancellationReason: orders.cancellationReason,
   }).from(orders)
     .where(and(eq(orders.id, input.orderId), eq(orders.stayId, input.stayId)))
     .limit(1);
@@ -104,9 +119,13 @@ export async function getOrderForStay(
         .orderBy(asc(orderItemModifiers.nameSnapshot))
     : [];
 
+  const { rejectionReason, cancellationReason, ...rest } = order;
+
   return {
-    ...order,
+    ...rest,
+    status: order.status as OrderStatus,
     currency: order.currency as CurrencyCode,
+    haltReason: rejectionReason ?? cancellationReason ?? null,
     lines: items.map((item) => ({
       ...item,
       modifiers: modifiers
