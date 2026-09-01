@@ -85,6 +85,11 @@ Done so far in P1:
 - **`docs/UI-WALKTHROUGH.md`** — every feature with the exact clicks, the logins,
   and a snippet for reading the folio (which has no screen until P3). Written to
   be followed by someone who did not build it; also the demo script.
+- **The sweep** — `charging_blocked`, `max_attempts_per_phone`,
+  `allow_staff_vouch`, `lockout_minutes` and `image_url_snapshot` were stored and
+  ignored; all five are read now. It also turned up a real bug: the verification
+  lockout was written and then thrown over inside the same transaction, so the
+  rate limiter discarded the lockout it announced.
 
 **P1's exit criterion now runs end to end, in one automated test.** A guest
 orders on a phone, a kitchen accepts and plates it, a runner on a third device
@@ -102,43 +107,52 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **The sweep.** Three known cases of stored-but-ignored data are listed below.
-   `outlets.minimum_order_minor` is the sharpest: it is stored, editable on
-   `/admin/outlet`, and enforced NOWHERE — `placeOrder()` never looks at it, so a
-   hotel can set a ₹500 minimum and watch ₹180 orders arrive. That is a money
-   path, and it is a smaller job than it looks now that the pieces exist.
-2. **Scheduled availability windows** — `menu_item_availability_windows` is
-   written by nothing and read by nothing. `isWithinWindow()` exists and the menu
-   read already takes property-local time, so this is wiring rather than
-   mechanism: a breakfast dish that stops at 10:30.
-3. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
-   lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
-   into the same `image_url` column upload will write; what is missing is the
-   upload route, the enforced aspect ratio and the generated blurhash.
-4. **Kitchen polish, from the P1 checklist** — an audible alert with a persistent
+1. **Scheduled availability windows** — `menu_item_availability_windows` is
+   written by nothing and read by nothing, the last of the sweep's findings that
+   is a feature rather than a fix. `isWithinWindow()` exists and the menu read
+   already takes property-local time, so this is wiring: a breakfast dish that
+   stops at 10:30, and a windows editor on the dish form.
+2. **Kitchen polish, from the P1 checklist** — an audible alert with a persistent
    unacknowledged count, prep timers that age by colour, and marking an item
    unavailable from the KDS. The last one is `setMenuItemAvailability()` with a
    KDS button in front of it; the KITCHEN role already holds the permission.
-5. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
+3. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
+   lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
+   into the same `image_url` column upload will write, and placement snapshots it
+   already; what is missing is the upload route, the enforced aspect ratio and
+   the generated blurhash.
+4. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
    printed sticker. Everything above is verified on localhost against a docker
    Postgres; the criterion asks for the deployed environment and it is the one
-   claim still resting on a laptop.
+   claim still resting on a laptop. **This is the only thing standing between P1
+   and done.**
 
-**A pattern worth naming, because it has now happened twice.** A column written
-by `provisionProperty()` and read by nothing, with a hardcoded literal on the
-screen contradicting it: `outlet_hours` said 07:00–01:00 while the guest read
-"open until 11:30pm", and `collections.available_from` said 22:00 while "After
-10pm" showed at breakfast. Both were found by going looking, not by anything
-failing. The remaining suspects, in order of how much they matter:
+**The sweep, and what it found.** The pattern had happened twice — a column
+written by `provisionProperty()` and read by nothing, with a hardcoded literal on
+the screen contradicting it — so it was worth looking properly rather than
+waiting for a third. A script matching every column in `src/db/schema` against
+the rest of the tree found 84 unreferenced columns. Most are for unbuilt phases
+(payments, service requests, POIs, shifts, checkout requests) and are exactly
+where they should be. Five belonged to live features and are fixed (see Done).
 
-- **`outlets.minimum_order_minor`** — stored, editable, enforced nowhere. Now
-  item 1 above.
-- **`menu_item_availability_windows`** — written by nothing, read by nothing. At
-  least it is honest. Item 2.
-- **`ROWS` in `home/page.tsx`** — the room home's four rows are literals
-  ("Towels · laundry · transfer", "Out Thursday, 11am"). They are placeholders
-  for P2 and P3 screens that do not exist yet, which is defensible, but the stay
-  row now contradicts the real checkout time printed directly above it.
+Two things learned that outlast the fix:
+
+- **A write followed by a `throw` in the same transaction discards the write.**
+  That is how the verification lockout came to be announced and then rolled back.
+  A heuristic scan found 29 candidates and only that one was real — everywhere
+  else the write had matched zero rows, so rolling back is correct — but the
+  shape is worth recognising: if an error carries information the database was
+  supposed to keep, the throw belongs outside the transaction.
+- **My previous STATUS said `minimum_order_minor` was "enforced NOWHERE". That
+  was wrong** — `placeOrder()` has always enforced it (place-order.ts). The gap
+  was guest-facing: the cart said nothing until the send was refused. Fixed, and
+  worth noting as a caution about this file: a claim here is only as good as the
+  grep behind it.
+
+**Still stored and unread, deliberately:** `menu_item_availability_windows`
+(item 1 above), `guest_sessions.last_seen_at` (a write on every request for a
+figure nothing shows — left alone on purpose), and the four literal `ROWS` on the
+room home, which are placeholders for P2 and P3 screens.
 
 **A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
@@ -168,6 +182,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `4e2d6c9` | The sweep: five stored-and-ignored settings now read, and a rate limiter that was rolling back its own lockout. |
 | P1 | `d70b306` | Option groups and their options — the last seeder-only part of the catalog. Signed deltas, the shared-dish count on every heading, and `docs/UI-WALKTHROUGH.md`. |
 | P1 | `5e645be` | Editorial collections, and their windows honoured — "After 10pm" had been showing at breakfast. `getInRoomDiningMenu()` now requires property-local time. |
 | P1 | `7556f8e` | The kitchen's hours and rates, and the guest screens finally reading them. `lib/clock.ts`. Found that a ForbiddenError in a Server Component is a 500, and that dishes are a shared resource across e2e tests. |

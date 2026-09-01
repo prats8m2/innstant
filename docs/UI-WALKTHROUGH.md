@@ -151,6 +151,34 @@ As the **GM** or **F&B manager** (a price difference is a price).
   seven dishes carry: refused, with the count, and a second button that does it
   deliberately.
 
+## 8 · The rules that only show up when you break them
+
+Worth seeing once, because each of these was a setting the hotel could set and
+the product ignored.
+
+- **A minimum order.** `/admin/outlet` → *Minimum order* → `500` → save. As a
+  guest, put one cheap dish in the cart: the send button is disabled and the
+  line above it says how much is still to go. Set it back to `0` afterwards.
+- **Charges on hold.** There is no front-desk screen yet (P3), so set it by hand:
+  ```
+  node -e '
+  const {Client}=require("pg");
+  (async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+   await c.connect();
+   await c.query(`UPDATE guest_property_profiles SET charging_blocked = true`);
+   console.log("blocked"); await c.end();})();'
+  ```
+  Now send an order as a guest: it refuses with *"Charges to this room are on
+  hold. The front desk can take the order."* Set it back to `false`.
+- **The verification attempt limit.** `access_policies.max_attempts_per_phone`
+  and `lockout_minutes` are read from the policy now, not hardcoded. Set
+  `max_attempts_per_phone = 1`, then answer the phone prompt wrongly once: the
+  room is locked out for `lockout_minutes`, and the lockout actually persists —
+  it used to be rolled back by the very error that reported it.
+- **Vouching turned off.** `access_policies.allow_staff_vouch = false` makes
+  `vouchForGuest()` refuse. No screen calls it yet (it needs the front desk), so
+  this one is only visible in the integration tests.
+
 ---
 
 ## Where the money shows up
