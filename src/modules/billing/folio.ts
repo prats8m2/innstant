@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { folios, folioLines } from '@/db/schema/billing';
 import { NotFoundError } from '@/lib/errors';
@@ -185,6 +185,37 @@ export interface FolioSummary {
     amountMinor: number;
     createdAt: Date;
   }>;
+}
+
+/**
+ * What every one of these stays owes, in one query.
+ *
+ * For the front desk's room list, which needs a balance against 34 rooms. The
+ * alternative is `getFolioForStay()` in a loop, which is 34 round trips on a
+ * screen somebody refreshes all morning — the same mistake `provisionProperty()`
+ * made per-room before it was batched.
+ *
+ * A stay with no folio is absent from the map rather than zero: no folio means
+ * nothing was ever charged, and the screen says so differently.
+ */
+export async function folioBalancesForStays(
+  tx: Tx,
+  input: { stayIds: readonly string[] },
+): Promise<Map<string, { balanceMinor: number; currency: string; status: string }>> {
+  if (!input.stayIds.length) return new Map();
+
+  const rows = await tx.select({
+    stayId: folios.stayId,
+    balanceMinor: folios.balanceMinor,
+    currency: folios.currency,
+    status: folios.status,
+  }).from(folios).where(inArray(folios.stayId, [...input.stayIds]));
+
+  return new Map(rows.map((row) => [row.stayId, {
+    balanceMinor: row.balanceMinor,
+    currency: row.currency,
+    status: row.status,
+  }]));
 }
 
 /** The folio as a guest sees it. Oldest first — it reads as a bill. */

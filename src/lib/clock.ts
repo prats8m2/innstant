@@ -205,7 +205,19 @@ export function atLocalHourOnSameDay(
   }
   const local = localTimeAt(reference, timeZone);
   const deltaMinutes = hour * 60 - local.minutes;
-  return new Date(reference.getTime() + deltaMinutes * 60_000);
+
+  /**
+   * Landed on the top of the hour, not on the reference's seconds.
+   *
+   * `localTimeAt` resolves to whole minutes, so shifting by whole minutes leaves
+   * the reference's seconds and milliseconds intact — "checkout at 2pm" came out
+   * as 14:00:00.837 for a reference taken at 09:37:00.837. Harmless to read and
+   * quietly wrong everywhere else: `scheduled_checkout_at` carried meaningless
+   * sub-minute precision, and two calls a millisecond apart produced two
+   * different 2pms, which is a comparison nobody expects to fail.
+   */
+  const shifted = reference.getTime() + deltaMinutes * 60_000;
+  return new Date(shifted - (shifted % 60_000));
 }
 
 /**

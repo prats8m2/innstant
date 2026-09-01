@@ -8,6 +8,7 @@
  */
 export {
   postFolioLine, getOrCreateOpenFolio, getFolioForStay, reverseFolioLinesForSource,
+  folioBalancesForStays,
 } from './folio';
 export type { PostFolioLineInput, FolioSummary, ReverseFolioLinesInput, FolioReversal }
   from './folio';

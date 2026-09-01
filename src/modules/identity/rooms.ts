@@ -1,4 +1,4 @@
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { floors, properties, rooms, roomTypes } from '@/db/schema/identity';
 
@@ -63,6 +63,43 @@ export async function describeRoom(
     .where(and(eq(rooms.id, input.roomId), eq(rooms.propertyId, input.propertyId)))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * Every room at the property, for a screen that lists them.
+ *
+ * With the floor and the room type resolved, because a front desk reads "214 ·
+ * Second · Lake view" and not three uuids. Archived rooms are excluded: a room
+ * taken out of service is not one the desk can put anybody in.
+ *
+ * Ordered by floor then number, which is how a key rack is ordered and how
+ * somebody standing at a desk expects to scan a list.
+ */
+export interface RoomListing {
+  id: string;
+  number: string;
+  floorId: string;
+  floorName: string;
+  roomTypeName: string | null;
+}
+
+export async function listRoomsAtProperty(
+  tx: Tx,
+  input: { propertyId: string },
+): Promise<RoomListing[]> {
+  return tx
+    .select({
+      id: rooms.id,
+      number: rooms.number,
+      floorId: rooms.floorId,
+      floorName: floors.name,
+      roomTypeName: roomTypes.name,
+    })
+    .from(rooms)
+    .innerJoin(floors, eq(floors.id, rooms.floorId))
+    .leftJoin(roomTypes, eq(roomTypes.id, rooms.roomTypeId))
+    .where(and(eq(rooms.propertyId, input.propertyId), isNull(rooms.archivedAt)))
+    .orderBy(asc(floors.sortOrder), asc(floors.level), asc(rooms.number));
 }
 
 export async function findRoomByNumber(

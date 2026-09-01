@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, nightsUntil, formatFolioDate, spellCount,
+  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
 } from './clock';
 
 /**
@@ -151,5 +151,52 @@ describe('spelling a small count', () => {
   it('gives up and uses digits above ten', () => {
     expect(spellCount(11)).toBe('11');
     expect(spellCount(42)).toBe('42');
+  });
+});
+
+describe('an instant at a property-local hour', () => {
+  const UDAIPUR = 'Asia/Kolkata';
+
+  it('lands on the hour in the property\'s day', () => {
+    // Thursday 09:37 IST = 04:07 UTC. 2pm IST that day = 08:30 UTC.
+    const at = atLocalHourOnSameDay(new Date('2026-03-12T04:07:23.456Z'), 14, UDAIPUR);
+    expect(at.toISOString()).toBe('2026-03-12T08:30:00.000Z');
+  });
+
+  /**
+   * The reference's seconds used to survive the shift, so "2pm" was
+   * 14:00:00.837 and two calls a millisecond apart produced two different 2pms.
+   */
+  it('drops the seconds it was given', () => {
+    const a = atLocalHourOnSameDay(new Date('2026-03-12T04:07:23.456Z'), 14, UDAIPUR);
+    const b = atLocalHourOnSameDay(new Date('2026-03-12T05:59:59.999Z'), 14, UDAIPUR);
+    expect(a.getTime()).toBe(b.getTime());
+  });
+
+  it('can go backwards as well as forwards', () => {
+    // 8pm IST asking for 9am IST is earlier the same local day.
+    const at = atLocalHourOnSameDay(new Date('2026-03-12T14:30:00Z'), 9, UDAIPUR);
+    expect(at.toISOString()).toBe('2026-03-12T03:30:00.000Z');
+  });
+
+  it('stays on the property\'s day across the server\'s midnight', () => {
+    // 19:30 UTC Wednesday is 01:00 THURSDAY in Udaipur, so 11am is Thursday's.
+    const at = atLocalHourOnSameDay(new Date('2026-03-11T19:30:00Z'), 11, UDAIPUR);
+    expect(at.toISOString()).toBe('2026-03-12T05:30:00.000Z');
+  });
+
+  it('refuses an hour that is not one', () => {
+    expect(() => atLocalHourOnSameDay(new Date(), 24, UDAIPUR)).toThrow(RangeError);
+    expect(() => atLocalHourOnSameDay(new Date(), -1, UDAIPUR)).toThrow(RangeError);
+    expect(() => atLocalHourOnSameDay(new Date(), 9.5, UDAIPUR)).toThrow(RangeError);
+  });
+});
+
+describe('formatting an hour', () => {
+  it('is the way the reference writes one', () => {
+    expect(formatHour(14)).toBe('2pm');
+    expect(formatHour(11)).toBe('11am');
+    expect(formatHour(0)).toBe('12am');
+    expect(formatHour(12)).toBe('12pm');
   });
 });

@@ -100,6 +100,18 @@ export default async function AdminHome() {
 
         {maySeeStays ? (
           <li className={styles.card}>
+            <Link href="/admin/rooms" className={styles.cardLink}>
+              <span className={styles.cardTitle}>Rooms</span>
+              <span className={styles.cardBody}>
+                Who is in, who is out today, and what is on each folio. Check
+                people in and out from here.
+              </span>
+            </Link>
+          </li>
+        ) : null}
+
+        {maySeeStays ? (
+          <li className={styles.card}>
             <Link href="/admin/checkouts" className={styles.cardLink}>
               <span className={styles.cardTitle}>Leaving</span>
               <span className={styles.cardBody}>
@@ -114,10 +126,10 @@ export default async function AdminHome() {
             docs/PROJECT-PLAN.md, and staff asking "where is the folio" deserve
             an answer better than a missing tile. */}
         <li className={`${styles.card} ${styles.soon}`}>
-          <span className={styles.cardTitle}>Front desk and folios</span>
+          <span className={styles.cardTitle}>Settling a folio</span>
           <span className={styles.cardBody}>
-            Not built yet — P3. Check-in, the guest folio and checkout still
-            happen wherever they happen today.
+            Not built yet — the rest of P3. Checking out frees the room and
+            records the balance; taking the money is still the card machine.
           </span>
         </li>
       </ul>

@@ -2028,3 +2028,111 @@ test.describe('leaving later', () => {
   });
 });
 });
+
+/**
+ * The front desk.
+ *
+ * The claim worth an end-to-end test is #10: a guest session binds to `stay_id`,
+ * not to `room_id`, so checking somebody out kills every phone that scanned that
+ * room's sticker — and the sticker itself, unchanged and still public on the
+ * nightstand, then belongs to whoever checks in next.
+ *
+ * Room 108 — an empty seeded room nothing else in this suite touches, because
+ * this test checks somebody INTO it.
+ */
+test.describe('the front desk', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'checking a guest in and out is one-copy state — one project owns it',
+  );
+
+  const ROOM = '108';
+
+  async function signInAsDesk(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  // By the data attribute, not by text: the row's name changes the moment
+  // somebody checks in, which is the thing these tests are about.
+  const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+
+  test('checks a walk-in in, and their sticker starts working', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/rooms');
+
+    const row = room(deskPage);
+    await expect(row).toContainText('empty', { timeout: 25_000 });
+
+    await row.getByRole('group').filter({ hasText: 'Check someone in' })
+      .locator('summary').click();
+    await row.locator('input[name="fullName"]').fill('Meera Iyer');
+    await row.locator('input[name="phone"]').fill('+919820077777');
+    await row.locator('input[name="nights"]').fill('2');
+    await row.getByRole('button', { name: `Check in to ${ROOM}` }).click();
+
+    // The row is no longer empty, and the desk can see who and until when.
+    await expect(room(deskPage)).toContainText('Meera Iyer', { timeout: 25_000 });
+    await expect(room(deskPage)).toContainText('nothing yet');
+
+    // And the sticker on that nightstand now resolves to her stay.
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes[ROOM]}`);
+    await expect(guest).toHaveURL(new RegExp(`/r/${seed!.qrCodes[ROOM]}/home$`), {
+      timeout: 25_000,
+    });
+    await expect(guest.getByText(`Room ${ROOM}`).first()).toBeVisible();
+
+    await desk.close();
+    await phone.close();
+  });
+
+  /**
+   * #10, end to end. The sticker is public and unchanged; what stops working is
+   * every session ever issued against the stay that just ended.
+   */
+  test('checks them out, and the phone in the room stops working', async ({ browser }) => {
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes[ROOM]}`);
+    await expect(guest.getByText(`Room ${ROOM}`).first()).toBeVisible({ timeout: 25_000 });
+
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/rooms');
+    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+
+    // The room is free again, immediately — D-007's index only counts CHECKED_IN.
+    await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
+
+    // The guest's cookie is now worthless. Reloading a page it used to open
+    // sends them back to the scan, which is the honest end of a stay.
+    await guest.goto(`/r/${seed!.qrCodes[ROOM]}/home`);
+    await expect(guest.getByText(`Room ${ROOM}`)).toHaveCount(0, { timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('turns away an account that cannot check people in', async ({ page }) => {
+    // KITCHEN holds no stay permission at all.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/rooms');
+    await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
+  });
+});

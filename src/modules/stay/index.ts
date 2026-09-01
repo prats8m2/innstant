@@ -13,6 +13,10 @@ export {
 } from './create-stay';
 export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';
 
+/** The front desk. Check-IN is `createStay()` above — the only door (#4). */
+export { listRoomsWithOccupancy, checkOutStay } from './front-desk';
+export type { RoomOccupancy, CheckOutResult } from './front-desk';
+
 /** Changing when a guest leaves — P3's checkout-change flow. */
 export {
   getCheckoutOptions, requestCheckoutChange, cancelCheckoutRequest,

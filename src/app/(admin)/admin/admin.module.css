@@ -8,15 +8,26 @@
 }
 
 /* ── The bar ────────────────────────────────────────────────────────────── */
+/*
+ * The console is desktop-first — it is used sitting down. It still has to
+ * DEGRADE rather than break, and a fixed 56px height did not: the bar is sticky,
+ * so once the nav outgrew one line the overflow sat on top of the page and
+ * swallowed clicks. Adding a sixth nav item was enough to do it at 412px, and it
+ * surfaced as a summary that would not open on a screen nobody was looking at.
+ *
+ * `min-height` and a wrapping row: on a desk it is one 56px line exactly as
+ * before, and on a narrow screen the bar grows instead of covering things.
+ */
 .bar {
   position: sticky;
   top: 0;
   z-index: 2;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-6);
-  height: 56px;
-  padding: 0 var(--space-6);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-6);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
@@ -31,6 +42,7 @@
 .nav {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 
@@ -797,4 +809,32 @@
 .checkoutButtons {
   display: flex;
   gap: var(--space-2);
+}
+
+/* The desk's per-room controls: vouch and check out, side by side. */
+.roomActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* An empty room is not a disabled row — it is the one you can act on. */
+.dish[data-available='true'] .dishName { color: var(--text); }
+
+/*
+ * A disclosure that is inline while shut and a full row once open.
+ *
+ * The room board is thirty-four rows, most of them empty, and a check-in form
+ * that claimed a full-width row even when closed made every empty room three
+ * lines tall — a desk scrolling past thirty of those to reach the occupied ones.
+ * Closed it sits beside the room like a button; open it drops below and gets the
+ * width the form needs.
+ */
+.roomForm { flex: none; }
+.roomForm[open] {
+  flex-basis: 100%;
+  order: 1;
+  margin-top: var(--space-3);
+  padding-bottom: var(--space-2);
 }
