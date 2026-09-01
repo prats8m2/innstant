@@ -61,8 +61,7 @@ roles. It is also the demo.
       R2 is not configured. The dish form takes a URL into the same column, and
       placement snapshots it.**
 - [x] Modifier groups, reusable across items
-- [x] Availability toggle · **[ ] scheduled windows** — `menu_item_availability_windows`
-      is still written by nothing
+- [x] Availability toggle + scheduled windows
 - [x] Editorial collections
 
 **Guest ordering**
@@ -76,12 +75,10 @@ roles. It is also the demo.
 
 **Kitchen**
 - [x] KDS ticket rail per outlet, oldest first
-- [ ] Audible alert + persistent unacknowledged count — `openTicketCount()` exists
-      and nothing calls it
+- [x] Audible alert + persistent unacknowledged count
 - [x] Accept / reject with reason
-- [x] Bump preparing → ready · prep timers *(late shouts; no gradual ageing yet)*
-- [ ] Mark an item unavailable from the KDS — `setMenuItemAvailability()` exists
-      and the KITCHEN role already holds the permission; it needs a button
+- [x] Bump preparing → ready, prep timers with colour ageing
+- [x] Mark an item unavailable from the KDS
 - [x] Runner pickup queue, mark delivered
 
 **Plumbing**

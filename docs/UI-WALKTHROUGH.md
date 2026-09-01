@@ -151,7 +151,42 @@ As the **GM** or **F&B manager** (a price difference is a price).
   seven dishes carry: refused, with the count, and a second button that does it
   deliberately.
 
-## 8 · The rules that only show up when you break them
+## 8 · A dish with its own hours
+
+`/admin/menu` → a dish → **When it is on**.
+
+- Set row one to *Every day*, `07:00` to `10:30`, and save. Open the guest menu:
+  outside those hours the dish reads **Not available now** and cannot be added.
+  Inside them it behaves normally.
+- A single day works too — *Sunday*, `12:00`–`16:00` for a Sunday biryani.
+- Three rows, so a dish can be on twice a day. Leave them all blank and the dish
+  is on whenever the kitchen is, which is the default.
+- This is not the same as the **On the menu tonight** box below it. The schedule
+  is the standing rule; that box is the switch the kitchen flips when it runs out.
+
+The rule is enforced on the order, not just the display: a scheduled dish sitting
+in a cart outside its window does not price into the total and `Send` refuses it.
+
+## 9 · The kitchen board
+
+`/kds` as **kitchen@thekesari.example**.
+
+- The header shows **N waiting** — tickets nobody has accepted. It clears as they
+  are accepted, and it is the alert that always works.
+- A new ticket also makes a **two-note sound**. It is synthesised, so there is no
+  audio file to host; browsers block audio until the page has been interacted
+  with, so if you have not clicked anything yet, click once and place another
+  order.
+- The **age** on each ticket turns saffron in the last quarter of its promised
+  time and inverts to a block when it is past it — against each ticket's own
+  promise, so a 40-minute dish and a 10-minute chai are not late at the same age.
+  It re-renders every 20 seconds, so a quiet board still ages.
+- **86** next to any line takes that dish off the guest menu — try it, then check
+  the guest menu. The order on the ticket is unaffected; it still has to be
+  cooked or rejected. The button only appears while the ticket is the kitchen's
+  (placed or accepted), and only for accounts with `catalog:availability`.
+
+## 10 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.

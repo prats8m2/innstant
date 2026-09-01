@@ -90,6 +90,15 @@ Done so far in P1:
   ignored; all five are read now. It also turned up a real bug: the verification
   lockout was written and then thrown over inside the same transaction, so the
   rate limiter discarded the lockout it announced.
+- **Dish schedules** — `menu_item_availability_windows`, the last of the sweep's
+  stored-and-ignored tables. `isItemOnNow()` is pure and tested; the schedule
+  folds into the same `isAvailable` flag every screen already reads, and
+  `placeOrder()` computes property-local time itself so no caller can forget it.
+  Three schedule rows on the dish form.
+- **The kitchen's own tools** — a count of tickets nobody has accepted, a
+  synthesised alert when that count rises, prep timers ageing against each
+  ticket's own promise, and an 86 button on every line behind
+  `catalog:availability` alone. **P1's Kitchen checklist is complete.**
 
 **P1's exit criterion now runs end to end, in one automated test.** A guest
 orders on a phone, a kitchen accepts and plates it, a runner on a third device
@@ -105,27 +114,23 @@ Until this session nothing could mark an order DELIVERED, so the criterion's
 What that criterion still wants before it is honestly signed off: **hotel-grade
 wifi and the deployed environment**, not localhost. See the deploy note below.
 
-**Next, in `docs/PROJECT-PLAN.md` P1 order:**
+**P1 has one item left, and it is not code.**
 
-1. **Scheduled availability windows** — `menu_item_availability_windows` is
-   written by nothing and read by nothing, the last of the sweep's findings that
-   is a feature rather than a fix. `isWithinWindow()` exists and the menu read
-   already takes property-local time, so this is wiring: a breakfast dish that
-   stops at 10:30, and a windows editor on the dish form.
-2. **Kitchen polish, from the P1 checklist** — an audible alert with a persistent
-   unacknowledged count, prep timers that age by colour, and marking an item
-   unavailable from the KDS. The last one is `setMenuItemAvailability()` with a
-   KDS button in front of it; the KITCHEN role already holds the permission.
-3. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
+1. **Sign the exit criterion off on the deployed environment.** On Railway, on
+   hotel wifi, with a printed sticker. The whole chain passes on localhost in one
+   automated test across three devices; what it has never run on is the thing the
+   criterion actually asks for. This needs a git remote and a Railway app service
+   first — P0's last outstanding item, and an account-holder task.
+2. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
    lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
-   into the same `image_url` column upload will write, and placement snapshots it
-   already; what is missing is the upload route, the enforced aspect ratio and
-   the generated blurhash.
-4. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
-   printed sticker. Everything above is verified on localhost against a docker
-   Postgres; the criterion asks for the deployed environment and it is the one
-   claim still resting on a laptop. **This is the only thing standing between P1
-   and done.**
+   into the same `image_url` column upload will write, and placement snapshots
+   it; what is missing is the upload route, the enforced aspect ratio and the
+   generated blurhash. It is the only P1 checklist item that is not done.
+
+**After that, P2 · amenities and service requests** — and the plan's own advice
+applies: ship P1 to one real floor first. Everything about wifi dead zones, how
+staff hold a tablet, and what a kitchen does when two orders land at once will
+rewrite the P2 assumptions, and building P2 before that means building it twice.
 
 **The sweep, and what it found.** The pattern had happened twice — a column
 written by `provisionProperty()` and read by nothing, with a hardcoded literal on
@@ -149,10 +154,16 @@ Two things learned that outlast the fix:
   worth noting as a caution about this file: a claim here is only as good as the
   grep behind it.
 
-**Still stored and unread, deliberately:** `menu_item_availability_windows`
-(item 1 above), `guest_sessions.last_seen_at` (a write on every request for a
-figure nothing shows — left alone on purpose), and the four literal `ROWS` on the
-room home, which are placeholders for P2 and P3 screens.
+**Still stored and unread, deliberately:** `guest_sessions.last_seen_at` (a write
+on every request for a figure nothing shows — left alone on purpose) and the four
+literal `ROWS` on the room home, which are placeholders for P2 and P3 screens.
+`menu_item_availability_windows` is read now.
+
+**One literal removed rather than fixed:** "Chef Bhairav Singh" on the menu
+footer. It was one hotel's name in shared code, and there is nowhere for a
+property to say who cooks — `properties.branding` is the obvious home and nothing
+writes it yet. Worth restoring when branding is real, because the reference's
+voice is part of the design.
 
 **A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
@@ -182,6 +193,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `04fe4f1` | Dish schedules, and the kitchen's board: a waiting count, an audible alert, timers ageing against the promise, and 86 from the line. Two more literals on the menu screen went with them. |
 | P1 | `4e2d6c9` | The sweep: five stored-and-ignored settings now read, and a rate limiter that was rolling back its own lockout. |
 | P1 | `d70b306` | Option groups and their options — the last seeder-only part of the catalog. Signed deltas, the shared-dish count on every heading, and `docs/UI-WALKTHROUGH.md`. |
 | P1 | `5e645be` | Editorial collections, and their windows honoured — "After 10pm" had been showing at breakfast. `getInRoomDiningMenu()` now requires property-local time. |
