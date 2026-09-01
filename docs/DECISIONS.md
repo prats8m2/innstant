@@ -388,3 +388,70 @@ decision needing an external service (CLAUDE.md says ask), so the row is written
 and the drainer is the next decision. Writing the row first is deliberate: "we
 never told them" and "we told them and their phone was off" are different
 problems, and only a row written before the send can tell them apart.
+
+### D-029 · The in-app bell is the notification channel, and delivery happens on the recipient's own render
+`notifications` rows have been written before anything was sent since the SLA
+sweep landed (D-028, DATA-MODEL §8). Nothing sent them, which was the one
+asterisk on P2's exit criterion: a duty manager not already staring at the floor
+board was not actually interrupted by a breach.
+
+The channel is **in-app** — a bell in the ops console's shell and in the floor
+board's header — and only in-app. `PUSH`, `WHATSAPP` and `EMAIL` remain rows and
+nothing more.
+
+**Why in-app and not WhatsApp.** WhatsApp is the one a GM would actually notice,
+and it is a P5 objection-killer worth pulling forward. It also needs an external
+service, which CLAUDE.md says to ask about first. The bell needs nothing, works
+today, and is worth building either way: it is the fallback when a channel fails,
+and a drainer needs somewhere to mark things delivered. Asking about WhatsApp
+first and building nothing in the meantime would have left the asterisk standing
+for the sake of a question that can be answered later without unpicking this.
+
+**Why delivery is a write during a render.** `deliverInApp()` runs in the same
+transaction as the bell's read, in `src/components/alerts.tsx`. For this channel
+there is no other honest moment: a row is SENT when a screen belonging to the
+recipient has it, and that screen asking IS the delivery. Marking rows SENT at
+write time would make the status claim a screen had it when nobody was logged in,
+and that is precisely the distinction the table exists to preserve — "we never
+told them" versus "we told them and nobody was looking".
+
+The payoff is the diagnostic half. A row still PENDING an hour after a breach
+means the duty manager has not opened a screen since it was queued, which is a
+real answer to a real question. The cost is that a prefetch of an admin page can
+mark rows delivered a moment before a human looks. That is the right side to be
+wrong on: the alternative is a client round trip on mount, and an alert reading
+"nobody has seen this" while it sits on an open screen.
+
+**Why the drainer is scoped to one staff member.** So the night porter opening
+the console does not clear the evidence that the duty manager never did.
+
+**Why a fourth stream rather than a fifth filter on an existing one.** D-026's
+rule, unchanged: the transport is shared (`useLiveRefresh`), the authorize step
+and the filter are written out per route. `/api/notifications/stream` is the
+first one that filters on the RECIPIENT as well as the property — an alert is
+addressed to a person, and a filter that dropped the staff id would put a duty
+manager's escalations on every bell in the hotel. It checks a session and a
+property rather than a permission, because there is no useful
+`notification:read`: the question is not "may this role read alerts" but "is this
+your alert", and the answer is the staff id in the cookie, never anything a
+caller sends.
+
+**Why the bell is on the floor board too.** Level 1 of an escalation goes to the
+assignee, who is a housekeeper holding a phone, not a manager in the console. A
+bell only on `/admin` would have delivered two thirds of what the sweep writes.
+
+**Why `pnpm demo:reset` now seeds a breach.** SR-4468 is fourteen minutes past
+its promise, escalated by calling `escalateBreachesFor()` rather than by writing
+`escalation_level` and a notification row by hand — a seeder that hand-rolls what
+the product does keeps working after the product breaks. Without it every demo
+and every e2e run starts with an empty bell and a board with nothing late on it,
+and the only way to see the second half of P2 is to sit watching a screen for a
+quarter of an hour.
+
+**Cost / when to revisit.** The bell is delivery to somebody who is looking at a
+screen. It is not an interruption: a GM who has gone home learns nothing. That is
+the WhatsApp decision, still open, and it is now additive — the drainer, the
+statuses and the template renderer are all channel-agnostic, so a second channel
+is a sender and a row filter, not a rework. Revisit when a property asks to be
+told away from the desk, which is the question to put to a pilot rather than to
+answer here.

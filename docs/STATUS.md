@@ -13,12 +13,17 @@ and this file is stale — fix it.
 Done, rewrite the Now section, and append anything learned to Environment
 notes. A stale status file is worse than none.
 
-> Editing note: do not locate this file's Now heading by searching for the
-> literal string with backticks — that phrase appears in this paragraph too,
-> and splicing on it eats the heading. Match a line that is exactly `## Now
+> Editing note: match a LINE that is exactly `## Now` — never a substring.
+> This paragraph and the one above both contain that text, so an index-of on
+> `"## Now\n"` finds the note, not the heading, and splices the new section
+> into the middle of this sentence while deleting the real heading. That has now
+> happened twice, once to a session that had just read this warning.
+
+## Now
 
 **P0 and P1 are done bar two things that are not code. P2 · amenities and
-service requests has begun,** with its foundation and its whole guest surface.
+service requests is COMPLETE — its exit criterion is met with no asterisk left
+on it.**
 
 **P1's remaining two:**
 
@@ -31,7 +36,7 @@ service requests has begun,** with its foundation and its whole guest surface.
    route, the aspect ratio and the blurhash. `service_requests.photo_url` now
    waits on the same thing.
 
-**What landed in P2 so far:**
+**What P2 built:**
 
 - **The request state machine** — pure, 13 tests. ESCALATED is deliberately not
   a status (a breached request is usually IN_PROGRESS); CANCELLED is reachable
@@ -50,62 +55,64 @@ service requests has begun,** with its foundation and its whole guest surface.
   where it does not.
 - **The floor board** — `/housekeeping`. A phone in an apron pocket, ordered by
   SLA target, with the countdown as the loudest thing on the card and a quieter
-  "done, not checked" section so `request:verify` is reachable. Take it, put it
-  back, done, checked, or cannot-do-it with a reason.
-- **Two more streams** — `/api/requests/stream` for the board and
-  `/api/guest/request-stream` for the guest's own request. The guest's screen
-  says "on the way" without a reload.
-- **Shifts and auto-routing** — `modules/housekeeping` owns `shifts` and
-  `shift_zones`, which nothing wrote before. Routing is role ∩ on-shift ∩
-  covers-floor ranked by open count: a guest asks, a clocked-in housekeeper gets
-  it, the guest reads their name, and nobody tapped anything. Nobody matching
-  leaves the request OPEN and records whether the rota had nobody at all or
-  nobody with the role.
+  "done, not checked" section so `request:verify` is reachable.
+- **Shifts and auto-routing** — routing is role ∩ on-shift ∩ covers-floor ranked
+  by open count: a guest asks, a clocked-in housekeeper gets it, the guest reads
+  their name, and nobody tapped anything.
 - **The SLA worker (D-028)** — breaches escalate on a 60-second in-process timer:
   level 1 tells the assignee, level 2 at ten minutes past tells the duty manager,
   level 3 at half an hour, then it stops. Escalation is not a status. Migration
   0004 adds `sla_sweep_properties()`, the second and last unscoped query in the
   product, because a job on a timer has no request to derive a tenant from.
-- **`modules/notifications`** — rows are written before anything is sent, so "we
-  never told them" and "we told them and their phone was off" stay different
-  problems. Nothing delivers them yet.
+- **The bell (D-029)** — and with it the asterisk is gone. `notifications` rows
+  are still written before anything is sent; now the in-app channel drains them.
+  A breach lights a badge on the GM's console within a minute, with no reload:
+  `deliverInApp()` marks a row SENT when the recipient's own screen renders it,
+  `renderNotification()` turns the template and payload into a sentence at read
+  time, and `/api/notifications/stream` filters on the RECIPIENT as well as the
+  property. Also on the floor board, because level 1 goes to the assignee and the
+  assignee is holding a phone. Acknowledging clears the badge and keeps the row.
 
-Every `request_types` flag the seeder has written since S6 is now read by
-something — nine more of the sweep's write-only columns retired.
+Every `request_types` flag the seeder has written since S6 is read by something.
 
-**P2's exit criterion is met** — routed without anyone assigning, and breaches
-escalate visibly — **with one honest asterisk: nothing delivers the notification
-row.** A duty manager who is not looking at the board is not actually
-interrupted.
+**P2's exit criterion, in full:** a request raised by a guest reaches the correct
+on-duty staff member without anyone assigning it, and a breach escalates
+visibly — to the board, and now to a person. Five e2e tests and the integration
+suite hold both halves up. `pnpm demo:reset` seeds SR-4468 already fourteen
+minutes late so a demo shows it without a fifteen-minute wait.
 
-**Next, in P2 order:**
+**Next, and it is a phase boundary — pick one:**
 
-1. **Deliver the notifications.** The rows are there with a PENDING status and a
-   template name. Two options, and it is a product decision:
-   - **In-app** — a bell on the ops console reading `notificationsFor()`, which
-     needs no external service and works today. Modest, honest, and it makes the
-     rows visible.
-   - **WhatsApp** — a P5 objection-killer pulled forward, and the one a GM would
-     actually notice. It needs an external service, which CLAUDE.md says to ask
-     about first.
-   The in-app bell is worth doing either way: it is the fallback when a channel
-   fails, and the drainer needs somewhere to mark things delivered.
-2. **Request-type admin.** SLA, price, routing role and quantity rules are
-   editable columns with no screen — a property cannot change "towels in 12
-   minutes" or route maintenance elsewhere without a seeder. The menu editor is
-   the pattern; `request_type:manage` already exists.
-3. **Photo attachment** — `service_requests.photo_url` is read by the board and
-   written by nothing. Blocked with the rest of images on R2.
+1. **P3 · stay and folio.** The argument this file has made for two sessions:
+   the guest folio is the biggest hole in the product. `getFolioForStay()` is
+   written, tested, and has no screen, so a guest cannot see what they have
+   spent, and every charge path already posts to it. Check-in, checkout and the
+   front-desk screens go with it.
+2. **The two P2 leftovers**, both small and both optional:
+   - **Request-type admin.** SLA, price, routing role and quantity rules are
+     editable columns with no screen — a property cannot change "towels in 12
+     minutes" without a seeder. The menu editor is the pattern;
+     `request_type:manage` already exists.
+   - **Photo attachment** — `service_requests.photo_url` is read by the board and
+     written by nothing. Blocked with the rest of images on R2.
+3. **WhatsApp for staff alerts**, if a pilot property asks to be told away from
+   the desk. D-029 left this additive on purpose: the drainer, the statuses and
+   the renderer are channel-agnostic, so a second channel is a sender and a row
+   filter, not a rework. It needs an external service, so it is a question for
+   the account holder rather than a task.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
 before starting P2, because wifi dead zones and how staff hold a tablet will
-rewrite the P2 assumptions. That has not happened; P2 was started on request.
-Worth remembering when the routing rules meet a real corridor.
+rewrite the P2 assumptions. That has not happened; P2 was started on request, and
+is now finished on the same basis. It is worth remembering before P3 adds a
+second unshipped phase — the routing rules and the SLA thresholds are both
+guesses until a corridor argues with them.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P2 | `1840a0d` | The bell — the in-app channel, and P2's asterisk with it. Found `notificationsFor()` ordering by `created_at` alone despite promising the unseen first, and this file's own `## Now` heading missing, eaten by exactly the splice its editing note warns about. |
 | P2 | `784f95f` | The SLA worker (D-028) and `modules/notifications`. Found the duty-manager lookup excluding INVITED admins — a new property's escalations would have gone nowhere. |
 | P2 | `320a3b3` | Shifts, zones, and auto-routing. P2's exit criterion is half met — routed without anyone assigning; breaches do not escalate yet. |
 | P2 | `2e18c03` | The floor board, and the request streams both ways. Found `useLiveRefresh` hardcoding the event name, and a seeded request with no lines. |
@@ -413,6 +420,28 @@ Things that cost time to rediscover.
   `/api/guest/order-stream` resolves the guest cookie itself and returns 401
   rather than a redirect: `EventSource` cannot follow a redirect usefully, and a
   302 to the scan route made the client retry in a loop.
+- **`NEXT_DIST_DIR=.next-e2e pnpm build` rewrites `next-env.d.ts`** to point its
+  `routes.d.ts` reference at `.next-e2e`. It is a generated file that says "do
+  not edit" and it will show up in `git status` after every e2e build. Check it
+  out again before committing — a committed `.next-e2e` reference breaks
+  `pnpm typecheck` for anyone who has only ever run `pnpm build`.
+- **A `<details>` panel survives `router.refresh()` and that is the point.** Its
+  open state is DOM, not React, so a live surface that re-renders under an open
+  popover leaves it open. The bell relies on this: an alert arriving while the
+  GM is reading the list must not snap the list shut. It also means an e2e that
+  clicks the summary a second time CLOSES it — which is how the bell's first test
+  failed.
+- **A staff SSE route that filters on a person must take the id from the
+  session, never the query.** `/api/notifications/stream` checks a session and a
+  property and then filters on `session.staffUserId`; there is no
+  `notification:read` permission because the question is not "may this role read
+  alerts" but "is this your alert". A `?staffUserId=` parameter would have been
+  every bell in the hotel.
+- **This file's `## Now` heading has been eaten twice by a substring splice**,
+  the second time by a session that had just read the warning against it. The
+  text `## Now` appears in the editing note as well as in the heading, so
+  `s.index('## Now\n')` finds the note. Match a whole line. `pnpm status` fails
+  loudly when the heading is missing, which is how both were caught.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -424,12 +453,11 @@ Things that cost time to rediscover.
 Paste this:
 
 > Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
-> `pnpm status`. We are on **P2 · amenities and service requests**, which is at
-> 9 of 10 with its exit criterion met. Pick up the first item under `## Now` and
-> follow it to the definition of done in CLAUDE.md — types, lint, unit,
-> integration and e2e all green, the happy path working against the seeded demo
-> property, and the event log showing the transitions you expect. Update this
-> file before you finish.
+> `pnpm status`. **P2 is complete** — its exit criterion is met with no asterisk
+> left on it. Pick up the first item under the Now section and follow it to the
+> definition of done in CLAUDE.md — types, lint, unit, integration and e2e all
+> green, the happy path working against the seeded demo property, and the event
+> log showing the transitions you expect. Update this file before you finish.
 
 Two things that will save you an hour:
 
@@ -439,19 +467,18 @@ Two things that will save you an hour:
   loads.
 - **`docs/UI-WALKTHROUGH.md` is the fastest way to see what exists.** Every
   feature with the exact clicks, the logins, and snippets for the tables that
-  have no screen yet (the folio, notifications). It is also the demo script.
+  have no screen yet (the folio). It is also the demo script.
 
 ### If you are picking a different thread
 
 The three that are ready to start, in the order this file argues for:
 
-1. **Deliver the notification rows** (last P2 item). `notificationsFor()` and
-   `unacknowledgedCount()` exist and nothing calls them. An in-app bell on the
-   ops console needs no external service; WhatsApp needs one, and CLAUDE.md says
-   ask first.
-2. **P3 · stay and folio.** The guest folio is the biggest hole in the product
-   right now — `getFolioForStay()` is written, tested, and has no screen, so a
-   guest cannot see what they have spent. Every charge path already posts to it.
+1. **P3 · stay and folio.** The biggest hole in the product:
+   `getFolioForStay()` is written, tested, and has no screen, so a guest cannot
+   see what they have spent, and every charge path already posts to it.
+2. **The two P2 leftovers**, both small: request-type admin (SLA, price and
+   routing role are editable columns with no screen — the menu editor is the
+   pattern) and photo attachment (blocked with the rest of images on R2).
 3. **The two P0/P1 leftovers**, both account-holder tasks rather than code: a git
    remote plus a Railway service, and then signing P1's exit criterion off on the
    deployed environment with a printed sticker on hotel wifi.

@@ -232,6 +232,22 @@ Ranked by open request count. A BullMQ worker sweeps for
   reliable enough to be the primary channel for a kitchen ticket); the KDS
   is an always-on screen with an audio alert and an unacknowledged count.
 
+  **`IN_APP` is delivered (D-029); `PUSH`, `WHATSAPP` and `EMAIL` are not.**
+  What the columns mean for the delivered channel:
+
+  | Column | Means |
+  |---|---|
+  | `status = PENDING` | written, and no screen belonging to the recipient has read it |
+  | `status = SENT`, `sent_at` | handed to a screen — `deliverInApp()` set it during that screen's own read |
+  | `attempts` | how many times a screen picked the row up |
+  | `acknowledged_at` | the recipient said they had seen it. Never a delete — the row is the audit record |
+
+  A row still `PENDING` an hour after it was queued is therefore a fact worth
+  having: nobody the alert names has opened a screen since. `template` and
+  `payload` stay unrendered on the row; `renderNotification()` turns them into a
+  sentence at read time, so changing the wording does not rewrite what past
+  alerts said they said.
+
 ---
 
 ## 9. Index strategy

@@ -244,23 +244,46 @@ towels (wrong role), a housekeeper covering only the **third** floor does not ge
 a second-floor request, and with two housekeepers on duty the second request goes
 to whoever is carrying less.
 
-**A breach escalating itself.** The sweep runs every 60 seconds inside the server
+**A breach, already escalated.** `pnpm demo:reset` seeds **SR-4468** — a
+wake-up call for room 105, promised in five minutes and now fourteen minutes
+past — and runs the sweep's own function over it. So the board opens with the
+breach already on it: room 105's card carries **MANAGER TOLD** beside a
+countdown reading *15m over*, above room 214's *11m left*. Nothing to wait for.
+
+**The duty manager is told.** Sign in as **gm@thekesari.example** and the bell in
+the top right of `/admin` carries a **1**. Open it:
+
+> **SR-4468 is 14 minutes late**
+> Nobody has finished it. Find whoever has it, or give it to somebody who is free.
+
+The card links to `/housekeeping`. **Mark all seen** clears the badge and leaves
+the row in the list — acknowledging is not deleting, and a GM asked "what did it
+say" needs to be able to answer. The bell follows the GM onto every console
+screen, and the floor board has its own: level 1 of an escalation goes to the
+assignee, who is holding a phone.
+
+Sign in as **housekeeping@thekesari.example** and that bell says *Nothing waiting
+for you* — SR-4468 has no assignee, so level 1 went nowhere and level 2 went to
+the GM alone. An alert is addressed to a person, not to a property.
+
+**Watching it happen live.** The sweep runs every 60 seconds in the server
 process, so this is a real wait rather than a button:
 
 ```
-# Make the seeded request twelve minutes late.
+# Make the OTHER seeded request late too.
 node -e '
 const {Client}=require("pg");
 (async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
  await c.connect();
- await c.query(`UPDATE service_requests SET sla_target_at = now() - interval '"'"'12 minutes'"'"'`);
+ await c.query(`UPDATE service_requests SET sla_target_at = now() - interval '"'"'12 minutes'"'"' WHERE request_number = '"'"'SR-4471'"'"'`);
  await c.end();})();'
 ```
 
-Within a minute the server log says `sla breaches escalated`, and the board's
-card gains **MANAGER TOLD** next to a countdown reading *13m over*. The duty
-manager's notification is a row — nothing delivers it yet, which is the next
-task:
+Within a minute the server log says `sla breaches escalated`, the board's card
+reddens, and the GM's bell goes to **2** with no reload — `/api/notifications/stream`
+carries the nudge and the bell re-reads.
+
+The rows behind it, including what has actually been delivered:
 
 ```
 node -e '
@@ -268,10 +291,13 @@ const {Client}=require("pg");
 (async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
  await c.connect();
  console.table((await c.query(`
-   SELECT n.template, n.status, n.payload, su.email
+   SELECT n.template, n.status, n.sent_at, n.acknowledged_at, n.payload, su.email
    FROM notifications n JOIN staff_users su ON su.id = n.recipient_staff_id`)).rows);
  await c.end();})();'
 ```
+
+`PENDING` means no screen belonging to that person has read it yet — open the
+console as the GM and it becomes `SENT` (D-029).
 
 To see the rows behind it:
 
