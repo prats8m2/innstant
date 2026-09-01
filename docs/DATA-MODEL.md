@@ -216,6 +216,31 @@ Ranked by open request count. A BullMQ worker sweeps for
 `sla_target_at < now() AND status NOT IN ('COMPLETED','VERIFIED')`, bumps
 `escalation_level`, and notifies the duty manager.
 
+*(That worker is in-process rather than BullMQ — see D-028. Nothing else here
+changed.)*
+
+### The catalog is edited from `/admin/requests` (D-030)
+
+"Ops team self-serve" is a screen now, not an aspiration: `sla_minutes`,
+`price_minor`, `route_to_role_key`, the quantity and note and photo rules, and
+`is_active` are all editable there. Four rules the screen enforces and the
+service layer refuses regardless of what is posted:
+
+| Rule | Why |
+|---|---|
+| `key` is minted once from the name and never changes | Code finds `CALL_SERVICE` by it. A key that moved when somebody fixed a typo would break the one-tap screen with no error anywhere. |
+| `is_chargeable` is derived from `price_minor > 0`, never set | The guest's amenities card prints "Free" or the amount from the flag, and the verification prompt is decided by the request TOTAL. Let them disagree and a screen says Free above a request that charges the room — #9 broken by a checkbox. |
+| `CALL_SERVICE` may not carry a price | `raiseServiceRequest()` demands the CHARGE tier as soon as a request totals more than zero, so a price on the one tap is a verification prompt in front of "someone comes up". CLAUDE.md #9 in one row. |
+| `route_to_role_key` must name a role that exists at the property | Routing matches it against the roles staff hold. A typo produces a `NOBODY_WITH_ROLE` event on every request of that type for ever — the router working exactly as designed, and nobody coming. |
+
+`max_quantity` collapses to 1 whenever `allows_quantity` is false, so turning the
+stepper back on later cannot inherit an abandoned number.
+
+Off and archived are different states and both are needed. Off is a season: the
+type leaves the guest's list, the row stays on the admin screen so it can be
+turned back on, and open requests carry on. Archived is for good, and is refused
+while any request of that type is still open.
+
 ---
 
 ## 8. Reliability plumbing

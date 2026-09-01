@@ -22,8 +22,8 @@ notes. A stale status file is worse than none.
 ## Now
 
 **P0 and P1 are done bar two things that are not code. P2 · amenities and
-service requests is COMPLETE — its exit criterion is met with no asterisk left
-on it.**
+service requests is COMPLETE**, exit criterion met with no asterisk, and its two
+optional leftovers are down to one.
 
 **P1's remaining two:**
 
@@ -51,67 +51,71 @@ on it.**
 - **The guest screens** — `/amenities` grouped by category with free and
   chargeable in one list, `/service` as the reference's one tap, and where a
   request lands with a cancel while it is live.
-- **The room home's rows** are real links where the screen exists and say "soon"
-  where it does not.
 - **The floor board** — `/housekeeping`. A phone in an apron pocket, ordered by
   SLA target, with the countdown as the loudest thing on the card and a quieter
   "done, not checked" section so `request:verify` is reachable.
-- **Shifts and auto-routing** — routing is role ∩ on-shift ∩ covers-floor ranked
-  by open count: a guest asks, a clocked-in housekeeper gets it, the guest reads
-  their name, and nobody tapped anything.
+- **Shifts and auto-routing** — role ∩ on-shift ∩ covers-floor ranked by open
+  count: a guest asks, a clocked-in housekeeper gets it, the guest reads their
+  name, and nobody tapped anything.
 - **The SLA worker (D-028)** — breaches escalate on a 60-second in-process timer:
   level 1 tells the assignee, level 2 at ten minutes past tells the duty manager,
   level 3 at half an hour, then it stops. Escalation is not a status. Migration
   0004 adds `sla_sweep_properties()`, the second and last unscoped query in the
   product, because a job on a timer has no request to derive a tenant from.
-- **The bell (D-029)** — and with it the asterisk is gone. `notifications` rows
-  are still written before anything is sent; now the in-app channel drains them.
-  A breach lights a badge on the GM's console within a minute, with no reload:
+- **The bell (D-029)** — the in-app channel, and the asterisk with it. A breach
+  lights a badge on the GM's console within a minute with no reload;
   `deliverInApp()` marks a row SENT when the recipient's own screen renders it,
-  `renderNotification()` turns the template and payload into a sentence at read
-  time, and `/api/notifications/stream` filters on the RECIPIENT as well as the
-  property. Also on the floor board, because level 1 goes to the assignee and the
-  assignee is holding a phone. Acknowledging clears the badge and keeps the row.
+  and `/api/notifications/stream` filters on the RECIPIENT as well as the
+  property. Also on the floor board, because level 1 goes to the assignee.
+- **The request catalog, editable (D-030)** — `/admin/requests`. "Ops team
+  self-serve" was an aspiration in DATA-MODEL §7 until this: `sla_minutes`,
+  `price_minor`, `route_to_role_key`, the quantity and note and photo rules and
+  `is_active` are all editable, and a changed promise is what the guest is quoted
+  on the same visit. Four things it refuses, in `type-rules.ts` rather than in
+  the form: the key never moves, `is_chargeable` follows the price, the one tap
+  may not be priced at all (#9), and the routing role has to exist here.
+  Roles show their headcount, so a type routed at a role nobody holds is visible
+  rather than a `NOBODY_WITH_ROLE` event nobody reads.
 
-Every `request_types` flag the seeder has written since S6 is read by something.
+Every `request_types` column is now both written and reachable by the people who
+own the answer.
 
 **P2's exit criterion, in full:** a request raised by a guest reaches the correct
 on-duty staff member without anyone assigning it, and a breach escalates
-visibly — to the board, and now to a person. Five e2e tests and the integration
-suite hold both halves up. `pnpm demo:reset` seeds SR-4468 already fourteen
-minutes late so a demo shows it without a fifteen-minute wait.
+visibly — to the board, and to a person. Nine e2e tests and the integration suite
+hold both halves up. `pnpm demo:reset` seeds SR-4468 already fourteen minutes
+late so a demo shows it without the wait.
 
-**Next, and it is a phase boundary — pick one:**
+**Next, and it is a phase boundary:**
 
-1. **P3 · stay and folio.** The argument this file has made for two sessions:
-   the guest folio is the biggest hole in the product. `getFolioForStay()` is
-   written, tested, and has no screen, so a guest cannot see what they have
-   spent, and every charge path already posts to it. Check-in, checkout and the
-   front-desk screens go with it.
-2. **The two P2 leftovers**, both small and both optional:
-   - **Request-type admin.** SLA, price, routing role and quantity rules are
-     editable columns with no screen — a property cannot change "towels in 12
-     minutes" without a seeder. The menu editor is the pattern;
-     `request_type:manage` already exists.
-   - **Photo attachment** — `service_requests.photo_url` is read by the board and
-     written by nothing. Blocked with the rest of images on R2.
+1. **P3 · stay and folio.** The argument this file has made for three sessions,
+   and now the only substantial thing in front of it: the guest folio is the
+   biggest hole in the product. `getFolioForStay()` is written, tested, and has
+   no screen, so a guest cannot see what they have spent, and every charge path
+   already posts to it. Check-in, checkout and the front-desk screens go with it.
+2. **Photo attachment** — the last P2 leftover, and blocked rather than
+   unstarted. `service_requests.photo_url` is read by the board, written by
+   nothing, and `request_types.allows_photo` is editable and honoured on the
+   guest form. What is missing is R2 credentials, the same thing blocking dish
+   images.
 3. **WhatsApp for staff alerts**, if a pilot property asks to be told away from
-   the desk. D-029 left this additive on purpose: the drainer, the statuses and
-   the renderer are channel-agnostic, so a second channel is a sender and a row
-   filter, not a rework. It needs an external service, so it is a question for
-   the account holder rather than a task.
+   the desk. D-029 left this additive: the drainer, the statuses and the renderer
+   are channel-agnostic, so a second channel is a sender and a row filter. It
+   needs an external service, so it is a question for the account holder.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
 before starting P2, because wifi dead zones and how staff hold a tablet will
-rewrite the P2 assumptions. That has not happened; P2 was started on request, and
-is now finished on the same basis. It is worth remembering before P3 adds a
-second unshipped phase — the routing rules and the SLA thresholds are both
-guesses until a corridor argues with them.
+rewrite the P2 assumptions. That has not happened; P2 was started on request and
+finished on the same basis. Worth remembering before P3 adds a third unshipped
+phase — the routing rules, the SLA thresholds and now the ranges the catalog
+editor enforces are all guesses until a corridor argues with them.
+
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P2 | `f55cbb9` | The request catalog, editable. Found that `<details>` keeps its open state across `router.refresh()` — which the bell wants and an e2e that clicks the summary twice does not. |
 | P2 | `1840a0d` | The bell — the in-app channel, and P2's asterisk with it. Found `notificationsFor()` ordering by `created_at` alone despite promising the unseen first, and this file's own `## Now` heading missing, eaten by exactly the splice its editing note warns about. |
 | P2 | `784f95f` | The SLA worker (D-028) and `modules/notifications`. Found the duty-manager lookup excluding INVITED admins — a new property's escalations would have gone nowhere. |
 | P2 | `320a3b3` | Shifts, zones, and auto-routing. P2's exit criterion is half met — routed without anyone assigning; breaches do not escalate yet. |
@@ -442,6 +446,20 @@ Things that cost time to rediscover.
   text `## Now` appears in the editing note as well as in the heading, so
   `s.index('## Now\n')` finds the note. Match a whole line. `pnpm status` fails
   loudly when the heading is missing, which is how both were caught.
+- **A client component may import a TYPE from a `modules/*` index and nothing
+  else.** The request editor needs the four category keys and their labels; both
+  are declared in the component rather than imported, because a value import
+  pulls the module's db layer and `pg` follows it into the browser bundle. Only
+  `pnpm build` catches it. The e2e suite builds, so CI does.
+- **Playwright maps `<details>` to role `group` and `<summary>` to nothing
+  useful.** `getByRole('button', { name: 'Edit' })` matches neither, so an
+  assertion that a read-only account has no edit control passes whether or not
+  the control is there. Locate the disclosure by `getByRole('group')` and open it
+  through its `summary`.
+- **`SELECT ... FROM roles` needs `property_id IS NULL OR property_id = $1`.**
+  System roles are tenant-wide with a null `property_id`; only custom roles carry
+  one. A plain `WHERE property_id = $1` returns nothing at all, which reads like
+  an RLS problem and is not.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -476,9 +494,9 @@ The three that are ready to start, in the order this file argues for:
 1. **P3 · stay and folio.** The biggest hole in the product:
    `getFolioForStay()` is written, tested, and has no screen, so a guest cannot
    see what they have spent, and every charge path already posts to it.
-2. **The two P2 leftovers**, both small: request-type admin (SLA, price and
-   routing role are editable columns with no screen — the menu editor is the
-   pattern) and photo attachment (blocked with the rest of images on R2).
+2. **Photo attachment**, the last P2 leftover — blocked with the rest of images
+   on R2. The board reads `service_requests.photo_url`, `allows_photo` is
+   editable and honoured, and nothing writes the column.
 3. **The two P0/P1 leftovers**, both account-holder tasks rather than code: a git
    remote plus a Railway service, and then signing P1's exit criterion off on the
    deployed environment with a printed sticker on hotel wifi.

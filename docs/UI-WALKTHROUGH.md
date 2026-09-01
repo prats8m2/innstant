@@ -317,7 +317,62 @@ const {Client}=require("pg");
  console.table(r.rows); await c.end();})();'
 ```
 
-## 11 · The rules that only show up when you break them
+## 11 · What guests can ask for — `/admin/requests`
+
+Sign in as **gm@thekesari.example** and open **Requests**. This is the catalog
+behind both the amenities screen and the one tap: 23 types in the four groups the
+guest screens use, each with its promise, where it goes, and what it costs.
+
+**Change a promise and watch a guest read it.** Open **Extra pillow** → *Edit
+this* → *Promise, in minutes* → `9` → **Save**. The row says *9 min*. Now scan
+room 214 and open Amenities: the pillow card says **Usually 9 minutes**. That one
+number is both the promise on the card and the deadline the SLA sweep escalates
+against — shortening one shortens the other. Put it back to `12`.
+
+**The three things it will not let you do**, each of which used to be possible
+only because there was no screen at all:
+
+- **Price the one tap.** Open **Call for service** → *Edit this*. The price field
+  is disabled: *"Calling for service stays free — a price on it would ask the
+  guest to verify who they are before anyone came up."* CLAUDE.md #9, at the
+  control that would break it (D-030).
+- **Route to a role nobody holds.** Open the *Goes to* dropdown: staffed roles
+  carry their headcount (*Housekeeping — 1*), and the empty ones say *nobody
+  holds this*. Pick one and save, and the row turns saffron: *goes to Concierge,
+  and nobody holds it*. That is the quiet failure this screen exists to make
+  visible — routing works perfectly and nobody is ever assigned. Typing a role
+  that does not exist at all is refused outright.
+- **Remove something still being worked.** Ask for towels as a guest, then press
+  **Remove** on Extra towels: *"One request of this kind is still open. Finish it
+  first, or switch the type off instead."*
+
+**Off is not removed.** **Take off** drops a type from the guest's list and keeps
+the row here so it can be put back; open requests are unaffected. **Remove**
+archives it for good — and a finished request still names it correctly, because
+the line snapshotted its own label (#6).
+
+**Renaming is safe.** The form says which key it keeps. Rename *Call for service*
+to *Ring for the butler* and the one-tap screen still finds it — code looks the
+type up by `CALL_SERVICE`, and that never moves.
+
+Who changed what:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT el.event_type, su.email, el.payload
+   FROM event_log el LEFT JOIN staff_users su ON su.id = el.actor_staff_id
+   WHERE el.entity_type = $1 ORDER BY el.occurred_at`, ["request_type"])).rows);
+ await c.end();})();'
+```
+
+The payload carries a diff, not a snapshot — *"who took towels from twelve
+minutes to five"* should not be a spot-the-difference puzzle.
+
+## 12 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.

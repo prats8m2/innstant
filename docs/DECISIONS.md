@@ -455,3 +455,74 @@ statuses and the template renderer are all channel-agnostic, so a second channel
 is a sender and a row filter, not a rework. Revisit when a property asks to be
 told away from the desk, which is the question to put to a pilot rather than to
 answer here.
+
+### D-030 · The request catalog is editable, and four of its fields are not the property's to set freely
+`request_types` has been "the property-configurable catalog… ops team
+self-serve" (DATA-MODEL §7) since S6, and until `/admin/requests` the only way to
+change "towels in 12 minutes" was to edit `provision.ts` and re-run the seeder,
+which also wipes the property. The screen closes that.
+
+Four columns it exposes are read by something load-bearing and were reachable by
+nobody who owns the answer: `sla_minutes` is what the SLA sweep escalates
+against, `route_to_role_key` is what the auto-router matches on, `price_minor`
+decides whether a guest meets the one verification prompt, and `is_active` is
+what takes a thing off the guest's list for a season.
+
+**What a property may not do, and why each one is a real failure rather than a
+tidiness rule.** The checks live in `type-rules.ts`, pure and unit-tested, and
+`admin.ts` throws them — so a hand-posted form is refused the same as a click.
+
+- **The key is minted once from the name and never changes.** Code finds
+  `CALL_SERVICE` by key, and a key that moved when someone fixed a typo would
+  break the one-tap screen with no error anywhere. Renaming is safe and the form
+  says so.
+- **`is_chargeable` is derived from the price, never set.** The guest's amenities
+  card prints "Free" or the amount from the flag; the verification prompt is
+  decided by the request's TOTAL. Let the two disagree and the worst case is a
+  screen promising Free above a request that charges the room and stops to ask
+  who the guest is — #9 broken by a checkbox. One number, not two, the same
+  discipline `sla_minutes` already follows as both the promise and the deadline.
+- **`CALL_SERVICE` may not carry a price.** `raiseServiceRequest()` requires the
+  CHARGE tier as soon as a request totals more than zero, so ₹1 on the one tap
+  turns "someone comes up to room 214" into a verification prompt. That is the
+  exact screen CLAUDE.md #9 exists to keep out of the way. The field is disabled
+  and says why; a property that wants to charge for something adds a type.
+- **The routing role has to exist at the property.** Routing matches
+  `route_to_role_key` against the roles staff hold. A typo, or a role never
+  created here, produces a `NOBODY_WITH_ROLE` event on every request of that type
+  for ever — the router working perfectly and nobody coming. Existence is checked
+  and refused; HEADCOUNT is only shown, because a property building its rota
+  before it hires is doing the normal thing. `listRolesAtProperty()` returns the
+  count for exactly this, and the row says "goes to Concierge, and nobody holds
+  it" in saffron when it is zero.
+
+**Why the SLA floor is 1 minute and the ceiling is 8 hours.** A zero-minute
+promise is breached on the way to the board, so the sweep escalates it before
+anyone could have reached it — a setting whose only effect is to fill the duty
+manager's bell. Past eight hours it is a maintenance job, not a service request,
+and the SLA machinery stops meaning anything.
+
+**Off and archived are different states, and both are needed.** Off is a season:
+the type leaves the guest's list, the row stays on the admin screen so it can be
+turned back on, and requests already open carry on. Archived is for good, and is
+refused while anything of that type is still open — the same reason the menu
+refuses to archive a section holding dishes. The person tidying the catalog is
+not the person holding the trolley, and a type that vanishes mid-shift takes its
+"what is this for" with it. Nothing is ever deleted (D-008): the FK from
+`service_requests` is ON DELETE SET NULL and exists for analytics, and the lines
+snapshot their own label (#6), so a finished request still reads correctly after
+its type is gone.
+
+**Who may change it.** `request:read` to look, `request_type:manage` to change —
+the same split the menu editor makes with `catalog:read` and `catalog:manage`.
+There is deliberately no `request_type:read`: a housekeeper wondering why towels
+are twelve minutes should be able to find out, and nothing on the screen is a
+secret from someone already working the floor. Only PROPERTY_ADMIN holds
+`request_type:manage` by default, because changing an SLA changes what the sweep
+escalates against and changing a routing role changes whose phone rings.
+
+**Cost / when to revisit.** There is no reordering: `sort_order` is set to the
+end of the list on create and never edited, so the guest's order is the seeded
+one plus new types at the bottom. That wants drag-and-drop rather than a number
+field, and nobody has asked. Categories are the fixed four the guest screens
+group by — a fifth is a guest-side change, not a config one.
