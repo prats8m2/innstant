@@ -32,6 +32,7 @@ export default async function AdminHome() {
   );
 
   const mayEditMenu = can(session, propertyId, 'catalog:read');
+  const maySeeRequests = can(session, propertyId, 'request:read');
 
   return (
     <AdminShell
@@ -74,6 +75,18 @@ export default async function AdminHome() {
             <span className={styles.cardBody}>Trays waiting to go up.</span>
           </Link>
         </li>
+
+        {maySeeRequests ? (
+          <li className={styles.card}>
+            <Link href="/admin/requests" className={styles.cardLink}>
+              <span className={styles.cardTitle}>What guests can ask for</span>
+              <span className={styles.cardBody}>
+                Amenities and services, what each costs, how long it is promised
+                in, and whose phone it reaches.
+              </span>
+            </Link>
+          </li>
+        ) : null}
 
         <li className={styles.card}>
           <Link href="/housekeeping" className={styles.cardLink}>

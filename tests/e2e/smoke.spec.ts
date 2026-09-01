@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { test, expect, devices, type Page } from '@playwright/test';
+import { test, expect, devices, type Locator, type Page } from '@playwright/test';
 
 /**
  * The P0 smoke suite: the app boots, the database is migrated, and a printed
@@ -1548,5 +1548,147 @@ test.describe('the alert bell', () => {
     await expect(trigger).toBeVisible({ timeout: 25_000 });
     await trigger.click();
     await expect(page.getByRole('group', { name: 'Alerts' })).not.toContainText('SR-4468');
+  });
+});
+
+/**
+ * The request catalog, editable.
+ *
+ * `request_types` has been property-configurable since S6 and unreachable by the
+ * people who own the answer: changing "towels in 12 minutes" meant editing
+ * `provision.ts` and re-running the seeder, which wipes the property.
+ *
+ * The claim worth testing end to end is the same one the menu editor makes —
+ * that a manager changes a number here and a guest reads the new one there.
+ */
+test.describe('the request catalog', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'editing one shared seeded catalog is one-copy state — one project owns it',
+  );
+
+  /**
+   * Extra pillow, and deliberately not Extra towels: towels are ordered by the
+   * floor-board and routing tests in the other projects, and a shared catalog is
+   * a shared resource exactly like a room or a dish.
+   */
+  const TYPE = 'Extra pillow';
+
+  async function signInAsGm(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('gm@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  /**
+   * Open a row's edit form, only if it is shut.
+   *
+   * A `<details>` keeps its open state across `router.refresh()` — the state is
+   * DOM, not React — so after a save the form is still open and clicking the
+   * summary again CLOSES it. That cost this test a run: the second edit filled a
+   * field nobody could see.
+   */
+  async function openEdit(row: Locator): Promise<void> {
+    const disclosure = row.getByRole('group').filter({ hasText: 'Edit' });
+    if (await disclosure.evaluate((el) => (el as HTMLDetailsElement).open)) return;
+    await disclosure.locator('summary').click();
+  }
+
+  test('a changed promise is what the guest is quoted', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const console_ = await desk.newPage();
+    await signInAsGm(console_);
+    await console_.goto('/admin/requests');
+
+    const row = console_.locator('li').filter({ hasText: TYPE }).first();
+    await expect(row).toBeVisible({ timeout: 25_000 });
+    await expect(row).toContainText('12 min');
+    await expect(row).toContainText('goes to Housekeeping');
+    await expect(row).toContainText('Free');
+
+    await openEdit(row);
+    await row.locator('input[name="slaMinutes"]').fill('9');
+    await row.getByRole('button', { name: 'Save' }).click();
+
+    await expect(row).toContainText('9 min', { timeout: 25_000 });
+
+    // And a guest, on a phone, reading the same number off the same column.
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes['214']!;
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/amenities`);
+    const card = guest.locator('li').filter({ hasText: TYPE }).first();
+    await expect(card).toContainText('Usually 9 minutes', { timeout: 25_000 });
+
+    // Put it back, so a re-run without a reseed starts where this one did.
+    await openEdit(row);
+    await row.locator('input[name="slaMinutes"]').fill('12');
+    await row.getByRole('button', { name: 'Save' }).click();
+    await expect(row).toContainText('12 min', { timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  /**
+   * CLAUDE.md #9, at the control that would break it. `raiseServiceRequest()`
+   * demands the CHARGE tier as soon as a request totals more than zero, so a
+   * price on the one tap is a verification prompt in front of "someone comes
+   * up". The field is disabled and says why; `checkRequestTypeRules()` refuses
+   * it anyway if the form is posted by hand.
+   */
+  test('will not let the one tap be given a price', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/requests');
+
+    const row = page.locator('li').filter({ hasText: 'Call for service' }).first();
+    await expect(row).toBeVisible({ timeout: 25_000 });
+    await openEdit(row);
+
+    await expect(row.locator('input[name="price"]')).toBeDisabled();
+    await expect(row).toContainText(/stays free/i);
+    await expect(row).toContainText(/verify who they are/i);
+  });
+
+  /**
+   * The quiet failure this screen exists to make visible: point a type at a role
+   * nobody holds and the router works perfectly while nobody is ever assigned.
+   */
+  test('names the roles nobody holds, before one is picked', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/requests');
+
+    const row = page.locator('li').filter({ hasText: TYPE }).first();
+    await openEdit(row);
+
+    const options = row.locator('select[name="routeToRoleKey"] option');
+    await expect(options.filter({ hasText: 'nobody holds this' }).first())
+      .toHaveCount(1, { timeout: 25_000 });
+    // The staffed ones carry their headcount instead.
+    await expect(options.filter({ hasText: /Housekeeping — \d/ })).toHaveCount(1);
+  });
+
+  test('lets the floor read the catalog and change nothing', async ({ page }) => {
+    // HOUSEKEEPING holds request:read but not request_type:manage.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/requests');
+    const row = page.locator('li').filter({ hasText: TYPE }).first();
+    await expect(row).toContainText('12 min', { timeout: 25_000 });
+    // Everything readable, nothing to press: no edit disclosure, no switch, no
+    // remove, and no way to add one.
+    await expect(row.getByRole('group')).toHaveCount(0);
+    await expect(row.getByRole('button')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Add it' })).toHaveCount(0);
   });
 });

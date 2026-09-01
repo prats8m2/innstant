@@ -10,6 +10,21 @@ export { seedDefaultRequestTypes, DEFAULT_REQUEST_TYPES } from './provision';
 export { getRequestCatalog, getRequestTypeByKey, CALL_SERVICE_KEY } from './catalog';
 export type { RequestTypeCard } from './catalog';
 
+/** `request_types`, editable — the ops console's `/admin/requests`. */
+export {
+  getAdminRequestTypes, createRequestType, updateRequestType,
+  setRequestTypeActive, archiveRequestType,
+} from './admin';
+export type {
+  AdminRequestType, RequestTypeWriteInput, UpdateRequestTypeInput,
+} from './admin';
+export {
+  REQUEST_CATEGORIES, CATEGORY_LABELS, UNPRICEABLE_KEYS,
+  SLA_MINUTES_MIN, SLA_MINUTES_MAX, MAX_QUANTITY_CEILING,
+  checkRequestTypeRules, deriveRequestTypeFields, requestTypeKeyFrom, uniqueRequestTypeKey,
+} from './type-rules';
+export type { RequestCategory, RuleViolation } from './type-rules';
+
 export { raiseServiceRequest, notifyRequestChanged, REQUEST_CHANNEL } from './raise-request';
 export type {
   RaiseRequestInput, RaisedRequest, RequestLineInput, RequestChangedPayload,

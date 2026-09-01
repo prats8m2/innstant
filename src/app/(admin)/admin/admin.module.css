@@ -743,3 +743,35 @@
   gap: var(--space-3);
   margin-top: var(--space-4);
 }
+
+/*
+ * A request-type row: the dish row's shape — name, price, buttons — plus an
+ * edit form that has to open UNDERNEATH them rather than between them. Nine
+ * fields as a flex item squeezed the name into a three-character column and
+ * pushed "Take off" out to the right of the open form.
+ */
+.typeRow {
+  flex-wrap: wrap;
+}
+
+.typeForm {
+  /* Its own line, after everything else on the row, whatever the source order. */
+  flex-basis: 100%;
+  order: 1;
+  margin-top: var(--space-2);
+}
+
+.typeForm[open] {
+  padding-bottom: var(--space-2);
+}
+
+/*
+ * A routing role that will never match. `request_types.route_to_role_key` is
+ * compared against the roles staff hold at the property, so a role nobody holds
+ * means every request of that type sits OPEN for ever with the router working
+ * exactly as designed. Saffron rather than a new colour — this is the same
+ * "somebody needs to look at this" the late badge uses.
+ */
+.routeBroken {
+  color: var(--accent);
+}
