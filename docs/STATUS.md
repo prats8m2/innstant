@@ -78,6 +78,13 @@ Done so far in P1:
   "After 10pm" and ignored by the read, so it showed at breakfast. The window is
   honoured now, and `getInRoomDiningMenu()` REQUIRES property-local time rather
   than defaulting to the server's clock.
+- **Option groups and their options** — `/admin/menu/options`. Signed price
+  deltas behind `catalog:pricing`, the count of affected dishes on every heading,
+  and a two-step archive for a group dishes carry. **The catalog is no longer
+  seeder-only in any part except images.**
+- **`docs/UI-WALKTHROUGH.md`** — every feature with the exact clicks, the logins,
+  and a snippet for reading the folio (which has no screen until P3). Written to
+  be followed by someone who did not build it; also the demo script.
 
 **P1's exit criterion now runs end to end, in one automated test.** A guest
 orders on a phone, a kitchen accepts and plates it, a runner on a third device
@@ -95,15 +102,15 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **Modifier groups and their options** — the last thing only the seeder can
-   write. The dish form attaches existing groups, but nothing can create a group,
-   rename an option, or change a price delta, and `modifier_options.price_delta_minor`
-   is a money path (`catalog:pricing`, and a snapshot at order time already
-   protects past receipts). Four groups are seeded; a second property gets none.
+1. **The sweep.** Three known cases of stored-but-ignored data are listed below.
+   `outlets.minimum_order_minor` is the sharpest: it is stored, editable on
+   `/admin/outlet`, and enforced NOWHERE — `placeOrder()` never looks at it, so a
+   hotel can set a ₹500 minimum and watch ₹180 orders arrive. That is a money
+   path, and it is a smaller job than it looks now that the pieces exist.
 2. **Scheduled availability windows** — `menu_item_availability_windows` is
-   written by nothing and read by nothing. Now that `isWithinWindow()` exists and
-   the menu read takes property-local time, this is a small piece of work rather
-   than a new mechanism: a breakfast dish that stops at 10:30.
+   written by nothing and read by nothing. `isWithinWindow()` exists and the menu
+   read already takes property-local time, so this is wiring rather than
+   mechanism: a breakfast dish that stops at 10:30.
 3. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
    lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
    into the same `image_url` column upload will write; what is missing is the
@@ -121,21 +128,17 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 by `provisionProperty()` and read by nothing, with a hardcoded literal on the
 screen contradicting it: `outlet_hours` said 07:00–01:00 while the guest read
 "open until 11:30pm", and `collections.available_from` said 22:00 while "After
-10pm" showed at breakfast. Both were found by going looking. The remaining
-suspects are `menu_item_availability_windows` (written by nothing, read by
-nothing — at least it is honest), `outlets.minimum_order_minor` (stored, editable,
-and enforced NOWHERE — `placeOrder()` never checks it), and the four hardcoded
-rows on the room home (`ROWS` in `home/page.tsx`: "Towels · laundry · transfer",
-"Out Thursday, 11am"). Worth a sweep before P2 rather than another discovery.
+10pm" showed at breakfast. Both were found by going looking, not by anything
+failing. The remaining suspects, in order of how much they matter:
 
-**One decision deliberately not taken: the schedule does not refuse orders.**
-`placeOrder()` refuses when `is_accepting_orders` is off — the manual switch —
-but not when the hours say the kitchen is shut. So a guest CAN order at 3am and
-be told "about 30 minutes" with nobody in the kitchen. Gating it is a two-line
-change and it was left out on purpose: the e2e suite and `demo:reset` run at
-whatever hour CI happens to run, and 01:00–07:00 IST is inside CI's normal
-window, so the gate would make the whole suite time-dependent. Doing it properly
-means an injectable clock through `placeOrder()` first.
+- **`outlets.minimum_order_minor`** — stored, editable, enforced nowhere. Now
+  item 1 above.
+- **`menu_item_availability_windows`** — written by nothing, read by nothing. At
+  least it is honest. Item 2.
+- **`ROWS` in `home/page.tsx`** — the room home's four rows are literals
+  ("Towels · laundry · transfer", "Out Thursday, 11am"). They are placeholders
+  for P2 and P3 screens that do not exist yet, which is defensible, but the stay
+  row now contradicts the real checkout time printed directly above it.
 
 **A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
@@ -165,6 +168,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `d70b306` | Option groups and their options — the last seeder-only part of the catalog. Signed deltas, the shared-dish count on every heading, and `docs/UI-WALKTHROUGH.md`. |
 | P1 | `5e645be` | Editorial collections, and their windows honoured — "After 10pm" had been showing at breakfast. `getInRoomDiningMenu()` now requires property-local time. |
 | P1 | `7556f8e` | The kitchen's hours and rates, and the guest screens finally reading them. `lib/clock.ts`. Found that a ForbiddenError in a Server Component is a 500, and that dishes are a shared resource across e2e tests. |
 | P1 | `89ba116` | The menu editor and the ops console shell. `parseMoneyInput()`. Found a client component pulling `pg` into the browser bundle, and `--plaster-faint` at 2.90:1 on a card. |
