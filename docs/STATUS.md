@@ -66,6 +66,12 @@ Done so far in P1:
   switch, close-the-kitchen, and a per-dish audit trail read from `event_log`.
   A reprice logs both prices. `parseMoneyInput()` is the one place a keyboard
   becomes minor units.
+- **The kitchen's hours and rates** — `/admin/outlet`. `outlet_hours` was
+  written by provisioning and read by nothing while both guest screens carried
+  the literal "Kitchen open until 11:30pm"; `lib/clock.ts` and
+  `catalog/hours.ts` are the pure halves of fixing that, and the guest screens
+  read the real rows. The guest home also reads its property's own name and
+  checkout time instead of "The Kesari" and "until Thursday".
 
 **P1's exit criterion now runs end to end, in one automated test.** A guest
 orders on a phone, a kitchen accepts and plates it, a runner on a third device
@@ -83,13 +89,13 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **The rest of the catalog admin.** The menu editor covers the outlet's
-   open/closed switch, sections, dishes and their modifier attachments. Still
-   editable only by the seeder: **modifier groups and their options** (the editor
-   attaches existing groups but cannot create one), **editorial collections**,
-   **outlet hours, fees and tax rates**, and **scheduled availability windows**
-   (`menu_item_availability_windows` is written by nothing). Hours and tax are
-   what a second property needs first.
+1. **The last of the catalog admin.** Still editable only by the seeder:
+   **modifier groups and their options** (the dish form attaches existing groups
+   but nothing can create one, rename an option, or change a price delta),
+   **editorial collections** (the guest menu's sections ARE collections, so this
+   is what decides how the menu reads), and **scheduled availability windows**
+   (`menu_item_availability_windows` is written by nothing). Collections are the
+   one a hotel notices first.
 2. **Image upload — blocked, not forgotten.** R2 is not configured (`pnpm status`
    lists `R2_ACCESS_KEY_ID` under "not needed yet"). The dish form takes a URL
    into the same `image_url` column upload will write; what is missing is the
@@ -102,6 +108,15 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
    printed sticker. Everything above is verified on localhost against a docker
    Postgres; the criterion asks for the deployed environment and it is the one
    claim still resting on a laptop.
+
+**One decision deliberately not taken: the schedule does not refuse orders.**
+`placeOrder()` refuses when `is_accepting_orders` is off — the manual switch —
+but not when the hours say the kitchen is shut. So a guest CAN order at 3am and
+be told "about 30 minutes" with nobody in the kitchen. Gating it is a two-line
+change and it was left out on purpose: the e2e suite and `demo:reset` run at
+whatever hour CI happens to run, and 01:00–07:00 IST is inside CI's normal
+window, so the gate would make the whole suite time-dependent. Doing it properly
+means an injectable clock through `placeOrder()` first.
 
 **A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
@@ -131,6 +146,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `7556f8e` | The kitchen's hours and rates, and the guest screens finally reading them. `lib/clock.ts`. Found that a ForbiddenError in a Server Component is a 500, and that dishes are a shared resource across e2e tests. |
 | P1 | `89ba116` | The menu editor and the ops console shell. `parseMoneyInput()`. Found a client component pulling `pg` into the browser bundle, and `--plaster-faint` at 2.90:1 on a card. |
 | P1 | `8b8f109` | The runner app — the last hop to delivered. `useLiveRefresh()` extracted; three copies of the SSE transport became one. Found that a Date crossing into a client component arrives as a string. |
 | P1 | `8abc240` | A rejected order takes its own charge back off the folio (D-027), netted and in the same transaction. Six integration tests, including one credit under two simultaneous rejections. |
@@ -371,6 +387,16 @@ Things that cost time to rediscover.
   `/r/demo-code` and expected the code in the body, which is now a bare 404.
   Nothing caught it because nothing ran it. It now reads `.demo-seed.json`,
   written by `pnpm demo:reset`.
+- **A thrown `ForbiddenError` in a Server Component is a 500, not a 403.** Next
+  has no error mapping to run there, so it renders the error boundary and the
+  staff member reads "Application error". Admin PAGES go through
+  `adminAccess()` (src/app/(admin)/admin/guard.tsx) and render a sentence;
+  route handlers and server actions still throw and are still mapped once.
+- **An e2e that 86s a dish breaks any test ordering that dish.** `placeOrder()`
+  refuses a cart holding an unavailable one, and the failure surfaces as a Send
+  button that does nothing. `ownDish()` in the suite keeps the editor tests on
+  dishes nothing orders — dishes are a shared resource across tests exactly like
+  rooms are.
 - **A client component must not import a VALUE from a `modules/*` index.** The
   index pulls the module's db layer, so `pg` follows it into the browser bundle
   and the build fails with `Module not found: Can't resolve 'net'` — which reads
