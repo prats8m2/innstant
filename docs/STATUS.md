@@ -21,9 +21,8 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 and P1 are done bar two things that are not code. P2 · amenities and
-service requests is COMPLETE**, exit criterion met with no asterisk, and its two
-optional leftovers are down to one.
+**P0, P1 and P2 are done bar two things that are not code. P3 · stay and folio
+has begun** — the guest can read their own bill.
 
 **P1's remaining two:**
 
@@ -32,89 +31,71 @@ optional leftovers are down to one.
    automated test across three devices. It needs a git remote and a Railway app
    service first, which is P0's last item and an account-holder task.
 2. **Image upload** — blocked on R2 credentials. The dish form writes the same
-   `image_url` column and placement snapshots it; what is missing is the upload
-   route, the aspect ratio and the blurhash. `service_requests.photo_url` now
-   waits on the same thing.
+   `image_url` column and placement snapshots it; `service_requests.photo_url`
+   and `request_types.allows_photo` now wait on the same thing.
 
-**What P2 built:**
+**What landed in P3 so far — the guest folio, `/r/[qrCode]/stay`:**
 
-- **The request state machine** — pure, 13 tests. ESCALATED is deliberately not
-  a status (a breached request is usually IN_PROGRESS); CANCELLED is reachable
-  from every live state; OPEN → IN_PROGRESS skips ASSIGNED because picking a job
-  off a board and walking is one decision.
-- **`raiseServiceRequest()`** — placement's four invariants on a path where most
-  requests are free. The tier check is conditional on the total, so towels cost
-  no prompt (#9) and laundry gets the one question (D-012). The SLA target is set
-  from the SLOWEST thing in the request.
-- **`advanceRequest()`** — compare-and-set, event and NOTIFY inside the
-  transaction, and handing back clears the assignee.
-- **The guest screens** — `/amenities` grouped by category with free and
-  chargeable in one list, `/service` as the reference's one tap, and where a
-  request lands with a cancel while it is live.
-- **The floor board** — `/housekeeping`. A phone in an apron pocket, ordered by
-  SLA target, with the countdown as the loudest thing on the card and a quieter
-  "done, not checked" section so `request:verify` is reachable.
-- **Shifts and auto-routing** — role ∩ on-shift ∩ covers-floor ranked by open
-  count: a guest asks, a clocked-in housekeeper gets it, the guest reads their
-  name, and nobody tapped anything.
-- **The SLA worker (D-028)** — breaches escalate on a 60-second in-process timer:
-  level 1 tells the assignee, level 2 at ten minutes past tells the duty manager,
-  level 3 at half an hour, then it stops. Escalation is not a status. Migration
-  0004 adds `sla_sweep_properties()`, the second and last unscoped query in the
-  product, because a job on a timer has no request to derive a tenant from.
-- **The bell (D-029)** — the in-app channel, and the asterisk with it. A breach
-  lights a badge on the GM's console within a minute with no reload;
-  `deliverInApp()` marks a row SENT when the recipient's own screen renders it,
-  and `/api/notifications/stream` filters on the RECIPIENT as well as the
-  property. Also on the floor board, because level 1 goes to the assignee.
-- **The request catalog, editable (D-030)** — `/admin/requests`. "Ops team
-  self-serve" was an aspiration in DATA-MODEL §7 until this: `sla_minutes`,
-  `price_minor`, `route_to_role_key`, the quantity and note and photo rules and
-  `is_active` are all editable, and a changed promise is what the guest is quoted
-  on the same visit. Four things it refuses, in `type-rules.ts` rather than in
-  the form: the key never moves, `is_chargeable` follows the price, the one tap
-  may not be priced at all (#9), and the routing role has to exist here.
-  Roles show their headcount, so a type routed at a role nobody holds is visible
-  rather than a `NOBODY_WITH_ROLE` event nobody reads.
+- **The screen.** The reference's `stay` layout rebuilt with real components: the
+  teal eyebrow, the Marcellus date, "Two nights left. Room 210, lake view.", the
+  folio rule, the date column and the saffron total. Its checkout options and
+  "Check out now" are deliberately absent rather than drawn dead — they are the
+  next task.
+- **The one prompt, on the way in (D-031).** `view_folio` needs FULL and
+  `answerChallenge()` granted CHARGE, so the top rung was unreachable by any path
+  in the product and the folio would have prompted for ever. Answering now grants
+  FULL; a staff vouch still grants CHARGE, which is what keeps the two rungs
+  apart. The challenge is minted on SUBMIT, not on render, because the room home
+  links here and Next prefetches links in the viewport.
+- **`buildGuestStatement()`** — pure, 13 tests. Where the wording decisions live:
+  "Total so far" becomes "Left to pay" the moment a payment lands, credits stay
+  next to the charges they cancel, PAYMENT rows are summed rather than listed,
+  and the total is recomputed from the lines drawn so the number under a list
+  always equals the list. The reference's "Nothing here is charged yet" is not
+  used — it is false the moment a room charge posts.
+- **A cancelled request credits the room (D-032).** D-027 gave orders a reversal
+  and the requests path never got it, so a guest could raise ₹450 of laundry,
+  cancel it, read "Cancelled" and still be charged — with the request screen
+  truthfully reporting "₹450 is on room 214". Found by the first integration test
+  that cancelled a chargeable request and then read the bill.
+- **Room 210** is seeded with a stay and a folio of its own. Verification is
+  rate-limited per ROOM and the ordering tests already spend four of room 214's
+  five, so a stay suite that verified there locked the room out.
 
-Every `request_types` column is now both written and reachable by the people who
-own the answer.
+**Next, in P3 order:**
 
-**P2's exit criterion, in full:** a request raised by a guest reaches the correct
-on-duty staff member without anyone assigning it, and a breach escalates
-visibly — to the board, and to a person. Nine e2e tests and the integration suite
-hold both halves up. `pnpm demo:reset` seeds SR-4468 already fourteen minutes
-late so a demo shows it without the wait.
+1. **The checkout-change flow** — the top half of the reference's stay screen.
+   Late checkout, extend, early checkout, with fee tiers; `checkout_requests` and
+   `stays.scheduled_checkout_at` are already in the schema, and
+   `checkout_request:approve` / `override_fee` already exist as permissions. The
+   front-desk side (approve, decline, override) goes with it, and approval has to
+   move `scheduled_checkout_at` with sessions following.
+2. **Front desk: room list, check in/out, guest 360.** `createStay()` is the one
+   door (#4) and has no screen; check-in happens wherever it happens today.
+3. **Express checkout with Razorpay, folio settle, digital receipt.** Needs an
+   external service, so the account holder decides when. `postFolioLine()`
+   deliberately cannot post a PAYMENT — that wants its own function writing the
+   `payments` row in the same transaction.
+4. **`PmsAdapter` + `ManualAdapter`, `integration_outbox` + drain worker.**
+   D-011 calls the adapter the most important seam in the codebase and it is
+   still an interface with one imaginary implementation.
 
-**Next, and it is a phase boundary:**
-
-1. **P3 · stay and folio.** The argument this file has made for three sessions,
-   and now the only substantial thing in front of it: the guest folio is the
-   biggest hole in the product. `getFolioForStay()` is written, tested, and has
-   no screen, so a guest cannot see what they have spent, and every charge path
-   already posts to it. Check-in, checkout and the front-desk screens go with it.
-2. **Photo attachment** — the last P2 leftover, and blocked rather than
-   unstarted. `service_requests.photo_url` is read by the board, written by
-   nothing, and `request_types.allows_photo` is editable and honoured on the
-   guest form. What is missing is R2 credentials, the same thing blocking dish
-   images.
-3. **WhatsApp for staff alerts**, if a pilot property asks to be told away from
-   the desk. D-029 left this additive: the drainer, the statuses and the renderer
-   are channel-agnostic, so a second channel is a sender and a row filter. It
-   needs an external service, so it is a question for the account holder.
+**Worth doing before the third charge path lands.** Two paths post at placement
+and reverse at their terminal states, and nothing enforces the pair — which is
+exactly how the requests path went four sessions without a reversal. Late
+checkout fees are the third. A shared helper is cheaper than a third copy.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2, because wifi dead zones and how staff hold a tablet will
-rewrite the P2 assumptions. That has not happened; P2 was started on request and
-finished on the same basis. Worth remembering before P3 adds a third unshipped
-phase — the routing rules, the SLA thresholds and now the ranges the catalog
-editor enforces are all guesses until a corridor argues with them.
+before starting P2. That has not happened, and P3 is now a third unshipped phase.
+The routing rules, the SLA thresholds, the catalog ranges and now the folio's
+wording are all guesses until a corridor and a front desk argue with them.
 
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3 | `9299d4d` | The guest folio, and the FULL tier that reaches it. Found that FULL was unreachable by any path, and that a cancelled chargeable request was never credited back. |
 | P2 | `f55cbb9` | The request catalog, editable. Found that `<details>` keeps its open state across `router.refresh()` — which the bell wants and an e2e that clicks the summary twice does not. |
 | P2 | `1840a0d` | The bell — the in-app channel, and P2's asterisk with it. Found `notificationsFor()` ordering by `created_at` alone despite promising the unseen first, and this file's own `## Now` heading missing, eaten by exactly the splice its editing note warns about. |
 | P2 | `784f95f` | The SLA worker (D-028) and `modules/notifications`. Found the duty-manager lookup excluding INVITED admins — a new property's escalations would have gone nowhere. |
@@ -460,6 +441,28 @@ Things that cost time to rediscover.
   System roles are tenant-wide with a null `property_id`; only custom roles carry
   one. A plain `WHERE property_id = $1` returns nothing at all, which reads like
   an RLS problem and is not.
+- **The e2e suite could not pass between 01:00 and 07:00 property-local**, and
+  nothing said so. Two ordering tests asserted `/Kitchen open until/` while the
+  seeded kitchen closes at 1am, so a run after midnight failed on the app being
+  correct. The kitchen-settings tests had always matched both wordings
+  (`/Kitchen open until 1am|The kitchen opens at 7am/`); these two had not. CI
+  runs in UTC, so the window was 19:30–01:30 UTC — a quarter of the day.
+  Anything asserting a time-dependent line needs both branches.
+- **Verification is rate-limited per ROOM: five attempts in thirty minutes,
+  counted across challenges.** Each e2e test that answers the prompt spends one
+  attempt per answer, right ones included, and the ordering and amenities tests
+  already spend four of room 214's. A new suite that verifies has to bring its
+  own room — 210 is seeded with a stay and a folio for exactly that. Rooms are a
+  shared resource here the way carts already are.
+- **`requireTier()` WRITES.** It inserts an `access_escalations` row every time
+  it is called with an insufficient tier, so calling it while rendering a page
+  reached by a `<Link>` means Next's viewport prefetch mints escalations and
+  challenges for guests who never tapped. Abandonment rate and the per-room
+  attempt count are both load-bearing; read the tier with `tierAtLeast()` on a
+  page and start the escalation from the submit.
+- **A `<details>` keeps its open state across `router.refresh()`** — DOM state,
+  not React. The bell and the request-type editor both rely on it, and an e2e
+  that clicks the summary a second time CLOSES the panel it meant to reuse.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -471,8 +474,9 @@ Things that cost time to rediscover.
 Paste this:
 
 > Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
-> `pnpm status`. **P2 is complete** — its exit criterion is met with no asterisk
-> left on it. Pick up the first item under the Now section and follow it to the
+> `pnpm status`. **P3 · stay and folio has begun** — the guest folio has landed
+> and the checkout-change flow is next. Pick up the first item under the Now
+> section and follow it to the
 > definition of done in CLAUDE.md — types, lint, unit, integration and e2e all
 > green, the happy path working against the seeded demo property, and the event
 > log showing the transitions you expect. Update this file before you finish.
@@ -491,9 +495,9 @@ Two things that will save you an hour:
 
 The three that are ready to start, in the order this file argues for:
 
-1. **P3 · stay and folio.** The biggest hole in the product:
-   `getFolioForStay()` is written, tested, and has no screen, so a guest cannot
-   see what they have spent, and every charge path already posts to it.
+1. **The rest of P3.** The guest folio has landed; the checkout-change flow, the
+   front desk, and settlement have not. `checkout_requests` and
+   `stays.scheduled_checkout_at` are already in the schema.
 2. **Photo attachment**, the last P2 leftover — blocked with the rest of images
    on R2. The board reads `service_requests.photo_url`, `allows_photo` is
    editable and honoured, and nothing writes the column.

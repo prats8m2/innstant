@@ -116,7 +116,7 @@ first action requiring a higher tier
   → requireTier(session, 'CHARGE') fails
   → escalate — it does NOT 403
   → verification challenge (PHONE_LAST4 or OTP_SMS)
-  → on success, raise the tier on the EXISTING session; record in
+  → on success, raise the tier on the EXISTING session to FULL; record in
     access_escalations. Abandonment is recorded too.
 
   → alternatively front desk vouches (staff_vouches) and the guest sees nothing.
@@ -138,6 +138,24 @@ last-4-digits verification is a five-attempt brute force.
 
 Every knob above — `base_tier`, `escalation_trigger`, permitted methods — is
 per-property in `access_policies`.
+
+---
+
+### Which tier a proof buys (D-031)
+
+| Proof | Tier | Reaches |
+|---|---|---|
+| a bare scan | `REQUEST` | menus, prices, POIs, free requests, calling for service |
+| a staff vouch | `CHARGE` | plus anything that posts money to the room |
+| the guest answering the prompt | `FULL` | plus the folio, checkout and stay details |
+
+The gap between `CHARGE` and `FULL` is about WHO vouched, not how much money is
+at stake: someone else asserting a guest's identity is enough to let a charge
+through and not enough to hand over their bill. A desk that means to do both
+passes `grantedTier: 'FULL'`.
+
+The prompt is asked ONCE. A guest who verified to send dinner up reaches the
+folio with nothing more asked, which is the whole of D-012 in one sentence.
 
 ---
 
@@ -166,6 +184,26 @@ holds an amount. No floats, no numeric-as-string, no implicit currency.
 `balance_minor`, recomputed by an `AFTER` trigger on `folio_lines` so the
 totals cannot drift from the lines. `folio_lines` is append-only in practice:
 corrections are negative `ADJUSTMENT` rows, never edits.
+
+**Every charge path posts at placement and reverses at its terminal states.**
+`placeOrder()` and `raiseServiceRequest()` both post the line when the guest
+commits, so "charged to room 214" is true the moment they are told it; REJECTED
+and CANCELLED both post a netted negative ADJUSTMENT in the same transaction as
+the status change (D-027, D-032). Nothing enforces the pair — a new charge path
+can post and forget to reverse, which is exactly what the requests path did for
+four sessions.
+
+**`postFolioLine()` cannot post a PAYMENT.** Its `source` union deliberately
+excludes it: a payment also needs a `payments` row, and posting one through the
+generic door would leave the folio and the ledger disagreeing. The recompute
+trigger splits on the same line (`source <> 'PAYMENT'` into charges, `= 'PAYMENT'`
+into payments), and so does the guest's statement.
+
+**The guest reads it at `/r/[qrCode]/stay`**, behind the FULL tier (D-031).
+`buildGuestStatement()` turns the folio into a bill: PAYMENT rows are summed
+rather than listed as charges, credits stay next to the charges they cancel, and
+the total is recomputed from the lines drawn so the number under a list always
+equals the list.
 
 ---
 

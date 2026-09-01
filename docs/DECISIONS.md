@@ -526,3 +526,94 @@ end of the list on create and never edited, so the guest's order is the seeded
 one plus new types at the bottom. That wants drag-and-drop rather than a number
 field, and nobody has asked. Categories are the fixed four the guest screens
 group by — a fifth is a guest-side change, not a config one.
+
+### D-031 · Answering the one prompt grants FULL, not CHARGE — and the folio is the screen that needed it
+`ACTION_TIERS` has put `view_folio` and `request_checkout` on the FULL tier since
+S5. `answerChallenge()` granted CHARGE. Nothing else in the product granted FULL,
+so the top rung of the ladder was unreachable by any path — which went unnoticed
+because nothing needed it until P3's folio screen, where it would have produced
+an endless prompt: answer correctly, land on CHARGE, still be short of FULL, be
+asked again.
+
+**A verified guest gets FULL.** D-012 calls this "the ONE verification prompt in
+the product", and a guest who proved the phone number on the booking in order to
+send dinner up must not meet it again on the way to their own bill. The proof
+does not get stronger between the two: whoever can answer it can already post
+₹4,000 to the room, and reading what was posted is strictly less harmful than
+posting it.
+
+**A staff vouch still grants CHARGE**, and that is what keeps the two rungs
+apart. The gap between them is about WHO vouched, not how much money is at
+stake — the desk saying "yes, that is the guest in 214" is enough to let a charge
+through, and is not enough to hand over the guest's bill. A desk that means to do
+both passes `grantedTier: 'FULL'` and says so.
+
+**Why the folio is gated at all, given #9.** #9 protects BROWSING — menus,
+prices, POIs and free service calls — and a folio is none of those. It is the
+one screen on the guest surface whose content is personal, and a QR sticker is
+photographable from a corridor, a lift, or a Google review photo. The same
+sticker that must never gate a menu must not hand a stranger the room's spend.
+
+**The tier is only READ while rendering.** `requireTier()` writes an
+`access_escalations` row, and the room home reaches this page through a `<Link>`
+that Next prefetches as soon as it is in the viewport — so starting the challenge
+during render would mint an escalation and a `verification_challenges` row for
+every guest who merely scrolled past the row. Both are load-bearing counters:
+abandonment rate is how D-012 says a property discovers its `escalation_trigger`
+is too aggressive, and challenges count failed attempts PER ROOM towards a
+lockout. The page renders the field with nothing behind it and the first submit
+starts and answers in one call.
+
+**The reference's folio copy is false and does not win.** Its `stay` screen is a
+mock with no folio behind it, and its footnote — "Room and taxes settle at
+checkout. Nothing here is charged yet." — stops being true the moment a room
+charge is posted, which the seeder does on the first night. CLAUDE.md says the
+reference wins when it and `theme.css` disagree; that is about design values, and
+it does not license telling a guest their bill is empty while ₹21,540 sits above
+the line. Same layout, same type, same measurements, true words.
+`buildGuestStatement()` is where that lives: the label above the total and the
+note under it both follow what is actually on the folio, so "Total so far"
+becomes "Left to pay" the moment a payment lands and the number stops being the
+total.
+
+**Cost / when to revisit.** The statement recomputes its own total from the lines
+it drew rather than reading `folios.balance_minor`. The header is the hotel's
+authority and the recompute trigger maintains it; this is the guest's page, and a
+total that does not equal the list above it is the one thing a bill may never do.
+If the two ever disagree the guest still reads a self-consistent page while
+somebody finds out — and the integration suite asserts they agree.
+
+### D-032 · A cancelled service request credits the room, the same as a rejected order
+D-027 gave `advanceOrder()` a reversal on REJECTED and CANCELLED and explained
+why at length. The requests path never got it. `raiseServiceRequest()` posts the
+folio line at placement exactly as `placeOrder()` does, so the charge was real and
+nothing took it off.
+
+The result was a real bug rather than a theoretical one: a guest could raise ₹450
+of laundry, cancel it from their own screen, read "Cancelled" — and still be
+charged, with the request screen truthfully reporting "₹450 is on room 214,
+settled at checkout". It survived because nothing showed a guest their folio, so
+the only way to notice was to reconcile a bill by hand at checkout.
+
+Building P3's folio screen is what surfaced it: the first integration test that
+cancelled a chargeable request and then read the bill failed on the missing
+credit.
+
+The fix is D-027's, applied: a negative ADJUSTMENT netted against what is posted
+for that request, inside the same transaction as the status change and the event
+(#7), with `service_request.charge_reversed` in the log. Idempotency comes from
+the same two places — the compare-and-set on the transition, and
+`reverseFolioLinesForSource()` netting rather than mirroring.
+
+The guest's request screen changed with it, and had to: it said "₹450 is on room
+214" under the word "Cancelled". It now says the charge came back off, and — like
+the order timeline's equivalent — promises a NET of zero rather than the
+existence of a credit row, so a free request with nothing to credit is still
+telling the truth.
+
+**What this says about the pattern.** Two charge paths, one of which had the
+reversal and one of which did not, for four sessions. The seam is
+`postFolioLine()` at placement and a reversal at the terminal states, and there
+is nothing that enforces the pair — a third charge path (late checkout fees are
+next) can forget it in exactly the same way. Worth a shared helper the day the
+third one lands, rather than a third copy.

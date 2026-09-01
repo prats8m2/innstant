@@ -372,7 +372,52 @@ const {Client}=require("pg");
 The payload carries a diff, not a snapshot — *"who took towels from twelve
 minutes to five"* should not be a spot-the-difference puzzle.
 
-## 12 · The rules that only show up when you break them
+## 12 · Your stay — the folio a guest can read
+
+Scan **room 210** (`pnpm demo:reset` prints the link) and tap **Your stay**.
+
+**When you leave is not a secret.** "CHECKING OUT / Friday, 11am / Two nights
+left. Room 210, lake view." That much is on the room home already.
+
+**The bill is.** The four digits come first: *"Your bill is the one thing on here
+that is nobody else's business."* This is the one guest screen whose content is
+personal, and a sticker on a nightstand is photographable from a corridor — #9
+protects browsing, and a folio is not browsing (D-031).
+
+Answer with the last four of the guest's phone (`.demo-seed.json`, or
+`+919820044444` → `4444`) and the bill opens:
+
+```
+2 Sept   Room charge · Lake view          ₹12,000
+2 Sept   In-room dining · KE-1179          ₹1,180
+         TOTAL SO FAR                     ₹13,180
+```
+
+Indian digit grouping and tabular figures, from `formatMoney` (#5). The footnote
+says *"This is what is on the room. You settle it at the desk when you leave."* —
+**not** the reference's "Nothing here is charged yet", which is false the moment
+a room charge posts.
+
+**It asks once.** Go back to the room home and return: no prompt. The tier is on
+the session, and answering it granted FULL (D-031). A guest who verified while
+ordering dinner never sees this screen's prompt at all.
+
+**A cancelled charge comes back off.** From room 210: **Amenities** → *Laundry
+service* → send → answer the prompt → the request screen says *"₹450 is on room
+210, settled at checkout"* and the folio reads ₹13,630. Now press **never mind**:
+
+- the request screen says *"Nothing has been charged for it — ₹450 came back off
+  room 210"*;
+- the folio shows both rows, the credit in teal, netting back to ₹13,180.
+
+Both rows stay, deliberately (D-027, D-032). At 7am on checkout day the guest and
+the desk can both see that laundry was charged and then credited, which is
+exactly the conversation a deleted row makes unwinnable.
+
+Room **214** has the longer folio — four lines, ₹21,540 — if you want a fuller
+bill for a screenshot.
+
+## 13 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.
@@ -404,7 +449,8 @@ the product ignored.
 
 ## Where the money shows up
 
-There is no folio screen yet (P3). To see the charges:
+The guest reads it at `/r/{code}/stay` (section 12). The desk has no screen yet —
+that is the rest of P3. To see the charges behind both:
 
 ```bash
 node -e '
@@ -424,11 +470,15 @@ const {Client}=require("pg");
 ```
 
 A rejected order shows as two lines — the charge and a negative `ADJUSTMENT`
-netting to zero (D-027). Both stay visible on purpose: at 7am on checkout day
-the guest and the desk can both see what happened.
+netting to zero (D-027), and a cancelled chargeable request now does the same
+(D-032). Both stay visible on purpose: at 7am on checkout day the guest and the
+desk can both see what happened.
 
 ## Not built yet
 
-Front desk, service requests, the guest folio, concierge, image upload. The ops
-console says so on its own front page rather than showing dead tiles. See
-`docs/PROJECT-PLAN.md` for the phase each one belongs to.
+Front desk and check-in, the checkout-change request flow, express checkout and
+folio settlement, concierge, image upload. The ops console says so on its own
+front page rather than showing dead tiles, and the guest's stay screen shows the
+folio without the reference's checkout options for the same reason — a dead
+control is worse than an absent one. See `docs/PROJECT-PLAN.md` for the phase
+each one belongs to.
