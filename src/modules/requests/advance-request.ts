@@ -7,6 +7,7 @@ import {
   canTransition, isTerminal, reasonRequiredFor, slaState,
   REQUEST_STATUS_TIMESTAMP, OPEN_REQUEST_STATUSES, type RequestStatus,
 } from './transitions';
+import { reverseFolioLinesForSource } from '@/modules/billing';
 import { notifyRequestChanged } from './raise-request';
 
 /**
@@ -148,6 +149,61 @@ export async function advanceRequest(
       ...(input.assignedStaffId ? { assignedStaffId: input.assignedStaffId } : {}),
     },
   });
+
+  /**
+   * A request that is not happening takes its own charge back off the folio.
+   *
+   * ─── Why this was missing ──────────────────────────────────────────────
+   *
+   * D-027 gave orders exactly this and the requests path never got it, because
+   * nothing showed a guest their folio and so nothing made it visible. The
+   * result was a real one: a guest raised ₹450 of laundry, cancelled it, read
+   * "Cancelled" on their own screen — and was still charged, with the request
+   * screen truthfully reporting "₹450 is on room 214, settled at checkout".
+   * P3's folio screen is what turned that from invisible into the first thing
+   * on the bill.
+   *
+   * The reasoning is D-027's, unchanged: `raiseServiceRequest()` posts at
+   * placement so "on room 214" is true the moment the guest asks, and the other
+   * half of that promise has to live here. In the SAME transaction as the
+   * status change and the event (#7) — a credit that can fail independently of
+   * the cancellation that caused it is the failure nobody finds until a guest
+   * reads their bill.
+   *
+   * Idempotency (#8) comes from two places at once: the compare-and-set above
+   * means this is reached once per real transition, and
+   * `reverseFolioLinesForSource()` nets against what is already posted, so a
+   * second call credits nothing.
+   */
+  if (input.to === 'REJECTED' || input.to === 'CANCELLED') {
+    const reversal = await reverseFolioLinesForSource(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      stayId: request.stayId,
+      sourceRefId: request.id,
+      description: `Reversed · ${request.requestNumber} ${
+        input.to === 'REJECTED' ? 'not possible' : 'cancelled'
+      }`,
+      reversedByStaffId: input.actor.kind === 'STAFF' ? input.actor.staffUserId : null,
+    });
+
+    if (reversal) {
+      await recordEvent(tx, {
+        tenantId: input.tenantId,
+        propertyId: input.propertyId,
+        entityType: 'service_request',
+        entityId: request.id,
+        eventType: 'service_request.charge_reversed',
+        actor: input.actor,
+        payload: {
+          requestNumber: request.requestNumber,
+          folioLineId: reversal.folioLineId,
+          amountMinor: reversal.amountMinor,
+          currency: reversal.currency,
+        },
+      });
+    }
+  }
 
   await notifyRequestChanged(tx, {
     tenantId: input.tenantId,

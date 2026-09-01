@@ -27,9 +27,15 @@ export function tierAtLeast(actual: AccessTier, required: AccessTier): boolean {
  *             service requests and calling a staff member. Still costs nothing
  *             a fraudster would want.
  *  CHARGE   — anything that posts money to the room. This is the boundary the
- *             one verification prompt defends.
- *  FULL     — CHARGE plus the folio, checkout and stay details. Verified guests
- *             only; this is where another guest's PII would be.
+ *             one verification prompt defends. Reached by a STAFF VOUCH: the
+ *             desk saying "yes, that is the guest in 214" (D-012).
+ *  FULL     — CHARGE plus the folio, checkout and stay details. Reached by the
+ *             guest answering the prompt themselves, which is the stronger of
+ *             the two proofs and the only one the guest is present for (D-031).
+ *
+ * The gap between CHARGE and FULL is therefore about WHO vouched, not about how
+ * much money is at stake. Someone else asserting your identity is enough to let
+ * a charge through; it is not enough to hand over your bill.
  */
 export const TIER_CAPABILITIES: Record<AccessTier, readonly string[]> = {
   BROWSE:  ['view_property', 'view_menu', 'view_pois'],

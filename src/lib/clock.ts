@@ -96,3 +96,82 @@ export function formatClock(hhmm: string): string {
 export function dayName(dayOfWeek: number): string {
   return DAYS[((dayOfWeek % 7) + 7) % 7]!;
 }
+
+/**
+ * "Thursday, 11am" — the reference's own words for when a guest is due out.
+ *
+ * Rendered in the PROPERTY's timezone: a guest due out at 11am in Udaipur must
+ * not read 5:30am because the server is in UTC. A whole hour drops its minutes,
+ * the same rule `formatClock` follows.
+ *
+ * This lived inline on the room home until the stay screen needed the same
+ * sentence. Two copies of a date format is how one of them quietly starts
+ * saying 11:00am.
+ */
+export function formatCheckoutDay(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone,
+  })
+    .format(instant)
+    .replace(/\s?([ap])m/i, (_, meridiem: string) => `${meridiem.toLowerCase()}m`)
+    .replace(/:00(?=[ap]m)/i, '');
+}
+
+/**
+ * How many nights are left, counted in property-local calendar days.
+ *
+ * Calendar days rather than 24-hour blocks, because that is what a night is: a
+ * guest due out at 11am tomorrow has one night left at 9pm tonight AND at 1am
+ * tonight, and dividing elapsed milliseconds gives 0 for one of them.
+ *
+ * Never negative — an overstayed guest reads "Checking out today", not
+ * "-1 nights left".
+ */
+export function nightsUntil(now: Date, checkoutAt: Date, timeZone: string): number {
+  return Math.max(0, localDayNumber(checkoutAt, timeZone) - localDayNumber(now, timeZone));
+}
+
+/**
+ * A property-local date as a day count, for subtracting one from another.
+ *
+ * Built from the formatted Y-M-D rather than from the epoch, so it is the
+ * hotel's calendar day and not the server's — the whole point of this file.
+ */
+function localDayNumber(instant: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(instant);
+
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value);
+
+  const utcMidnight = Date.UTC(get('year'), get('month') - 1, get('day'));
+  if (Number.isNaN(utcMidnight)) throw new RangeError(`Could not read local date in ${timeZone}`);
+  return Math.round(utcMidnight / 86_400_000);
+}
+
+/**
+ * The narrow date column on a folio line — "12 Mar".
+ *
+ * Property-local, because a charge posted at 00:30 on Thursday in Udaipur is a
+ * Thursday charge on the bill and not a Wednesday one.
+ */
+export function formatFolioDate(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    day: 'numeric', month: 'short', timeZone,
+  }).format(instant);
+}
+
+/** "Two nights left." — spelled to ten, digits above, the way the copy reads. */
+const NUMBER_WORDS = [
+  'No', 'One', 'Two', 'Three', 'Four', 'Five',
+  'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+];
+
+export function spellCount(value: number): string {
+  return NUMBER_WORDS[value] ?? String(value);
+}

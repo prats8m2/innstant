@@ -199,8 +199,17 @@ test.describe('a scanned sticker', () => {
 
     await page.goto(`/r/${code}/menu`);
 
-    // Nothing chosen yet: the pill is the one useful fact, not a dead button.
-    await expect(page.getByText(/Kitchen open until/)).toBeVisible();
+    /**
+     * Nothing chosen yet: the pill is the one useful fact, not a dead button.
+     *
+     * Either wording, because the seeded kitchen closes at 1am and this suite
+     * has to pass at 2am as well as at 2pm — the kitchen-settings tests below
+     * already match this way and these two did not, which made the whole
+     * ordering suite fail between 01:00 and 07:00 property-local. Placing an
+     * order is not gated on the hours (`placeOrder` checks the manual switch
+     * only), so only the label moves.
+     */
+    await expect(page.getByText(/Kitchen open until|The kitchen opens at/)).toBeVisible();
 
     await page.getByRole('link', { name: /Laal maas/ }).first().click();
     await page.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
@@ -290,8 +299,9 @@ test.describe('a scanned sticker', () => {
     await expect(page.getByText(/Charged to room 301/)).toBeVisible();
 
     // The cart is empty: the pill must not advertise an order already sent.
+    // Either wording, for the reason given on the same assertion above.
     await page.goto(`/r/${code}/menu`);
-    await expect(page.getByText(/Kitchen open until/)).toBeVisible();
+    await expect(page.getByText(/Kitchen open until|The kitchen opens at/)).toBeVisible();
 
     // And the second order asks nothing at all. The prompt is once per
     // session, not once per order.
@@ -1226,10 +1236,10 @@ test.describe('asking for things', () => {
     const code = seed!.qrCodes[ownRoom()]!;
     await page.goto(`/r/${code}`);
 
-    // P3 and P4. A row that looks tappable and does nothing is worse than one
-    // that says it is coming.
-    await expect(page.getByText(/Folio and checkout · soon/)).toBeVisible();
-    await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(0);
+    // P4. A row that looks tappable and does nothing is worse than one that says
+    // it is coming. "Your stay" stopped being one of these when P3 landed.
+    await expect(page.getByText(/Places we vouch for · soon/)).toBeVisible();
+    await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(1);
   });
 });
 
@@ -1690,5 +1700,144 @@ test.describe('the request catalog', () => {
     await expect(row.getByRole('group')).toHaveCount(0);
     await expect(row.getByRole('button')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Add it' })).toHaveCount(0);
+  });
+});
+
+/**
+ * Your stay — P3's first screen, and the biggest hole in the product until it.
+ *
+ * `getFolioForStay()` has been written and tested since P0 while every charge
+ * path posted into a folio no guest could see.
+ *
+ * ─── Why room 210 ─────────────────────────────────────────────────────────
+ *
+ * Verification is rate-limited per ROOM — five attempts in thirty minutes,
+ * counted across challenges — and the ordering and amenities tests already spend
+ * four of room 214's. A stay suite that also verified there locked the room out
+ * and failed on the rate limiter working exactly as designed. Rooms are a shared
+ * resource here the way carts are; 210 is seeded with a folio of its own and
+ * belongs to this suite.
+ */
+test.describe('your stay', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'one seeded folio, one project — the same rule the cart tests follow',
+  );
+
+  const ROOM = '210';
+
+  test('asks the one question before it shows anybody a bill', async ({ page }) => {
+    const code = seed!.qrCodes[ROOM]!;
+    await page.goto(`/r/${code}`);
+
+    // The row is real now, and says what is behind it.
+    const row = page.getByRole('link', { name: /Your stay/ });
+    await expect(row).toBeVisible({ timeout: 20_000 });
+    await row.click();
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/stay$`), { timeout: 20_000 });
+
+    // When they leave is not a secret — it is on the room home already.
+    await expect(page.getByText('Checking out')).toBeVisible();
+    await expect(page.getByText(/Room 210, lake view/)).toBeVisible();
+
+    /**
+     * The bill is. #9 protects BROWSING — menus, prices, POIs, free service
+     * calls — and a folio is none of those. A sticker on a nightstand is
+     * photographable from a corridor, and this is the one guest screen whose
+     * content is personal.
+     */
+    await expect(page.getByText(/nobody else’s business/)).toBeVisible();
+    await expect(page.locator('input[name="answer"]')).toBeVisible();
+    await expect(page.getByText('Room charge')).toHaveCount(0);
+    await expect(page.getByText(/Total so far/)).toHaveCount(0);
+  });
+
+  test('opens on four digits, and the total is the lines above it', async ({ page }) => {
+    const code = seed!.qrCodes[ROOM]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/stay`);
+
+    // A wrong answer keeps the prompt and does not lose the screen.
+    await page.locator('input[name="answer"]').fill('9999');
+    await page.getByRole('button', { name: /Show me room 210/ }).click();
+    await expect(page.getByText(/does not match/i)).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('input[name="answer"]')).toBeVisible();
+
+    await page.locator('input[name="answer"]').fill(seed!.guests[ROOM]!.phoneLast4);
+    await page.getByRole('button', { name: /Show me room 210/ }).click();
+
+    // The seeded folio: two lines, ₹13,180, in Indian digit grouping and
+    // tabular figures (#5) — ₹13,180, never ₹13180 or ₹13.2k.
+    await expect(page.getByText('Room charge · Lake view')).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByText('In-room dining · KE-1179')).toBeVisible();
+
+    const ledger = page.locator('section').filter({ hasText: 'Room folio' });
+    await expect(ledger).toContainText('Total so far');
+    await expect(ledger).toContainText('₹13,180');
+    await expect(ledger).toContainText('₹12,000');
+
+    // And it does not tell a guest with a bill that nothing is charged.
+    await expect(ledger).not.toContainText(/nothing.*charged/i);
+  });
+
+  test('does not ask twice', async ({ page }) => {
+    const code = seed!.qrCodes[ROOM]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/stay`);
+    await page.locator('input[name="answer"]').fill(seed!.guests[ROOM]!.phoneLast4);
+    await page.getByRole('button', { name: /Show me room 210/ }).click();
+    await expect(page.getByText('Room charge · Lake view')).toBeVisible({ timeout: 25_000 });
+
+    // Away and back. D-012 calls this "the ONE verification prompt in the
+    // product", and the tier is on the session rather than on the page.
+    await page.goto(`/r/${code}/home`);
+    await page.goto(`/r/${code}/stay`);
+    await expect(page.getByText('Room charge · Lake view')).toBeVisible({ timeout: 25_000 });
+    await expect(page.locator('input[name="answer"]')).toHaveCount(0);
+  });
+
+  /**
+   * The bug the folio screen exposed: `advanceOrder` credited a rejected order
+   * back (D-027) and `advanceRequest` never did, so a guest could cancel ₹450 of
+   * laundry, read "Cancelled", and still be charged for it.
+   */
+  test('a cancelled chargeable request comes back off the bill', async ({ page }) => {
+    const code = seed!.qrCodes[ROOM]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/amenities`);
+
+    const laundry = page.locator('li').filter({ hasText: 'Laundry service' }).first();
+    await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
+    await page.getByRole('button', { name: /Send 1 to room/ }).click();
+
+    // Chargeable, so the one prompt — and answering it grants FULL, which is
+    // what the folio needs (D-031).
+    await expect(page.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
+    await page.locator('input[name="answer"]').fill(seed!.guests[ROOM]!.phoneLast4);
+    await page.getByRole('button', { name: 'Confirm and send' }).click();
+    await page.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(page.getByText(/₹450 is on room/)).toBeVisible();
+
+    // On the bill.
+    await page.goto(`/r/${code}/stay`);
+    const ledger = page.locator('section').filter({ hasText: 'Room folio' });
+    await expect(ledger).toContainText('₹13,630', { timeout: 25_000 });
+
+    // Call it off.
+    await page.goBack();
+    await page.getByRole('button', { name: /never mind/i }).click();
+    await expect(page.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+    // The screen no longer claims the charge is standing.
+    await expect(page.getByText(/came back off room 210/)).toBeVisible();
+
+    // And the bill agrees: charge and credit both listed, netting to the
+    // original total.
+    await page.goto(`/r/${code}/stay`);
+    await expect(ledger).toContainText('Reversed', { timeout: 25_000 });
+    await expect(ledger).toContainText('-₹450');
+    await expect(ledger).toContainText('₹13,180');
   });
 });

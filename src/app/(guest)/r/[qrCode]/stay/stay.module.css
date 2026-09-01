@@ -1,0 +1,286 @@
+/*
+ * Your stay — when the guest is out, and what is on the room.
+ *
+ * The reference's `stay` screen, rebuilt: its eyebrow, its Marcellus date, the
+ * rule above the folio, the 46px date column and the saffron total are all its
+ * measurements. Every value from theme.css (D-016, D-023) — no hex, no raw px
+ * where a token exists.
+ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 0 var(--space-4) var(--space-10);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── The bar ────────────────────────────────────────────────────────────── */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-2);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+
+.barTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.body {
+  padding-top: var(--space-3);
+}
+
+/* ── Checking out ───────────────────────────────────────────────────────── */
+.eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  /* Teal, as the reference has it — the same colour the room home's "kitchen
+     open" pulse uses. It reads as a fact about the stay, not as an alert. */
+  color: var(--teal);
+}
+
+.when {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.where {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/* ── The folio ──────────────────────────────────────────────────────────── */
+.folio {
+  margin-top: var(--space-8);
+}
+
+.folioHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.folioTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.folioMeta {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.ledger {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.lineDate {
+  /* The reference's 46px. `ch` rather than px so "12 Mar" cannot clip when the
+     mono face is substituted before the webfont lands. */
+  flex: 0 0 6.5ch;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+  color: var(--plaster-faint);
+}
+
+.lineWhat {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-base);
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.lineAmount {
+  flex: none;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+/*
+ * A credit, drawn as one. D-027 leaves the original charge on the bill and adds
+ * a negative row beside it, and the guest has to be able to tell at a glance
+ * which is which — a minus sign in tabular figures on a phone at arm's length
+ * is not enough on its own.
+ */
+.line[data-credit='true'] .lineWhat,
+.line[data-credit='true'] .lineAmount {
+  color: var(--teal);
+}
+
+/* ── The total ──────────────────────────────────────────────────────────── */
+.paid {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+
+.paidLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.paidAmount {
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+
+.totalLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.totalAmount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  color: var(--accent);
+}
+
+/* Settled is not a number to chase. It goes teal and stops shouting. */
+.total[data-settled='true'] .totalAmount { color: var(--teal); }
+
+.note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ── The one prompt ─────────────────────────────────────────────────────── */
+.verify {
+  margin-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.verifyWhy {
+  margin: 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.verifyLabel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.verifyLabelText {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.verifyInput {
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: var(--text-xl);
+  letter-spacing: 0.3em;
+}
+.verifyInput:focus { border-color: var(--accent); }
+
+.verifyError {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--accent);
+}
+
+.verifyButton {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+.verifyButton:hover:not(:disabled) { background: var(--accent-hover); }
+.verifyButton:disabled { opacity: 0.7; cursor: progress; }
+
+.verifyAside {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--plaster-faint);
+}

@@ -1,6 +1,6 @@
 import { and, asc, eq } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { floors, properties, rooms } from '@/db/schema/identity';
+import { floors, properties, rooms, roomTypes } from '@/db/schema/identity';
 
 /**
  * Room lookups, for the modules that reference a room but do not own it.
@@ -29,6 +29,37 @@ export async function findRoomAtProperty(
   const rows = await tx
     .select({ id: rooms.id, number: rooms.number, floorId: rooms.floorId })
     .from(rooms)
+    .where(and(eq(rooms.id, input.roomId), eq(rooms.propertyId, input.propertyId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * How a room is described to the guest whose room it is — "214, lake view".
+ *
+ * Separate from `findRoomAtProperty()` rather than a wider `RoomRef`: the room
+ * type is a join, every other caller of that function wants routing ids only,
+ * and paying for a join on the kitchen ticket to satisfy one line on the stay
+ * screen is the wrong trade.
+ *
+ * The name comes from `room_types`, which is where a property already writes
+ * "Lake view" and "Jharokha suite" — the reference's "Room 214, lake side" made
+ * up a descriptor, and inventing one here would mean a second place to keep it
+ * true.
+ */
+export interface RoomDescription {
+  number: string;
+  roomTypeName: string | null;
+}
+
+export async function describeRoom(
+  tx: Tx,
+  input: { propertyId: string; roomId: string },
+): Promise<RoomDescription | null> {
+  const rows = await tx
+    .select({ number: rooms.number, roomTypeName: roomTypes.name })
+    .from(rooms)
+    .leftJoin(roomTypes, eq(roomTypes.id, rooms.roomTypeId))
     .where(and(eq(rooms.id, input.roomId), eq(rooms.propertyId, input.propertyId)))
     .limit(1);
   return rows[0] ?? null;

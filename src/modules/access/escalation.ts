@@ -264,7 +264,26 @@ export async function answerChallenge(
       .set({ attempts, succeededAt: new Date() })
       .where(eq(verificationChallenges.id, challenge.id));
 
-    const newTier: AccessTier = 'CHARGE';
+    /**
+     * FULL, not CHARGE — D-031.
+     *
+     * D-012 calls this "the ONE verification prompt in the product", and a
+     * guest who proved the phone number on the booking in order to send dinner
+     * up must not meet it again on the way to their own bill. The proof does not
+     * get stronger between the two: whoever can answer this can already post
+     * ₹4,000 to the room, and reading what was posted is strictly less harmful
+     * than posting it.
+     *
+     * It was CHARGE, which made FULL — the rung `view_folio` and
+     * `request_checkout` sit on — unreachable by any path in the product. That
+     * went unnoticed because nothing needed it until the folio screen.
+     *
+     * A staff vouch still grants CHARGE by default (`vouchForGuest`), and that
+     * is what keeps the two rungs distinct: the desk saying "yes, that is the
+     * guest in 214" is enough to let a charge through, and a desk that means to
+     * hand over the folio as well passes `grantedTier` and says so.
+     */
+    const newTier: AccessTier = 'FULL';
     await raiseSessionTier(tx, session.id, newTier, { isAnonymous: false });
 
     if (escalationId) {

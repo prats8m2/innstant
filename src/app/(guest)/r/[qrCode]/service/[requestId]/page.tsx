@@ -75,6 +75,9 @@ export default async function RequestScreen({
 
   const live = ['OPEN', 'ASSIGNED', 'IN_PROGRESS'].includes(request.status);
 
+  /** The two ends that credit the room back rather than delivering anything. */
+  const reversed = request.status === 'REJECTED' || request.status === 'CANCELLED';
+
   return (
     <main className={styles.shell}>
       <header className={styles.bar}>
@@ -115,11 +118,33 @@ export default async function RequestScreen({
 
         {request.guestNote ? <p className={styles.echo}>“{request.guestNote}”</p> : null}
 
+        {/*
+          * The money line, and it has to follow the reversal.
+          *
+          * `raiseServiceRequest()` posts at placement, so "on room 214" is true
+          * the moment the guest asks. REJECTED and CANCELLED credit it back in
+          * the same transaction as the status change (`advanceRequest`, D-027's
+          * reasoning applied to requests) — so this screen said "₹450 is on room
+          * 214" under the word "Cancelled" for as long as that reversal was
+          * missing, and would say it again if the reversal were removed.
+          *
+          * Like the order timeline's equivalent, this promises a NET of zero
+          * rather than the existence of a credit row: a free request has nothing
+          * to credit and the sentence is still true.
+          */}
         {request.totalMinor > 0 ? (
-          <p className={styles.folioNote}>
-            {formatMoney(money(request.totalMinor, request.currency))} is on room{' '}
-            {session.roomNumber}, settled at checkout.
-          </p>
+          reversed ? (
+            <p className={styles.folioNote}>
+              Nothing has been charged for it —{' '}
+              {formatMoney(money(request.totalMinor, request.currency))} came back off
+              room {session.roomNumber}.
+            </p>
+          ) : (
+            <p className={styles.folioNote}>
+              {formatMoney(money(request.totalMinor, request.currency))} is on room{' '}
+              {session.roomNumber}, settled at checkout.
+            </p>
+          )
         ) : (
           <p className={styles.folioNote}>Nothing to pay.</p>
         )}

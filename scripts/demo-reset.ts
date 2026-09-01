@@ -35,14 +35,27 @@ const DEMO_PASSWORD = 'kesari-demo-2026';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
 
 /**
- * The three in-house guests. Module scope because the seed artifact written at
+ * The four in-house guests. Module scope because the seed artifact written at
  * the end needs their last four digits — that is what the e2e suite answers the
  * verification prompt with (D-012).
+ *
+ * ─── Why room 210 exists ───────────────────────────────────────────────────
+ *
+ * Verification is rate-limited per ROOM: five attempts in thirty minutes,
+ * counted across challenges (`assertNotLockedOut`, DATA-MODEL §3). The e2e
+ * suite's ordering and amenities tests already spend four of room 214's, so a
+ * suite that also verifies there locks the room out and fails on the rate
+ * limiter working exactly as designed.
+ *
+ * Rooms are a shared resource in that suite the way carts already are, and the
+ * fix is the same one: another room. 210 belongs to the stay screen's tests and
+ * to nothing else, which is why it has a folio of its own below.
  */
 const DEMO_GUESTS = [
   { name: 'Anjali Menon',   phone: '+919820011111', room: '214' },
   { name: 'Thomas Beckett', phone: '+919820022222', room: '105' },
   { name: 'Rhea Kapoor',    phone: '+919820033333', room: '301' },
+  { name: 'Iqbal Qureshi',  phone: '+919820044444', room: '210' },
 ];
 
 const DEMO_STAFF = [
@@ -180,7 +193,7 @@ async function main(): Promise<void> {
       }
     }
 
-    // ── Three in-house stays ────────────────────────────────────────────────
+    // ── Four in-house stays ─────────────────────────────────────────────────
     const stayIds = new Map<string, string>();
     for (const g of DEMO_GUESTS) {
       // Loud rather than a NOT NULL violation forty lines later.
@@ -358,6 +371,32 @@ async function main(): Promise<void> {
       });
     }
 
+    /**
+     * ── A second folio, on room 210 ──────────────────────────────────────
+     *
+     * Two lines rather than four, and no minibar: it is the shorter bill a
+     * guest on their second night actually has, and the stay screen's e2e reads
+     * it rather than 214's for the rate-limit reason in DEMO_GUESTS above.
+     *
+     * It also gives the demo two folios to compare, which is the point at which
+     * "the guest can see what they have spent" stops being one screenshot.
+     */
+    const [folio210] = await tx.insert(folios).values({
+      tenantId: TENANT_ID, propertyId: provisioned.propertyId,
+      stayId: stayIds.get('210')!, status: 'OPEN',
+    }).returning({ id: folios.id });
+
+    for (const line of [
+      { description: 'Room charge · Lake view', amountMinor: 1_200_000, source: 'MANUAL' as const },
+      { description: 'In-room dining · KE-1179', amountMinor: 118_000, source: 'ORDER' as const },
+    ]) {
+      await tx.insert(folioLines).values({
+        tenantId: TENANT_ID, propertyId: provisioned.propertyId,
+        folioId: folio210!.id, source: line.source,
+        description: line.description, amountMinor: line.amountMinor,
+      });
+    }
+
     const totals = await tx.select({ balanceMinor: folios.balanceMinor })
       .from(folios).where(eq(folios.id, folio!.id)).limit(1);
 
@@ -380,11 +419,12 @@ async function main(): Promise<void> {
   console.log(`    request types ${provisioned.requestTypeCount}`);
   console.log(`    folio 214     ${formatMoney(money(folioBalance, 'INR'))} across 4 lines`);
   console.log(`    late request  SR-4468, 14 minutes past — ${escalated} escalated, the GM's bell is lit`);
+  console.log('    folio 210     ₹13,180 across 2 lines');
   console.log('\n  Staff logins  (password for all: ' + DEMO_PASSWORD + ')');
   for (const s of DEMO_STAFF) console.log(`    ${s.role.padEnd(16)} ${s.email}`);
 
   console.log('\n  Scan these  (guest PWA, no login, no verification — D-012)');
-  for (const room of ['214', '105', '301']) {
+  for (const room of ['214', '105', '301', '210']) {
     console.log(`    room ${room}  ${APP_URL}/r/${provisioned.qrCodes.get(room)}`);
   }
   console.log(`\n  ${provisioned.qrCodes.size} QR codes total. Orders KE-1184 (preparing) and KE-1185 (placed) are live.\n`);

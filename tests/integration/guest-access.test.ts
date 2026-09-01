@@ -161,6 +161,18 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
     expect(rows.rows[0].outcome).toBe('STARTED');
   });
 
+  /**
+   * FULL, not CHARGE — D-031.
+   *
+   * D-012 calls this "the ONE verification prompt in the product". A guest who
+   * answered it to send dinner up must not meet it again on the way to their own
+   * bill, and the proof does not get stronger between the two: whoever can
+   * answer this can already post to the room.
+   *
+   * It granted CHARGE until the folio screen existed, which left FULL — the rung
+   * `view_folio` and `request_checkout` sit on — unreachable by any path in the
+   * product.
+   */
   it('raises the tier on the EXISTING session, not a new one', async () => {
     await clearSessions();
     const scan = await scanQrCode(a.qrCode);
@@ -168,17 +180,71 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
     const result = await answerChallenge(scan.session, challengeId, '1111');
 
     expect(result.ok).toBe(true);
-    expect(result.newTier).toBe('CHARGE');
+    expect(result.newTier).toBe('FULL');
 
     const row = await owner.query(
       `SELECT access_tier, is_anonymous FROM guest_sessions WHERE id=$1`, [scan.session.id]);
-    expect(row.rows[0].access_tier).toBe('CHARGE');
+    expect(row.rows[0].access_tier).toBe('FULL');
     expect(row.rows[0].is_anonymous).toBe(false);
 
     // The same cookie now carries the higher tier — nothing the guest was doing
     // was orphaned.
     const resolved = await resolveGuestSession(scan.cookieValue);
-    expect(resolved?.accessTier).toBe('CHARGE');
+    expect(resolved?.accessTier).toBe('FULL');
+  });
+
+  it('asks once, for both the charge and the folio', async () => {
+    await clearSessions();
+    const scan = await scanQrCode(a.qrCode);
+
+    // The prompt a guest meets on the cart.
+    const check = await requireTier(scan.session, 'place_order');
+    expect(check.required).toBe(true);
+
+    const challengeId = await startPhoneLast4Challenge(scan.session);
+    await answerChallenge(scan.session, challengeId, '1111');
+
+    // And now the folio, on the same session, with nothing more asked.
+    const verified = (await resolveGuestSession(scan.cookieValue))!;
+    expect((await requireTier(verified, 'view_folio')).required).toBe(false);
+    expect((await requireTier(verified, 'request_checkout')).required).toBe(false);
+  });
+
+  /**
+   * The gap between CHARGE and FULL is about WHO vouched, not how much money is
+   * at stake. The desk saying "yes, that is the guest in 214" lets a charge
+   * through; it does not hand over the guest's bill.
+   */
+  it('a staff vouch stops short of the folio', async () => {
+    await clearSessions();
+    const scan = await scanQrCode(a.qrCode);
+    const staff = await owner.query<{ id: string }>(
+      `SELECT id FROM staff_users WHERE tenant_id=$1 LIMIT 1`, [TENANT_A]);
+
+    await vouchForGuest({
+      tenantId: TENANT_A, propertyId: a.propertyId, stayId,
+      staffUserId: staff.rows[0]!.id, guestSessionId: scan.session.id,
+    });
+
+    const vouched = (await resolveGuestSession(scan.cookieValue))!;
+    expect(vouched.accessTier).toBe('CHARGE');
+    expect((await requireTier(vouched, 'place_order')).required).toBe(false);
+    expect((await requireTier(vouched, 'view_folio')).required).toBe(true);
+  });
+
+  it('lets a desk that means to hand over the folio say so', async () => {
+    await clearSessions();
+    const scan = await scanQrCode(a.qrCode);
+    const staff = await owner.query<{ id: string }>(
+      `SELECT id FROM staff_users WHERE tenant_id=$1 LIMIT 1`, [TENANT_A]);
+
+    await vouchForGuest({
+      tenantId: TENANT_A, propertyId: a.propertyId, stayId,
+      staffUserId: staff.rows[0]!.id, guestSessionId: scan.session.id,
+      grantedTier: 'FULL',
+    });
+
+    expect((await resolveGuestSession(scan.cookieValue))?.accessTier).toBe('FULL');
   });
 
   it('never stores the last four digits in the clear', async () => {

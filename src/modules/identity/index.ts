@@ -23,10 +23,12 @@ export type { Permission, SystemRoleKey, SystemRole } from './permissions';
 
 export { seedSystemRoles } from './seed-roles';
 
-export { findRoomAtProperty, findRoomByNumber, findProperty, listFloors } from './rooms';
+export {
+  findRoomAtProperty, findRoomByNumber, findProperty, listFloors, describeRoom,
+} from './rooms';
 export { listRolesAtProperty } from './roles';
 export type { PropertyRole } from './roles';
-export type { RoomRef, PropertySettings, FloorRef } from './rooms';
+export type { RoomRef, PropertySettings, FloorRef, RoomDescription } from './rooms';
 
 export { provisionProperty, provisionTenant } from './provision';
 export type {

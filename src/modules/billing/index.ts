@@ -11,3 +11,7 @@ export {
 } from './folio';
 export type { PostFolioLineInput, FolioSummary, ReverseFolioLinesInput, FolioReversal }
   from './folio';
+
+/** The folio as a bill the guest reads — pure, and where the wording decisions live. */
+export { buildGuestStatement, EMPTY_STATEMENT_NOTE } from './statement';
+export type { GuestStatement, StatementLine } from './statement';

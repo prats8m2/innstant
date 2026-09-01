@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { localTimeAt, parseClock, toClock, formatClock, dayName } from './clock';
+import {
+  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, nightsUntil, formatFolioDate, spellCount,
+} from './clock';
 
 /**
  * The whole point of this file is that it does not depend on where it runs.
@@ -75,5 +77,79 @@ describe('clock strings', () => {
     expect(dayName(0)).toBe('Sunday');
     expect(dayName(4)).toBe('Thursday');
     expect(dayName(7)).toBe('Sunday');
+  });
+});
+
+/**
+ * The stay screen's dates. Property-local, every one of them — a guest due out
+ * at 11am in Udaipur must never read 5:30am because the server is in UTC.
+ */
+describe('when the guest is due out', () => {
+  const UDAIPUR = 'Asia/Kolkata';
+
+  it('reads the way the reference writes it', () => {
+    // Thursday 12 March 2026, 11:00 IST = 05:30 UTC.
+    expect(formatCheckoutDay(new Date('2026-03-12T05:30:00Z'), UDAIPUR))
+      .toBe('Thursday, 11am');
+  });
+
+  it('keeps the minutes when there are any', () => {
+    expect(formatCheckoutDay(new Date('2026-03-12T06:00:00Z'), UDAIPUR))
+      .toBe('Thursday, 11:30am');
+  });
+
+  it('is the property\'s day, not the server\'s', () => {
+    // 20:00 UTC on Wednesday is 01:30 THURSDAY in Udaipur.
+    expect(formatCheckoutDay(new Date('2026-03-11T20:00:00Z'), UDAIPUR))
+      .toMatch(/^Thursday/);
+  });
+});
+
+describe('nights left', () => {
+  const UDAIPUR = 'Asia/Kolkata';
+  const checkout = new Date('2026-03-12T05:30:00Z'); // Thu 11am local
+
+  it('counts calendar nights, not 24-hour blocks', () => {
+    // Tuesday 21:00 local and Wednesday 01:00 local are different nights, and
+    // dividing elapsed milliseconds would call one of them the same.
+    const tuesdayEvening = new Date('2026-03-10T15:30:00Z'); // Tue 21:00 IST
+    const wednesdayJustAfterMidnight = new Date('2026-03-10T19:00:00Z'); // Wed 00:30 IST
+
+    expect(nightsUntil(tuesdayEvening, checkout, UDAIPUR)).toBe(2);
+    expect(nightsUntil(wednesdayJustAfterMidnight, checkout, UDAIPUR)).toBe(1);
+  });
+
+  it('is zero on the day of checkout, before and after the hour', () => {
+    expect(nightsUntil(new Date('2026-03-12T02:00:00Z'), checkout, UDAIPUR)).toBe(0);
+    expect(nightsUntil(new Date('2026-03-12T09:00:00Z'), checkout, UDAIPUR)).toBe(0);
+  });
+
+  it('never goes negative for a guest who has overstayed', () => {
+    expect(nightsUntil(new Date('2026-03-20T09:00:00Z'), checkout, UDAIPUR)).toBe(0);
+  });
+});
+
+describe('the folio date column', () => {
+  it('is short enough for a 46px column', () => {
+    expect(formatFolioDate(new Date('2026-03-12T13:00:00Z'), 'Asia/Kolkata')).toBe('12 Mar');
+  });
+
+  it('rolls over on the property\'s midnight', () => {
+    // 19:00 UTC on the 11th is 00:30 on the 12th in Udaipur.
+    expect(formatFolioDate(new Date('2026-03-11T19:00:00Z'), 'Asia/Kolkata')).toBe('12 Mar');
+  });
+});
+
+describe('spelling a small count', () => {
+  it('spells to ten, the way the copy reads', () => {
+    expect(spellCount(0)).toBe('No');
+    expect(spellCount(1)).toBe('One');
+    expect(spellCount(2)).toBe('Two');
+    expect(spellCount(10)).toBe('Ten');
+  });
+
+  it('gives up and uses digits above ten', () => {
+    expect(spellCount(11)).toBe('11');
+    expect(spellCount(42)).toBe('42');
   });
 });

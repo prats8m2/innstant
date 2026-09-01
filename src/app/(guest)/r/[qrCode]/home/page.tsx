@@ -7,7 +7,7 @@ import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
 } from '@/modules/catalog';
-import { localTimeAt, formatClock } from '@/lib/clock';
+import { localTimeAt, formatClock, formatCheckoutDay } from '@/lib/clock';
 import styles from './room-home.module.css';
 
 /**
@@ -38,7 +38,7 @@ export const dynamic = 'force-dynamic';
 const ROWS = [
   { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · a charger', built: true },
   { key: 'service', title: 'Call for service', sub: 'Someone comes up', built: true },
-  { key: 'stay', title: 'Your stay', sub: 'Folio and checkout', built: false },
+  { key: 'stay', title: 'Your stay', sub: 'When you leave, and what is on the room', built: true },
   { key: 'nearby', title: 'Nearby', sub: 'Places we vouch for', built: false },
 ] as const;
 
@@ -89,21 +89,16 @@ export default async function RoomHome({
 
   /**
    * "until Thursday, 11am" — the reference's own words, from the stay rather
-   * than from a literal. Rendered in the PROPERTY's timezone: a guest due out
-   * at 11am in Udaipur must not read 5:30am because the server is in UTC.
+   * than from a literal, in the PROPERTY's timezone.
+   *
+   * `formatCheckoutDay` rather than an `Intl` call inlined here: the stay screen
+   * prints the same sentence, and two copies of a date format is how one of them
+   * quietly starts saying 11:00am.
    */
-  const checkout = new Intl.DateTimeFormat('en-IN', {
-    weekday: 'long',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZone: property?.timezone ?? 'Asia/Kolkata',
-  })
-    .format(session.scheduledCheckoutAt)
-    .replace(/\s?([ap])m/i, (_, p: string) => `${p.toLowerCase()}m`)
-    // "11am", not "11:00am" — a whole hour drops its minutes, the same rule
-    // `formatClock` follows. The reference writes "Out Thursday, 11am".
-    .replace(/:00(?=[ap]m)/i, '');
+  const checkout = formatCheckoutDay(
+    session.scheduledCheckoutAt,
+    property?.timezone ?? 'Asia/Kolkata',
+  );
 
   return (
     <main className={styles.shell}>
