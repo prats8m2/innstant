@@ -13,6 +13,16 @@ export {
 } from './create-stay';
 export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';
 
+/**
+ * The boundary to reservation data (D-011, EXTENSION-POINTS §B). Every stay
+ * change goes past `notifyPms()`, which writes an outbox row only for a property
+ * whose system of record is somewhere else.
+ */
+export { pmsAdapterFor, adapterByKind, ManualAdapter } from './pms';
+export type { PmsAdapter, PmsEvent, PmsEventKind, PmsKind, StayRef } from './pms';
+export { notifyPms, drainPmsOutbox } from './pms/sync';
+export type { DrainResult } from './pms/sync';
+
 /** A guest, and what this property knows about them. */
 export {
   getGuestDossier, updateGuestProfile, guestIdForStay, recentGuests, DIETARY_FLAGS,

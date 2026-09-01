@@ -3,6 +3,7 @@ import { recordEvent, type Tx } from '@/db';
 import { stays, checkoutRequests, checkoutFeeTiers } from '@/db/schema/stay';
 import { postFolioLine } from '@/modules/billing';
 import { refreshSessionExpiryForStay } from '@/modules/access';
+import { notifyPms } from './pms/sync';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import type { CurrencyCode } from '@/lib/money';
 import { formatHour, localTimeAt } from '@/lib/clock';
@@ -380,6 +381,22 @@ export async function decideCheckoutRequest(
   let sessionsExtended = 0;
   let scheduledCheckoutAt = request.requestedCheckoutAt;
 
+  /**
+   * What the stay is called on the other side of the seam. Our uuids mean
+   * nothing to a PMS (EXTENSION-POINTS §3), and this is read once for both
+   * events below rather than per event.
+   */
+  const refRows = input.to === 'APPROVED'
+    ? await tx.execute<{ source_ref_id: string | null; room_number: string }>(sql`
+        SELECT s.source_ref_id, rm.number AS room_number
+        FROM stays s JOIN rooms rm ON rm.id = s.room_id
+        WHERE s.id = ${request.stayId} LIMIT 1
+      `)
+    : null;
+  const stayRef = refRows?.rows[0]
+    ? { sourceRefId: refRows.rows[0].source_ref_id, roomNumber: refRows.rows[0].room_number }
+    : null;
+
   if (input.to === 'APPROVED') {
     await tx.update(stays)
       .set({ scheduledCheckoutAt: request.requestedCheckoutAt, updatedAt: now })
@@ -397,8 +414,28 @@ export async function decideCheckoutRequest(
       scheduledCheckoutAt: request.requestedCheckoutAt,
     });
 
+    /**
+     * The system of record hears about both halves — the stay moving, and the
+     * money — because a PMS that knows about one and not the other produces a
+     * bill that does not reconcile (D-011).
+     */
+    await notifyPms(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      event: {
+        kind: 'STAY_EXTENDED',
+        stay: {
+          stayId: request.stayId,
+          sourceRefId: stayRef?.sourceRefId ?? null,
+          roomNumber: stayRef?.roomNumber ?? '',
+        },
+        scheduledCheckoutAt: request.requestedCheckoutAt.toISOString(),
+        reason: 'LATE_CHECKOUT',
+      },
+    });
+
     if (fee > 0) {
-      await postFolioLine(tx, {
+      const posted = await postFolioLine(tx, {
         tenantId: input.tenantId,
         propertyId: input.propertyId,
         stayId: request.stayId,
@@ -411,6 +448,23 @@ export async function decideCheckoutRequest(
         amountMinor: fee,
         currency: request.currency,
         postedByStaffId: input.staffUserId,
+      });
+
+      await notifyPms(tx, {
+        tenantId: input.tenantId,
+        propertyId: input.propertyId,
+        event: {
+          kind: 'CHARGE_POSTED',
+          stay: {
+            stayId: request.stayId,
+            sourceRefId: stayRef?.sourceRefId ?? null,
+            roomNumber: stayRef?.roomNumber ?? '',
+          },
+          description: 'Late checkout',
+          amountMinor: fee,
+          currency: request.currency,
+          folioLineId: posted.folioLineId,
+        },
       });
     }
   } else {

@@ -1,10 +1,11 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
 import { stays, guests, checkoutRequests } from '@/db/schema/stay';
 import { listRoomsAtProperty, type RoomListing } from '@/modules/identity';
 import { folioBalancesForStays } from '@/modules/billing';
 import { revokeSessionsForStay } from '@/modules/access';
 import { ConflictError, NotFoundError } from '@/lib/errors';
+import { notifyPms } from './pms/sync';
 import type { CurrencyCode } from '@/lib/money';
 
 /**
@@ -142,16 +143,31 @@ export async function checkOutStay(
 ): Promise<CheckOutResult> {
   const now = input.now ?? new Date();
 
-  const rows = await tx.select({
-    id: stays.id,
-    status: stays.status,
-    roomId: stays.roomId,
-  }).from(stays)
-    .where(and(eq(stays.id, input.stayId), eq(stays.propertyId, input.propertyId)))
-    .limit(1);
+  /**
+   * The room number and the PMS's own id come along for the ride: the event
+   * below crosses a boundary where our uuids mean nothing (EXTENSION-POINTS §3),
+   * and reading them after the row has been updated would be a second query for
+   * data that has not changed.
+   */
+  const rows = await tx.execute<{
+    id: string; status: string; room_id: string;
+    room_number: string; source_ref_id: string | null;
+  }>(sql`
+    SELECT s.id, s.status, s.room_id, s.source_ref_id, rm.number AS room_number
+    FROM stays s
+    JOIN rooms rm ON rm.id = s.room_id
+    WHERE s.id = ${input.stayId} AND s.property_id = ${input.propertyId}
+    LIMIT 1
+  `);
 
-  const stay = rows[0];
-  if (!stay) throw new NotFoundError('No such stay at this property.');
+  const found = rows.rows[0];
+  if (!found) throw new NotFoundError('No such stay at this property.');
+  const stay = {
+    id: found.id,
+    status: found.status,
+    roomNumber: found.room_number,
+    sourceRefId: found.source_ref_id,
+  };
 
   /**
    * Compare-and-set, not a plain UPDATE. Two people at the desk pressing check
@@ -216,6 +232,20 @@ export async function checkOutStay(
       sessionsRevoked,
       completedCheckoutRequests: completed.length,
       cancelledCheckoutRequests: cancelled.length,
+    },
+  });
+
+  // The system of record, if it is somewhere else (D-011). Same transaction as
+  // everything above it, and nothing at all for a manual property.
+  await notifyPms(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    event: {
+      kind: 'STAY_CHECKED_OUT',
+      stay: { stayId: stay.id, sourceRefId: stay.sourceRefId, roomNumber: stay.roomNumber },
+      checkedOutAt: now.toISOString(),
+      balanceMinor,
+      currency,
     },
   });
 

@@ -18,4 +18,11 @@ export type { Tx, TenantContext, QrRouting, SweepTarget } from './client';
 export { subscribeToChannel, closeNotifyConnection, notifyStatus } from './notify';
 export type { Subscription } from './notify';
 export { recordEvent, readEventHistory } from './events';
+
+/** `integration_outbox` — what we still owe an external system (D-019, §8). */
+export {
+  enqueueOutbox, pendingOutbox, markOutboxDelivered, markOutboxFailed,
+  outboxBackoffSeconds, OUTBOX_MAX_ATTEMPTS,
+} from './outbox';
+export type { OutboxEntry, PendingOutboxRow } from './outbox';
 export type { EventInput } from './events';

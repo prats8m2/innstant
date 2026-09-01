@@ -4,6 +4,7 @@ import { recordEvent } from '@/db';
 import { guests, guestPropertyProfiles, stays } from '@/db/schema/stay';
 import { findRoomAtProperty } from '@/modules/identity';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
+import { notifyPms } from './pms/sync';
 
 /**
  * The only place a stay is created. CLAUDE.md #4.
@@ -130,6 +131,28 @@ export async function createStay(tx: Tx, input: CreateStayInput): Promise<Create
       guestIsNew,
     },
   });
+
+  /**
+   * And the system of record, if this property's is somewhere else (D-011).
+   *
+   * In the same transaction as the stay and the event: a queued "checked in"
+   * that survives a rolled-back check-in is a message about a guest who is not
+   * here. `notifyPms()` writes nothing at all for a manual property, which is
+   * every property today.
+   */
+  if (status === 'CHECKED_IN') {
+    await notifyPms(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      event: {
+        kind: 'STAY_CHECKED_IN',
+        stay: { stayId, sourceRefId: input.sourceRefId ?? null, roomNumber: room.number },
+        guest: { fullName, phone: input.guest.phone ?? null },
+        checkedInAt: (input.checkedInAt ?? new Date()).toISOString(),
+        scheduledCheckoutAt: input.scheduledCheckoutAt.toISOString(),
+      },
+    });
+  }
 
   return { stayId, guestId, guestIsNew };
 }
