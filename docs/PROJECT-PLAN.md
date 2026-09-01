@@ -107,15 +107,22 @@ a git remote and a Railway app service first (see P0's last item).**
 - [x] Text note · **[ ] photo attachment** — the column and the per-type rule are
       wired; uploading is blocked with the rest of images (R2)
 - [x] Request state machine + event log
-- [ ] Auto-routing: role ∩ on-shift ∩ covers floor, ranked by open count
+- [x] Auto-routing: role ∩ on-shift ∩ covers floor, ranked by open count
 - [ ] SLA worker: sweep, escalate, notify duty manager
 - [x] Housekeeping board with SLA countdowns
 - [x] Runner/housekeeping mobile view *(the board IS the mobile view — one
       column, phone-first; a dedicated runner variant can come with routing)*
-- [ ] Shifts, clock in/out, floor zone assignment
+- [x] Shifts, clock in/out, floor zone assignment *(clocked from the board; a
+      rota that schedules them ahead is P5 work)*
 
 **Exit criterion:** a request raised by a guest reaches the correct on-duty staff
 member's phone without anyone assigning it, and breaches visibly escalate.
+
+**Status: the first half is met** — clocked in for a floor, a housekeeper gets
+the request already assigned and the guest reads their name, with nobody tapping
+anything (`tests/e2e` · "routing a request to whoever is on duty"). The second
+half is not: a breach is visible on the board and in `slaState()`, but nothing
+sweeps for it and nobody is notified. That is the SLA worker, next.
 
 ---
 

@@ -225,8 +225,24 @@ Open it on a narrow window BEFORE asking for anything, and leave it open.
 Sign in as `kitchen@thekesari.example` and open `/housekeeping`: it says this
 account cannot see service requests. That role holds no request permission.
 
-Nothing routes a request to a particular person yet — it sits on the board until
-someone takes it. That is the next task (shifts, then auto-routing).
+**Clock in, and watch a request route itself.** This is P2's exit criterion.
+
+1. On the board, the bar at the top says *You are not clocked in. Nothing will be
+   routed to you until you are.* Tick the floors you are covering and **Clock
+   in**. The bar turns and lists them; the header shows *1 on duty*.
+2. As a guest, ask for towels from room 214.
+3. The guest's screen reads **"Sunita Devi is on the way"** — a name, because
+   there is one now — and the board's card says **Yours** and *ASSIGNED*. Nobody
+   tapped anything on the staff side.
+4. **Change floors** mid-shift updates the same shift. **Clock out** and ask
+   again: the request stays *OPEN*, the guest reads "Someone is coming up", and
+   the card waits on the board. That is deliberate — a request routed to someone
+   who went home looks handled and nobody is coming.
+
+The rules, if you want to see them refuse: a **runner** on the floor does not get
+towels (wrong role), a housekeeper covering only the **third** floor does not get
+a second-floor request, and with two housekeepers on duty the second request goes
+to whoever is carrying less.
 
 To see the rows behind it:
 
