@@ -238,6 +238,67 @@ describe('advanceOrder', () => {
     expect(await scoped((tx) => openTicketCount(tx, a.outletId))).toBe(0);
   });
 
+  describe('the runner queue', () => {
+    const queue = () => scoped((tx) => runnerTickets(tx, { outletId: a.outletId }));
+    const runner = '22222222-2222-4222-8222-222222222222';
+
+    it('puts trays still waiting before trays already being carried', async () => {
+      const first = await anOrder('queue-first');
+      const second = await anOrder('queue-second');
+
+      for (const { orderId } of [first, second]) {
+        await advance(orderId, 'ACCEPTED');
+        await advance(orderId, 'PREPARING');
+        await advance(orderId, 'READY');
+      }
+
+      // Someone takes the OLDER one up. The kitchen's rail would still list it
+      // first — by placed_at — but a runner walking to the pass wants the tray
+      // they can actually pick up at the top.
+      await advance(first.orderId, 'OUT_FOR_DELIVERY', { assignedRunnerId: runner });
+
+      const tickets = await queue();
+      expect(tickets.map((t) => t.orderNumber))
+        .toEqual([second.orderNumber, first.orderNumber]);
+      expect(tickets[0]!.status).toBe('READY');
+      expect(tickets[1]!.status).toBe('OUT_FOR_DELIVERY');
+    });
+
+    it('records who is carrying a tray, and only on the pickup', async () => {
+      const { orderId } = await anOrder('queue-assign');
+      await advance(orderId, 'ACCEPTED');
+      await advance(orderId, 'PREPARING');
+      await advance(orderId, 'READY');
+      expect((await queue())[0]!.assignedRunnerId).toBeNull();
+
+      await advance(orderId, 'OUT_FOR_DELIVERY', { assignedRunnerId: runner });
+      expect((await queue())[0]!.assignedRunnerId).toBe(runner);
+
+      // Handing over must not reassign the tray to whoever tapped: the SLA
+      // report reads this column to answer who carried it.
+      await advance(orderId, 'DELIVERED');
+      const row = await owner.query(
+        `SELECT assigned_runner_id, delivered_at FROM orders WHERE id = $1`, [orderId]);
+      expect(row.rows[0].assigned_runner_id).toBe(runner);
+      expect(row.rows[0].delivered_at).not.toBeNull();
+    });
+
+    it('is empty once the tray is handed over', async () => {
+      const { orderId } = await anOrder('queue-empty');
+      await advance(orderId, 'ACCEPTED');
+      await advance(orderId, 'PREPARING');
+      await advance(orderId, 'READY');
+      await advance(orderId, 'OUT_FOR_DELIVERY', { assignedRunnerId: runner });
+      await advance(orderId, 'DELIVERED');
+
+      expect(await queue()).toHaveLength(0);
+      // And the charge stays: delivered is the one ending where the hotel is
+      // owed the money.
+      const folio = await scoped((tx) => getFolioForStay(tx, stayId));
+      expect(folio!.chargesMinor).toBeGreaterThan(0);
+    });
+  });
+
   /**
    * The money half of a rejection.
    *

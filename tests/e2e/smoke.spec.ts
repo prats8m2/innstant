@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, devices, type Page } from '@playwright/test';
 
 /**
  * The P0 smoke suite: the app boots, the database is migrated, and a printed
@@ -314,15 +314,20 @@ test.describe('a scanned sticker', () => {
 test.describe('the kitchen display', () => {
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
+  async function signIn(page: Page, email: string): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill(email);
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
   async function signInToKitchen(page: Page): Promise<void> {
     await page.goto('/kds');
     // The middleware is a turnstile: no cookie, no page.
     await expect(page).toHaveURL(/\/admin\/login/);
 
-    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
-    await page.locator('input[name="password"]').fill('kesari-demo-2026');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signIn(page, 'kitchen@thekesari.example');
 
     await page.goto('/kds');
     await expect(page.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
@@ -398,11 +403,35 @@ test.describe('the kitchen display', () => {
     await expect(ticket).toHaveAttribute('data-status', 'READY', { timeout: 15_000 });
     await expect(activeStep).toContainText('Plated and covered', { timeout: 15_000 });
 
-    // Off the rail once it leaves the kitchen — and on its way up, on the phone.
-    await ticket.getByRole('button', { name: 'Picked up' }).click();
+    /**
+     * The last hop, and the one only the runner app can make. A second staff
+     * device, a phone this time: the tray leaves the kitchen's rail, appears in
+     * the runner's queue, and is handed over — which is where P1's exit
+     * criterion ends and where the guest's timeline stops streaming.
+     */
+    const corridor = await browser.newContext({ ...devices['Pixel 7'] });
+    const runner = await corridor.newPage();
+    await signIn(runner, 'runner@thekesari.example');
+    await runner.goto('/runner');
+    await expect(runner.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
+
+    const tray = runner.locator('li').filter({ hasText: orderNumber });
+    await expect(tray).toBeVisible({ timeout: 15_000 });
+    await expect(tray).toContainText('214');
+
+    await tray.getByRole('button', { name: 'Take it up' }).click();
+    // Off the kitchen's rail once it leaves the kitchen.
     await expect(ticket).toHaveCount(0, { timeout: 15_000 });
     await expect(activeStep).toContainText('On the way up', { timeout: 15_000 });
 
+    await tray.getByRole('button', { name: 'Handed over' }).click();
+    await expect(tray).toHaveCount(0, { timeout: 15_000 });
+    await expect(activeStep).toContainText('At your door', { timeout: 15_000 });
+    // Nothing more will happen that the guest cares about, so the phone stops
+    // holding a connection open on a nightstand.
+    await expect(guest.getByText(/Updating as it moves|Reconnecting/)).toHaveCount(0);
+
+    await corridor.close();
     await kitchen.close();
     await phone.close();
   });

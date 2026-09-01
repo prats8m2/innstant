@@ -260,6 +260,11 @@ export interface KitchenTicket {
   roomNumber: string;
   placedAt: Date | null;
   promisedByAt: Date | null;
+  /** When it came off the pan. What a runner is actually racing — food goes
+   *  cold from `ready_at`, not from when the guest ordered. */
+  readyAt: Date | null;
+  /** Who is carrying it, once someone has picked it up. */
+  assignedRunnerId: string | null;
   guestNotes: string | null;
   dietaryFlags: string[];
   lines: Array<{ name: string; quantity: number; modifiers: string[]; notes: string | null }>;
@@ -283,12 +288,14 @@ export async function kitchenTickets(
 
   const rows = await tx.execute<{
     id: string; order_number: string; status: OrderStatus; room_number: string;
-    placed_at: Date | null; promised_by_at: Date | null;
+    placed_at: Date | null; promised_by_at: Date | null; ready_at: Date | null;
+    assigned_runner_id: string | null;
     guest_notes: string | null; dietary_flags: unknown; lines: unknown;
   }>(sql`
     SELECT
       o.id, o.order_number, o.status, r.number AS room_number,
-      o.placed_at, o.promised_by_at, o.guest_notes, o.dietary_flags,
+      o.placed_at, o.promised_by_at, o.ready_at, o.assigned_runner_id,
+      o.guest_notes, o.dietary_flags,
       COALESCE(
         (SELECT jsonb_agg(line ORDER BY line->>'name')
          FROM (
@@ -319,18 +326,41 @@ export async function kitchenTickets(
     roomNumber: row.room_number,
     placedAt: row.placed_at,
     promisedByAt: row.promised_by_at,
+    readyAt: row.ready_at,
+    assignedRunnerId: row.assigned_runner_id,
     guestNotes: row.guest_notes,
     dietaryFlags: Array.isArray(row.dietary_flags) ? (row.dietary_flags as string[]) : [],
     lines: (row.lines as KitchenTicket['lines']) ?? [],
   }));
 }
 
-/** The runner queue: cooked and waiting to move. */
+/**
+ * The runner queue: cooked and waiting to move.
+ *
+ * Sorted differently from the kitchen's rail, because the question is
+ * different. A cook asks what to cook next, so the rail is by `placed_at`. A
+ * runner asks which tray to pick up, so trays still WAITING come first — and
+ * within them the one that has been on the pass longest, which is the one going
+ * cold. Trays already being carried stay on screen underneath: a runner who
+ * walks to the pass and finds it empty needs to see who has it.
+ */
 export async function runnerTickets(
   tx: Tx,
   input: { outletId: string },
 ): Promise<KitchenTicket[]> {
-  return kitchenTickets(tx, { outletId: input.outletId, statuses: RUNNER_OPEN_STATUSES });
+  const tickets = await kitchenTickets(tx, {
+    outletId: input.outletId,
+    statuses: RUNNER_OPEN_STATUSES,
+  });
+
+  const waitingFirst = (ticket: KitchenTicket) => (ticket.status === 'READY' ? 0 : 1);
+  const onThePassSince = (ticket: KitchenTicket) =>
+    // `ready_at` is what a runner is racing. Falling back to `placed_at` keeps
+    // the order stable for a seeded or repaired row that never stamped one.
+    (ticket.readyAt ?? ticket.placedAt ?? new Date(0)).getTime();
+
+  return tickets.sort((a, b) =>
+    waitingFirst(a) - waitingFirst(b) || onThePassSince(a) - onThePassSince(b));
 }
 
 /** Open ticket count per outlet, for the unacknowledged badge. */
