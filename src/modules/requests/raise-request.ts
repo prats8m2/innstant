@@ -4,6 +4,7 @@ import { serviceRequests, serviceRequestItems } from '@/db/schema/requests';
 import { idempotencyKeys } from '@/db/schema/core';
 import { postFolioLine } from '@/modules/billing';
 import { findRoomAtProperty } from '@/modules/identity';
+import { guestProfileForStay } from '@/modules/stay';
 import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -133,6 +134,32 @@ export async function raiseServiceRequest(
     throw new ForbiddenError(
       `${formatMoney(money(totalMinor, currency))} goes on your room, so we need to check who you are first.`,
     );
+  }
+
+  /**
+   * The desk's hold on charging, on this path too.
+   *
+   * `guest_property_profiles.charging_blocked` is what a front desk sets when a
+   * card has been declined or a guest is disputing everything, and
+   * `placeOrder()` has refused on it since P1. This path did not — so a guest
+   * who could not order a ₹250 chai could still put ₹450 of laundry on the same
+   * room, which is the desk's decision being overruled by whichever screen the
+   * guest happened to open.
+   *
+   * Conditional on the total for the same reason the tier check above is: a hold
+   * on CHARGING must not stop somebody asking for a towel (#9). Blocking free
+   * requests would turn a billing dispute into a guest who cannot call for help.
+   */
+  if (totalMinor > 0) {
+    const profile = await guestProfileForStay(tx, {
+      propertyId: input.propertyId,
+      stayId: input.stayId,
+    });
+    if (profile.chargingBlocked) {
+      throw new ForbiddenError(
+        'Charges to this room are on hold. The front desk can arrange this for you.',
+      );
+    }
   }
 
   const note = input.guestNote?.trim() || null;

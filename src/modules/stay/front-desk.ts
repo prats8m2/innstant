@@ -24,6 +24,7 @@ import type { CurrencyCode } from '@/lib/money';
 export interface RoomOccupancy extends RoomListing {
   stay: {
     id: string;
+    guestId: string;
     guestName: string;
     guestPhone: string | null;
     checkedInAt: Date | null;
@@ -52,6 +53,7 @@ export async function listRoomsWithOccupancy(
   const active = await tx.select({
     id: stays.id,
     roomId: stays.roomId,
+    guestId: stays.guestId,
     guestName: guests.fullName,
     guestPhone: guests.phone,
     checkedInAt: stays.checkedInAt,
@@ -74,6 +76,7 @@ export async function listRoomsWithOccupancy(
       ...room,
       stay: {
         id: stay.id,
+        guestId: stay.guestId,
         guestName: stay.guestName,
         guestPhone: stay.guestPhone,
         checkedInAt: stay.checkedInAt,

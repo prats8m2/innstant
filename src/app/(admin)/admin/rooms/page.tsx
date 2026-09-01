@@ -49,6 +49,7 @@ export default async function RoomsAdmin() {
     stay: room.stay
       ? {
         id: room.stay.id,
+        guestId: room.stay.guestId,
         guestName: room.stay.guestName,
         guestPhone: room.stay.guestPhone,
         dueOut: formatCheckoutDay(room.stay.scheduledCheckoutAt, timeZone),

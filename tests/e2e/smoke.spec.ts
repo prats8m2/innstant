@@ -682,6 +682,18 @@ test.describe('the kitchen settings', () => {
     const phone = await browser.newContext();
     const guest = await phone.newPage();
     await guest.goto(`/r/${seed!.qrCodes[ROOM]}`);
+
+    /**
+     * Empty the cart first, and not for tidiness.
+     *
+     * The menu's bottom pill is EITHER the kitchen line or "Review order" — one
+     * slot, and the cart wins. Room 214's cart is shared with the dish-screen
+     * test, so whether this assertion could see the line at all depended on
+     * which of the two ran first. It passed for months and failed the day a new
+     * suite changed the interleaving.
+     */
+    await emptyCart(guest, seed!.qrCodes[ROOM]!);
+
     await guest.goto(`/r/${seed!.qrCodes[ROOM]}/menu`);
     await expect(guest.getByText(/Kitchen open until 10:45pm|The kitchen opens at 7am/))
       .toBeVisible({ timeout: 25_000 });
@@ -2128,6 +2140,147 @@ test.describe('the front desk', () => {
     // KITCHEN holds no stay permission at all.
     await page.goto('/admin/login');
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/rooms');
+    await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
+  });
+});
+
+/**
+ * Guest 360.
+ *
+ * The room board answers the desk's minute-to-minute question. This is the other
+ * one: somebody rings down about a charge, or a card is declined and the desk has
+ * to stop the room spending anything more.
+ *
+ * The charging hold is the part worth an end-to-end test, because it is the one
+ * control on the screen that refuses money — and because until this session it
+ * refused orders and not chargeable requests, which is the desk's decision being
+ * overruled by whichever screen the guest opened.
+ */
+test.describe('a guest and what we know', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'a charging hold is one-copy state on a shared guest — one project owns it',
+  );
+
+  // 301, which no other suite verifies against or charges to.
+  const ROOM = '301';
+
+  async function openGuest(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/rooms');
+    await page.locator(`li[data-room="${ROOM}"]`).getByRole('link').click();
+    await expect(page).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+  }
+
+  test('shows who they are, their stays, and what is on the room', async ({ page }) => {
+    await openGuest(page);
+
+    await expect(page.getByRole('heading', { name: 'Rhea Kapoor' })).toBeVisible();
+    await expect(page.getByText('+919820033333')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Stays' })).toBeVisible();
+    await expect(page.locator('li').filter({ hasText: `Room ${ROOM}` }).first())
+      .toContainText('here now');
+  });
+
+  /**
+   * The hold refuses money and nothing else. A guest in a billing dispute must
+   * still be able to ask for a towel (#9) — turning a card problem into somebody
+   * who cannot call for help is the wrong failure.
+   */
+  test('a charging hold stops the money and not the towels', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await openGuest(deskPage);
+
+    await deskPage.getByRole('checkbox', { name: /Hold charges to the room/ }).check();
+    await deskPage.locator('textarea[name="staffNotes"]')
+      .fill('Card declined on arrival — took a deposit.');
+    await deskPage.getByRole('button', { name: 'Save' }).click();
+
+    // Said once, at the top, because it changes what every screen this guest
+    // touches will do.
+    await expect(deskPage.getByText(/Charges to this room are on hold/))
+      .toBeVisible({ timeout: 25_000 });
+
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes[ROOM]!;
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/amenities`);
+
+    // Free: still works, no prompt, nothing in the way.
+    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    await towels.getByRole('button', { name: /One more Extra towels/ }).click();
+    await guest.getByRole('button', { name: /Send 1 to room/ }).click();
+    await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(guest.getByText(/Nothing to pay/)).toBeVisible();
+    await guest.getByRole('button', { name: /never mind/i }).click();
+
+    // Chargeable: refused, and told why. This is the half that did not work
+    // until the hold was honoured on the requests path too.
+    await guest.goto(`/r/${code}/amenities`);
+    const laundry = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
+    await guest.getByRole('button', { name: /Send 1 to room/ }).click();
+    await expect(guest.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
+    await guest.locator('input[name="answer"]').fill(seed!.guests[ROOM]!.phoneLast4);
+    await guest.getByRole('button', { name: 'Confirm and send' }).click();
+    await expect(guest.getByText(/on hold/i)).toBeVisible({ timeout: 25_000 });
+
+    // Lift it, and the same request goes through.
+    await deskPage.reload();
+    await deskPage.getByRole('checkbox', { name: /Hold charges to the room/ }).uncheck();
+    await deskPage.getByRole('button', { name: 'Save' }).click();
+    await expect(deskPage.getByText(/Charges to this room are on hold/))
+      .toHaveCount(0, { timeout: 25_000 });
+
+    await guest.goto(`/r/${code}/amenities`);
+    const again = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    await again.getByRole('button', { name: /One more Laundry service/ }).click();
+    await guest.getByRole('button', { name: /Send 1 to room/ }).click();
+    await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await expect(guest.getByText(/₹450 is on room/)).toBeVisible();
+    await guest.getByRole('button', { name: /never mind/i }).click();
+    await expect(guest.getByText('Cancelled')).toBeVisible({ timeout: 20_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  /**
+   * The allergies are not a note — they print on every kitchen ticket the guest
+   * sends, which is why they are editable from a screen and not only a seeder.
+   */
+  test('an allergy set here reaches the kitchen', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await openGuest(deskPage);
+
+    await deskPage.getByRole('checkbox', { name: 'nut allergy' }).check();
+    await deskPage.getByRole('button', { name: 'Save' }).click();
+    await expect(deskPage.getByRole('checkbox', { name: 'nut allergy' }))
+      .toBeChecked({ timeout: 25_000 });
+
+    await desk.close();
+  });
+
+  test('lets a role that cannot edit read it anyway', async ({ page }) => {
+    // HOUSEKEEPING holds no guest:update.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });

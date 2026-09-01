@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { folios, folioLines } from '@/db/schema/billing';
 import { NotFoundError } from '@/lib/errors';
@@ -216,6 +216,44 @@ export async function folioBalancesForStays(
     currency: row.currency,
     status: row.status,
   }]));
+}
+
+/**
+ * What this guest has spent at this property, across every stay.
+ *
+ * Computed from the folios rather than read from
+ * `guest_property_profiles.lifetime_value_minor`, which exists, is written by
+ * nobody, and is read by nobody. A denormalised total that nothing maintains is
+ * worse than no total; a denormalised total that something maintains is a second
+ * source that can drift from the folios, which is the reason
+ * `folio_lines_recompute` computes the folio's own totals in the database rather
+ * than trusting a caller.
+ *
+ * At a 34-key hotel this is one indexed sum. If it ever stops being cheap, the
+ * fix is a materialised total maintained by a trigger the way the folio's is —
+ * not the unmaintained column (D-036).
+ */
+export async function lifetimeSpendForGuest(
+  tx: Tx,
+  input: { propertyId: string; guestId: string },
+): Promise<{ chargesMinor: number; currency: string; stays: number }> {
+  const rows = await tx.execute<{ charges: number; currency: string | null; stays: number }>(sql`
+    SELECT
+      COALESCE(SUM(f.charges_minor), 0)::int AS charges,
+      MIN(f.currency) AS currency,
+      COUNT(*)::int AS stays
+    FROM folios f
+    JOIN stays s ON s.id = f.stay_id
+    WHERE s.property_id = ${input.propertyId}
+      AND s.guest_id = ${input.guestId}
+  `);
+
+  const row = rows.rows[0];
+  return {
+    chargesMinor: Number(row?.charges ?? 0),
+    currency: row?.currency ?? 'INR',
+    stays: Number(row?.stays ?? 0),
+  };
 }
 
 /** The folio as a guest sees it. Oldest first — it reads as a bill. */

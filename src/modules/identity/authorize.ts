@@ -59,7 +59,12 @@ export function authorize(
   }
 
   if (!granted.has(permission)) {
-    throw new ForbiddenError(`missing ${permission}`, {
+    /**
+     * The one deliberately vague refusal. Which permission is missing is a fact
+     * about our authorization model, and a staff member cannot act on it — it
+     * goes in `context`, which is logged and never sent.
+     */
+    throw new ForbiddenError('You do not have permission to do that.', {
       staffUserId: session.staffUserId,
       propertyId,
       permission,

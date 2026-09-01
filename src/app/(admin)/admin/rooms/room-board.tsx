@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import Link from 'next/link';
 import { checkInGuest, checkOutGuest, vouchForRoom, type DeskState } from './actions';
 import styles from '../admin.module.css';
 
@@ -19,6 +20,7 @@ export interface RoomView {
   roomTypeName: string | null;
   stay: {
     id: string;
+    guestId: string;
     guestName: string;
     guestPhone: string | null;
     dueOut: string;
@@ -94,7 +96,16 @@ function Room({
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {room.number}
-          {room.stay ? ` · ${room.stay.guestName}` : null}
+          {room.stay ? (
+            <>
+              {' · '}
+              {/* Straight to what the desk needs when a guest rings down about a
+                  charge, or when something has gone wrong. */}
+              <Link href={`/admin/guests/${room.stay.guestId}`} className={styles.dishLink}>
+                {room.stay.guestName}
+              </Link>
+            </>
+          ) : null}
         </span>
         <span className={styles.dishFlags}>
           {room.roomTypeName ?? 'Room'}

@@ -27,10 +27,28 @@ export class UnauthenticatedError extends AppError {
  * The caller is known and lacks the permission — at a property they can
  * legitimately see. Distinct from NotFoundError on purpose; see the note on
  * `httpStatusFor`.
+ *
+ * ─── The message is the caller's, like every other error here ──────────────
+ *
+ * This used to hold a fixed `publicMessage` of "You do not have permission to do
+ * that." — so five throw sites that had each written a specific, actionable
+ * sentence had all of them silently replaced by that one. A guest whose card had
+ * been declined read "You do not have permission to do that" instead of "Charges
+ * to this room are on hold. The front desk can take the order", and had done
+ * since P1.
+ *
+ * It now behaves like `ValidationError` and `ConflictError`: what the thrower
+ * writes is what the person reads. A refusal that genuinely should not explain
+ * itself says the vague sentence deliberately and puts the detail in `context`,
+ * which is logged and never sent — `authorize()` is the one that does.
  */
 export class ForbiddenError extends AppError {
   readonly code = 'FORBIDDEN';
-  readonly publicMessage = 'You do not have permission to do that.';
+  readonly publicMessage: string;
+  constructor(publicMessage: string, context: Record<string, unknown> = {}) {
+    super(publicMessage, context);
+    this.publicMessage = publicMessage;
+  }
 }
 
 /**

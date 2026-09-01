@@ -838,3 +838,56 @@
   margin-top: var(--space-3);
   padding-bottom: var(--space-2);
 }
+
+/* ── The guest's page ───────────────────────────────────────────────────── */
+
+/*
+ * A charging hold, said once at the top. It changes what the product does for
+ * every screen this guest touches, so it is not a checkbox somebody has to
+ * scroll to find.
+ */
+.holdBanner {
+  margin: 0 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--saffron) 10%, transparent);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.readOnlyProfile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-4) 0 0;
+}
+
+.readOnlyValue {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.folioTotalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+}
+
+.folioTotalLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.folioTotalAmount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xl);
+  color: var(--accent);
+}

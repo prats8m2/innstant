@@ -13,6 +13,14 @@ export {
 } from './create-stay';
 export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';
 
+/** A guest, and what this property knows about them. */
+export {
+  getGuestDossier, updateGuestProfile, guestIdForStay, recentGuests, DIETARY_FLAGS,
+} from './guest-profile';
+export type {
+  GuestDossier, GuestStaySummary, UpdateGuestProfileInput, DietaryFlag,
+} from './guest-profile';
+
 /** The front desk. Check-IN is `createStay()` above — the only door (#4). */
 export { listRoomsWithOccupancy, checkOutStay } from './front-desk';
 export type { RoomOccupancy, CheckOutResult } from './front-desk';
