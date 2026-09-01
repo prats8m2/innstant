@@ -21,8 +21,9 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0 is done. P1 · in-room dining is in progress.** Four of the six guest
-ordering steps are built and green.
+**P0 is done. P1 · in-room dining is feature-complete on the guest side.** A
+guest can scan, browse, order with modifiers, answer the one prompt, and watch
+the order move on a live timeline; a kitchen can work the ticket.
 
 Done so far in P1:
 
@@ -32,37 +33,32 @@ Done so far in P1:
 - **The cart** — `ordering`'s first tables. One per `(stay, outlet)`, live
   prices rather than snapshots, `calculateTotals()` pure and separately tested.
 - **The dish screen** — `/r/[qrCode]/menu/[itemId]`. Modifiers, quantity, note,
-  and an "Add to order" button whose total moves as you choose. It writes a real
-  cart row; verified end to end against the built standalone server.
-- **The cart** — the pill on the menu and `/r/[qrCode]/cart`, a real route drawn
-  as the reference's bottom sheet. Edit quantities, remove a line, see the
-  totals. Works with JavaScript off.
-- **`createStay()`** — CLAUDE.md #4 is now enforced rather than asserted. The
-  seeder and both integration suites go through it.
+  and an "Add to order" button whose total moves as you choose.
+- **The cart screen** — the pill on the menu and `/r/[qrCode]/cart`, drawn as
+  the reference's bottom sheet. Works with JavaScript off.
+- **`createStay()`** — CLAUDE.md #4 is enforced rather than asserted. The seeder
+  and both integration suites go through it.
 - **Placement** — `placeOrder()`. Snapshotted (#6), idempotent under a real
   double-tap (#8), `event_log` in the same transaction (#7), folio line posted.
-  `billing` gets its first service.
-- **The confirmation** — `/r/[qrCode]/order/[orderId]`, read entirely from the
-  order's snapshots.
-- **The one verification prompt (D-012)** — wired to the charge. Pressing Send
-  on a REQUEST-tier session asks for the last four digits of the booking phone
-  and then completes the order in the same request. `placeOrder()` refuses
-  below CHARGE regardless of what the screen did.
+- **The one verification prompt (D-012)** — wired to the charge, and completing
+  the order in the same request. `placeOrder()` refuses below CHARGE.
 - **The order state machine** — `advanceOrder()`, compare-and-set, every hop in
   `event_log`, `pg_notify` inside the same transaction.
 - **LISTEN/NOTIFY → SSE** — its own connection, capped-backoff reconnect,
   in-process fan-out. `/api/kds/stream`.
 - **The kitchen display** — `/kds`. Live rail, accept / reject with a reason /
   bump, oldest first.
-- **Staff sign-in** — `/admin/login`. The middleware has redirected there since
-  S5 and it 404'd until now.
+- **Staff sign-in** — `/admin/login`.
+- **Order tracking** — `/r/[qrCode]/order/[orderId]`, the reference's `track`
+  screen. `trackView()` maps the machine's eleven statuses onto the five steps
+  a waiting guest wants; `/api/guest/order-stream` is the guest's own SSE route,
+  filtered on `stay_id` and one order id (D-026). A rejection replaces the
+  timeline with one sentence and the kitchen's own words.
 
-**P1's exit criterion is met, on two real devices.** A guest on a phone scans,
-browses, orders with modifiers, answers the one prompt, and the ticket appears
-on a kitchen screen **in 379ms with no reload** — the criterion asks for two
-seconds. It can then be accepted, cooked and bumped, and a second kitchen screen
-sees it leave the rail in 794ms. The charge is on the folio, and the event log
-reads `guest_session.escalated` REQUEST→CHARGE, `order.placed`, `order.accepted`,
+**P1's exit criterion is met, on two real devices.** Ticket on a kitchen screen
+**379ms** after Send, with no reload; the guest's timeline moves on the same
+notifications the kitchen acts on. The charge is on the folio and the event log
+reads `guest_session.escalated`, `order.placed`, `order.accepted`,
 `order.preparing`, `order.ready`.
 
 What that criterion still wants before it is honestly signed off: **hotel-grade
@@ -70,14 +66,22 @@ wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **KDS + SSE** — `LISTEN/NOTIFY` fan-out, the ticket rail, and the order state
-   machine beyond PLACED. Nothing moves an order out of PLACED today, which is
-   the last gap between this and the P1 exit criterion.
-2. **Order tracking** — the `track` screen in the reference, once SSE exists.
-3. **Catalog admin** — outlet, category and item CRUD, image upload to R2. The
+1. **A rejection must reverse its own folio line.** `placeOrder()` posts the
+   line at placement so "Charged to room 214" is true immediately; nothing
+   reverses it when the kitchen says no. The tracking screen therefore cannot
+   tell a guest "nothing has been charged" — it says to call the desk instead,
+   and `trackView`'s test pins that copy to the truth. Fixing it means a void on
+   the money path (idempotent, #8) and a new side effect on an existing state
+   machine, which CLAUDE.md says to ask about first. **Ask, then do this first
+   — it is the only known lie the product is currently one tap from telling.**
+2. **Catalog admin** — outlet, category and item CRUD, image upload to R2. The
    read side is done; nothing can edit a menu except the seeder.
+3. **The rest of the kitchen and floor** — audible alert and an unacknowledged
+   count, prep timers with colour ageing, marking an item unavailable from the
+   KDS, and the runner pickup queue (`/runner` is a stub; `runnerTickets()` and
+   `assignedRunnerId` are written and nothing reads them).
 
-**A tenancy question is now open and deliberately unanswered.** The staff login
+**A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
 tenancy model, so it reads `STAFF_TENANT_ID` and refuses to guess. The two real
 answers — a subdomain, or an email → tenant lookup through a SECURITY DEFINER
@@ -90,11 +94,11 @@ prompt at all — needs the admin panel) and `OTP_SMS` as a second escalation
 method (`access_policies.allow_otp_sms` is read, and no SMS provider is
 configured).
 
-**One gap worth naming:** `modules/stay/createStay()` does not exist. CLAUDE.md
-#4 says every stay is created there and nothing else inserts into `stays` — and
-right now the seeder and both integration suites insert directly. That has to
-land before the folio work in step 2, which is the first thing that really cares
-which stay a charge belongs to.
+**The tracking screen names no staff.** The reference writes "Bhairav has
+started cooking" and "Kishan is crossing the third courtyard", which is the
+right voice — but a name has to come from a row. When the runner queue lands and
+`assignedRunnerId` is read, put the names back: the copy hooks are in `SUB` in
+`src/modules/ordering/track.ts`.
 
 **Still not deployed.** P0 shipped the Dockerfile, `railway.json` and the CI
 workflow, all verified locally, but this repo has no git remote and there is no
@@ -105,6 +109,7 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `6033348` | The guest's tracking screen: the five-step timeline, the arriving-between promise, and `/api/guest/order-stream`. Found that a rejected order leaves its folio line standing, which is now the top of Now. |
 | P1 | `c7585ad` | The kitchen display, live: 379ms from a guest's phone to the ticket. Staff sign-in. Found that placeOrder never notified — every hop was live except the order arriving. |
 | P1 | `13ab3e8` | LISTEN/NOTIFY fan-out on its own connection, and `/api/kds/stream`. `subscribeToChannel` returns a `ready` promise so a screen cannot miss what happened while it was connecting. |
 | P1 | `331e7c6` | The order state machine: `advanceOrder()` with compare-and-set, every hop in event_log, `pg_notify` in the same transaction. |
@@ -341,6 +346,32 @@ Things that cost time to rediscover.
   `/r/demo-code` and expected the code in the body, which is now a bare 404.
   Nothing caught it because nothing ran it. It now reads `.demo-seed.json`,
   written by `pnpm demo:reset`.
+- **Run the e2e suite against a LOCAL Postgres too, not just the integration
+  one.** Against Railway Singapore the guest tests time out: Playwright's
+  default per-test timeout is 30s and one placement test makes a dozen page
+  loads at ~3.6s each. Against the docker container it is 26 tests in ~40s and
+  the same suite passes. Same env as the integration recipe above, plus
+  `STAFF_TENANT_ID`:
+  ```
+  export DATABASE_URL=postgres://app_user:app_user@localhost:55432/guest_services
+  export DATABASE_MIGRATION_URL=postgres://postgres:postgres@localhost:55432/guest_services
+  export STAFF_TENANT_ID=deadbeef-0000-4000-8000-000000000001
+  pnpm demo:reset && PORT=3200 NEXT_DIST_DIR=.next-e2e pnpm test:e2e
+  ```
+- **`db:bootstrap` does not reset an existing role's password.** It prints
+  "role app_user already exists" and moves on, so a container whose `app_user`
+  was created with a different password fails everything after it with a bare
+  `28P01`. Fix it as the owner — and note `ALTER ROLE … PASSWORD` cannot take a
+  bind parameter, same trap as the `DO $$ … $$` note above:
+  `ALTER ROLE " + c.escapeIdentifier(role) + " PASSWORD " + c.escapeLiteral(pw)`.
+- **`STAFF_TENANT_ID` now lives in `.env`** (gitignored, demo tenant). It used
+  to have to be exported by hand, and without it every staff surface answers
+  "This deployment has no staff tenant configured" — which reads like a bug in
+  the login rather than a missing variable. CI sets it in the workflow.
+- **A guest page's SSE stream is authorized per route, not by the middleware.**
+  `/api/guest/order-stream` resolves the guest cookie itself and returns 401
+  rather than a redirect: `EventSource` cannot follow a redirect usefully, and a
+  302 to the scan route made the client retry in a loop.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
