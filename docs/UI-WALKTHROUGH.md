@@ -207,8 +207,28 @@ From the room home, two rows go somewhere now.
 **Call for service** — `/r/<code>/service`. One tap, an optional note, and it
 lands on the same screen. Free, so nothing is asked.
 
-Nothing sees these requests on the staff side yet — the board is the next task.
-To confirm one was raised:
+**The floor board** — `/housekeeping` as `housekeeping@thekesari.example`.
+
+Open it on a narrow window BEFORE asking for anything, and leave it open.
+
+- A request a guest raises appears **without a reload**, with the room, the floor,
+  what to bring, the guest's note, and the clock. A new one also makes a sound;
+  a breach makes a lower, doubled one.
+- **I am going** takes it and marks it *Yours*. **Done** moves it to the quieter
+  *Done, not checked* section, where a supervisor's **Checked** finishes it — and
+  the countdown stops, because the clock stops with the work.
+- **Put it back** hands an assigned request back to the board and clears the
+  name, so nobody assumes it is covered.
+- **Cannot do it** needs a reason, and the guest reads it.
+- The guest's own screen follows all of this live.
+
+Sign in as `kitchen@thekesari.example` and open `/housekeeping`: it says this
+account cannot see service requests. That role holds no request permission.
+
+Nothing routes a request to a particular person yet — it sits on the board until
+someone takes it. That is the next task (shifts, then auto-routing).
+
+To see the rows behind it:
 
 ```
 node -e '

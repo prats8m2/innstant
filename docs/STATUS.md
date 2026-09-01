@@ -48,26 +48,35 @@ service requests has begun,** with its foundation and its whole guest surface.
   request lands with a cancel while it is live.
 - **The room home's rows** are real links where the screen exists and say "soon"
   where it does not.
+- **The floor board** — `/housekeeping`. A phone in an apron pocket, ordered by
+  SLA target, with the countdown as the loudest thing on the card and a quieter
+  "done, not checked" section so `request:verify` is reachable. Take it, put it
+  back, done, checked, or cannot-do-it with a reason.
+- **Two more streams** — `/api/requests/stream` for the board and
+  `/api/guest/request-stream` for the guest's own request. The guest's screen
+  says "on the way" without a reload.
 
 Every `request_types` flag the seeder has written since S6 is now read by
 something — nine more of the sweep's write-only columns retired.
 
 **Next, in P2 order:**
 
-1. **The staff board.** Nothing sees these requests yet: `getOpenRequests()` is
-   written and tested and has no screen. A housekeeping board with SLA
-   countdowns, and a claim-and-complete flow. This is the shortest path to the
-   phase feeling real.
-2. **Shifts, then auto-routing.** `shifts` and `shift_zones` are written by
-   nothing. Routing is role ∩ on-shift ∩ covers-floor ranked by open count
-   (DATA-MODEL §7), so shifts have to exist first — and the exit criterion is
+1. **Shifts, then auto-routing.** `shifts` and `shift_zones` are written by
+   nothing, and routing is role ∩ on-shift ∩ covers-floor ranked by open count
+   (DATA-MODEL §7) — so shifts have to exist first. The phase's exit criterion is
    "reaches the correct on-duty staff member's phone WITHOUT anyone assigning
-   it", which is this.
-3. **The SLA worker.** A sweep that escalates a breach and notifies the duty
-   manager. `escalated_at` / `escalation_level` are written by nothing; the
-   in-process scheduler is fine (CLAUDE.md — this is a persistent Node process).
-4. **Live "on the way" on the guest screen** — the request channel already
-   publishes; the screen needs the same treatment the order timeline got.
+   it", and today the board is a pull: a request sits OPEN until someone picks it
+   up. That is honest and useful, and it is not the criterion.
+2. **The SLA worker.** A sweep that escalates a breach and notifies the duty
+   manager. `escalated_at` / `escalation_level` are written by nothing and the
+   board already reads them; the in-process scheduler is fine (CLAUDE.md — this
+   is a persistent Node process, and D-022 removed the pooler that would have
+   made it awkward).
+3. **Request-type admin** — SLA, price, routing role and quantity rules are all
+   editable columns with no screen. The menu editor is the pattern to copy, and
+   `request_type:manage` already exists as a permission.
+4. **Photo attachment** — `service_requests.photo_url` is read by the board and
+   written by nothing. Blocked with the rest of images on R2.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
 before starting P2, because wifi dead zones and how staff hold a tablet will
@@ -78,6 +87,7 @@ Worth remembering when the routing rules meet a real corridor.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P2 | `2e18c03` | The floor board, and the request streams both ways. Found `useLiveRefresh` hardcoding the event name, and a seeded request with no lines. |
 | P2 | `e9e7e51` | The request state machine, `raiseServiceRequest()`, `/amenities` and the one tap. Nine more write-only columns retired. |
 | P1 | `04fe4f1` | Dish schedules, and the kitchen's board: a waiting count, an audible alert, timers ageing against the promise, and 86 from the line. Two more literals on the menu screen went with them. |
 | P1 | `4e2d6c9` | The sweep: five stored-and-ignored settings now read, and a rate limiter that was rolling back its own lockout. |
