@@ -48,6 +48,12 @@ export function MenuEditor({
           </p>
         </div>
 
+        {permissions.manage ? (
+          <Link href="/admin/menu/collections" className={styles.secondary}>
+            Collections
+          </Link>
+        ) : null}
+
         {permissions.availability ? (
           <OutletSwitch
             propertyId={propertyId}

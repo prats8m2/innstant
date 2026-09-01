@@ -33,3 +33,13 @@ export type {
   AdminModifierGroup, MenuDietaryFlag, MenuItemWriteInput, CategoryInput,
   AdminOutletSettings, OutletSettingsInput,
 } from './admin';
+
+/** Editorial collections — what decides how the menu reads. */
+export {
+  listCollections, createCollection, updateCollection, archiveCollection,
+  setCollectionItems,
+} from './admin-collections';
+export type {
+  AdminCollection, AdminCollectionItem, CollectionWriteInput,
+} from './admin-collections';
+export { isWithinWindow } from './hours';

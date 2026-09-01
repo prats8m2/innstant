@@ -103,11 +103,26 @@ test.describe('a scanned sticker', () => {
     // appears twice, and that duplication is the design, not a bug.
     await expect(page.getByText('₹1,150').first()).toBeVisible();
 
-    // The editorial sections lead, exactly as the reference browses.
+    /**
+     * The editorial sections lead, exactly as the reference browses.
+     *
+     * "After 10pm" is seeded with a 22:00–01:00 window and the guest read
+     * honours it now, so whether it is here depends on the hour in UDAIPUR —
+     * not on the machine running the suite. Computing the expectation beats
+     * asserting a fixed list that is wrong for three hours a night.
+     */
+    const inUdaipur = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false,
+    }).format(new Date());
+    const hour = Number(inUdaipur) % 24;
+    const lateNight = hour >= 22 || hour < 1;
+
     const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
-    expect(headings.slice(0, 3)).toEqual([
-      'From the rooftop', 'After 10pm', 'Chef Bhairav’s table',
-    ]);
+    expect(headings.slice(0, lateNight ? 3 : 2)).toEqual(
+      lateNight
+        ? ['From the rooftop', 'After 10pm', 'Chef Bhairav’s table']
+        : ['From the rooftop', 'Chef Bhairav’s table'],
+    );
     // One section per name — "From the rooftop" is both a category and a
     // collection here, and only the collection may render.
     expect(new Set(headings).size).toBe(headings.length);
@@ -683,5 +698,119 @@ test.describe('the kitchen settings', () => {
     // cannot do this" is something the person reading it can act on.
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('input[name="taxRate"]')).toHaveCount(0);
+  });
+});
+
+/**
+ * Collections — how the menu reads.
+ *
+ * The guest menu's sections ARE collections, so this is the one piece of catalog
+ * admin that changes the shape of what a guest sees rather than a value in it.
+ */
+test.describe('collections', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  /** Per project, because both run against one database. */
+  function ownName(): string {
+    return `Tonight ${test.info().project.name}`;
+  }
+
+  function ownDish(): string {
+    return {
+      'staff-desktop': 'Mohan maas',
+      'guest-mobile': 'Mawa kachori',
+      'guest-ios': 'Masala chai',
+    }[test.info().project.name] ?? 'Mohan maas';
+  }
+
+  test('a new collection becomes a section on the guest menu', async ({ browser }) => {
+    const desk = await browser.newContext({ viewport: { width: 1280, height: 1600 } });
+    const admin = await desk.newPage();
+
+    await admin.goto('/admin/menu/collections');
+    await expect(admin).toHaveURL(/\/admin\/login/);
+    await admin.locator('input[name="email"]').fill('fnb@thekesari.example');
+    await admin.locator('input[name="password"]').fill('kesari-demo-2026');
+    await admin.getByRole('button', { name: 'Sign in' }).click();
+    await admin.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await admin.goto('/admin/menu/collections');
+    await expect(admin.getByRole('heading', { level: 1 })).toHaveText('Collections', {
+      timeout: 25_000,
+    });
+
+    // The seeded collections, with the state the guest read computes.
+    await expect(admin.getByRole('heading', { name: 'From the rooftop' })).toBeVisible();
+    await expect(admin.getByRole('heading', { name: 'After 10pm' })).toBeVisible();
+
+    const name = ownName();
+    const form = admin.locator('details').filter({ hasText: 'Add a collection' });
+    await form.locator('summary').click();
+    await form.locator('input[name="name"]').fill(name);
+    await form.locator('textarea[name="editorialNote"]').fill('What we would order.');
+    await form.locator(`label:has-text("${ownDish()}") input[type="checkbox"]`).first().check();
+    await form.getByRole('button', { name: 'Add the collection' }).click();
+
+    await expect(admin.getByRole('heading', { name })).toBeVisible({ timeout: 25_000 });
+
+    // The guest's menu, which is where a collection actually lives.
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes['214']}`);
+    await guest.goto(`/r/${seed!.qrCodes['214']}/menu`);
+    await expect(guest.getByRole('heading', { name })).toBeVisible({ timeout: 25_000 });
+    // Scoped to this project's own section: the other browser project runs the
+    // same test against the same database and writes the same blurb.
+    await expect(
+      guest.locator('section')
+        .filter({ has: guest.getByRole('heading', { name }) })
+        .getByText('What we would order.'),
+    ).toBeVisible();
+
+    // Switched off, it leaves the menu — and stays on the editor's screen,
+    // because it is the one someone came back to turn on again.
+    const section = admin.locator('section').filter({ has: admin.getByRole('heading', { name }) });
+    // Each collection's form is collapsed — the page would be thousands of
+    // pixels tall otherwise.
+    await section.locator('summary').click();
+    await section.locator('input[name="isActive"]').uncheck();
+    await section.getByRole('button', { name: 'Save the collection' }).click();
+    await expect(section.getByText(/switched off/)).toBeVisible({ timeout: 25_000 });
+
+    await guest.reload();
+    await expect(guest.getByRole('heading', { name })).toHaveCount(0);
+
+    // And archived, its dish is still on the menu: a collection is a view.
+    await section.getByRole('button', { name: 'Archive' }).click();
+    await expect(admin.getByRole('heading', { name })).toHaveCount(0, { timeout: 25_000 });
+
+    await guest.reload();
+    await expect(guest.getByRole('link', { name: new RegExp(ownDish()) }).first())
+      .toBeVisible({ timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('refuses half a window, and says which half', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/menu/collections');
+    const section = page.locator('section').filter({
+      has: page.getByRole('heading', { name: 'From the rooftop' }),
+    });
+    await section.locator('summary').click();
+
+    // "Showing from 22:00, forever" is a mistake, not a configuration.
+    await section.locator('input[name="availableFrom"]').fill('22:00');
+    await section.locator('input[name="availableUntil"]').fill('');
+    await section.getByRole('button', { name: 'Save the collection' }).click();
+
+    await expect(section.getByRole('alert').filter({ hasText: /\S/ }))
+      .toContainText(/both a start and an end/i, { timeout: 20_000 });
   });
 });

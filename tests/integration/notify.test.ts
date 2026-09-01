@@ -11,6 +11,17 @@ import {
 import { ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, type Fixture } from './setup';
 
 /**
+ * Wednesday 21:00 property-local, passed to every menu read.
+ *
+ * The collection windows are applied now (`isWithinWindow`), so a menu read
+ * without a time is a menu read at an unknown hour — and "After 10pm" is
+ * seeded 22:00–01:00. 21:00 keeps it hidden and every other section showing,
+ * whatever the clock on the machine running the suite says.
+ */
+const AT_NINE_PM = { dayOfWeek: 3, minutes: 21 * 60 };
+
+
+/**
  * `pg_notify` → LISTEN → in-process fan-out.
  *
  * The claim being tested is the one that makes this the right primitive: a
@@ -82,7 +93,7 @@ describe('order notifications', () => {
     stayId = await checkInGuest(a);
 
     const ids = await scoped(async (tx) => {
-      const menu = await getInRoomDiningMenu(tx, a.propertyId);
+      const menu = await getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM);
       const item = menu!.sections.flatMap((s) => s.items)
         .find((i) => i.name === 'Laal maas with bajra roti')!;
       const detail = await getDish(tx, { propertyId: a.propertyId, itemId: item.id });

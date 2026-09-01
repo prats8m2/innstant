@@ -13,6 +13,17 @@ import {
 } from './setup';
 
 /**
+ * Wednesday 21:00 property-local, passed to every menu read.
+ *
+ * The collection windows are applied now (`isWithinWindow`), so a menu read
+ * without a time is a menu read at an unknown hour — and "After 10pm" is
+ * seeded 22:00–01:00. 21:00 keeps it hidden and every other section showing,
+ * whatever the clock on the machine running the suite says.
+ */
+const AT_NINE_PM = { dayOfWeek: 3, minutes: 21 * 60 };
+
+
+/**
  * Placing an order — the transaction four non-negotiables meet in.
  *
  * #6 the receipt is snapshotted and survives the catalog changing under it.
@@ -31,7 +42,7 @@ describe('placeOrder', () => {
 
   async function dishId(name: string): Promise<string> {
     return scoped(async (tx) => {
-      const menu = await getInRoomDiningMenu(tx, a.propertyId);
+      const menu = await getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM);
       const item = menu!.sections.flatMap((s) => s.items).find((i) => i.name === name);
       if (!item) throw new Error(`no dish named ${name}`);
       return item.id;

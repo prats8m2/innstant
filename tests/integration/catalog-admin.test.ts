@@ -7,13 +7,25 @@ import {
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours, getOutletHours,
-  outletOpenState,
+  outletOpenState, listCollections, createCollection, updateCollection,
+  archiveCollection, setCollectionItems,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
   ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
 } from './setup';
+
+/**
+ * Wednesday 21:00 property-local, passed to every menu read.
+ *
+ * The collection windows are applied now (`isWithinWindow`), so a menu read
+ * without a time is a menu read at an unknown hour — and "After 10pm" is
+ * seeded 22:00–01:00. 21:00 keeps it hidden and every other section showing,
+ * whatever the clock on the machine running the suite says.
+ */
+const AT_NINE_PM = { dayOfWeek: 3, minutes: 21 * 60 };
+
 
 /**
  * Editing the menu, against a real database.
@@ -86,7 +98,7 @@ describe('catalog admin', () => {
 
     // The guest's own read, not the editor's — the two must agree or the screen
     // an F&B manager checks is not the screen a guest sees.
-    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId));
+    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM));
     const dishes = menu!.sections.flatMap((s) => s.items);
     const added = dishes.find((d) => d.name === 'Pyaaz kachori');
 
@@ -108,7 +120,7 @@ describe('catalog admin', () => {
     expect(inEditor, 'an 86d dish is the one the manager came to turn back on').toBeTruthy();
     expect(inEditor!.isAvailable).toBe(false);
 
-    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId));
+    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM));
     const forGuest = menu!.sections.flatMap((s) => s.items).find((d) => d.id === itemId);
     // The guest still sees it — marked unavailable, not vanished — which is the
     // existing read side's decision, not this module's. Asserted so a change
@@ -168,7 +180,7 @@ describe('catalog admin', () => {
     expect(row.rows[0].is_available).toBe(false);
 
     // And it is gone from both reads.
-    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId));
+    const menu = await scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, AT_NINE_PM));
     expect(menu!.sections.flatMap((s) => s.items).find((d) => d.id === itemId)).toBeUndefined();
     expect(await scoped((tx) => getAdminMenuItem(tx, { outletId: a.outletId, itemId })))
       .toBeNull();
@@ -340,6 +352,186 @@ describe('catalog admin', () => {
     await scoped((tx) => setOutletAcceptingOrders(tx, { ...base(), isAcceptingOrders: true }));
     expect((await scoped((tx) => getAdminMenu(tx, { outletId: a.outletId })))!
       .outlet.isAcceptingOrders).toBe(true);
+  });
+
+  describe('editorial collections', () => {
+    const collections = () => scoped((tx) => listCollections(tx, { outletId: a.outletId }));
+    const menuAt = (hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number) as [number, number];
+      return scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, {
+        dayOfWeek: 3, minutes: h * 60 + m,
+      }));
+    };
+
+    async function aCollectionWith(
+      name: string,
+      itemIds: string[],
+      extra: { availableFrom?: string; availableUntil?: string; isActive?: boolean } = {},
+    ): Promise<string> {
+      const { id } = await scoped((tx) => createCollection(tx, { ...base(), name, ...extra }));
+      await scoped((tx) => setCollectionItems(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, collectionId: id, menuItemIds: itemIds,
+      }));
+      return id;
+    }
+
+    it('becomes a section on the guest menu, ahead of the categories', async () => {
+      const categoryId = await aCategory('Dinner');
+      const dish = await aDish(categoryId, 'Laal maas');
+      await aCollectionWith('Chef’s table', [dish]);
+
+      const menu = await menuAt('21:00');
+      const kinds = menu!.sections.map((s) => s.kind);
+      expect(kinds.indexOf('COLLECTION')).toBe(0);
+
+      const section = menu!.sections.find((s) => s.title === 'Chef’s table')!;
+      expect(section.items.map((i) => i.name)).toEqual(['Laal maas']);
+    });
+
+    it('keeps the curated order, not the alphabet', async () => {
+      const categoryId = await aCategory('Dinner');
+      const first = await aDish(categoryId, 'Zeera aloo');
+      const second = await aDish(categoryId, 'Aam ras');
+      await aCollectionWith('Running order', [first, second]);
+
+      // "What Bhairav cooks when the family visits" is a sequence. Sorting it
+      // alphabetically would silently rewrite the GM's editorial decision.
+      const menu = await menuAt('21:00');
+      expect(menu!.sections.find((s) => s.title === 'Running order')!.items.map((i) => i.name))
+        .toEqual(['Zeera aloo', 'Aam ras']);
+    });
+
+    it('honours its window, on the property clock', async () => {
+      const categoryId = await aCategory('Late');
+      const dish = await aDish(categoryId, 'Midnight thali');
+      await aCollectionWith('After 10pm', [dish], {
+        availableFrom: '22:00', availableUntil: '01:00',
+      });
+
+      const titlesAt = async (hhmm: string) =>
+        (await menuAt(hhmm))!.sections.map((s) => s.title);
+
+      expect(await titlesAt('09:00')).not.toContain('After 10pm');
+      expect(await titlesAt('22:30')).toContain('After 10pm');
+      expect(await titlesAt('00:30')).toContain('After 10pm');
+      expect(await titlesAt('01:30')).not.toContain('After 10pm');
+    });
+
+    it('is invisible when switched off, and still editable', async () => {
+      const categoryId = await aCategory('Dinner');
+      const dish = await aDish(categoryId, 'Laal maas');
+      const id = await aCollectionWith('Quietly off', [dish], { isActive: false });
+
+      expect((await menuAt('21:00'))!.sections.map((s) => s.title))
+        .not.toContain('Quietly off');
+      // The editor still sees it — it is the one someone came to switch back on.
+      expect((await collections()).find((c) => c.id === id)).toBeTruthy();
+    });
+
+    it('is skipped rather than drawn empty when nothing is in it', async () => {
+      await aCollectionWith('Nothing yet', []);
+
+      // An empty heading with a blurb under it reads as a loading failure.
+      expect((await menuAt('21:00'))!.sections.map((s) => s.title))
+        .not.toContain('Nothing yet');
+      expect((await collections()).map((c) => c.name)).toContain('Nothing yet');
+    });
+
+    it('lets one dish sit in two collections, as the design does', async () => {
+      const categoryId = await aCategory('Dinner');
+      const dish = await aDish(categoryId, 'Laal maas');
+      await aCollectionWith('From the rooftop', [dish]);
+      await aCollectionWith('Chef’s table', [dish]);
+
+      const menu = await menuAt('21:00');
+      const withLaal = menu!.sections.filter((s) =>
+        s.items.some((i) => i.name === 'Laal maas'));
+      expect(withLaal.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('replaces the membership rather than adding to it', async () => {
+      const categoryId = await aCategory('Dinner');
+      const one = await aDish(categoryId, 'One');
+      const two = await aDish(categoryId, 'Two');
+      const id = await aCollectionWith('Swap', [one, two]);
+
+      await scoped((tx) => setCollectionItems(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, collectionId: id, menuItemIds: [two],
+      }));
+
+      const found = (await collections()).find((c) => c.id === id)!;
+      expect(found.items.map((i) => i.name)).toEqual(['Two']);
+    });
+
+    it('drops an archived dish out of the collection it was in', async () => {
+      const categoryId = await aCategory('Dinner');
+      const dish = await aDish(categoryId, 'Going away');
+      const id = await aCollectionWith('Holds it', [dish]);
+
+      await scoped((tx) => archiveMenuItem(tx, { ...base(), itemId: dish }));
+
+      // The membership row survives (D-008 deletes nothing), so the reads have
+      // to exclude it — otherwise the editor lists a dish that is gone and the
+      // guest gets an empty section with a heading.
+      expect((await collections()).find((c) => c.id === id)!.items).toEqual([]);
+      expect((await menuAt('21:00'))!.sections.map((s) => s.title)).not.toContain('Holds it');
+    });
+
+    it('refuses a dish that is not on this menu', async () => {
+      const id = await aCollectionWith('Strict', []);
+      await expect(scoped((tx) => setCollectionItems(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, collectionId: id,
+        menuItemIds: ['55555555-5555-4555-8555-555555555555'],
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('refuses half a window', async () => {
+      // "Showing from 22:00, forever" reads as a mistake, and every collection
+      // that has a window has both ends.
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Half', availableFrom: '22:00',
+      }))).rejects.toBeInstanceOf(ValidationError);
+
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Zero-length', availableFrom: '22:00', availableUntil: '22:00',
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('archives without taking its dishes off the menu', async () => {
+      const categoryId = await aCategory('Dinner');
+      const dish = await aDish(categoryId, 'Stays');
+      const id = await aCollectionWith('Going', [dish]);
+
+      await scoped((tx) => archiveCollection(tx, { ...base(), collectionId: id }));
+
+      expect((await collections()).find((c) => c.id === id)).toBeUndefined();
+      // A collection is a view over dishes. The dish is still orderable.
+      const menu = await menuAt('21:00');
+      expect(menu!.sections.flatMap((s) => s.items).map((i) => i.name)).toContain('Stays');
+
+      const events = await scoped((tx) => readEventHistory(tx, 'collection', id));
+      expect(events.map((e) => e.event_type))
+        .toEqual(['collection.created', 'collection.archived']);
+    });
+
+    it('will not edit a collection through another property\'s outlet', async () => {
+      const id = await aCollectionWith('Ours', []);
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => updateCollection(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: b.outletId,
+          collectionId: id, name: 'Theirs now', actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => setCollectionItems(tx, {
+          tenantId: b.tenantId, outletId: b.outletId, collectionId: id, menuItemIds: [],
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 
   describe('outlet settings and hours', () => {

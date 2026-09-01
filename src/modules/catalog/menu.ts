@@ -4,7 +4,8 @@ import {
   outlets, outletHours, menuCategories, menuItems, collections, collectionItems,
   modifierGroups, modifierOptions, menuItemModifierGroups,
 } from '@/db/schema/catalog';
-import type { OutletHoursDay } from './hours';
+import { isWithinWindow, type OutletHoursDay } from './hours';
+import type { LocalTime } from '@/lib/clock';
 
 /**
  * Reading the menu, for the guest.
@@ -162,7 +163,7 @@ const OUTLET_COLUMNS = {
 async function buildMenu(
   tx: Tx,
   outlet: OutletMenu['outlet'],
-  input: { outletId: string },
+  input: { outletId: string; at: LocalTime },
 ): Promise<OutletMenu> {
   // One query for every dish on the menu, then grouped in memory. The
   // alternative is a query per section, which is a round trip per section on a
@@ -208,11 +209,13 @@ async function buildMenu(
   const sections: MenuSection[] = [];
 
   // ── Collections ────────────────────────────────────────────────────────
-  const activeCollections = await tx
+  const activeCollections = (await tx
     .select({
       id: collections.id,
       name: collections.name,
       editorialNote: collections.editorialNote,
+      availableFrom: collections.availableFrom,
+      availableUntil: collections.availableUntil,
     })
     .from(collections)
     .where(and(
@@ -220,7 +223,18 @@ async function buildMenu(
       eq(collections.isActive, true),
       isNull(collections.archivedAt),
     ))
-    .orderBy(asc(collections.sortOrder), asc(collections.name));
+    .orderBy(asc(collections.sortOrder), asc(collections.name)))
+    /**
+     * The window, applied. "After 10pm" is seeded 22:00–01:00 and was showing
+     * at breakfast, because these two columns were written by the seeder and
+     * ignored here — the same bug `outlet_hours` had.
+     *
+     * Filtered in memory rather than in SQL: the comparison crosses midnight,
+     * which is three clauses and a `crosses_midnight`-shaped argument in SQL and
+     * one tested function here (`isWithinWindow`). There are at most a handful
+     * of collections per outlet.
+     */
+    .filter((c) => isWithinWindow(c.availableFrom, c.availableUntil, input.at));
 
   if (activeCollections.length) {
     const memberships = await tx
@@ -300,7 +314,7 @@ async function buildMenu(
 /** The menu for a specific outlet. */
 export async function getMenu(
   tx: Tx,
-  input: { propertyId: string; outletId: string },
+  input: { propertyId: string; outletId: string; at: LocalTime },
 ): Promise<OutletMenu | null> {
   const rows = await tx
     .select(OUTLET_COLUMNS)
@@ -317,7 +331,7 @@ export async function getMenu(
   // not there, and that is the same answer as a typo in the id.
   if (!outlet) return null;
 
-  return buildMenu(tx, outlet, { outletId: outlet.id });
+  return buildMenu(tx, outlet, { outletId: outlet.id, at: input.at });
 }
 
 /**
@@ -353,6 +367,15 @@ export async function getInRoomDiningOutletConfig(
 export async function getInRoomDiningMenu(
   tx: Tx,
   propertyId: string,
+  /**
+   * Property-local time, for the collection windows.
+   *
+   * Required rather than defaulted to "now": the server's clock is not the
+   * hotel's (CLAUDE.md "Dates"), and a default would have hidden exactly the
+   * bug this parameter exists to fix. The caller knows the timezone; it has
+   * just read the property.
+   */
+  at: LocalTime,
 ): Promise<OutletMenu | null> {
   const rows = await tx
     .select(OUTLET_COLUMNS)
@@ -368,7 +391,7 @@ export async function getInRoomDiningMenu(
   const outlet = rows[0];
   if (!outlet) return null;
 
-  return buildMenu(tx, outlet, { outletId: outlet.id });
+  return buildMenu(tx, outlet, { outletId: outlet.id, at });
 }
 
 /* ── One dish, with everything needed to order it ───────────────────────── */

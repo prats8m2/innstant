@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { outletOpenState, describeOpenState, type OutletHoursDay } from './hours';
+import {
+  outletOpenState, describeOpenState, isWithinWindow, type OutletHoursDay,
+} from './hours';
 import { formatClock } from '@/lib/clock';
 
 /**
@@ -122,5 +124,43 @@ describe('describeOpenState', () => {
   it('says something even with no hours configured', () => {
     expect(describeOpenState(outletOpenState([], at(3, '21:00')), formatClock))
       .toBe('The kitchen is closed');
+  });
+});
+
+describe('isWithinWindow', () => {
+  const t = (hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number) as [number, number];
+    return { dayOfWeek: 3, minutes: h * 60 + m };
+  };
+
+  it('is always showing when there is no window', () => {
+    expect(isWithinWindow(null, null, t('04:00'))).toBe(true);
+  });
+
+  it('honours "After 10pm" literally, across midnight', () => {
+    // The seeded collection: 22:00–01:00. It appeared at breakfast for months
+    // because the read ignored these columns.
+    const from = '22:00';
+    const until = '01:00';
+
+    expect(isWithinWindow(from, until, t('21:59'))).toBe(false);
+    expect(isWithinWindow(from, until, t('22:00'))).toBe(true);
+    expect(isWithinWindow(from, until, t('23:30'))).toBe(true);
+    expect(isWithinWindow(from, until, t('00:30'))).toBe(true);
+    expect(isWithinWindow(from, until, t('01:00'))).toBe(false);
+    expect(isWithinWindow(from, until, t('09:00'))).toBe(false);
+  });
+
+  it('handles a same-day window', () => {
+    expect(isWithinWindow('07:00', '10:30', t('08:00'))).toBe(true);
+    expect(isWithinWindow('07:00', '10:30', t('10:30'))).toBe(false);
+    expect(isWithinWindow('07:00', '10:30', t('23:00'))).toBe(false);
+  });
+
+  it('treats a missing bound as unbounded on that side', () => {
+    expect(isWithinWindow('18:00', null, t('23:00'))).toBe(true);
+    expect(isWithinWindow('18:00', null, t('12:00'))).toBe(false);
+    expect(isWithinWindow(null, '11:00', t('09:00'))).toBe(true);
+    expect(isWithinWindow(null, '11:00', t('12:00'))).toBe(false);
   });
 });

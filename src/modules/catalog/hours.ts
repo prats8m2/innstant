@@ -131,3 +131,42 @@ export function describeOpenState(
     ? `The kitchen opens at ${format(state.nextOpen.opensAt)}`
     : `The kitchen opens ${dayName(state.nextOpen.dayOfWeek)} at ${format(state.nextOpen.opensAt)}`;
 }
+
+
+/**
+ * Whether a time-boxed thing is showing right now.
+ *
+ * `collections.available_from` / `available_until` exist so that "After 10pm"
+ * can be literal — and, like `outlet_hours`, they were written by the seeder
+ * (22:00–01:00) and ignored by the read, so the collection appeared at
+ * breakfast. Second instance of the same bug, same fix: a pure function, and a
+ * caller that passes property-local time.
+ *
+ * A window that ends before it starts crosses midnight. There is no flag here,
+ * unlike `outlet_hours`, because there is no day-of-week to be ambiguous
+ * against: 22:00–01:00 can only mean one thing.
+ *
+ * Either bound missing means unbounded on that side. Both missing means always,
+ * which is what a collection with no window is.
+ */
+export function isWithinWindow(
+  availableFrom: string | null,
+  availableUntil: string | null,
+  at: LocalTime,
+): boolean {
+  if (!availableFrom && !availableUntil) return true;
+
+  const now = at.minutes;
+  const from = availableFrom ? parseClock(availableFrom) : null;
+  const until = availableUntil ? parseClock(availableUntil) : null;
+
+  if (from !== null && until !== null) {
+    // Same-day window, or one that runs past midnight.
+    return until > from
+      ? now >= from && now < until
+      : now >= from || now < until;
+  }
+
+  if (from !== null) return now >= from;
+  return now < until!;
+}
