@@ -119,6 +119,42 @@ export function parseMoneyInput(input: string, currency: CurrencyCode): Money {
   return money(amountMinor, currency);
 }
 
+/**
+ * A percentage a human typed, into basis points.
+ *
+ * Rates are stored as integer bps (`tax_rate_bps`) so the rate itself is exact
+ * and rounding happens in exactly one place — `applyRateBps`. Same trick as
+ * `parseMoneyInput`: the two decimal places of a percentage ARE the bps, so
+ * they are read as integer digits rather than multiplied.
+ *
+ * `5` → 500. `5.5` → 550. `18.25` → 1825. Refuses above 100%, which is a typo
+ * every time — a 500% service charge is not a rate anyone means.
+ */
+export function parseRateBps(input: string): number {
+  const cleaned = input.trim().replace('%', '').trim();
+  if (!cleaned) return 0;
+
+  const match = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(cleaned);
+  if (!match) {
+    throw new MoneyInputError('A rate is a percentage — 5, or 5.5, or 18.25.');
+  }
+
+  const [, whole, decimals = ''] = match;
+  const bps = Number(whole) * 100 + Number(decimals.padEnd(2, '0') || 0);
+
+  if (bps > 10_000) throw new MoneyInputError('A rate cannot be more than 100%.');
+  return bps;
+}
+
+/** 550 → `'5.5'`. For putting a stored rate back into an input. */
+export function formatRateBps(bps: number): string {
+  if (!Number.isInteger(bps)) {
+    throw new TypeError(`Rates are integer basis points, received ${bps}.`);
+  }
+  const percent = bps / 100;
+  return Number.isInteger(percent) ? String(percent) : String(Number(percent.toFixed(2)));
+}
+
 export function addMoney(a: Money, b: Money): Money {
   assertSameCurrency(a, b);
   return money(a.amountMinor + b.amountMinor, a.currency);

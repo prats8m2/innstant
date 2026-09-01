@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   money, formatMoney, addMoney, subtractMoney, sumMoney,
   multiplyMoney, applyRateBps, isZero, isNegative,
-  parseMoneyInput, MoneyInputError,
+  parseMoneyInput, MoneyInputError, parseRateBps, formatRateBps,
 } from './money';
 
 const inr = (m: number) => money(m, 'INR');
@@ -152,5 +152,42 @@ describe('parseMoneyInput', () => {
       expect(inr(formatMoney(parsed, { showDecimals: true }).replace('₹', '')).amountMinor)
         .toBe(parsed.amountMinor);
     }
+  });
+});
+
+describe('rates in basis points', () => {
+  it('reads a percentage as integer basis points', () => {
+    expect(parseRateBps('5')).toBe(500);
+    expect(parseRateBps('5.5')).toBe(550);
+    expect(parseRateBps('18.25')).toBe(1825);
+    expect(parseRateBps('0')).toBe(0);
+    expect(parseRateBps('100')).toBe(10_000);
+    expect(parseRateBps(' 5% ')).toBe(500);
+  });
+
+  it('treats an empty rate as zero, because no tax is a real answer', () => {
+    expect(parseRateBps('')).toBe(0);
+    expect(parseRateBps('   ')).toBe(0);
+  });
+
+  it('refuses a rate above 100%, which is a typo every time', () => {
+    expect(() => parseRateBps('500')).toThrow(MoneyInputError);
+    expect(() => parseRateBps('100.01')).toThrow(MoneyInputError);
+  });
+
+  it('refuses what is not a percentage', () => {
+    for (const bad of ['five', '-5', '5.555', '1e2', '5,5']) {
+      expect(() => parseRateBps(bad), bad).toThrow(MoneyInputError);
+    }
+  });
+
+  it('round-trips through the input format', () => {
+    for (const bps of [0, 500, 550, 1825, 10_000]) {
+      expect(parseRateBps(formatRateBps(bps))).toBe(bps);
+    }
+  });
+
+  it('will not format a fractional basis point', () => {
+    expect(() => formatRateBps(5.5)).toThrow(TypeError);
   });
 });

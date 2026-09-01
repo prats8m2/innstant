@@ -1,8 +1,10 @@
 export { createOutlet, seedMenu, DEFAULT_IRD_HOURS } from './provision';
 export {
   getMenu, getInRoomDiningMenu, getInRoomDiningOutlet, getInRoomDiningOutletConfig,
-  getDish, getCartPricing,
+  getDish, getCartPricing, getOutletHours,
 } from './menu';
+export { outletOpenState, describeOpenState } from './hours';
+export type { OutletHoursDay, OutletOpenState } from './hours';
 export type {
   OutletMenu, MenuSection, MenuDish,
   DishDetail, DishModifierGroup, DishModifierOption, CartPricing,
@@ -23,9 +25,11 @@ export {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
+  getOutletSettings, updateOutletSettings, setOutletHours,
   MENU_DIETARY_FLAGS,
 } from './admin';
 export type {
   AdminMenu, AdminMenuCategory, AdminMenuItem, AdminMenuItemDetail,
   AdminModifierGroup, MenuDietaryFlag, MenuItemWriteInput, CategoryInput,
+  AdminOutletSettings, OutletSettingsInput,
 } from './admin';

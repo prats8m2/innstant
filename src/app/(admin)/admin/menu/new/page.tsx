@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { withTenant } from '@/db';
-import { requireStaffSession, requirePermission } from '@/lib/auth-context';
+import { adminAccess, AdminDenied } from '../../guard';
 import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, listModifierGroups, MENU_DIETARY_FLAGS,
@@ -18,14 +18,11 @@ export default async function NewDish({
   searchParams: Promise<{ category?: string }>;
 }) {
   const { category } = await searchParams;
-  const signedIn = await requireStaffSession();
-  const propertyId = [...signedIn.properties.keys()][0];
-  if (!propertyId) notFound();
-
   // Creating a dish sets a price, so both permissions are required to even see
   // the form. The action re-checks; this only avoids offering a dead end.
-  const session = await requirePermission(propertyId, 'catalog:manage');
-  await requirePermission(propertyId, 'catalog:pricing');
+  const access = await adminAccess('catalog:manage', 'catalog:pricing');
+  if (!access.ok) return <AdminDenied reason={access.reason} />;
+  const { session, propertyId } = access;
 
   const { property, outlet, menu, groups } = await withTenant(
     { tenantId: session.tenantId, propertyId },

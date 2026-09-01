@@ -1,9 +1,10 @@
 import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import {
-  outlets, menuCategories, menuItems, collections, collectionItems,
+  outlets, outletHours, menuCategories, menuItems, collections, collectionItems,
   modifierGroups, modifierOptions, menuItemModifierGroups,
 } from '@/db/schema/catalog';
+import type { OutletHoursDay } from './hours';
 
 /**
  * Reading the menu, for the guest.
@@ -84,6 +85,33 @@ export async function getInRoomDiningOutlet(
     .orderBy(asc(outlets.createdAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+/**
+ * The outlet's opening hours, property-local.
+ *
+ * Its own read rather than a field on `getInRoomDiningOutletConfig()`: that
+ * function is called inside `placeOrder()`, in the transaction that takes a
+ * guest's money, and it does not need a second query to do its job. The screens
+ * that show a closing time call this one.
+ *
+ * One row per day the outlet opens. A day with no row is a day it does not —
+ * see the note in hours.ts.
+ */
+export async function getOutletHours(
+  tx: Tx,
+  outletId: string,
+): Promise<OutletHoursDay[]> {
+  const rows = await tx.select({
+    dayOfWeek: outletHours.dayOfWeek,
+    opensAt: outletHours.opensAt,
+    closesAt: outletHours.closesAt,
+    crossesMidnight: outletHours.crossesMidnight,
+  }).from(outletHours)
+    .where(eq(outletHours.outletId, outletId))
+    .orderBy(asc(outletHours.dayOfWeek));
+
+  return rows;
 }
 
 /**

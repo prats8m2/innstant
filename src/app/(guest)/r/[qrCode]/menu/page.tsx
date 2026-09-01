@@ -3,7 +3,11 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { getInRoomDiningMenu } from '@/modules/catalog';
+import {
+  getInRoomDiningMenu, getOutletHours, outletOpenState, describeOpenState,
+} from '@/modules/catalog';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt, formatClock } from '@/lib/clock';
 import { getCart } from '@/modules/ordering';
 import { formatMoney, money } from '@/lib/money';
 import type { CurrencyCode } from '@/lib/money';
@@ -40,13 +44,18 @@ export default async function MenuScreen({
   // Menu and cart in one transaction — the pill is part of this screen, not a
   // second render, and a guest who has already chosen must not see it appear
   // late.
-  const { menu, cart } = await withTenant(
+  const { menu, cart, hours, property } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       const loaded = await getInRoomDiningMenu(tx, session.propertyId);
-      if (!loaded) return { menu: null, cart: null };
+      if (!loaded) return { menu: null, cart: null, hours: [], property: null };
       return {
         menu: loaded,
+        // The real hours, from `outlet_hours`. This line used to be the literal
+        // string "Kitchen open until 11:30pm" while the seeded rows said
+        // 07:00–01:00 — two sources of truth with the wrong one on screen.
+        hours: await getOutletHours(tx, loaded.outlet.id),
+        property: await findProperty(tx, session.propertyId),
         cart: await getCart(tx, {
           propertyId: session.propertyId,
           stayId: session.stayId,
@@ -67,6 +76,21 @@ export default async function MenuScreen({
   if (!menu) notFound();
 
   const { outlet, sections } = menu;
+
+  /**
+   * What the pill says when the cart is empty.
+   *
+   * `isAcceptingOrders` is the manual switch a manager throws mid-service, and
+   * it wins: a kitchen that has stopped is stopped whatever the schedule says.
+   * Otherwise the schedule speaks, in the PROPERTY's timezone (CLAUDE.md
+   * "Dates") — a guest in Udaipur must not read a closing time worked out in
+   * another region.
+   */
+  const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const kitchenLine = outlet.isAcceptingOrders
+    ? describeOpenState(outletOpenState(hours, localTimeAt(new Date(), timeZone)), formatClock)
+    : 'The kitchen has closed for tonight';
+
   const prepWindow = `${outlet.prepTimeMinutes}–${outlet.prepTimeMinutes + 10} min`;
 
   return (
@@ -148,9 +172,7 @@ export default async function MenuScreen({
       ) : (
         <p className={styles.pillIdle}>
           <span className={styles.pillDot} aria-hidden="true" />
-          {outlet.isAcceptingOrders
-            ? 'Kitchen open until 11:30pm'
-            : 'The kitchen has closed for tonight'}
+          {kitchenLine}
         </p>
       )}
     </main>

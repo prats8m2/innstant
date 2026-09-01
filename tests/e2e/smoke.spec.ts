@@ -449,19 +449,24 @@ test.describe('the menu editor', () => {
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
   /**
-   * A dish of this project's own.
+   * A dish of this project's own, that no ORDERING test touches.
    *
-   * Both browser projects run every test against ONE database (see the note in
-   * docs/STATUS.md), so two projects repricing the same dish race each other and
-   * the failure surfaces as a wrong price somewhere unrelated. The cart tests
-   * solve the same problem by giving each project its own room.
+   * Two things collide here, and both cost a debugging round. Both browser
+   * projects run every test against ONE database, so two projects editing the
+   * same dish race each other — the cart tests solve that by giving each project
+   * its own room. And a dish is a shared resource in its own right: this suite
+   * 86s one, and `placeOrder()` refuses a cart holding an unavailable dish, so
+   * taking Ker sangri off while the placement test was ordering it failed that
+   * test with a cart that would not send.
+   *
+   * Laal maas and Ker sangri are ordered elsewhere in this file. These are not.
    */
   function ownDish(): string {
     return {
-      'staff-desktop': 'Ker sangri',
+      'staff-desktop': 'Mohan maas',
       'guest-mobile': 'Mawa kachori',
       'guest-ios': 'Masala chai',
-    }[test.info().project.name] ?? 'Ker sangri';
+    }[test.info().project.name] ?? 'Mohan maas';
   }
 
   async function signInAsFnb(page: Page): Promise<void> {
@@ -567,5 +572,116 @@ test.describe('the menu editor', () => {
     await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Archive section' })).toHaveCount(0);
     await expect(page.getByText('Add a section')).toHaveCount(0);
+  });
+});
+
+/**
+ * The kitchen's own settings.
+ *
+ * `outlet_hours` was written by provisioning and read by nothing: both guest
+ * screens carried the literal "Kitchen open until 11:30pm" while the seeded rows
+ * said 07:00–01:00. This asserts the loop is closed — the hours are editable,
+ * and what a guest reads comes from them.
+ */
+test.describe('the kitchen settings', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  // Its own room, because the suite runs fully parallel against one database.
+  const ROOM = '214';
+
+  async function signInAsGm(page: Page): Promise<void> {
+    await page.goto('/admin/outlet');
+    await expect(page).toHaveURL(/\/admin\/login/);
+
+    await page.locator('input[name="email"]').fill('gm@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/outlet');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('The kitchen', {
+      timeout: 25_000,
+    });
+  }
+
+  test('shows the GM exactly the line a guest is reading', async ({ page }) => {
+    await signInAsGm(page);
+
+    // The seeded hours are 07:00–01:00 every day, so a guest reads one of these
+    // two — and never the old hardcoded "11:30pm".
+    await expect(page.getByText(/Kitchen open until 1am|The kitchen opens at 7am/))
+      .toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('11:30pm')).toHaveCount(0);
+  });
+
+  test('a changed closing time is what the guest sees', async ({ browser }) => {
+    const desk = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+    const admin = await desk.newPage();
+    await signInAsGm(admin);
+
+    // Open every day, closing at 22:45 — no midnight crossing, so this is
+    // unambiguous whatever hour the suite runs at... except between 22:45 and
+    // 07:00, where the guest correctly reads "opens at 7am" instead. Assert
+    // whichever is true rather than pretending the clock stands still.
+    for (let day = 0; day < 7; day += 1) {
+      await admin.locator(`input[name="open-${day}"]`).setChecked(true);
+      await admin.locator(`input[name="opensAt-${day}"]`).fill('07:00');
+      await admin.locator(`input[name="closesAt-${day}"]`).fill('22:45');
+      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(false);
+    }
+    await admin.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
+
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${seed!.qrCodes[ROOM]}`);
+    await guest.goto(`/r/${seed!.qrCodes[ROOM]}/menu`);
+    await expect(guest.getByText(/Kitchen open until 10:45pm|The kitchen opens at 7am/))
+      .toBeVisible({ timeout: 25_000 });
+
+    // Put the seeded hours back so the suite is repeatable.
+    for (let day = 0; day < 7; day += 1) {
+      await admin.locator(`input[name="closesAt-${day}"]`).fill('01:00');
+      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(true);
+    }
+    await admin.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('refuses hours that would silently read as closed', async ({ page }) => {
+    await signInAsGm(page);
+
+    // 19:00 to 02:00 without ticking "past midnight": the open-state logic
+    // skips that window, so the kitchen would read as shut all evening.
+    await page.locator('input[name="open-1"]').setChecked(true);
+    await page.locator('input[name="opensAt-1"]').fill('19:00');
+    await page.locator('input[name="closesAt-1"]').fill('02:00');
+    await page.locator('input[name="crossesMidnight-1"]').setChecked(false);
+    await page.getByRole('button', { name: 'Save the hours' }).click();
+
+    // `.filter` because Next renders an always-present, always-empty route
+    // announcer with role="alert" — the same trap as the login test above.
+    await expect(page.getByRole('alert').filter({ hasText: /\S/ }))
+      .toContainText(/past midnight/i, { timeout: 20_000 });
+  });
+
+  test('will not let a kitchen account near the rates', async ({ page }) => {
+    // KITCHEN holds neither catalog:manage nor catalog:pricing. A tax rate is
+    // a price, and this is the credential most likely to be left signed in.
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/outlet');
+    // A staff page says so in words rather than returning a bare status: a
+    // thrown ForbiddenError in a Server Component renders a 500, and "your role
+    // cannot do this" is something the person reading it can act on.
+    await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('input[name="taxRate"]')).toHaveCount(0);
   });
 });

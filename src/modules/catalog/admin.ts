@@ -1,9 +1,11 @@
 import { and, asc, count, eq, isNull, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
 import {
-  outlets, menuCategories, menuItems, modifierGroups, modifierOptions,
+  outlets, outletHours, menuCategories, menuItems, modifierGroups, modifierOptions,
   menuItemModifierGroups,
 } from '@/db/schema/catalog';
+import { parseClock } from '@/lib/clock';
+import type { OutletHoursDay } from './hours';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import type { CurrencyCode } from '@/lib/money';
 
@@ -667,6 +669,251 @@ export async function setOutletAcceptingOrders(
     eventType: input.isAcceptingOrders ? 'outlet.opened' : 'outlet.closed',
     actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
     payload: { name: updated[0].name },
+  });
+}
+
+/* ── Outlet settings and hours ──────────────────────────────────────────── */
+
+export interface AdminOutletSettings {
+  id: string;
+  name: string;
+  description: string | null;
+  currency: CurrencyCode;
+  taxRateBps: number;
+  serviceChargeBps: number;
+  deliveryFeeMinor: number;
+  minimumOrderMinor: number;
+  prepTimeMinutes: number;
+  isAcceptingOrders: boolean;
+  hours: OutletHoursDay[];
+}
+
+export async function getOutletSettings(
+  tx: Tx,
+  input: { propertyId: string; outletId: string },
+): Promise<AdminOutletSettings | null> {
+  const rows = await tx.select({
+    id: outlets.id,
+    name: outlets.name,
+    description: outlets.description,
+    currency: outlets.currency,
+    taxRateBps: outlets.taxRateBps,
+    serviceChargeBps: outlets.serviceChargeBps,
+    deliveryFeeMinor: outlets.deliveryFeeMinor,
+    minimumOrderMinor: outlets.minimumOrderMinor,
+    prepTimeMinutes: outlets.prepTimeMinutes,
+    isAcceptingOrders: outlets.isAcceptingOrders,
+  }).from(outlets)
+    .where(and(
+      eq(outlets.id, input.outletId),
+      eq(outlets.propertyId, input.propertyId),
+      isNull(outlets.archivedAt),
+    ))
+    .limit(1);
+
+  const outlet = rows[0];
+  if (!outlet) return null;
+
+  const hours = await tx.select({
+    dayOfWeek: outletHours.dayOfWeek,
+    opensAt: outletHours.opensAt,
+    closesAt: outletHours.closesAt,
+    crossesMidnight: outletHours.crossesMidnight,
+  }).from(outletHours)
+    .where(eq(outletHours.outletId, input.outletId))
+    .orderBy(asc(outletHours.dayOfWeek));
+
+  return { ...outlet, currency: outlet.currency as CurrencyCode, hours };
+}
+
+/**
+ * The money settings, which are also the ones a mistake is expensive in.
+ *
+ * Rates arrive as integer basis points (`parseRateBps` at the edge did the
+ * reading), never as a float percentage — the rate is exact and rounding
+ * happens once, in `applyRateBps`. Fees are minor units (#5).
+ *
+ * Every change is logged with BOTH values, for the same reason a reprice is: a
+ * folio dispute a fortnight later is settled by what the rate was on the night,
+ * and the row only knows what it is now.
+ */
+export interface OutletSettingsInput {
+  tenantId: string;
+  propertyId: string;
+  outletId: string;
+  name: string;
+  description?: string | null;
+  taxRateBps: number;
+  serviceChargeBps: number;
+  deliveryFeeMinor: number;
+  minimumOrderMinor: number;
+  prepTimeMinutes: number;
+  actorStaffId: string;
+}
+
+export async function updateOutletSettings(
+  tx: Tx,
+  input: OutletSettingsInput,
+): Promise<void> {
+  const name = requireName(input.name, 'the outlet');
+
+  for (const [label, bps] of [
+    ['Tax', input.taxRateBps], ['Service charge', input.serviceChargeBps],
+  ] as const) {
+    if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) {
+      throw new ValidationError(`${label} must be a percentage between 0 and 100.`);
+    }
+  }
+
+  for (const [label, minor] of [
+    ['The delivery fee', input.deliveryFeeMinor],
+    ['The minimum order', input.minimumOrderMinor],
+  ] as const) {
+    if (!Number.isInteger(minor) || minor < 0) {
+      throw new ValidationError(`${label} cannot be negative.`);
+    }
+  }
+
+  if (!Number.isInteger(input.prepTimeMinutes)
+      || input.prepTimeMinutes < 1 || input.prepTimeMinutes > 240) {
+    throw new ValidationError('Give the kitchen between 1 and 240 minutes.');
+  }
+
+  const before = await tx.select({
+    taxRateBps: outlets.taxRateBps,
+    serviceChargeBps: outlets.serviceChargeBps,
+    deliveryFeeMinor: outlets.deliveryFeeMinor,
+    minimumOrderMinor: outlets.minimumOrderMinor,
+    prepTimeMinutes: outlets.prepTimeMinutes,
+  }).from(outlets)
+    .where(and(
+      eq(outlets.id, input.outletId),
+      eq(outlets.propertyId, input.propertyId),
+      isNull(outlets.archivedAt),
+    ))
+    .limit(1);
+
+  const previous = before[0];
+  if (!previous) throw new NotFoundError('No such outlet at this property.');
+
+  await tx.update(outlets)
+    .set({
+      name,
+      description: input.description?.trim() || null,
+      taxRateBps: input.taxRateBps,
+      serviceChargeBps: input.serviceChargeBps,
+      deliveryFeeMinor: input.deliveryFeeMinor,
+      minimumOrderMinor: input.minimumOrderMinor,
+      prepTimeMinutes: input.prepTimeMinutes,
+      updatedAt: new Date(),
+    })
+    .where(eq(outlets.id, input.outletId));
+
+  const changed = Object.fromEntries(
+    (Object.keys(previous) as Array<keyof typeof previous>)
+      .filter((key) => previous[key] !== input[key])
+      .map((key) => [key, { from: previous[key], to: input[key] }]),
+  );
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'outlet',
+    entityId: input.outletId,
+    eventType: 'outlet.settings_updated',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: { name, changed },
+  });
+}
+
+/**
+ * Replace the week's hours.
+ *
+ * Replace, not merge: the form posts all seven days, and a day the hotel has
+ * closed is a day with no row (hours.ts). A merge would need a way to express
+ * "delete Tuesday", which is what an absent row already is.
+ *
+ * The rows are validated here rather than trusted from the form, because they
+ * are read back by `outletOpenState()` and bad data there tells a guest the
+ * kitchen is shut when it is not.
+ */
+export async function setOutletHours(
+  tx: Tx,
+  input: {
+    tenantId: string; propertyId: string; outletId: string;
+    hours: readonly OutletHoursDay[]; actorStaffId: string;
+  },
+): Promise<void> {
+  const outlet = await tx.select({ id: outlets.id }).from(outlets)
+    .where(and(
+      eq(outlets.id, input.outletId),
+      eq(outlets.propertyId, input.propertyId),
+      isNull(outlets.archivedAt),
+    ))
+    .limit(1);
+  if (!outlet[0]) throw new NotFoundError('No such outlet at this property.');
+
+  const seen = new Set<number>();
+  for (const day of input.hours) {
+    if (!Number.isInteger(day.dayOfWeek) || day.dayOfWeek < 0 || day.dayOfWeek > 6) {
+      throw new ValidationError('A day of the week is 0 (Sunday) to 6.');
+    }
+    if (seen.has(day.dayOfWeek)) {
+      throw new ValidationError('One set of hours per day. Split shifts are not supported yet.');
+    }
+    seen.add(day.dayOfWeek);
+
+    // Throws RangeError on anything that is not HH:MM — mapped to a
+    // ValidationError so a bad form field is a 422 and not a 500.
+    let opens: number;
+    let closes: number;
+    try {
+      opens = parseClock(day.opensAt);
+      closes = parseClock(day.closesAt);
+    } catch {
+      throw new ValidationError('Times are 24-hour, like 07:00 and 23:30.');
+    }
+
+    if (!day.crossesMidnight && closes <= opens) {
+      throw new ValidationError(
+        'Closing before opening only makes sense past midnight — tick that instead.',
+      );
+    }
+    if (day.crossesMidnight && closes >= opens) {
+      throw new ValidationError(
+        'A closing time past midnight is earlier in the day than the opening one.',
+      );
+    }
+  }
+
+  await tx.delete(outletHours).where(eq(outletHours.outletId, input.outletId));
+
+  if (input.hours.length) {
+    await tx.insert(outletHours).values(
+      input.hours.map((day) => ({
+        tenantId: input.tenantId,
+        outletId: input.outletId,
+        dayOfWeek: day.dayOfWeek,
+        opensAt: day.opensAt,
+        closesAt: day.closesAt,
+        crossesMidnight: day.crossesMidnight,
+      })),
+    );
+  }
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'outlet',
+    entityId: input.outletId,
+    eventType: 'outlet.hours_updated',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: {
+      days: input.hours
+        .slice()
+        .sort((x, y) => x.dayOfWeek - y.dayOfWeek)
+        .map((d) => `${d.dayOfWeek}:${d.opensAt}-${d.closesAt}`),
+    },
   });
 }
 

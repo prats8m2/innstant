@@ -29,6 +29,10 @@ export interface GuestSession {
   accessTier: AccessTier;
   isAnonymous: boolean;
   expiresAt: Date;
+  /** When the guest is due out, property-local when rendered. The room home and
+   *  the checkout flow both need it, and it is already on the joined stay —
+   *  fetching it here saves every screen a second query. */
+  scheduledCheckoutAt: Date;
 }
 
 export interface ScanResult {
@@ -144,6 +148,7 @@ export async function scanQrCode(
         accessTier: baseTier,
         isAnonymous: true,
         expiresAt,
+        scheduledCheckoutAt: new Date(row.scheduled_checkout_at),
       },
       cookieValue: `${routing.tenantId}.${token}`,
       property: {
@@ -178,10 +183,11 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
     const rows = await tx.execute<{
       id: string; property_id: string; stay_id: string; room_id: string;
       room_number: string; access_tier: AccessTier; is_anonymous: boolean;
-      expires_at: Date; stay_status: string;
+      expires_at: Date; stay_status: string; scheduled_checkout_at: Date;
     }>(sql`
       SELECT gs.id, gs.property_id, gs.stay_id, s.room_id, r.number AS room_number,
-             gs.access_tier, gs.is_anonymous, gs.expires_at, s.status AS stay_status
+             gs.access_tier, gs.is_anonymous, gs.expires_at, s.status AS stay_status,
+             s.scheduled_checkout_at
       FROM guest_sessions gs
       JOIN stays s ON s.id = gs.stay_id
       JOIN rooms r ON r.id = s.room_id
@@ -207,6 +213,7 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
       accessTier: row.access_tier,
       isAnonymous: row.is_anonymous,
       expiresAt: new Date(row.expires_at),
+      scheduledCheckoutAt: new Date(row.scheduled_checkout_at),
     };
   });
 }

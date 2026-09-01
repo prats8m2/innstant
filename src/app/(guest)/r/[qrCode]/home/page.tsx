@@ -1,7 +1,13 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { findProperty } from '@/modules/identity';
+import {
+  getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
+} from '@/modules/catalog';
+import { localTimeAt, formatClock } from '@/lib/clock';
 import styles from './room-home.module.css';
 
 /**
@@ -41,18 +47,68 @@ export default async function RoomHome({
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
 
+  /**
+   * The property's own name and its own hours.
+   *
+   * Both were literals — "The Kesari" and "Kitchen open until 11:30pm" — from
+   * S2, when there was no data to read. A second hotel would have been greeted
+   * by the first one's name, and the closing time never matched the seeded rows
+   * (07:00–01:00) it was supposedly describing.
+   */
+  const { property, kitchen } = await withTenant(
+    { tenantId: session.tenantId, propertyId: session.propertyId },
+    async (tx) => {
+      const found = await findProperty(tx, session.propertyId);
+      const outlet = await getInRoomDiningOutlet(tx, session.propertyId);
+      const timeZone = found?.timezone ?? 'Asia/Kolkata';
+
+      return {
+        property: found,
+        kitchen: outlet
+          ? describeOpenState(
+              outletOpenState(
+                await getOutletHours(tx, outlet.id),
+                localTimeAt(new Date(), timeZone),
+              ),
+              formatClock,
+            )
+          : null,
+      };
+    },
+  );
+
+  /**
+   * "until Thursday, 11am" — the reference's own words, from the stay rather
+   * than from a literal. Rendered in the PROPERTY's timezone: a guest due out
+   * at 11am in Udaipur must not read 5:30am because the server is in UTC.
+   */
+  const checkout = new Intl.DateTimeFormat('en-IN', {
+    weekday: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: property?.timezone ?? 'Asia/Kolkata',
+  })
+    .format(session.scheduledCheckoutAt)
+    .replace(/\s?([ap])m/i, (_, p: string) => `${p.toLowerCase()}m`)
+    // "11am", not "11:00am" — a whole hour drops its minutes, the same rule
+    // `formatClock` follows. The reference writes "Out Thursday, 11am".
+    .replace(/:00(?=[ap]m)/i, '');
+
   return (
     <main className={styles.shell}>
       <header className={styles.header}>
         <p className={styles.eyebrow}>Room {session.roomNumber}</p>
-        <h1 className={styles.property}>The Kesari</h1>
+        <h1 className={styles.property}>{property?.name ?? 'Your stay'}</h1>
         <p className={styles.stayLine}>
-          Room {session.roomNumber} until Thursday. Dinner runs until 11:30.
+          Room {session.roomNumber} until {checkout}.
         </p>
-        <span className={styles.kitchen}>
-          <span className={styles.pulse} aria-hidden="true" />
-          Kitchen open until 11:30pm
-        </span>
+        {kitchen ? (
+          <span className={styles.kitchen}>
+            <span className={styles.pulse} aria-hidden="true" />
+            {kitchen}
+          </span>
+        ) : null}
       </header>
 
       <Link href={`${base}/menu`} className={styles.dining}>

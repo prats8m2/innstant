@@ -6,6 +6,8 @@ import {
   listModifierGroups, createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
+  getOutletSettings, updateOutletSettings, setOutletHours, getOutletHours,
+  outletOpenState,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
@@ -338,6 +340,144 @@ describe('catalog admin', () => {
     await scoped((tx) => setOutletAcceptingOrders(tx, { ...base(), isAcceptingOrders: true }));
     expect((await scoped((tx) => getAdminMenu(tx, { outletId: a.outletId })))!
       .outlet.isAcceptingOrders).toBe(true);
+  });
+
+  describe('outlet settings and hours', () => {
+    const settings = () => scoped((tx) => getOutletSettings(tx, {
+      propertyId: a.propertyId, outletId: a.outletId,
+    }));
+
+    it('stores rates as basis points and fees as minor units (#5)', async () => {
+      await scoped((tx) => updateOutletSettings(tx, {
+        ...base(), name: 'In-room dining',
+        taxRateBps: 550, serviceChargeBps: 1000,
+        deliveryFeeMinor: 5_000, minimumOrderMinor: 20_000,
+        prepTimeMinutes: 40,
+      }));
+
+      const after = await settings();
+      expect(after!.taxRateBps).toBe(550);
+      expect(after!.serviceChargeBps).toBe(1000);
+      expect(after!.deliveryFeeMinor).toBe(5_000);
+      expect(after!.minimumOrderMinor).toBe(20_000);
+      expect(after!.prepTimeMinutes).toBe(40);
+    });
+
+    it('logs a settings change with both values, for a dispute a fortnight later', async () => {
+      const before = await settings();
+      await scoped((tx) => updateOutletSettings(tx, {
+        ...base(), name: before!.name,
+        taxRateBps: 1800, serviceChargeBps: before!.serviceChargeBps,
+        deliveryFeeMinor: before!.deliveryFeeMinor,
+        minimumOrderMinor: before!.minimumOrderMinor,
+        prepTimeMinutes: before!.prepTimeMinutes,
+      }));
+
+      const events = await scoped((tx) => readEventHistory(tx, 'outlet', a.outletId));
+      const updated = events.find((e) => e.event_type === 'outlet.settings_updated')!;
+      const changed = (updated.payload as { changed: Record<string, { from: number; to: number }> })
+        .changed;
+
+      expect(Object.keys(changed)).toEqual(['taxRateBps']);
+      expect(Number(changed.taxRateBps!.from)).toBe(before!.taxRateBps);
+      expect(Number(changed.taxRateBps!.to)).toBe(1800);
+    });
+
+    it('refuses a rate above 100% and a negative fee', async () => {
+      const ok = {
+        ...base(), name: 'In-room dining', taxRateBps: 0, serviceChargeBps: 0,
+        deliveryFeeMinor: 0, minimumOrderMinor: 0, prepTimeMinutes: 30,
+      };
+      await expect(scoped((tx) => updateOutletSettings(tx, { ...ok, taxRateBps: 10_001 })))
+        .rejects.toBeInstanceOf(ValidationError);
+      await expect(scoped((tx) => updateOutletSettings(tx, { ...ok, deliveryFeeMinor: -1 })))
+        .rejects.toBeInstanceOf(ValidationError);
+      await expect(scoped((tx) => updateOutletSettings(tx, { ...ok, prepTimeMinutes: 0 })))
+        .rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('replaces the week, so an unticked day becomes a day with no row', async () => {
+      const everyDay = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+        dayOfWeek, opensAt: '07:00', closesAt: '01:00', crossesMidnight: true,
+      }));
+      await scoped((tx) => setOutletHours(tx, { ...base(), hours: everyDay }));
+      expect(await scoped((tx) => getOutletHours(tx, a.outletId))).toHaveLength(7);
+
+      // Closed on Tuesdays: the row is gone, not zeroed.
+      await scoped((tx) => setOutletHours(tx, {
+        ...base(), hours: everyDay.filter((h) => h.dayOfWeek !== 2),
+      }));
+      const hours = await scoped((tx) => getOutletHours(tx, a.outletId));
+      expect(hours).toHaveLength(6);
+      expect(hours.find((h) => h.dayOfWeek === 2)).toBeUndefined();
+
+      // And the guest-facing logic agrees, on the same rows.
+      expect(outletOpenState(hours, { dayOfWeek: 2, minutes: 21 * 60 }).isOpen).toBe(false);
+      expect(outletOpenState(hours, { dayOfWeek: 3, minutes: 21 * 60 }).isOpen).toBe(true);
+    });
+
+    it('accepts an empty week as "closed every day"', async () => {
+      await scoped((tx) => setOutletHours(tx, { ...base(), hours: [] }));
+      expect(await scoped((tx) => getOutletHours(tx, a.outletId))).toEqual([]);
+    });
+
+    it('refuses hours that would read as closed when they are not', async () => {
+      // closesAt before opensAt without the flag: the open-state logic skips
+      // the window, so the kitchen silently reads as shut. Caught on write.
+      await expect(scoped((tx) => setOutletHours(tx, {
+        ...base(),
+        hours: [{ dayOfWeek: 1, opensAt: '19:00', closesAt: '02:00', crossesMidnight: false }],
+      }))).rejects.toBeInstanceOf(ValidationError);
+
+      // And the flag with a closing time LATER in the day is the same mistake
+      // upside down.
+      await expect(scoped((tx) => setOutletHours(tx, {
+        ...base(),
+        hours: [{ dayOfWeek: 1, opensAt: '07:00', closesAt: '23:00', crossesMidnight: true }],
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('refuses two sets of hours for one day, and a day out of range', async () => {
+      await expect(scoped((tx) => setOutletHours(tx, {
+        ...base(),
+        hours: [
+          { dayOfWeek: 1, opensAt: '07:00', closesAt: '11:00', crossesMidnight: false },
+          { dayOfWeek: 1, opensAt: '19:00', closesAt: '23:00', crossesMidnight: false },
+        ],
+      }))).rejects.toBeInstanceOf(ValidationError);
+
+      await expect(scoped((tx) => setOutletHours(tx, {
+        ...base(),
+        hours: [{ dayOfWeek: 7, opensAt: '07:00', closesAt: '11:00', crossesMidnight: false }],
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('refuses a time that is not a time', async () => {
+      await expect(scoped((tx) => setOutletHours(tx, {
+        ...base(),
+        hours: [{ dayOfWeek: 1, opensAt: 'seven', closesAt: '11:00', crossesMidnight: false }],
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('will not touch another property\'s outlet', async () => {
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => setOutletHours(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: a.outletId,
+          hours: [], actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => updateOutletSettings(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: a.outletId,
+          name: 'Theirs', taxRateBps: 0, serviceChargeBps: 0,
+          deliveryFeeMinor: 0, minimumOrderMinor: 0, prepTimeMinutes: 30,
+          actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 
   it('refuses an outlet at another property', async () => {

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { withTenant, readEventHistory } from '@/db';
-import { requireStaffSession, requirePermission } from '@/lib/auth-context';
+import { adminAccess, AdminDenied } from '../../guard';
 import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, getAdminMenuItem, listModifierGroups,
@@ -26,12 +26,9 @@ export default async function EditDish({
   params: Promise<{ itemId: string }>;
 }) {
   const { itemId } = await params;
-  const signedIn = await requireStaffSession();
-  const propertyId = [...signedIn.properties.keys()][0];
-  if (!propertyId) notFound();
-
-  const session = await requirePermission(propertyId, 'catalog:manage');
-  await requirePermission(propertyId, 'catalog:pricing');
+  const access = await adminAccess('catalog:manage', 'catalog:pricing');
+  if (!access.ok) return <AdminDenied reason={access.reason} />;
+  const { session, propertyId } = access;
 
   const { property, menu, item, groups, history } = await withTenant(
     { tenantId: session.tenantId, propertyId },

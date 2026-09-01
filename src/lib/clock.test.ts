@@ -1,0 +1,79 @@
+import { describe, it, expect } from 'vitest';
+import { localTimeAt, parseClock, toClock, formatClock, dayName } from './clock';
+
+/**
+ * The whole point of this file is that it does not depend on where it runs.
+ * Every case below is an explicit instant in an explicit timezone.
+ */
+describe('localTimeAt', () => {
+  it('answers in the property timezone, not the server one', () => {
+    // 2026-09-01T18:30:00Z is 2026-09-02T00:00 in Kolkata: a different DAY.
+    const instant = new Date('2026-09-01T18:30:00Z');
+
+    expect(localTimeAt(instant, 'Asia/Kolkata')).toEqual({ dayOfWeek: 3, minutes: 0 });
+    expect(localTimeAt(instant, 'UTC')).toEqual({ dayOfWeek: 2, minutes: 18 * 60 + 30 });
+  });
+
+  it('reads midnight as 0, not 24', () => {
+    // ICU has returned '24' for hour12:false midnight; that would be 1440.
+    const midnight = new Date('2026-08-31T18:30:00Z'); // 00:00 IST, Tuesday
+    expect(localTimeAt(midnight, 'Asia/Kolkata').minutes).toBe(0);
+  });
+
+  it('handles a half-hour offset', () => {
+    const instant = new Date('2026-09-01T06:00:00Z');
+    expect(localTimeAt(instant, 'Asia/Kolkata').minutes).toBe(11 * 60 + 30);
+  });
+
+  it('follows DST where a fixed offset would not', () => {
+    const july = new Date('2026-07-01T12:00:00Z');
+    const january = new Date('2026-01-01T12:00:00Z');
+
+    expect(localTimeAt(july, 'Europe/London').minutes).toBe(13 * 60);
+    expect(localTimeAt(january, 'Europe/London').minutes).toBe(12 * 60);
+  });
+
+  it('refuses a timezone it cannot read', () => {
+    expect(() => localTimeAt(new Date('2026-09-01T00:00:00Z'), 'Mars/Olympus')).toThrow();
+  });
+});
+
+describe('clock strings', () => {
+  it('round-trips', () => {
+    for (const hhmm of ['00:00', '07:00', '11:30', '23:59', '01:00']) {
+      expect(toClock(parseClock(hhmm))).toBe(hhmm);
+    }
+  });
+
+  it('refuses what is not a time of day', () => {
+    for (const bad of ['', '7', '24:00', '07:60', '7:0', 'seven', '07:00:00']) {
+      expect(() => parseClock(bad), bad).toThrow(RangeError);
+    }
+  });
+
+  it('accepts a single-digit hour, because stored data has both forms', () => {
+    expect(parseClock('7:00')).toBe(420);
+  });
+
+  it('wraps rather than producing a 25th hour', () => {
+    expect(toClock(1440)).toBe('00:00');
+    expect(toClock(1500)).toBe('01:00');
+    expect(toClock(-60)).toBe('23:00');
+  });
+
+  it('speaks the way the reference writes times', () => {
+    expect(formatClock('23:30')).toBe('11:30pm');
+    expect(formatClock('01:00')).toBe('1am');
+    expect(formatClock('07:00')).toBe('7am');
+    expect(formatClock('12:00')).toBe('noon');
+    expect(formatClock('00:00')).toBe('midnight');
+    expect(formatClock('12:30')).toBe('12:30pm');
+    expect(formatClock('00:30')).toBe('12:30am');
+  });
+
+  it('names days from 0 = Sunday, as the column does', () => {
+    expect(dayName(0)).toBe('Sunday');
+    expect(dayName(4)).toBe('Thursday');
+    expect(dayName(7)).toBe('Sunday');
+  });
+});

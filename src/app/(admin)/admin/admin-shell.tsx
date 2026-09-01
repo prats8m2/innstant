@@ -22,7 +22,7 @@ export function AdminShell({
 }: {
   session: StaffSession;
   propertyName: string;
-  current: 'home' | 'menu';
+  current: 'home' | 'menu' | 'outlet';
   children: React.ReactNode;
 }) {
   return (
@@ -46,6 +46,13 @@ export function AdminShell({
             aria-current={current === 'menu' ? 'page' : undefined}
           >
             Menu
+          </Link>
+          <Link
+            href="/admin/outlet"
+            className={styles.navLink}
+            aria-current={current === 'outlet' ? 'page' : undefined}
+          >
+            The kitchen
           </Link>
         </nav>
 

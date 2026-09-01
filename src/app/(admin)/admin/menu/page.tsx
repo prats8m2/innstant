@@ -1,5 +1,5 @@
 import { withTenant } from '@/db';
-import { requireStaffSession, requirePermission } from '@/lib/auth-context';
+import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import { getInRoomDiningOutlet, getAdminMenu } from '@/modules/catalog';
 import { AdminShell } from '../admin-shell';
@@ -20,24 +20,12 @@ import styles from '../admin.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function MenuAdmin() {
-  const signedIn = await requireStaffSession();
-
-  // The property switcher is still admin work — the KDS and the runner make the
-  // same placeholder choice.
-  const propertyId = [...signedIn.properties.keys()][0];
-  if (!propertyId) {
-    return (
-      <div className={styles.frame}>
-        <main className={styles.main}>
-          <p className={styles.empty}>This account has no property assigned.</p>
-        </main>
-      </div>
-    );
-  }
-
   // Checked against the property being edited, not merely "is someone signed
-  // in". Throws 403 here, 404 at a property this account holds no role at.
-  const session = await requirePermission(propertyId, 'catalog:read');
+  // in". Every button below is drawn from the same session's permissions and
+  // re-checked by its action.
+  const access = await adminAccess('catalog:read');
+  if (!access.ok) return <AdminDenied reason={access.reason} />;
+  const { session, propertyId } = access;
 
   const { property, outlet, menu } = await withTenant(
     { tenantId: session.tenantId, propertyId },

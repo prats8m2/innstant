@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { requireStaffSession } from '@/lib/auth-context';
 import { can, findProperty } from '@/modules/identity';
+import { adminAccess, AdminDenied } from './guard';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { AdminShell } from './admin-shell';
 import styles from './admin.module.css';
@@ -16,18 +16,12 @@ import styles from './admin.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminHome() {
-  const session = await requireStaffSession();
-
-  const propertyId = [...session.properties.keys()][0];
-  if (!propertyId) {
-    return (
-      <div className={styles.frame}>
-        <main className={styles.main}>
-          <p className={styles.empty}>This account has no property assigned.</p>
-        </main>
-      </div>
-    );
-  }
+  // No permission required to see the console's front page — it lists what this
+  // account can reach, and an account that can reach nothing should be told so
+  // rather than bounced.
+  const access = await adminAccess();
+  if (!access.ok) return <AdminDenied reason={access.reason} />;
+  const { session, propertyId } = access;
 
   const { property, outlet } = await withTenant(
     { tenantId: session.tenantId, propertyId },
