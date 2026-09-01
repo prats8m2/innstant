@@ -306,3 +306,41 @@ read, and the charge already happened at the one prompt (#9, D-012).
 makes three copies. At that point factor the *transport* into a helper and keep
 the authorize-and-filter pair written out in each route, which is the half worth
 reading.
+
+### D-027 · A rejection reverses its own folio line, in the same transaction
+`placeOrder()` posts the folio line at placement, so "Charged to room 214" is
+true the moment the guest presses Send. `advanceOrder()` therefore posts a
+negative `ADJUSTMENT` line — netted against everything already posted for that
+order — whenever an order reaches `REJECTED` or `CANCELLED`, inside the same
+transaction as the status change and the `event_log` row.
+
+**Why automatic and not a desk approval.** The kitchen already has to type a
+reason a guest will read; asking it to also remember a credit puts the hotel's
+mistake on the guest's bill until someone notices. The alternatives were worse
+in specific ways: a staff-approved reversal needs an admin panel that does not
+exist until P3, and moving the charge to the `ACCEPTED` transition would make
+"Charged to room 214" false at the moment the guest is told it.
+
+**Why a negative row and not an edit.** DATA-MODEL §5, and the
+`folio_lines_recompute` trigger sums every non-PAYMENT line, so the totals
+follow on their own. The original charge stays visible: at 7am on checkout day
+the guest and the desk can both see that dinner was charged and then credited,
+which is exactly the conversation a deleted row makes unwinnable.
+
+**Why it nets rather than mirrors.** `reverseFolioLinesForSource()` sums what is
+posted against the order and posts the opposite of the net, so a second call
+credits nothing and a charge already partly credited at the desk is only
+credited for the remainder. Combined with the compare-and-set on the transition,
+that is #8 satisfied twice over — two tablets rejecting one ticket produce one
+credit, proven under real concurrency in
+`tests/integration/advance-order.test.ts`.
+
+**What this licenses.** The guest's tracking screen may now say "nothing has
+been charged for it" on a rejection. That sentence is a promise about the money,
+and `track.test.ts` fails if it is ever softened while the reversal stands — or
+kept if the reversal goes.
+
+**Cost / when to revisit.** A hotel that wants a manager to sign off credits
+above some amount will need the approval path after all. That is a rule on top
+of this, not instead of it: post the credit, flag the folio, let the desk see
+it — never leave the guest holding the line.

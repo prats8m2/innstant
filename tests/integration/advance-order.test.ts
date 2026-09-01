@@ -8,6 +8,7 @@ import {
 import {
   addToCart, placeOrder, advanceOrder, kitchenTickets, runnerTickets, openTicketCount,
 } from '@/modules/ordering';
+import { getFolioForStay, reverseFolioLinesForSource } from '@/modules/billing';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
   ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
@@ -235,6 +236,119 @@ describe('advanceOrder', () => {
 
     await advance(orderId, 'DELIVERED');
     expect(await scoped((tx) => openTicketCount(tx, a.outletId))).toBe(0);
+  });
+
+  /**
+   * The money half of a rejection.
+   *
+   * `placeOrder()` posts the folio line at placement so "Charged to room 214"
+   * is true when the guest presses Send. These prove the other half: an order
+   * the kitchen cannot make leaves nothing behind on the bill — which is also
+   * what lets the guest's tracking screen say "nothing has been charged"
+   * (src/modules/ordering/track.ts).
+   */
+  describe('the folio, when an order does not happen', () => {
+    const folio = () => scoped((tx) => getFolioForStay(tx, stayId));
+
+    it('credits the charge back in the same transaction as the rejection', async () => {
+      const { orderId, orderNumber } = await anOrder('reject-credit');
+
+      const charged = await folio();
+      expect(charged!.chargesMinor).toBeGreaterThan(0);
+      const chargeMinor = charged!.chargesMinor;
+
+      await advance(orderId, 'REJECTED', { reason: 'Out of sole tonight.' });
+
+      const after = await folio();
+      // Net zero, and the ORIGINAL charge is still there. DATA-MODEL §5: a
+      // correction is a negative ADJUSTMENT row, never an edit — at 7am on
+      // checkout day both sides can see what happened.
+      expect(after!.chargesMinor).toBe(0);
+      expect(after!.balanceMinor).toBe(0);
+
+      const forOrder = after!.lines.filter((l) => l.sourceRefId === orderId);
+      expect(forOrder).toHaveLength(2);
+      expect(forOrder.map((l) => l.source).sort()).toEqual(['ADJUSTMENT', 'ORDER']);
+      const credit = forOrder.find((l) => l.source === 'ADJUSTMENT')!;
+      expect(credit.amountMinor).toBe(-chargeMinor);
+      // The guest reads this line on their bill; it has to name what it undoes.
+      expect(credit.description).toContain(orderNumber);
+    });
+
+    it('writes the credit to the event log, with who did it', async () => {
+      const { orderId } = await anOrder('reject-event');
+      await advance(orderId, 'REJECTED', { reason: 'The tandoor is down.' });
+
+      const events = await scoped((tx) => readEventHistory(tx, 'order', orderId));
+      const reversal = events.find((e) => e.event_type === 'order.charge_reversed');
+      expect(reversal, 'a credit that is not in the log cannot be audited').toBeTruthy();
+      expect(reversal!.actor_kind).toBe('STAFF');
+      expect(Number((reversal!.payload as { amountMinor: number }).amountMinor)).toBeLessThan(0);
+    });
+
+    it('credits a cancellation the same way', async () => {
+      const { orderId } = await anOrder('cancel-credit');
+      await advance(orderId, 'CANCELLED', { reason: 'Guest rang the desk.' });
+
+      const after = await folio();
+      expect(after!.chargesMinor).toBe(0);
+      expect(after!.lines.filter((l) => l.sourceRefId === orderId)).toHaveLength(2);
+    });
+
+    it('credits once when two tablets reject the same ticket at once (#8)', async () => {
+      const { orderId } = await anOrder('reject-race');
+      const chargeMinor = (await folio())!.chargesMinor;
+
+      // Two kitchen screens, one ticket, the same instant. The compare-and-set
+      // decides the transition; the credit must not be posted twice behind it.
+      const results = await Promise.allSettled([
+        advance(orderId, 'REJECTED', { reason: 'Out of sole.' }),
+        advance(orderId, 'REJECTED', { reason: 'Out of sole.' }),
+      ]);
+      expect(results.every((r) => r.status === 'fulfilled')).toBe(true);
+
+      const after = await folio();
+      const credits = after!.lines.filter((l) => l.source === 'ADJUSTMENT');
+      expect(credits).toHaveLength(1);
+      expect(credits[0]!.amountMinor).toBe(-chargeMinor);
+      // Double-crediting is worse than not crediting: it pays the guest to be
+      // rejected, and it is invisible until someone reconciles the day.
+      expect(after!.chargesMinor).toBe(0);
+    });
+
+    it('does not credit twice when the credit is asked for again', async () => {
+      const { orderId } = await anOrder('reverse-twice');
+      const chargeMinor = (await folio())!.chargesMinor;
+      await advance(orderId, 'REJECTED', { reason: 'Out of sole.' });
+
+      // Calling the reversal directly, as a desk screen or a repair script
+      // might. It nets against what is posted, so there is nothing left to do.
+      const again = await scoped((tx) => reverseFolioLinesForSource(tx, {
+        tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+        sourceRefId: orderId, description: 'Reversed again',
+      }));
+      expect(again).toBeNull();
+
+      const after = await folio();
+      expect(after!.chargesMinor).toBe(0);
+      expect(after!.lines.filter((l) => l.source === 'ADJUSTMENT')).toHaveLength(1);
+      expect(after!.lines.find((l) => l.source === 'ADJUSTMENT')!.amountMinor).toBe(-chargeMinor);
+    });
+
+    it('leaves other orders on the folio alone', async () => {
+      const { orderId: rejected } = await anOrder('one-of-two-a');
+      const { orderId: kept } = await anOrder('one-of-two-b');
+      const both = (await folio())!.chargesMinor;
+
+      await advance(rejected, 'REJECTED', { reason: 'Out of sole.' });
+
+      const after = await folio();
+      // Exactly the rejected order's share came off, and the other dinner is
+      // still chargeable. A reversal that nets the whole folio would zero a
+      // bill the hotel is owed.
+      expect(after!.chargesMinor).toBe(both / 2);
+      expect(after!.lines.filter((l) => l.sourceRefId === kept)).toHaveLength(1);
+    });
   });
 
   it('carries the kitchen the allergy that applied on the night', async () => {

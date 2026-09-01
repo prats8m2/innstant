@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { recordEvent } from '@/db';
 import { orders } from '@/db/schema/ordering';
+import { reverseFolioLinesForSource } from '@/modules/billing';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
   canTransition, isTerminal, reasonRequiredFor, STATUS_TIMESTAMP,
@@ -149,6 +150,57 @@ export async function advanceOrder(
       ...(reason ? { reason } : {}),
     },
   });
+
+  /**
+   * A rejection takes its own charge back off the folio.
+   *
+   * `placeOrder()` posts the folio line at placement, so "Charged to room 214"
+   * is true the moment the guest presses Send. The other half of that promise
+   * has to live here: an order the kitchen cannot make must not leave a line
+   * behind for a guest to notice at checkout and a desk to argue about.
+   *
+   * In the SAME transaction as the status change and the event (#7). Not in a
+   * hook, not after the await — a credit that can fail independently of the
+   * rejection that caused it is the one failure mode nobody would find until a
+   * guest read their bill.
+   *
+   * Idempotency (#8) comes from two places at once: the compare-and-set above
+   * means this line is reached exactly once per real transition, and
+   * `reverseFolioLinesForSource()` nets against what is already posted, so even
+   * a second call credits nothing.
+   */
+  if (input.to === 'REJECTED' || input.to === 'CANCELLED') {
+    const reversal = await reverseFolioLinesForSource(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      stayId: order.stayId,
+      sourceRefId: order.id,
+      // What the guest reads on the bill, next to the charge it cancels.
+      description: `Reversed · ${order.orderNumber} ${
+        input.to === 'REJECTED' ? 'not made' : 'cancelled'
+      }`,
+      reversedByStaffId: input.actor.kind === 'STAFF' ? input.actor.staffUserId : null,
+    });
+
+    if (reversal) {
+      // The money moved, so it is in the log too — the audit trail has to
+      // answer "who credited this, and when" without joining to a screen.
+      await recordEvent(tx, {
+        tenantId: input.tenantId,
+        propertyId: input.propertyId,
+        entityType: 'order',
+        entityId: order.id,
+        eventType: 'order.charge_reversed',
+        actor: input.actor,
+        payload: {
+          orderNumber: order.orderNumber,
+          folioLineId: reversal.folioLineId,
+          amountMinor: reversal.amountMinor,
+          currency: reversal.currency,
+        },
+      });
+    }
+  }
 
   await notifyOrderChanged(tx, {
     tenantId: input.tenantId,

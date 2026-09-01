@@ -156,13 +156,17 @@ export function trackView(
       halt: {
         title: 'The kitchen could not make this',
         /**
-         * NOT "nothing has been charged", which is what this said first and
-         * which is false: `placeOrder()` posts the folio line at placement, and
-         * `advanceOrder()` does not reverse it on REJECTED. Until a rejection
-         * voids its own folio line, the honest sentence is the one that tells
-         * the guest who can take it off. See docs/STATUS.md.
+         * This can say "nothing has been charged" because it is now true.
+         * `placeOrder()` posts the folio line at placement and the REJECTED
+         * transition credits it back in the same transaction — see the reversal
+         * in `advanceOrder()`. If that ever stops being true, this sentence is
+         * the first thing that has to change, and `track.test.ts` says so.
+         *
+         * It promises a NET of zero, not the existence of a credit row: an
+         * order that never posted a charge — a cancelled DRAFT, or a seeded
+         * demo order — has nothing to credit and the sentence is still true.
          */
-        detail: 'Order something else, or call the desk — they take the line off your folio.',
+        detail: 'Nothing has been charged for it. Order something else, or call the desk.',
         reason,
       },
     };
@@ -174,7 +178,7 @@ export function trackView(
       live: false,
       halt: {
         title: 'This order was cancelled',
-        detail: 'Call the desk if the line is still on your folio.',
+        detail: 'Nothing has been charged for it.',
         reason,
       },
     };

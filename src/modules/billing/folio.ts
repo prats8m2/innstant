@@ -86,6 +86,90 @@ export async function postFolioLine(
   return { folioId: folio.id, folioLineId: line!.id };
 }
 
+/**
+ * Take a charge back off the folio.
+ *
+ * A NEGATIVE ADJUSTMENT row, never an edit or a delete — DATA-MODEL §5, and the
+ * `folio_lines_recompute` trigger sums every non-PAYMENT line, so the totals
+ * follow on their own. The original charge stays visible: at 7am on checkout
+ * day the guest and the desk can both see that dinner was charged and then
+ * credited, which is exactly the conversation a deleted row makes unwinnable.
+ *
+ * ─── Why it nets rather than mirrors ───────────────────────────────────────
+ *
+ * It sums everything already posted against `sourceRefId` and posts the
+ * opposite of the NET. So:
+ *   - called twice, the second call finds a net of zero and does nothing;
+ *   - a charge that was partly credited by hand at the desk is only credited
+ *     for the remainder, not twice.
+ *
+ * That makes this safe to call from inside a transition (#8) without a second
+ * idempotency mechanism of its own.
+ */
+export interface ReverseFolioLinesInput {
+  tenantId: string;
+  propertyId: string;
+  stayId: string;
+  /** The order / request whose charge is coming off. */
+  sourceRefId: string;
+  /** What the guest reads on the bill. Say what it reverses. */
+  description: string;
+  reversedByStaffId?: string | null;
+}
+
+export interface FolioReversal {
+  folioId: string;
+  folioLineId: string;
+  /** Negative — what was credited. */
+  amountMinor: number;
+  currency: string;
+}
+
+export async function reverseFolioLinesForSource(
+  tx: Tx,
+  input: ReverseFolioLinesInput,
+): Promise<FolioReversal | null> {
+  const folioRows = await tx.select({ id: folios.id }).from(folios)
+    .where(eq(folios.stayId, input.stayId)).limit(1);
+  const folio = folioRows[0];
+  // No folio at all: nothing was ever charged for this stay. A cancelled DRAFT
+  // reaches here, and it is not an error.
+  if (!folio) return null;
+
+  const posted = await tx.select({
+    amountMinor: folioLines.amountMinor,
+    currency: folioLines.currency,
+  }).from(folioLines)
+    .where(and(
+      eq(folioLines.folioId, folio.id),
+      eq(folioLines.sourceRefId, input.sourceRefId),
+    ));
+
+  if (!posted.length) return null;
+
+  const net = posted.reduce((sum, line) => sum + line.amountMinor, 0);
+  // Already square — either nothing was charged, or this has been reversed.
+  if (net === 0) return null;
+
+  // The currency of the lines being reversed, not one passed in: a credit in a
+  // different currency from the charge it cancels is not a credit (#5).
+  const currency = posted[0]!.currency;
+
+  const [line] = await tx.insert(folioLines).values({
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    folioId: folio.id,
+    source: 'ADJUSTMENT',
+    sourceRefId: input.sourceRefId,
+    description: input.description,
+    amountMinor: -net,
+    currency,
+    postedByStaffId: input.reversedByStaffId ?? null,
+  }).returning({ id: folioLines.id });
+
+  return { folioId: folio.id, folioLineId: line!.id, amountMinor: -net, currency };
+}
+
 export interface FolioSummary {
   id: string;
   status: string;

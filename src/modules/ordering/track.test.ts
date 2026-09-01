@@ -83,14 +83,14 @@ describe('trackView', () => {
     expect(view.live).toBe(false);
     expect(view.halt?.reason).toBe('Out of sole tonight.');
     /**
-     * And the guest is told what happens to the money — because something DID
-     * happen to it. `placeOrder()` posts the folio line at placement and
-     * nothing reverses it on rejection, so this copy may not say "nothing has
-     * been charged". When a rejection learns to void its own line, this
-     * assertion is the one to change, and it should be changed deliberately.
+     * And the guest is told what happened to the money. This copy is only
+     * allowed to say "nothing has been charged" because the REJECTED transition
+     * credits the folio line in the same transaction (`advanceOrder()`, and
+     * tests/integration/advance-order.test.ts proves it against a real
+     * database). If that reversal is ever removed, this assertion fails — which
+     * is the point: the sentence is a promise about the money.
      */
-    expect(view.halt?.detail).toMatch(/folio/i);
-    expect(view.halt?.detail).not.toMatch(/nothing has been charged/i);
+    expect(view.halt?.detail).toMatch(/nothing has been charged/i);
   });
 
   it('halts on CANCELLED and DISPUTED too, carrying the reason given', () => {

@@ -6,5 +6,8 @@
  * `folio_lines` (D-001), which is what makes the PMS adapter a change in one
  * place when it arrives (D-011).
  */
-export { postFolioLine, getOrCreateOpenFolio, getFolioForStay } from './folio';
-export type { PostFolioLineInput, FolioSummary } from './folio';
+export {
+  postFolioLine, getOrCreateOpenFolio, getFolioForStay, reverseFolioLinesForSource,
+} from './folio';
+export type { PostFolioLineInput, FolioSummary, ReverseFolioLinesInput, FolioReversal }
+  from './folio';
