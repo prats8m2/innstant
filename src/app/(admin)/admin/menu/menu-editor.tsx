@@ -54,6 +54,12 @@ export function MenuEditor({
           </Link>
         ) : null}
 
+        {permissions.manage && permissions.pricing ? (
+          <Link href="/admin/menu/options" className={styles.secondary}>
+            Option groups
+          </Link>
+        ) : null}
+
         {permissions.availability ? (
           <OutletSwitch
             propertyId={propertyId}

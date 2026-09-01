@@ -9,6 +9,9 @@ import {
   getOutletSettings, updateOutletSettings, setOutletHours, getOutletHours,
   outletOpenState, listCollections, createCollection, updateCollection,
   archiveCollection, setCollectionItems,
+  listModifierGroupsForAdmin, createModifierGroup, updateModifierGroup,
+  archiveModifierGroup, createModifierOption, updateModifierOption,
+  archiveModifierOption,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
@@ -352,6 +355,250 @@ describe('catalog admin', () => {
     await scoped((tx) => setOutletAcceptingOrders(tx, { ...base(), isAcceptingOrders: true }));
     expect((await scoped((tx) => getAdminMenu(tx, { outletId: a.outletId })))!
       .outlet.isAcceptingOrders).toBe(true);
+  });
+
+  describe('option groups', () => {
+    const list = () => scoped((tx) => listModifierGroupsForAdmin(tx, { outletId: a.outletId }));
+
+    async function aGroup(
+      name: string,
+      opts: { min?: number; max?: number; required?: boolean } = {},
+    ): Promise<string> {
+      const { id } = await scoped((tx) => createModifierGroup(tx, {
+        ...base(), name,
+        minSelections: opts.min ?? 0,
+        maxSelections: opts.max ?? 1,
+        isRequired: opts.required ?? false,
+      }));
+      return id;
+    }
+
+    const anOption = async (
+      groupId: string,
+      name: string,
+      priceDeltaMinor = 0,
+      extra: { isDefault?: boolean; isAvailable?: boolean } = {},
+    ) => (await scoped((tx) => createModifierOption(tx, {
+      ...base(), groupId, name, priceDeltaMinor, currency: 'INR',
+      isDefault: extra.isDefault ?? false,
+      isAvailable: extra.isAvailable ?? true,
+    }))).id;
+
+    it('reaches the guest dish screen, priced', async () => {
+      const categoryId = await aCategory('Dinner');
+      const itemId = await aDish(categoryId, 'Laal maas', 115_000);
+
+      const groupId = await aGroup('Add a roti', { max: 1 });
+      await anOption(groupId, 'Nothing', 0, { isDefault: true });
+      await anOption(groupId, 'Extra bajra roti', 12_000);
+
+      await scoped((tx) => setMenuItemModifierGroups(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, itemId, groupIds: [groupId],
+      }));
+
+      // The guest's own read — the screen where the total moves as you choose.
+      const dish = await scoped((tx) => getDish(tx, { propertyId: a.propertyId, itemId }));
+      const group = dish!.modifierGroups.find((g) => g.name === 'Add a roti')!;
+      expect(group.options.map((o) => [o.name, o.priceDeltaMinor]))
+        .toEqual([['Nothing', 0], ['Extra bajra roti', 12_000]]);
+      expect(group.options.find((o) => o.isDefault)!.name).toBe('Nothing');
+    });
+
+    it('counts the dishes carrying a group, which is why it is shared', async () => {
+      const categoryId = await aCategory('Dinner');
+      const one = await aDish(categoryId, 'One');
+      const two = await aDish(categoryId, 'Two');
+
+      const groupId = await aGroup('Chilli');
+      await anOption(groupId, 'Gentle');
+
+      for (const itemId of [one, two]) {
+        await scoped((tx) => setMenuItemModifierGroups(tx, {
+          tenantId: a.tenantId, outletId: a.outletId, itemId, groupIds: [groupId],
+        }));
+      }
+
+      expect((await list()).find((g) => g.id === groupId)!.dishCount).toBe(2);
+    });
+
+    it('lets an option take money OFF, because "no roti" can', async () => {
+      const groupId = await aGroup('Roti');
+      await anOption(groupId, 'As it comes');
+      const cheaper = await anOption(groupId, 'Without the roti', -5_000);
+
+      const option = (await list())
+        .find((g) => g.id === groupId)!.options.find((o) => o.id === cheaper)!;
+      expect(option.priceDeltaMinor).toBe(-5_000);
+    });
+
+    it('logs a repriced option with both deltas', async () => {
+      const groupId = await aGroup('Chilli');
+      const optionId = await anOption(groupId, 'Extra fiery', 0);
+
+      await scoped((tx) => updateModifierOption(tx, {
+        ...base(), groupId, optionId, name: 'Extra fiery', priceDeltaMinor: 4_000,
+        currency: 'INR', isDefault: false, isAvailable: true,
+      }));
+
+      const events = await scoped((tx) => readEventHistory(tx, 'modifier_group', groupId));
+      const repriced = events.find((e) => e.event_type === 'modifier_option.repriced')!;
+      const payload = repriced.payload as { fromMinor: number; toMinor: number };
+      expect(Number(payload.fromMinor)).toBe(0);
+      expect(Number(payload.toMinor)).toBe(4_000);
+    });
+
+    it('does not log a reprice when only the name changed', async () => {
+      const groupId = await aGroup('Chilli');
+      const optionId = await anOption(groupId, 'Fiery', 4_000);
+
+      await scoped((tx) => updateModifierOption(tx, {
+        ...base(), groupId, optionId, name: 'Extra fiery', priceDeltaMinor: 4_000,
+        currency: 'INR', isDefault: false, isAvailable: true,
+      }));
+
+      const events = await scoped((tx) => readEventHistory(tx, 'modifier_group', groupId));
+      expect(events.filter((e) => e.event_type === 'modifier_option.repriced')).toHaveLength(0);
+    });
+
+    it('keeps one default in a single-choice group', async () => {
+      const groupId = await aGroup('Chilli', { max: 1 });
+      const gentle = await anOption(groupId, 'Gentle', 0, { isDefault: true });
+      const fiery = await anOption(groupId, 'Extra fiery', 0, { isDefault: true });
+
+      // Two preselected mutually exclusive choices is not a state a screen can
+      // render. The last one set wins.
+      const options = (await list()).find((g) => g.id === groupId)!.options;
+      expect(options.filter((o) => o.isDefault).map((o) => o.id)).toEqual([fiery]);
+      expect(options.find((o) => o.id === gentle)!.isDefault).toBe(false);
+    });
+
+    it('allows several defaults where several may be chosen', async () => {
+      const groupId = await aGroup('Add', { max: 3 });
+      await anOption(groupId, 'Extra ghee', 3_000, { isDefault: true });
+      await anOption(groupId, 'Steamed rice', 8_000, { isDefault: true });
+
+      expect((await list()).find((g) => g.id === groupId)!.options
+        .filter((o) => o.isDefault)).toHaveLength(2);
+    });
+
+    it('refuses to narrow a group to one choice while two are default', async () => {
+      const groupId = await aGroup('Add', { max: 3 });
+      await anOption(groupId, 'Extra ghee', 0, { isDefault: true });
+      await anOption(groupId, 'Steamed rice', 0, { isDefault: true });
+
+      await expect(scoped((tx) => updateModifierGroup(tx, {
+        ...base(), groupId, name: 'Add', minSelections: 0, maxSelections: 1,
+        isRequired: false,
+      }))).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('refuses a required group a guest can skip', async () => {
+      // A "required" badge over a group satisfied by choosing nothing is a lie.
+      await expect(scoped((tx) => createModifierGroup(tx, {
+        ...base(), name: 'Broken', minSelections: 0, maxSelections: 2, isRequired: true,
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('refuses a minimum above the maximum, and a maximum of zero', async () => {
+      await expect(scoped((tx) => createModifierGroup(tx, {
+        ...base(), name: 'Backwards', minSelections: 3, maxSelections: 2, isRequired: false,
+      }))).rejects.toBeInstanceOf(ValidationError);
+
+      await expect(scoped((tx) => createModifierGroup(tx, {
+        ...base(), name: 'Nothing to choose', minSelections: 0, maxSelections: 0,
+        isRequired: false,
+      }))).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('will not archive the last option in a group', async () => {
+      const groupId = await aGroup('Chilli');
+      const only = await anOption(groupId, 'Gentle');
+
+      // `getDish()` joins options INNER, so a group with none vanishes from the
+      // dish entirely — a required choice would disappear rather than error.
+      await expect(scoped((tx) => archiveModifierOption(tx, {
+        ...base(), groupId, optionId: only,
+      }))).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('archives an option out of the guest read while keeping the row', async () => {
+      const categoryId = await aCategory('Dinner');
+      const itemId = await aDish(categoryId, 'Laal maas');
+      const groupId = await aGroup('Chilli');
+      await anOption(groupId, 'Gentle');
+      const fiery = await anOption(groupId, 'Extra fiery', 4_000);
+      await scoped((tx) => setMenuItemModifierGroups(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, itemId, groupIds: [groupId],
+      }));
+
+      await scoped((tx) => archiveModifierOption(tx, { ...base(), groupId, optionId: fiery }));
+
+      const dish = await scoped((tx) => getDish(tx, { propertyId: a.propertyId, itemId }));
+      expect(dish!.modifierGroups[0]!.options.map((o) => o.name)).toEqual(['Gentle']);
+
+      // D-008: the row is still there, so a past order's snapshot has something
+      // to point at.
+      const row = await owner.query(
+        `SELECT archived_at FROM modifier_options WHERE id = $1`, [fiery]);
+      expect(row.rows[0].archived_at).not.toBeNull();
+    });
+
+    it('refuses to archive a group dishes carry, until told to detach it', async () => {
+      const categoryId = await aCategory('Dinner');
+      const itemId = await aDish(categoryId, 'Laal maas');
+      const groupId = await aGroup('Chilli');
+      await anOption(groupId, 'Gentle');
+      await scoped((tx) => setMenuItemModifierGroups(tx, {
+        tenantId: a.tenantId, outletId: a.outletId, itemId, groupIds: [groupId],
+      }));
+
+      await expect(scoped((tx) => archiveModifierGroup(tx, { ...base(), groupId })))
+        .rejects.toThrow(/1 dish carries this group/);
+
+      const { detachedFrom } = await scoped((tx) => archiveModifierGroup(tx, {
+        ...base(), groupId, detachFromDishes: true,
+      }));
+      expect(detachedFrom).toBe(1);
+
+      // Gone from the dish, and the dish is otherwise untouched.
+      const dish = await scoped((tx) => getDish(tx, { propertyId: a.propertyId, itemId }));
+      expect(dish!.modifierGroups).toEqual([]);
+      expect(dish!.dish.name).toBe('Laal maas');
+    });
+
+    it('archives a group nothing carries without ceremony', async () => {
+      const groupId = await aGroup('Unused');
+      await anOption(groupId, 'Whatever');
+
+      const { detachedFrom } = await scoped((tx) => archiveModifierGroup(tx, {
+        ...base(), groupId,
+      }));
+      expect(detachedFrom).toBe(0);
+      expect((await list()).find((g) => g.id === groupId)).toBeUndefined();
+    });
+
+    it('will not touch a group through another property\'s outlet', async () => {
+      const groupId = await aGroup('Ours');
+      await anOption(groupId, 'Gentle');
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => updateModifierGroup(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: b.outletId,
+          groupId, name: 'Theirs', minSelections: 0, maxSelections: 1,
+          isRequired: false, actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => createModifierOption(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: b.outletId,
+          groupId, name: 'Sneaky', priceDeltaMinor: 0, currency: 'INR',
+          isDefault: false, isAvailable: true, actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 
   describe('editorial collections', () => {

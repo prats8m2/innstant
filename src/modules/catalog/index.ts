@@ -43,3 +43,14 @@ export type {
   AdminCollection, AdminCollectionItem, CollectionWriteInput,
 } from './admin-collections';
 export { isWithinWindow } from './hours';
+
+/** Modifier groups and their options — the choices a guest gets on a dish. */
+export {
+  listModifierGroupsForAdmin, createModifierGroup, updateModifierGroup,
+  archiveModifierGroup, createModifierOption, updateModifierOption,
+  archiveModifierOption,
+} from './admin-modifiers';
+export type {
+  AdminModifierGroupDetail, AdminModifierOption,
+  ModifierGroupWriteInput, ModifierOptionWriteInput,
+} from './admin-modifiers';

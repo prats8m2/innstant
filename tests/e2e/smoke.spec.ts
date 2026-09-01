@@ -814,3 +814,182 @@ test.describe('collections', () => {
       .toContainText(/both a start and an end/i, { timeout: 20_000 });
   });
 });
+
+/**
+ * Option groups.
+ *
+ * The claim worth testing: an option's price difference reaches the guest's
+ * dish screen and moves the "Add to order" total. That is the whole path — an
+ * F&B manager types +₹120, and a guest sees a dish get ₹120 dearer when they
+ * pick it.
+ */
+test.describe('option groups', () => {
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  function ownGroup(): string {
+    return `Sides ${test.info().project.name}`;
+  }
+
+  /**
+   * Its own dish, and NOT one the menu-editor tests reprice.
+   *
+   * Those use Mohan maas / Mawa kachori / Masala chai, and the placement tests
+   * order Laal maas and Ker sangri. A dish being repriced by another test while
+   * this one reads its price fails here with a total that is off by seven.
+   */
+  function ownDish(): string {
+    return {
+      'staff-desktop': 'Kesar lassi',
+      'guest-mobile': 'Gatte ki sabzi',
+      'guest-ios': 'Dal baati churma',
+    }[test.info().project.name] ?? 'Kesar lassi';
+  }
+
+  function ownRoom(): string {
+    return { 'staff-desktop': '214', 'guest-mobile': '105', 'guest-ios': '301' }[
+      test.info().project.name
+    ] ?? '214';
+  }
+
+  async function signInAsFnb(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  test('shows the seeded groups with how many dishes carry them', async ({ page }) => {
+    await signInAsFnb(page);
+    await page.goto('/admin/menu/options');
+
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Option groups', {
+      timeout: 25_000,
+    });
+    // "Chilli" is one row shared by seven dishes — that reuse is the reason
+    // this screen exists, so the count is on it.
+    const chilli = page.locator('section').filter({
+      has: page.getByRole('heading', { name: 'Chilli' }),
+    });
+    await expect(chilli).toContainText(/\d+ dishes/);
+    await expect(chilli).toContainText('Extra fiery');
+  });
+
+  test('a new group prices a dish on the guest screen', async ({ browser }) => {
+    const desk = await browser.newContext({ viewport: { width: 1280, height: 1400 } });
+    const admin = await desk.newPage();
+    await signInAsFnb(admin);
+
+    const group = ownGroup();
+    await admin.goto('/admin/menu/options');
+
+    // Create the group.
+    const add = admin.locator('details').filter({ hasText: 'Add a group' }).first();
+    await add.locator('summary').click();
+    await add.locator('input[name="name"]').fill(group);
+    await add.locator('input[name="maxSelections"]').fill('1');
+    await add.getByRole('button', { name: 'Add the group' }).click();
+    await expect(admin.getByRole('heading', { name: group })).toBeVisible({ timeout: 25_000 });
+
+    const section = admin.locator('section').filter({
+      has: admin.getByRole('heading', { name: group }),
+    });
+
+    /**
+     * Two options: one free and default, one that costs. Named with the group's
+     * own suffix — the seeded "Add" group already has a "Steamed rice", and the
+     * dish carries it, so a bare name matches twice on the guest screen.
+     */
+    const paidOption = `Rice ${test.info().project.name}`;
+    for (const [name, delta, isDefault] of [
+      [`None ${test.info().project.name}`, '0', true],
+      [paidOption, '120', false],
+    ] as const) {
+      const form = section.locator('details').filter({ hasText: 'Add an option' }).first();
+      await form.locator('summary').click();
+      await form.locator('input[name="name"]').fill(name);
+      await form.locator('input[name="priceDelta"]').fill(delta);
+      if (isDefault) await form.locator('input[name="isDefault"]').check();
+      await form.getByRole('button', { name: 'Add the option' }).click();
+      // Scoped to the option LIST: the form's own "… saved." message matches
+      // the name too.
+      await expect(section.locator('li').filter({ hasText: name }))
+        .toBeVisible({ timeout: 25_000 });
+      // Collapse it again so the next iteration finds a closed form.
+      await form.locator('summary').click();
+    }
+
+    await expect(section.getByText('+₹120')).toBeVisible();
+
+    // Attach it to a dish, from the dish form — where attachment belongs.
+    await admin.goto('/admin/menu');
+    await admin.getByRole('link', { name: ownDish() }).click();
+    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await admin.locator(`label:has-text("${group}") input[type="checkbox"]`).first().check();
+    await admin.getByRole('button', { name: 'Save the dish' }).click();
+    await admin.waitForURL(/\/admin\/menu$/, { timeout: 25_000 });
+
+    // The guest's dish screen: the group is there, and choosing the paid option
+    // moves the total on the button.
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes[ownRoom()]!;
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/menu`);
+    await guest.getByRole('link', { name: new RegExp(ownDish()) }).first().click();
+    await guest.waitForURL(/\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+
+    await expect(guest.getByText(group)).toBeVisible({ timeout: 20_000 });
+
+    /**
+     * The claim, measured as a DIFFERENCE rather than an absolute.
+     *
+     * The button shows the dish plus whatever options are preselected, so an
+     * absolute figure depends on the seeded defaults of every group the dish
+     * carries. What this test is actually about is that +₹120 typed in the
+     * console moves the guest's total by ₹120.
+     */
+    const addButton = guest.getByRole('button', { name: /Add to order/ });
+    const totalOn = async () => {
+      const text = (await addButton.textContent()) ?? '';
+      const digits = /₹([\d,]+)/.exec(text)?.[1]?.replace(/,/g, '');
+      expect(digits, `no total on the button: ${text}`).toBeTruthy();
+      return Number(digits);
+    };
+
+    const before = await totalOn();
+    await guest.getByText(paidOption).click();
+    await expect
+      .poll(totalOn, { timeout: 20_000 })
+      .toBe(before + 120);
+
+    // Tidy up: take the group off the dish and archive it, so the suite is
+    // repeatable and the next run's dish is the seeded one.
+    await admin.goto('/admin/menu/options');
+    const back = admin.locator('section').filter({
+      has: admin.getByRole('heading', { name: group }),
+    });
+    await back.locator('details').filter({ hasText: 'Group settings' }).locator('summary').click();
+    await back.getByRole('button', { name: /Archive and take it off 1 dish/ }).click();
+    await expect(admin.getByRole('heading', { name: group })).toHaveCount(0, { timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('refuses a required group a guest could skip', async ({ page }) => {
+    await signInAsFnb(page);
+    await page.goto('/admin/menu/options');
+
+    const add = page.locator('details').filter({ hasText: 'Add a group' }).first();
+    await add.locator('summary').click();
+    await add.locator('input[name="name"]').fill('Impossible');
+    await add.locator('input[name="minSelections"]').fill('0');
+    await add.locator('input[name="maxSelections"]').fill('2');
+    await add.locator('input[name="isRequired"]').check();
+    await add.getByRole('button', { name: 'Add the group' }).click();
+
+    await expect(add.getByRole('alert').filter({ hasText: /\S/ }))
+      .toContainText(/minimum of at least one/i, { timeout: 20_000 });
+  });
+});
