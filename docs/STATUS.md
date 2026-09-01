@@ -54,32 +54,44 @@ Done so far in P1:
   a waiting guest wants; `/api/guest/order-stream` is the guest's own SSE route,
   filtered on `stay_id` and one order id (D-026). A rejection replaces the
   timeline with one sentence and the kitchen's own words.
+- **The folio follows the order (D-027)** — REJECTED and CANCELLED post a
+  negative `ADJUSTMENT` line in the same transaction as the status change, netted
+  against what is already posted so a second attempt credits nothing. Two
+  tablets rejecting one ticket produce one credit, under real concurrency.
+- **The runner app** — `/runner`. Trays waiting first, oldest on the pass first,
+  "Take it up" recording who is carrying it and "Handed over" marking DELIVERED.
+  It is the only thing in the product that can end an order.
 
-**P1's exit criterion is met, on two real devices.** Ticket on a kitchen screen
-**379ms** after Send, with no reload; the guest's timeline moves on the same
-notifications the kitchen acts on. The charge is on the folio and the event log
-reads `guest_session.escalated`, `order.placed`, `order.accepted`,
-`order.preparing`, `order.ready`.
+**P1's exit criterion now runs end to end, in one automated test.** A guest
+orders on a phone, a kitchen accepts and plates it, a runner on a third device
+takes it up and hands it over, and the guest's timeline reaches "At your door"
+and stops streaming. Ticket on the kitchen screen **379ms** after Send, with no
+reload. The charge is on the folio and the event log reads
+`guest_session.escalated`, `order.placed`, `order.accepted`, `order.preparing`,
+`order.ready`, `order.out_for_delivery`, `order.delivered`.
+
+Until this session nothing could mark an order DELIVERED, so the criterion's
+"bump it through to delivered" was not actually reachable. It is now.
 
 What that criterion still wants before it is honestly signed off: **hotel-grade
 wifi and the deployed environment**, not localhost. See the deploy note below.
 
 **Next, in `docs/PROJECT-PLAN.md` P1 order:**
 
-1. **A rejection must reverse its own folio line.** `placeOrder()` posts the
-   line at placement so "Charged to room 214" is true immediately; nothing
-   reverses it when the kitchen says no. The tracking screen therefore cannot
-   tell a guest "nothing has been charged" — it says to call the desk instead,
-   and `trackView`'s test pins that copy to the truth. Fixing it means a void on
-   the money path (idempotent, #8) and a new side effect on an existing state
-   machine, which CLAUDE.md says to ask about first. **Ask, then do this first
-   — it is the only known lie the product is currently one tap from telling.**
-2. **Catalog admin** — outlet, category and item CRUD, image upload to R2. The
-   read side is done; nothing can edit a menu except the seeder.
-3. **The rest of the kitchen and floor** — audible alert and an unacknowledged
-   count, prep timers with colour ageing, marking an item unavailable from the
-   KDS, and the runner pickup queue (`/runner` is a stub; `runnerTickets()` and
-   `assignedRunnerId` are written and nothing reads them).
+1. **Catalog admin** — outlet, category and item CRUD. The read side is done and
+   nothing can edit a menu except the seeder, so this is the largest remaining
+   P1 item and the first one a hotel would ask for. **Its image-upload half is
+   blocked:** R2 is not configured (`pnpm status` lists `R2_ACCESS_KEY_ID` under
+   "not needed yet"), so build the CRUD against the existing `image_url` /
+   blurhash columns and leave upload behind the credential.
+2. **Kitchen polish, from the P1 checklist** — an audible alert with a
+   persistent unacknowledged count, prep timers that age by colour, and marking
+   an item unavailable from the KDS. All three are things a kitchen asks for in
+   the first week and none of them need a new table.
+3. **Sign the exit criterion off for real** — on Railway, on hotel wifi, with a
+   printed sticker. Everything above is verified on localhost against a docker
+   Postgres; the criterion asks for the deployed environment and it is the one
+   claim still resting on a laptop.
 
 **A tenancy question is open and deliberately unanswered.** The staff login
 needs to know which tenant a browser is signing in to, and that is part of the
@@ -109,6 +121,8 @@ Railway app service. `pnpm status` reports both under DEPLOY, and
 
 | Session | Commit | What landed |
 |---|---|---|
+| P1 | `8b8f109` | The runner app — the last hop to delivered. `useLiveRefresh()` extracted; three copies of the SSE transport became one. Found that a Date crossing into a client component arrives as a string. |
+| P1 | `8abc240` | A rejected order takes its own charge back off the folio (D-027), netted and in the same transaction. Six integration tests, including one credit under two simultaneous rejections. |
 | P1 | `6033348` | The guest's tracking screen: the five-step timeline, the arriving-between promise, and `/api/guest/order-stream`. Found that a rejected order leaves its folio line standing, which is now the top of Now. |
 | P1 | `c7585ad` | The kitchen display, live: 379ms from a guest's phone to the ticket. Staff sign-in. Found that placeOrder never notified — every hop was live except the order arriving. |
 | P1 | `13ab3e8` | LISTEN/NOTIFY fan-out on its own connection, and `/api/kds/stream`. `subscribeToChannel` returns a `ready` promise so a screen cannot miss what happened while it was connecting. |
@@ -346,6 +360,16 @@ Things that cost time to rediscover.
   `/r/demo-code` and expected the code in the body, which is now a bare 404.
   Nothing caught it because nothing ran it. It now reads `.demo-seed.json`,
   written by `pnpm demo:reset`.
+- **A `Date` crossing into a client component arrives as a STRING.** The prop
+  type still says `Date`, so `readyAt.getTime()` typechecks, lints, and is a 500
+  on the server render — which is how the runner queue shipped broken for one
+  test run. Wrap it: `new Date(value).getTime()`. Both `Age` (KDS) and `Since`
+  (runner) now say so in a comment; anything new that formats a timestamp on the
+  client needs the same.
+- **The SSE transport is shared, the authorization is not.** `useLiveRefresh()`
+  in `src/components` is the only copy of the EventSource-plus-`router.refresh()`
+  loop. Each surface keeps its own route handler, because the authorize step and
+  the notification filter are what a mistake there costs (D-026).
 - **Run the e2e suite against a LOCAL Postgres too, not just the integration
   one.** Against Railway Singapore the guest tests time out: Playwright's
   default per-test timeout is 30s and one placement test makes a dozen page
