@@ -8,6 +8,13 @@
       "when": 1788081217429,
       "tag": "0000_initial_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788293092993,
+      "tag": "0005_checkout_fee_tiers",
+      "breakpoints": true
     }
   ]
 }

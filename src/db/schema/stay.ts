@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, integer, boolean, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
-import { pk, ts, createdAt, updatedAt, tenantId, propertyId, currency } from './_shared';
+import {
+  pk, ts, createdAt, updatedAt, tenantId, propertyId, currency, archivedAt,
+} from './_shared';
 import { stayStatus, staySource, checkoutRequestStatus } from './_shared';
 import { rooms } from './identity';
 
@@ -93,6 +95,48 @@ export const stays = pgTable('stays', {
   index('stays_property_status_idx').on(t.propertyId, t.status),
   index('stays_room_idx').on(t.roomId),
   index('stays_guest_idx').on(t.guestId),
+]);
+
+/**
+ * What a property will sell a guest at the end of their stay, and for how much.
+ *
+ * A tier is an HOUR, not a duration: "checkout at 2pm" is what a guest picks and
+ * what `stays.scheduled_checkout_at` becomes. The duration on the card ("three
+ * extra hours") is derived from the stay's own checkout time, so a guest already
+ * due out at 1pm reads "one extra hour" for the same tier.
+ *
+ * ─── What is deliberately NOT here ─────────────────────────────────────────
+ *
+ * An extra NIGHT. The design reference offers one ("Stay Thursday night,
+ * ₹18,500") and pricing it needs a nightly rate — which is a rate plan for a
+ * room type on a date, the exact thing CLAUDE.md #11 forbids putting on a room
+ * and #12 reserves the names for. Late checkout is a service fee the property
+ * sets; another night is a booking. See D-033.
+ */
+export const checkoutFeeTiers = pgTable('checkout_fee_tiers', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+
+  /** Property-local hour of the new checkout time, 0–23. */
+  hour: integer('hour').notNull(),
+
+  /** Editorial, optional — "The room is yours all day". The title and the
+   *  duration are both derived, so only the line that cannot be is stored. */
+  note: text('note'),
+
+  /** #5 — integer minor units plus an explicit currency. */
+  feeMinor: integer('fee_minor').notNull().default(0),
+  currency: currency(),
+
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+
+  archivedAt: archivedAt(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex('checkout_fee_tiers_property_hour_uq').on(t.propertyId, t.hour),
 ]);
 
 export const checkoutRequests = pgTable('checkout_requests', {

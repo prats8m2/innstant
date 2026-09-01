@@ -175,3 +175,54 @@ const NUMBER_WORDS = [
 export function spellCount(value: number): string {
   return NUMBER_WORDS[value] ?? String(value);
 }
+
+/**
+ * The instant at a given property-local hour on the same local day as a
+ * reference instant.
+ *
+ * "Checkout at 2pm" is an hour in the hotel's own day, and turning that into a
+ * `timestamptz` is the one bit of date arithmetic this product cannot avoid.
+ * Done by measuring the reference's local time-of-day and shifting by the
+ * difference, rather than by building a date string and parsing it back — the
+ * second approach needs a timezone-aware parser, and `new Date('2026-03-12
+ * 14:00')` is parsed in the SERVER's zone, which is exactly the bug this file
+ * exists to prevent.
+ *
+ * The one case it cannot handle is a DST transition falling between the
+ * reference and the target on the same day: the shift is measured in wall-clock
+ * minutes and applied as elapsed minutes, so an hour would be lost or gained.
+ * India has no DST, and for a property that does the error is bounded by one
+ * hour on two days a year, on a checkout time a human then confirms. Worth
+ * knowing; not worth a date library yet.
+ */
+export function atLocalHourOnSameDay(
+  reference: Date,
+  hour: number,
+  timeZone: string,
+): Date {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new RangeError(`Hour must be 0–23, got ${hour}`);
+  }
+  const local = localTimeAt(reference, timeZone);
+  const deltaMinutes = hour * 60 - local.minutes;
+  return new Date(reference.getTime() + deltaMinutes * 60_000);
+}
+
+/**
+ * "2pm", "11am" — the way the reference writes an hour.
+ *
+ * Takes no timezone, deliberately: the input is already a property-local hour
+ * number, so there is nothing left to convert and a timezone argument here would
+ * only invite somebody to pass one and expect it to mean something.
+ */
+export function formatHour(hour: number): string {
+  // Built from a known UTC midnight so the formatting is about the NUMBER, not
+  // about any particular day.
+  const at = new Date(Date.UTC(2000, 0, 1, hour, 0, 0));
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC',
+  })
+    .format(at)
+    .replace(/\s?([ap])m/i, (_, meridiem: string) => `${meridiem.toLowerCase()}m`)
+    .replace(/:00(?=[ap]m)/i, '');
+}

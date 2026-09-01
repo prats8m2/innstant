@@ -33,6 +33,7 @@ export default async function AdminHome() {
 
   const mayEditMenu = can(session, propertyId, 'catalog:read');
   const maySeeRequests = can(session, propertyId, 'request:read');
+  const maySeeStays = can(session, propertyId, 'stay:read');
 
   return (
     <AdminShell
@@ -96,6 +97,18 @@ export default async function AdminHome() {
             </span>
           </Link>
         </li>
+
+        {maySeeStays ? (
+          <li className={styles.card}>
+            <Link href="/admin/checkouts" className={styles.cardLink}>
+              <span className={styles.cardTitle}>Leaving</span>
+              <span className={styles.cardBody}>
+                Late checkouts waiting on an answer. Approving moves the stay,
+                posts the fee and keeps the guest&rsquo;s phone working.
+              </span>
+            </Link>
+          </li>
+        ) : null}
 
         {/* Named rather than hidden: these are the next phases in
             docs/PROJECT-PLAN.md, and staff asking "where is the folio" deserve

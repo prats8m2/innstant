@@ -30,7 +30,7 @@ export async function AdminShell({
   session: StaffSession;
   propertyId: string;
   propertyName: string;
-  current: 'home' | 'menu' | 'requests' | 'outlet';
+  current: 'home' | 'menu' | 'requests' | 'checkouts' | 'outlet';
   children: React.ReactNode;
 }) {
   return (
@@ -61,6 +61,13 @@ export async function AdminShell({
             aria-current={current === 'requests' ? 'page' : undefined}
           >
             Requests
+          </Link>
+          <Link
+            href="/admin/checkouts"
+            className={styles.navLink}
+            aria-current={current === 'checkouts' ? 'page' : undefined}
+          >
+            Leaving
           </Link>
           <Link
             href="/admin/outlet"

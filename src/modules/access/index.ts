@@ -2,7 +2,8 @@ export { createDefaultAccessPolicy } from './provision';
 
 export {
   scanQrCode, resolveGuestSession, raiseSessionTier, revokeSessionsForStay,
-  activeSessionCountForStay, QrNotUsableError, GUEST_SESSION_COOKIE,
+  activeSessionCountForStay, refreshSessionExpiryForStay,
+  QrNotUsableError, GUEST_SESSION_COOKIE,
 } from './guest-sessions';
 export type { GuestSession, ScanResult } from './guest-sessions';
 

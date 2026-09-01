@@ -12,3 +12,18 @@ export {
   countActiveStays,
 } from './create-stay';
 export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';
+
+/** Changing when a guest leaves — P3's checkout-change flow. */
+export {
+  getCheckoutOptions, requestCheckoutChange, cancelCheckoutRequest,
+  decideCheckoutRequest, listCheckoutRequests,
+} from './checkout';
+export type {
+  CheckoutOptions, PendingCheckoutRequest, RequestCheckoutInput, RequestedCheckout,
+  DecideCheckoutInput, DecidedCheckout, DeskCheckoutRequest,
+} from './checkout';
+export {
+  checkoutOffersFor, checkoutCtaFor, canDecideCheckout, effectiveFeeMinor,
+  CHECKOUT_REQUEST_STATUSES,
+} from './checkout-rules';
+export type { CheckoutOffer, CheckoutTier, CheckoutRequestStatus } from './checkout-rules';

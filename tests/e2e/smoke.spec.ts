@@ -1704,6 +1704,22 @@ test.describe('the request catalog', () => {
 });
 
 /**
+ * Room 210's suites, in order.
+ *
+ * Both of these verify against room 210 and both write to its folio, so they
+ * are one serial group rather than two that happen to be adjacent: "your stay"
+ * asserts exact totals on a clean bill, and "leaving later" then puts a
+ * ₹2,500 late-checkout fee on it. Two workers running them in either order made
+ * the totals a coin flip.
+ *
+ * The room is a shared resource here the way carts and dishes already are; this
+ * is the same rule written one level up.
+ */
+test.describe('room 210', () => {
+  test.describe.configure({ mode: 'serial' });
+
+
+/**
  * Your stay — P3's first screen, and the biggest hole in the product until it.
  *
  * `getFolioForStay()` has been written and tested since P0 while every charge
@@ -1840,4 +1856,175 @@ test.describe('your stay', () => {
     await expect(ledger).toContainText('-₹450');
     await expect(ledger).toContainText('₹13,180');
   });
+});
+
+/**
+ * Leaving later — P3's checkout-change flow, both ends.
+ *
+ * The claim is the round trip: a guest picks 2pm and agrees to a price, the desk
+ * sees it and says yes, and the guest's own screen and bill both move. Nothing
+ * is charged until the desk answers, which is the promise the guest screen makes
+ * while they wait.
+ *
+ * Room 210 again — this suite verifies, and verification is rate-limited per
+ * room (see "your stay").
+ */
+test.describe('leaving later', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'one seeded folio, one project — the same rule the cart tests follow',
+  );
+
+  const ROOM = '210';
+
+  async function openBill(page: Page): Promise<void> {
+    const code = seed!.qrCodes[ROOM]!;
+    await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/stay`);
+    const prompt = page.locator('input[name="answer"]');
+    if (await prompt.count()) {
+      await prompt.fill(seed!.guests[ROOM]!.phoneLast4);
+      await page.getByRole('button', { name: /Show me room 210/ }).click();
+    }
+    await expect(page.getByRole('heading', { name: 'Leaving' }))
+      .toBeVisible({ timeout: 25_000 });
+  }
+
+  async function signInAsDesk(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  test('a guest asks, the desk says yes, and both ends move', async ({ browser }) => {
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await openBill(guest);
+
+    // The options, priced, against this guest's own 11am checkout.
+    const twoPm = guest.locator('label').filter({ hasText: 'Late checkout, 2pm' });
+    await expect(twoPm).toContainText('Three extra hours');
+    await expect(twoPm).toContainText('₹2,500');
+
+    // Pick, then confirm. The price is on the button because agreeing to the
+    // amount IS the action.
+    await twoPm.click();
+    await guest.getByRole('button', { name: /Request 2pm checkout/ }).click();
+
+    // The promise that makes the wait bearable, and it is true.
+    await expect(guest.getByText(/Asked for/)).toBeVisible({ timeout: 25_000 });
+    await expect(guest.getByText(/Nothing is charged until they do/)).toBeVisible();
+
+    // Nothing on the bill yet.
+    const ledger = guest.locator('section').filter({ hasText: 'Room folio' });
+    await expect(ledger).not.toContainText('Late checkout');
+    await expect(ledger).toContainText('₹13,180');
+
+    // The desk sees it, with who is asking and for what.
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/checkouts');
+
+    const row = deskPage.locator('li').filter({ hasText: 'Room 210' }).first();
+    await expect(row).toBeVisible({ timeout: 25_000 });
+    await expect(row).toContainText('₹2,500');
+    await expect(row).toContainText(/due out/);
+
+    await row.getByRole('button', { name: 'Approve' }).click();
+
+    // The row LEAVES the queue — that is the confirmation, and it is the kind
+    // still true when the desk looks back an hour later.
+    const answered = deskPage.locator('section').filter({ hasText: 'Already answered' });
+    await expect(answered).toContainText('Room 210', { timeout: 25_000 });
+    await expect(answered).toContainText('₹2,500');
+    await expect(deskPage.getByText('Nobody is waiting on an answer.')).toBeVisible();
+
+    // And the guest's own screen, reloaded, shows all three consequences.
+    await guest.reload();
+    await expect(guest.getByText(/Checkout moved to/)).toBeVisible({ timeout: 25_000 });
+    await expect(guest.getByText(/₹2,500 is on the room/)).toBeVisible();
+    // The header, not just the request card.
+    await expect(guest.getByText(/^Tomorrow|2pm/).first()).toBeVisible();
+    // And the fee is on the bill, named in the hotel's own hour.
+    await expect(ledger).toContainText('Late checkout · 2pm');
+    await expect(ledger).toContainText('₹15,680');
+
+    await phone.close();
+    await desk.close();
+  });
+
+  test('a decline charges nothing and says why, in the desk\'s words', async ({ browser }) => {
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await openBill(guest);
+
+    const sixPm = guest.locator('label').filter({ hasText: 'Late checkout, 6pm' });
+    await expect(sixPm).toContainText('The room is yours all day');
+    await sixPm.click();
+    await guest.getByRole('button', { name: /Request 6pm checkout/ }).click();
+    await expect(guest.getByText(/Asked for/)).toBeVisible({ timeout: 25_000 });
+
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/checkouts');
+
+    const row = deskPage.locator('li').filter({ hasText: 'Room 210' }).first();
+    await row.locator('input[name="declineReason"]')
+      .fill('The room turns over for a 3pm arrival.');
+    await row.getByRole('button', { name: 'Decline' }).click();
+    await expect(deskPage.getByText('Nobody is waiting on an answer.'))
+      .toBeVisible({ timeout: 25_000 });
+
+    await guest.reload();
+    await expect(guest.getByText(/could not do that one/)).toBeVisible({ timeout: 25_000 });
+    // Verbatim, the same rule the kitchen's rejection follows.
+    await expect(guest.getByText('The room turns over for a 3pm arrival.')).toBeVisible();
+
+    const ledger = guest.locator('section').filter({ hasText: 'Room folio' });
+    await expect(ledger).not.toContainText('Late checkout · 6pm');
+
+    await phone.close();
+    await desk.close();
+  });
+
+  /**
+   * 6pm, not 2pm: these run serially against one shared stay, and the first test
+   * moved room 210's checkout to 2pm — so 2pm is no longer an offer, exactly as
+   * `checkoutOffersFor` intends. A suite that ignored that would be asserting
+   * against a screen no guest could reach.
+   */
+  test('a guest can withdraw before the desk looks', async ({ page }) => {
+    await openBill(page);
+
+    const sixPm = page.locator('label').filter({ hasText: 'Late checkout, 6pm' });
+    await sixPm.click();
+    await page.getByRole('button', { name: /Request 6pm checkout/ }).click();
+    await expect(page.getByText(/Asked for/)).toBeVisible({ timeout: 25_000 });
+
+    await page.getByRole('button', { name: 'Never mind' }).click();
+    // The options come back rather than a receipt for something that did not
+    // happen.
+    await expect(page.locator('label').filter({ hasText: 'Late checkout, 6pm' }))
+      .toBeVisible({ timeout: 25_000 });
+  });
+
+  /**
+   * The reference offers "Stay Thursday night, ₹18,500". Pricing a night needs a
+   * rate plan for a room type on a date — CLAUDE.md #11 and #12, and D-013's
+   * deferred booking scope. The screen says where to go instead rather than
+   * drawing a control that would have to invent a rate.
+   */
+  test('does not offer a night it cannot price', async ({ page }) => {
+    await openBill(page);
+    await expect(page.getByText(/Staying another night\? The front desk/)).toBeVisible();
+    await expect(page.locator('label').filter({ hasText: /night/i })).toHaveCount(0);
+  });
+});
 });

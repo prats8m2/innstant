@@ -121,6 +121,7 @@ async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> 
 
   const recent = await tx.select({
     attempts: verificationChallenges.attempts,
+    succeededAt: verificationChallenges.succeededAt,
     lockedUntil: verificationChallenges.lockedUntil,
   }).from(verificationChallenges)
     .where(and(
@@ -136,10 +137,24 @@ async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> 
     );
   }
 
-  // Without this, last-4 verification is a five-attempt brute force
-  // (DATA-MODEL §3). Counted per ROOM, across challenges, not per challenge —
-  // otherwise starting a new challenge resets the counter.
-  const total = recent.reduce((n, r) => n + r.attempts, 0);
+  /**
+   * Without this, last-4 verification is a five-attempt brute force
+   * (DATA-MODEL §3). Counted per ROOM, across challenges, not per challenge —
+   * otherwise starting a new challenge resets the counter.
+   *
+   * WRONG answers only. This counted every attempt including the successful
+   * one, which made the control punish exactly the person it exists to protect:
+   * a guest who verified correctly on their phone, then the tablet, then their
+   * partner's phone, then again after a session lapsed, was locked out of their
+   * own room for thirty minutes having never once got it wrong. A challenge
+   * that succeeded on the third try still contributes its two failures — the
+   * success is the only attempt forgiven, because a success is evidence of
+   * legitimacy rather than of guessing.
+   *
+   * The security property is unchanged: five WRONG guesses per room per
+   * lockout window, against a four-digit space.
+   */
+  const total = recent.reduce((n, r) => n + r.attempts - (r.succeededAt ? 1 : 0), 0);
   if (total >= maxPerRoom) {
     throw new TooManyAttemptsError(lockoutMinutes * 60);
   }

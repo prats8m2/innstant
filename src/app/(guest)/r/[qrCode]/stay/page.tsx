@@ -7,9 +7,11 @@ import {
 } from '@/modules/access';
 import { findProperty, describeRoom } from '@/modules/identity';
 import { getFolioForStay, buildGuestStatement } from '@/modules/billing';
+import { getCheckoutOptions, checkoutCtaFor } from '@/modules/stay';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { formatCheckoutDay, nightsUntil, spellCount } from '@/lib/clock';
 import { VerifyForFolio } from './verify-form';
+import { CheckoutOptions, PendingCheckout, CheckOutNow, type OfferView } from './checkout-options';
 import styles from './stay.module.css';
 
 /**
@@ -37,9 +39,15 @@ import styles from './stay.module.css';
  *
  * The reference's `stay` screen, rebuilt with real components: the eyebrow, the
  * Marcellus date, the folio rule and the saffron total are all its measurements.
- * Its checkout options and "Check out now" are the NEXT task (P3 bullets 2–4,
- * `checkout_requests` is already in the schema) and are deliberately absent
- * rather than drawn as dead controls.
+ * Its checkout options and "Check out now" are here too, below the folio rather
+ * than above it: the reference draws them first, and a guest who has just been
+ * asked to verify should meet the thing they came for before an upsell.
+ *
+ * One option the reference has and this does not: "Stay Thursday night". Pricing
+ * a NIGHT needs a nightly rate — a rate plan for a room type on a date — which
+ * CLAUDE.md #11 forbids putting on a room and #12 reserves the names for. Late
+ * checkout is a service fee the property sets; another night is a booking
+ * (D-033), and the line under the options says where to go for one.
  */
 export const dynamic = 'force-dynamic';
 
@@ -57,21 +65,49 @@ export default async function StayScreen({
   const base = `/r/${encodeURIComponent(qrCode)}`;
   const verified = tierAtLeast(session.accessTier, tierForAction('view_folio'));
 
-  const { property, room, folio } = await withTenant(
+  const { property, room, folio, leaving } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
-    async (tx) => ({
-      property: await findProperty(tx, session.propertyId),
-      room: await describeRoom(tx, {
-        propertyId: session.propertyId, roomId: session.roomId,
-      }),
-      // Not read at all until the guest is through the prompt. A folio is not
-      // fetched-then-hidden; it is not fetched.
-      folio: verified ? await getFolioForStay(tx, session.stayId) : null,
-    }),
+    async (tx) => {
+      const found = await findProperty(tx, session.propertyId);
+      const zone = found?.timezone ?? 'Asia/Kolkata';
+      return {
+        property: found,
+        room: await describeRoom(tx, {
+          propertyId: session.propertyId, roomId: session.roomId,
+        }),
+        // Neither of these is read until the guest is through the prompt. A
+        // folio is not fetched-then-hidden; it is not fetched.
+        folio: verified ? await getFolioForStay(tx, session.stayId) : null,
+        leaving: verified
+          ? await getCheckoutOptions(tx, {
+            propertyId: session.propertyId, stayId: session.stayId, timeZone: zone,
+          })
+          : null,
+      };
+    },
   );
 
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
   const currency = (property?.currency ?? 'INR') as CurrencyCode;
+
+  /**
+   * The money is formatted HERE and handed over as a string. A client component
+   * importing `formatMoney` from a module index would be fine, but importing the
+   * offers themselves would not — and keeping every amount formatted on the
+   * server is what makes #5 one rule in one place rather than a convention the
+   * next component may not follow.
+   */
+  const offerViews: OfferView[] = (leaving?.offers ?? []).map((offer) => ({
+    id: offer.id,
+    title: offer.title,
+    sub: offer.sub,
+    price: offer.feeMinor === 0
+      ? 'No charge'
+      : formatMoney(money(offer.feeMinor, offer.currency as CurrencyCode)),
+    cta: checkoutCtaFor(offer),
+  }));
+
+  const pendingView = describePending(leaving, timeZone);
 
   const checkout = formatCheckoutDay(session.scheduledCheckoutAt, timeZone);
   const nights = nightsUntil(new Date(), session.scheduledCheckoutAt, timeZone);
@@ -116,6 +152,54 @@ export default async function StayScreen({
             <VerifyForFolio qrCode={qrCode} roomNumber={session.roomNumber} />
           )}
         </section>
+
+        {/* Only for a guest who is through the prompt: `request_checkout` sits
+            on the same FULL tier as the folio (D-031), and drawing controls
+            that would refuse is worse than not drawing them. */}
+        {verified && leaving ? (
+          <section className={styles.leaving} aria-labelledby="leaving-heading">
+            <h2 id="leaving-heading" className={styles.leavingTitle}>Leaving</h2>
+
+            {pendingView ? (
+              <PendingCheckout
+                qrCode={qrCode}
+                requestId={pendingView.id}
+                status={pendingView.status}
+                headline={pendingView.headline}
+                detail={pendingView.detail}
+                canWithdraw={pendingView.canWithdraw}
+              />
+            ) : null}
+
+            {/*
+              * While a request is OPEN the options are gone: a guest who asked
+              * for 2pm and can still see a 6pm button will press it, and the
+              * one-open-request index would refuse in a way that reads as a bug.
+              *
+              * Once it is decided the slot is free again, so the options come
+              * back — recomputed against the checkout time they now have. A
+              * guest who moved to 2pm can go on to ask for 6pm, and one whose
+              * request was declined can ask for something else.
+              */}
+            {pendingView?.status === 'REQUESTED' ? null : offerViews.length ? (
+              <CheckoutOptions qrCode={qrCode} offers={offerViews} />
+            ) : (
+              <p className={styles.noOffers}>
+                Nothing more to add to today. The front desk can help if you need
+                longer.
+              </p>
+            )}
+
+            <p className={styles.anotherNight}>
+              Staying another night? The front desk arranges that one — the rate
+              depends on the date.
+            </p>
+
+            {/* Not while something is waiting on the desk: "leave now" beside
+                "I have asked to stay until 6pm" is two answers to one question. */}
+            {pendingView?.status === 'REQUESTED' ? null : <CheckOutNow qrCode={qrCode} />}
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -170,4 +254,63 @@ function Statement({
       <p className={styles.note}>{statement.note}</p>
     </div>
   );
+}
+
+/**
+ * What a request that has already been made says on the guest's screen.
+ *
+ * Only the states a guest can still be looking at. CANCELLED and COMPLETED are
+ * absent on purpose: a withdrawn request should give the options back rather
+ * than leave a receipt for something that did not happen, and a completed stay
+ * is not reading this screen.
+ */
+function describePending(
+  leaving: Awaited<ReturnType<typeof getCheckoutOptions>> | null,
+  timeZone: string,
+): {
+  id: string; status: string; headline: string; detail: string; canWithdraw: boolean;
+} | null {
+  const pending = leaving?.pending;
+  if (!pending) return null;
+
+  const at = formatCheckoutDay(pending.requestedCheckoutAt, timeZone);
+  const fee = pending.overriddenFeeMinor ?? pending.feeMinor;
+  const amount = formatMoney(money(fee, pending.currency));
+
+  if (pending.status === 'REQUESTED') {
+    return {
+      id: pending.id,
+      status: pending.status,
+      headline: fee > 0 ? `Asked for ${at}` : 'You told us you are leaving',
+      detail: fee > 0
+        // The promise that makes the wait bearable, and it is true: the fee is
+        // posted on approval, never on the ask.
+        ? `${amount} if the desk says yes. Nothing is charged until they do.`
+        : 'Someone will come up for the key.',
+      canWithdraw: true,
+    };
+  }
+
+  if (pending.status === 'APPROVED') {
+    return {
+      id: pending.id,
+      status: pending.status,
+      headline: `Checkout moved to ${at}`,
+      detail: fee > 0 ? `${amount} is on the room.` : 'Nothing to pay for it.',
+      canWithdraw: false,
+    };
+  }
+
+  if (pending.status === 'DECLINED') {
+    return {
+      id: pending.id,
+      status: pending.status,
+      headline: 'The desk could not do that one',
+      // Their words, verbatim — the same rule the kitchen's rejection follows.
+      detail: pending.declineReason ?? 'Ask at the desk and they will explain.',
+      canWithdraw: false,
+    };
+  }
+
+  return null;
 }

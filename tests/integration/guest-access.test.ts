@@ -274,6 +274,52 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
     // (DATA-MODEL §3) and starting a new challenge would reset the counter.
     expect(locked).toBe(true);
   });
+
+  /**
+   * The counter is for WRONG answers.
+   *
+   * It counted every attempt, successful ones included, which made the control
+   * punish exactly the person it protects: a guest verifying on their phone,
+   * then the tablet, then their partner's phone, then again after a session
+   * lapsed, was locked out of their own room for thirty minutes having never
+   * got it wrong once.
+   */
+  it('does not lock out a guest who keeps getting it right', async () => {
+    await clearSessions();
+    await owner.query(
+      `DELETE FROM verification_challenges WHERE tenant_id = $1`, [TENANT_A]);
+
+    // Six correct verifications on the same room, well past the cap of five.
+    for (let i = 0; i < 6; i += 1) {
+      const scan = await scanQrCode(a.qrCode);
+      const challengeId = await startPhoneLast4Challenge(scan.session);
+      const result = await answerChallenge(scan.session, challengeId, '1111');
+      expect(result.ok, `attempt ${i + 1} should have succeeded`).toBe(true);
+    }
+  });
+
+  it('still counts the wrong answers a successful challenge took', async () => {
+    await clearSessions();
+    await owner.query(
+      `DELETE FROM verification_challenges WHERE tenant_id = $1`, [TENANT_A]);
+
+    // Two challenges, each two wrong then right. The two successes are
+    // forgiven; the four wrong answers are not.
+    for (let round = 0; round < 2; round += 1) {
+      const scan = await scanQrCode(a.qrCode);
+      const challengeId = await startPhoneLast4Challenge(scan.session);
+      await answerChallenge(scan.session, challengeId, '0000');
+      await answerChallenge(scan.session, challengeId, '0000');
+      await answerChallenge(scan.session, challengeId, '1111');
+    }
+
+    // Four wrong answers are on the room. The fifth locks it.
+    const scan = await scanQrCode(a.qrCode);
+    const challengeId = await startPhoneLast4Challenge(scan.session);
+    await answerChallenge(scan.session, challengeId, '0000');
+    await expect(startPhoneLast4Challenge(scan.session))
+      .rejects.toBeInstanceOf(TooManyAttemptsError);
+  });
 });
 
 describe('S7 · staff vouching — the guest sees no prompt at all', () => {

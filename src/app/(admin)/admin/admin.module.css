@@ -775,3 +775,26 @@
 .routeBroken {
   color: var(--accent);
 }
+
+/*
+ * The desk's decision controls. They sit under the request rather than beside
+ * it — a fee field and a reason field squeezed into a flex row leave the guest's
+ * name three characters wide, the same lesson the request-type editor learned.
+ */
+.checkoutDecide {
+  flex-basis: 100%;
+  order: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.checkoutFee { flex: 0 0 160px; }
+.checkoutReason { flex: 1 1 260px; }
+
+.checkoutButtons {
+  display: flex;
+  gap: var(--space-2);
+}

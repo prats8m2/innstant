@@ -21,6 +21,7 @@ import { createStay } from '@/modules/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
 import { serviceRequests, serviceRequestItems, requestTypes } from '@/db/schema/requests';
+import { checkoutFeeTiers } from '@/db/schema/stay';
 import { escalateBreachesFor } from '@/modules/requests';
 import { folios, folioLines } from '@/db/schema/billing';
 import { formatMoney, money } from '@/lib/money';
@@ -192,6 +193,29 @@ async function main(): Promise<void> {
         });
       }
     }
+
+    /**
+     * ── What the desk sells at the end of a stay ─────────────────────────
+     *
+     * Hours, not nights. The reference offers "Stay Thursday night, ₹18,500"
+     * and pricing a night needs a rate plan, which is v2 booking (D-033) — so
+     * the demo offers the two late checkouts and nothing else.
+     *
+     * The notes are the reference's own words where it has them; the titles and
+     * the durations are derived, so one row reads correctly for a guest due out
+     * at 11am and for one due out at 1pm.
+     */
+    await tx.insert(checkoutFeeTiers).values([
+      { hour: 14, note: null, feeMinor: 250_000, sortOrder: 0 },
+      { hour: 18, note: 'The room is yours all day', feeMinor: 500_000, sortOrder: 1 },
+    ].map((tier) => ({
+      tenantId: TENANT_ID,
+      propertyId: provisioned.propertyId,
+      hour: tier.hour,
+      note: tier.note,
+      feeMinor: tier.feeMinor,
+      sortOrder: tier.sortOrder,
+    })));
 
     // ── Four in-house stays ─────────────────────────────────────────────────
     const stayIds = new Map<string, string>();
@@ -420,6 +444,7 @@ async function main(): Promise<void> {
   console.log(`    folio 214     ${formatMoney(money(folioBalance, 'INR'))} across 4 lines`);
   console.log(`    late request  SR-4468, 14 minutes past — ${escalated} escalated, the GM's bell is lit`);
   console.log('    folio 210     ₹13,180 across 2 lines');
+  console.log('    late checkout 2pm ₹2,500 · 6pm ₹5,000 — the desk decides at /admin/checkouts');
   console.log('\n  Staff logins  (password for all: ' + DEMO_PASSWORD + ')');
   for (const s of DEMO_STAFF) console.log(`    ${s.role.padEnd(16)} ${s.email}`);
 

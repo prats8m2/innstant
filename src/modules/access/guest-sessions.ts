@@ -230,6 +230,46 @@ export async function raiseSessionTier(
     .where(eq(guestSessions.id, sessionId));
 }
 
+/**
+ * The stay's checkout moved, so the sessions on it have to move with it.
+ *
+ * A session expires at `scheduled_checkout_at + grace` (see `scanQrCode`), which
+ * is set once when the session is minted. Approve a 6pm late checkout at 10am
+ * and every phone in the room would still stop working at 1pm — the guest would
+ * have paid for the room and lost the app that orders lunch to it.
+ *
+ * The grace is re-read from the property's policy rather than passed in, so
+ * there is one place that knows how the expiry is computed and it is the same
+ * place that computed it the first time.
+ *
+ * Only live sessions: a revoked one stays revoked, and an already-expired one
+ * is not resurrected by a later checkout. A guest whose session lapsed rescans,
+ * which is one tap and mints a session with the new expiry anyway.
+ */
+export async function refreshSessionExpiryForStay(
+  tx: Tx,
+  input: { propertyId: string; stayId: string; scheduledCheckoutAt: Date },
+): Promise<number> {
+  const policy = await tx.select({ graceMinutes: accessPolicies.sessionGraceMinutes })
+    .from(accessPolicies)
+    .where(eq(accessPolicies.propertyId, input.propertyId))
+    .limit(1);
+
+  const graceMinutes = policy[0]?.graceMinutes ?? 120;
+  const expiresAt = new Date(input.scheduledCheckoutAt.getTime() + graceMinutes * 60_000);
+
+  const updated = await tx.update(guestSessions)
+    .set({ expiresAt })
+    .where(and(
+      eq(guestSessions.stayId, input.stayId),
+      isNull(guestSessions.revokedAt),
+      gt(guestSessions.expiresAt, new Date()),
+    ))
+    .returning({ id: guestSessions.id });
+
+  return updated.length;
+}
+
 /** #10 — checkout revokes every session for that stay. */
 export async function revokeSessionsForStay(tx: Tx, stayId: string): Promise<number> {
   const revoked = await tx.update(guestSessions)

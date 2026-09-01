@@ -284,3 +284,232 @@
   font-size: var(--text-sm);
   color: var(--plaster-faint);
 }
+
+/* ── Leaving ────────────────────────────────────────────────────────────── */
+.leaving {
+  margin-top: var(--space-8);
+}
+
+.leavingTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.options {
+  margin-top: var(--space-3);
+}
+
+.optionSet {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.optionsLegend {
+  padding: 0;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+/*
+ * The reference's option row: 64px tall, the title and its uppercase mono
+ * sub-line on the left, the price on the right, and a saffron border when it is
+ * the one picked.
+ */
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 64px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
+}
+.option[data-picked='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--saffron) 10%, transparent);
+}
+
+/*
+ * The radio is the accessible control and the label is the target. Not
+ * `display: none` — a hidden input is unreachable by keyboard and takes the
+ * whole group out of the tab order, which is how a radio group becomes
+ * mouse-only without anybody noticing.
+ */
+.optionRadio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.option:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.optionBody {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.optionTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.optionSub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.optionPrice {
+  flex: none;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.optionError {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--accent);
+}
+
+.optionDone {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--teal);
+}
+
+/*
+ * The reference's sticky confirm bar, fading the page out behind it. Sticky
+ * rather than fixed: fixed would float over the folio on the way down, and the
+ * primary action belongs in the bottom 40% of the screen, not permanently in
+ * front of the bill.
+ */
+.confirmBar {
+  position: sticky;
+  bottom: 0;
+  margin-top: var(--space-4);
+  padding: var(--space-4) 0 var(--space-3);
+  background: linear-gradient(to top, var(--bg) 64%, transparent);
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 58px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--ink-900);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  cursor: pointer;
+}
+.confirm:hover:not(:disabled) { background: var(--accent-hover); }
+.confirm:disabled { opacity: 0.7; cursor: progress; }
+
+.confirmPrice { font-size: var(--text-base); }
+
+/* ── A request already made ─────────────────────────────────────────────── */
+.pending {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+/* Approved is settled news, not something to chase. */
+.pending[data-status='APPROVED'] { border-left-color: var(--teal); }
+.pending[data-status='DECLINED'] { border-left-color: var(--ink-300); }
+
+.pendingHeadline {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.pendingDetail {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.withdraw {
+  margin-top: var(--space-4);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  cursor: pointer;
+}
+.withdraw:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
+.withdraw:disabled { opacity: 0.6; cursor: progress; }
+
+.noOffers {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.anotherNight {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--plaster-faint);
+}
+
+/* ── Leaving now ────────────────────────────────────────────────────────── */
+.leaveNow {
+  margin-top: var(--space-6);
+}
+
+.leaveButton {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  cursor: pointer;
+}
+.leaveButton:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
+.leaveButton:disabled { opacity: 0.6; cursor: progress; }
