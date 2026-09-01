@@ -8,6 +8,7 @@
  */
 import { logger } from '@/lib/logger';
 import { closePool, closeNotifyConnection } from '@/db';
+import { startSlaSweeper, stopSlaSweeper } from '@/modules/requests';
 
 export function startLifecycle(): void {
   logger.info(
@@ -19,11 +20,24 @@ export function startLifecycle(): void {
     'server started',
   );
 
+  /**
+   * The SLA sweep runs on a timer in this process (D-002 — it is a persistent
+   * Node process, and D-022 removed the pooler that would have made a
+   * long-running background transaction awkward). One instance sweeps at a time
+   * through an advisory lock, so replicas are safe.
+   *
+   * Started here rather than from a route because a sweep triggered by traffic
+   * stops escalating the moment a hotel goes quiet — which is exactly when a
+   * forgotten request matters most.
+   */
+  startSlaSweeper();
+
   let shuttingDown = false;
   const shutdown = (signal: string) => async () => {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info({ signal }, 'shutting down: draining the database pool');
+    stopSlaSweeper();
     try {
       // The listener first: it holds an open connection and any SSE stream
       // feeding off it, and both should stop before in-flight writes finish.

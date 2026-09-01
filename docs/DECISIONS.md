@@ -344,3 +344,47 @@ kept if the reversal goes.
 above some amount will need the approval path after all. That is a rule on top
 of this, not instead of it: post the credit, flag the folio, let the desk see
 it — never leave the guest holding the line.
+
+### D-028 · The SLA sweep runs in-process, and finds its work through a SECURITY DEFINER function
+Breaches escalate on a 60-second timer started in `startLifecycle()`, not from a
+route and not from an external scheduler. One instance sweeps at a time through
+`pg_try_advisory_lock`; the level check makes a double sweep a no-op anyway.
+
+**Why in-process.** The app is a persistent Node process (D-002), so this needs
+no queue, no cron container and no dependency. A sweep triggered by traffic was
+the alternative and it is wrong in the obvious way: it stops escalating the
+moment a hotel goes quiet, which is exactly when a forgotten request matters.
+
+**Why a SECURITY DEFINER function to find the work.** A job on a timer carries no
+request, so there is nothing to derive a tenant from — and `app_user` under RLS
+with no `app.tenant_id` correctly returns zero rows, which would make the sweep
+silently do nothing for ever. `sla_sweep_properties()` (migration 0004) is the
+same shape as `resolve_qr_routing()` (D-003 era, migration 0003): one fixed
+statement, owned by the migration role, returning ROUTING IDS ONLY. The sweep
+then re-enters through `withTenant()` per property and does every read and write
+under RLS like the rest of the codebase.
+
+The alternatives were worse in specific ways: connecting the worker as the owner
+puts credentials that bypass every policy into the deployed image, which D-025
+exists to prevent; loosening RLS on `service_requests` is row-level, so it would
+widen every request path and not just this one; and a list of tenants in an env
+var is wrong the day a property is added, with nobody noticing until a breach
+goes unescalated.
+
+**Escalation is not a status.** It moves `escalated_at` and `escalation_level`
+and leaves the status alone (DATA-MODEL §6) — a breached request is very often
+IN_PROGRESS, and collapsing that into an enum loses the only fact the duty
+manager needs.
+
+**Three levels, then it stops.** Level 1 at the breach tells the assignee, level
+2 at ten minutes past tells the duty manager, level 3 at half an hour is a
+failure on the manager's own board. Escalating for ever is noise that gets muted,
+and a muted alert is the failure this mechanism exists to prevent.
+
+**Cost / when to revisit.** Two things are stand-ins. The duty manager is whoever
+holds PROPERTY_ADMIN, which becomes a `shifts` lookup when a property runs a real
+rota. And nothing DELIVERS the notification rows yet — the channel is a product
+decision needing an external service (CLAUDE.md says ask), so the row is written
+and the drainer is the next decision. Writing the row first is deliberate: "we
+never told them" and "we told them and their phone was off" are different
+problems, and only a row written before the send can tell them apart.

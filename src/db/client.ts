@@ -200,6 +200,31 @@ export async function resolveQrRouting(publicCode: string): Promise<QrRouting | 
   };
 }
 
+export interface SweepTarget {
+  tenantId: string;
+  propertyId: string;
+}
+
+/**
+ * Which properties have a breached, un-escalated request.
+ *
+ * The SECOND and last unscoped query in the product, and the same shape as
+ * `resolveQrRouting()`: a SECURITY DEFINER function (migration 0004) returning
+ * ROUTING IDS ONLY. A job on a timer carries no request, so there is nothing to
+ * derive a tenant from — and `app_user` under RLS with no `app.tenant_id`
+ * correctly sees nothing, which would make the sweep silently do nothing
+ * forever.
+ *
+ * Everything the sweep then reads or writes goes back through `withTenant()`
+ * per property, under RLS, like every other line of code here.
+ */
+export async function slaSweepProperties(): Promise<SweepTarget[]> {
+  const { rows } = await pool.query<{ tenant_id: string; property_id: string }>(
+    'SELECT * FROM sla_sweep_properties()',
+  );
+  return rows.map((row) => ({ tenantId: row.tenant_id, propertyId: row.property_id }));
+}
+
 /** For graceful shutdown and for tests. */
 export async function closePool(): Promise<void> {
   await pool.end();

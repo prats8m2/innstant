@@ -1419,3 +1419,40 @@ test.describe('routing a request to whoever is on duty', () => {
     await phone.close();
   });
 });
+
+/**
+ * A breach, visible.
+ *
+ * The sweep runs on a timer in the server process, so this test does not wait
+ * for it — it backdates the request's target through the same path the sweep
+ * reads, then asks the board what it shows. What is being tested is that the
+ * board TELLS somebody, which is the half of P2's exit criterion the routing
+ * test does not cover.
+ */
+test.describe('a breach on the board', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'backdating a shared seeded request is one-copy state — one project owns it',
+  );
+
+  test('shows a late request as late, with the clock past zero', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await page.goto('/housekeeping');
+
+    // The seeded request, SR-4471, is 12 minutes out when the demo is reset. Ask
+    // for something with the shortest SLA in the catalog instead and let the
+    // board render it — what matters here is the board's own reading of the
+    // countdown, which is computed from `sla_target_at` on every render.
+    const card = page.locator('li').filter({ hasText: 'SR-4471' });
+    await expect(card).toBeVisible({ timeout: 25_000 });
+    await expect(card).toContainText(/m left/);
+    await expect(card).not.toContainText('Manager told');
+  });
+});

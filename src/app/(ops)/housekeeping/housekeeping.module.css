@@ -385,3 +385,29 @@
   gap: var(--space-3);
   margin-top: var(--space-3);
 }
+
+/*
+ * Escalation, next to the countdown rather than instead of it. Level 1 is the
+ * card already reddening; level 2 says a manager knows, which is the thing that
+ * stops two people chasing the same request.
+ */
+.escalated {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.escalated[data-level='2'],
+.escalated[data-level='3'] {
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+
+/* Three is the top of the scale and the card should look like it. */
+.card[data-escalation='3'] { border-color: var(--accent); }

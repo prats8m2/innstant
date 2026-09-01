@@ -87,13 +87,30 @@ function Card({
   const withSomeoneElse = request.assignedStaffId !== null && !mine;
 
   return (
-    <li className={styles.card} data-status={request.status} data-late={request.breached}>
+    <li
+      className={styles.card}
+      data-status={request.status}
+      data-late={request.breached}
+      data-escalation={request.escalationLevel}
+    >
       <header className={styles.cardHead}>
         <span className={`${styles.room} tabular`}>{request.roomNumber}</span>
         <span className={styles.where}>
           <span className={styles.floor}>{request.floorName}</span>
           <span className={`${styles.ref} tabular`}>{request.requestNumber}</span>
         </span>
+        {/*
+          Escalation is not a status (DATA-MODEL §6) — it sits alongside whatever
+          the request is actually doing, which is usually IN_PROGRESS. Level 2
+          means the duty manager has been told, and saying so on the card is what
+          stops two people chasing the same thing.
+        */}
+        {request.escalationLevel > 0 ? (
+          <span className={styles.escalated} data-level={request.escalationLevel}>
+            {request.escalationLevel >= 2 ? 'Manager told' : 'Late'}
+          </span>
+        ) : null}
+
         <Countdown
           slaTargetAt={request.slaTargetAt}
           breached={request.breached}

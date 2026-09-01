@@ -12,8 +12,9 @@ export {
   readMigrationState,
   closePool,
   resolveQrRouting,
+  slaSweepProperties,
 } from './client';
-export type { Tx, TenantContext, QrRouting } from './client';
+export type { Tx, TenantContext, QrRouting, SweepTarget } from './client';
 export { subscribeToChannel, closeNotifyConnection, notifyStatus } from './notify';
 export type { Subscription } from './notify';
 export { recordEvent, readEventHistory } from './events';

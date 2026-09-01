@@ -31,3 +31,9 @@ export type { RequestStatus } from './transitions';
 export { routeServiceRequest } from './routing';
 export { pickAssignee } from './assignment';
 export type { RoutingOutcome } from './routing';
+
+/** The SLA sweep — breaches escalate on a timer, not on a page load. */
+export { sweepSlaBreaches, escalateBreachesFor, startSlaSweeper, stopSlaSweeper } from './sla-sweep';
+export type { SweepResult } from './sla-sweep';
+export { escalationFor, audienceFor, ESCALATION_STEPS } from './escalation-policy';
+export type { EscalationDecision, EscalationLevel } from './escalation-policy';
