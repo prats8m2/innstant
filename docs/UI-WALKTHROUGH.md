@@ -645,8 +645,9 @@ desk can both see what happened.
 
 ## Not built yet
 
-Express checkout and folio settlement, the PMS adapter and its outbox,
-concierge, image upload. The ops console says so on its own
+Express checkout and folio settlement, inbound PMS import, concierge, image
+upload. The PMS adapter's OUTBOUND half is built (D-038) and is idle by design —
+every property runs `ManualAdapter`, which has nowhere to push to. The ops console says so on its own
 front page rather than showing dead tiles, and the guest's stay screen offers no
 extra night for the same reason — the rate would have to be invented (D-033). See `docs/PROJECT-PLAN.md` for the phase
 each one belongs to.

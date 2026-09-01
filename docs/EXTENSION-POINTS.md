@@ -91,8 +91,18 @@ interface PmsAdapter {
 }
 ```
 
-Implementations today: `ManualAdapter` (front desk does it in your panel) and
-later `OperaAdapter`, `CloudbedsAdapter`, `EzeeAdapter`.
+> **The interface above is superseded by D-038.** It was written before the
+> operations existed, and two things it assumes turned out to be false: a remote
+> system cannot be inside our transaction (approving a late checkout is one
+> transaction that moves a stay, posts a fee and extends every session), and the
+> local table answers every read because `createStay()` is the one door. The real
+> interface is the outbound half — `deliver(event: PmsEvent)` — with the local
+> write authoritative and `integration_outbox` carrying the message. Everything
+> below about WHY the boundary matters stands; only its shape changed.
+
+Implementations today: `ManualAdapter` (front desk does it in your panel, and it
+has nowhere to push to) and later `OperaAdapter`, `CloudbedsAdapter`,
+`EzeeAdapter`.
 
 A v2 booking module is simply `InternalPmsAdapter` — an implementation backed by
 your own tables instead of someone else's API. **Nothing above the interface

@@ -369,6 +369,27 @@ while any request of that type is still open.
 - **`integration_outbox`** — the PMS adapter drains this. A hotel's Opera
   instance being down must never fail a guest's order. Write the charge to the
   folio, queue the PMS post, retry with backoff.
+
+  Built in D-038. A row is written in the SAME transaction as the thing it
+  describes, so there is no window where the folio moved and the queue did not.
+  `drainPmsOutbox()` hands each row to the property's adapter in its own
+  transaction — a batch-wide one would hold a connection for as long as the
+  slowest PMS takes, and a failure would roll back deliveries already confirmed.
+
+  | Column | Means |
+  |---|---|
+  | `target` | the adapter kind — `OPERA`, `CLOUDBEDS` |
+  | `operation` | the `PmsEvent` kind: `STAY_CHECKED_IN`, `STAY_CHECKED_OUT`, `STAY_EXTENDED`, `CHARGE_POSTED` |
+  | `next_attempt_at` | exponential backoff, 30s doubling to a 4-hour ceiling |
+  | `attempts` / `status` | ten attempts, about a day, then `FAILED` and a human looks |
+
+  A failure ends the pass rather than stepping over the row: "checked out"
+  arriving before "checked in" is worse than both arriving late.
+
+  **Nothing is enqueued for a property whose adapter is `ManualAdapter`** — it
+  has nowhere to push to, and a row per folio line for a queue with no consumer
+  is write-only rows at table scale. The table is empty on every property that
+  exists today, and that is correct rather than incomplete.
 - **`notifications`** — every outbound alert as a row, so a missed kitchen
   alert is diagnosable. Treat Web Push as best-effort (iOS Safari is not
   reliable enough to be the primary channel for a kitchen ticket); the KDS

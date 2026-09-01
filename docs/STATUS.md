@@ -22,8 +22,8 @@ notes. A stale status file is worse than none.
 ## Now
 
 **P0, P1 and P2 are done bar two things that are not code. P3 · stay and folio
-has one thing left that is code** — settlement — and one that is a seam worth
-closing before anything else needs it.
+has one code item left** — settlement, which needs an external service and so
+needs an account-holder decision.
 
 **P1's remaining two:**
 
@@ -43,64 +43,60 @@ database is next wanted. `/api/health` reports the drift as `degraded` until the
 **What P3 has built:**
 
 - **The guest folio** — `/r/[qrCode]/stay`, behind the one prompt.
-  `buildGuestStatement()` holds the wording decisions.
-- **The FULL tier is reachable (D-031).** Answering the prompt grants it; a staff
-  vouch still grants CHARGE, which is what keeps the two apart.
+- **The FULL tier is reachable (D-031).** A staff vouch still grants CHARGE.
 - **A cancelled request credits the room (D-032).**
 - **Leaving later (D-033)** — tiers, the guest's options, `/admin/checkouts`.
-  Approving moves the stay, posts the fee and extends every session in one
-  transaction. The fee posts on approval, which is why this path needs no
-  reversal.
-- **The front desk (D-035)** — `/admin/rooms`. Check-in through the one door
-  (#4); check-out, which did not exist and is what makes #10 true rather than
-  merely unreachable.
-- **Guest 360 (D-036)** — `/admin/guests/[id]`. Who they are, their stays, the
-  bill on the room, and what this property has written down. `staffNotes` was
-  read by nobody until it. A charging hold now covers BOTH charge paths, and
-  still never stops a free request (#9).
-- **`ForbiddenError` says what the thrower wrote (D-037).** It held a fixed
-  public message, so five specific refusals — including "Charges to this room are
-  on hold", live since P1 — all rendered as "You do not have permission to do
-  that."
-- **`guest:vouch` has a screen**, having existed since S5 with no way to use it.
+  The fee posts on approval, which is why this path needs no reversal.
+- **The front desk (D-035)** — `/admin/rooms`. Check-out did not exist and is
+  what makes #10 true rather than merely unreachable.
+- **Guest 360 (D-036)** — `/admin/guests/[id]`. A charging hold now covers both
+  charge paths, and still never stops a free request (#9).
+- **`ForbiddenError` says what the thrower wrote (D-037).**
+- **The PmsAdapter seam and the outbox (D-038)** — D-011's "most important seam"
+  is real. The interface is narrower than EXTENSION-POINTS sketched, and that
+  document now says so: a remote system cannot sit inside the transactions D-033
+  and D-035 built, so the local write is authoritative and
+  `integration_outbox` carries the message with backoff. `ManualAdapter` says
+  `deliversOutbound: false`, so nothing is enqueued on any property that exists
+  today — and every stay change already goes past the check.
 - **The lockout counts wrong answers (D-034)**, not every attempt.
 
 **Next:**
 
-1. **`PmsAdapter` + `ManualAdapter`, `integration_outbox` + drain worker.**
-   D-011 calls the adapter the most important seam in the codebase and it is
-   still an interface with no implementation. Every operation it names —
-   `findStayByRoom`, `checkIn`, `checkOut`, `extendStay`, `postCharge` — is now a
-   real thing `modules/stay` does, so writing `ManualAdapter` is largely naming
-   what exists. Doing it now is cheap; doing it when an Opera integration is
-   waiting is not, and every screen built in the meantime is another caller to
-   unpick.
-2. **Express checkout with Razorpay, folio settle, digital receipt.** The one
-   thing that would let checking out take the money. Needs an external service,
-   so the account holder decides when. `postFolioLine()` deliberately cannot post
-   a PAYMENT — settling wants its own function writing the `payments` row in the
-   same transaction.
+1. **Express checkout with Razorpay, folio settle, digital receipt.** The last
+   P3 code item and the one thing that would let checking out take the money.
+   Needs an external service, so it is a question for the account holder before
+   it is a task. `postFolioLine()` deliberately cannot post a PAYMENT — settling
+   wants its own function writing the `payments` row in the same transaction.
+2. **P4 · concierge** — POI admin, guest browse by distance, day itinerary. Two
+   to three weeks, no external service beyond Google Places for travel times, and
+   the first phase since P1 that adds a whole guest surface rather than deepening
+   one.
 3. **A tier editor** for `checkout_fee_tiers`, when a property wants to change
-   ₹2,500 without a seeder.
-4. **P4 · concierge** is otherwise the next phase.
+   ₹2,500 without a seeder. Half a session.
+4. **Inbound PMS import**, the other half of D-038 — a PMS's reservations
+   becoming stays with `source: PMS_IMPORT`. Deliberately not designed against an
+   imaginary API; it wants a real integration to be designed against.
 
 **Still worth doing before the next charge path.** Three post to the folio and
 they do not agree on when: orders and requests post at placement and reverse at
-their terminal states, checkout fees post at approval and never reverse. Both
-are right for what they charge for, and nothing writes that down where a fourth
-would have to read it.
+their terminal states, checkout fees post at approval and never reverse. Both are
+right for what they charge for, and nothing writes that down where a fourth would
+have to read it.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That has not happened and P3 is a third unshipped phase. Two
-of the last three sessions found a rule that had never once been true in front of
-a real person — a hold that only covered half the charge paths, and an error
-message nobody could read. Neither would have survived a week on a real floor.
+before starting P2. That has not happened and P3 is a third unshipped phase.
+Three of the last four sessions found a rule that had never once been true in
+front of a real person — a hold covering half the charge paths, an error message
+nobody could read, and a checkout that could not happen. None would have survived
+a week on a real floor, and the next one of those is still in here somewhere.
 
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3 | `e38da4a` | The PmsAdapter seam, ManualAdapter and the outbox. The interface came out narrower than EXTENSION-POINTS sketched, for two reasons only visible once the operations existed. |
 | P3 | `fbc56f4` | Guest 360. Found a charging hold that only covered orders, and `ForbiddenError` throwing away every specific message it was given since P1. |
 | P3 | `a5d56cf` | The front desk: the room list, check in, check out. Found that #10 was unreachable rather than true, and that a sixth nav item broke a screen three clicks away. |
 | P3 | `6b17364` | Leaving later — the checkout-change flow, both ends. Found the verification lockout counting successful verifications as brute-force attempts. |
@@ -532,6 +528,16 @@ Things that cost time to rediscover.
   properties in a group needs an explicit `property_id` filter; the database will
   not catch a missing one, and a group's second hotel is the first place it
   shows.
+- **An interface sketched before the code is a hypothesis.** EXTENSION-POINTS'
+  `PmsAdapter` had six methods; two of its assumptions were false once the
+  operations existed, and building it as drawn would have put a network call
+  inside the transaction D-033 spent a session making atomic. Read the sketch,
+  then read the code, then write the interface — and mark the sketch superseded
+  rather than leaving two shapes in the docs (D-038).
+- **`vi.spyOn(await import('@/modules/…'), 'fn')` works for swapping a module
+  function in the integration suite.** The PMS tests use it to make one property
+  pretend it runs Opera. Restore with `vi.restoreAllMocks()` in `beforeEach` or
+  the next test inherits the fake.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -543,9 +549,9 @@ Things that cost time to rediscover.
 Paste this:
 
 > Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
-> `pnpm status`. **P3 · stay and folio has one code item left** — settlement —
-> plus the PMS adapter seam. Pick up the first item under the Now section and
-> follow it to the
+> `pnpm status`. **P3 · stay and folio has one code item left** — settlement,
+> which needs an external service. P4 · concierge is otherwise next. Pick up the
+> first item under the Now section and follow it to the
 > definition of done in CLAUDE.md — types, lint, unit, integration and e2e all
 > green, the happy path working against the seeded demo property, and the event
 > log showing the transitions you expect. Update this file before you finish.
@@ -564,9 +570,8 @@ Two things that will save you an hour:
 
 The three that are ready to start, in the order this file argues for:
 
-1. **`ManualAdapter`.** Every operation `PmsAdapter` names is now a real thing
-   `modules/stay` does, so writing it is largely naming what exists — and it gets
-   cheaper the sooner it happens.
+1. **Express checkout and settlement**, the last P3 code item — and a question
+   for the account holder before it is a task, because it needs Razorpay.
 2. **Photo attachment**, the last P2 leftover — blocked with the rest of images
    on R2. The board reads `service_requests.photo_url`, `allows_photo` is
    editable and honoured, and nothing writes the column.

@@ -836,3 +836,95 @@ decision at the throw site rather than a property of the class.
 purpose: it is what a staff member reaching across properties gets, and a
 specific one would confirm the resource exists. That vagueness is a security
 property, not an oversight, and the comment above it says so.
+
+### D-038 · The PmsAdapter is an outbound seam, not a facade over every stay operation — SUPERSEDES the interface sketch in EXTENSION-POINTS §B
+EXTENSION-POINTS sketches the boundary as a facade over everything a reservation
+system does:
+
+```ts
+interface PmsAdapter {
+  findStayByRoom(propertyId, roomNumber): Promise<Stay | null>;
+  listArrivals(propertyId, date): Promise<Arrival[]>;
+  checkIn(stayId): Promise<Stay>;
+  checkOut(stayId): Promise<Stay>;
+  extendStay(stayId, newCheckout): Promise<Stay>;
+  postCharge(stayId, line: FolioLine): Promise<PostResult>;
+}
+```
+
+Written that way it would be wrong in two specific ways, both of which only
+became visible once the operations existed.
+
+**A remote system cannot be inside our transaction.** Approving a late checkout
+moves `scheduled_checkout_at`, posts a `CHECKOUT_FEE` line and extends every live
+session, in ONE transaction (D-033). Checking out does four things in one
+(D-035). An `extendStay()` that makes an HTTPS call in the middle of either
+choice holds a database transaction open across the network, or commits half the
+work when the call fails. DATA-MODEL §8 already decided this: "a hotel's Opera
+instance being down must never fail a guest's order." The local write is
+authoritative and synchronous; the PMS is told afterwards.
+
+**The local table is the answer to every read.** `createStay()` is the only place
+a stay is born (#4), so a PMS import is a caller rather than a bypass and every
+stay exists in `stays` whatever produced it. `findStayByRoom()` has no caller
+here and would be an unused method pretending to be a seam — the exact ceremony
+that makes an interface stop being guarded.
+
+**What the interface is instead.** The half that is genuinely someone else's:
+telling the system of record what happened.
+
+```ts
+interface PmsAdapter {
+  readonly kind: PmsKind;
+  readonly deliversOutbound: boolean;
+  deliver(event: PmsEvent): Promise<void>;
+}
+```
+
+`PmsEvent` is a CLOSED union of the four things that happen here which a system
+of record needs — checked in, checked out, extended, charge posted. Closed
+because adding a fifth should be a compile error in every adapter; that is what
+"guard the interface more carefully than the schema" buys. Payloads carry room
+numbers and `source_ref_id` (§3) rather than our uuids, which mean nothing on the
+other side, and money crosses in minor units like everywhere else (#5).
+
+**Why `ManualAdapter` exists when it does nothing.** It answers
+`deliversOutbound: false`, and that answer is what makes the check a question the
+code asks rather than an assumption it makes. Every stay change already goes past
+`notifyPms()`; an `OperaAdapter` flips the flag and those same call sites start
+filling the outbox with no edit. Without it, "does this property have a PMS" is a
+condition nobody wrote and the first real adapter is a rewrite of four call
+sites.
+
+Its `deliver()` throws rather than resolving quietly. A no-op would let a
+mis-resolved adapter — or an enqueue for a manual property — look like successful
+delivery, and the row would be marked DELIVERED with nothing on the other end.
+
+**Why nothing is enqueued for a manual property.** A row per folio line for a
+queue with no consumer is write-only rows at table scale, which is the pattern
+this codebase keeps finding and deleting. The outbox is empty on every property
+that exists today, and that is correct rather than incomplete.
+
+**Why there is no `pms_provider` column.** EXTENSION-POINTS' own rule: keep the
+changes that would need data reconciled later, drop everything purely additive. A
+nullable text column added the day a hotel actually runs Opera costs nothing.
+What matters is that `pmsAdapterFor()` is the one place that decides, so the day
+it exists there is one line to change.
+
+**Why the drain has no timer.** The queue is empty by construction today, and a
+60-second sweep over it would need a third SECURITY DEFINER function to find work
+with no request to derive a tenant from — D-028 called `sla_sweep_properties()`
+"the second and last unscoped query in the product", and this would make it the
+third for a consumer that does not exist. `drainPmsOutbox()` takes its property
+from the caller, is tested against a failing adapter, and the timer is twenty
+lines on the day a real PMS lands.
+
+**Cost / when to revisit.** Two things are deferred rather than solved. Inbound
+import — a PMS's reservations becoming `stays` with `source: PMS_IMPORT` — has no
+implementation, and it is the other half of a real integration; it wants its own
+adapter method and a scheduled pull, and neither can be designed properly against
+an imaginary API. And ordered delivery is per property and per pass: a failure
+stops the pass so nothing is reordered, but two drains running at once could
+still interleave. One property's queue is small enough that a single drainer is
+the right answer, and the day it is not, the advisory lock the SLA sweep already
+uses is the same fix.
