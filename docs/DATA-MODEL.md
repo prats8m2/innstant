@@ -88,6 +88,14 @@ UNIQUE (room_id) WHERE status = 'CHECKED_IN'
 At most one active stay per room, enforced by the database. A stale
 `guest_session` pointing at a checked-out stay resolves to nothing.
 
+**Checking out is four writes in one transaction** (`checkOutStay()`, D-035):
+the stay becomes `CHECKED_OUT` and the room frees immediately, because the
+partial unique index only counts `CHECKED_IN`; every session on the stay is
+revoked (#10); an `APPROVED` checkout request becomes `COMPLETED` and a
+`REQUESTED` one is cancelled; and the event records the folio balance at the
+moment the guest left. An unpaid balance does not block it — settlement is not
+built, so the desk takes the money elsewhere and the number stays in the log.
+
 ---
 
 ### Changing when a guest leaves (D-033)

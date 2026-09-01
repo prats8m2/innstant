@@ -710,3 +710,60 @@ Found by the e2e suite rather than by a guest: the checkout tests verify once pe
 test on one room, and the run locked itself out. The suite's rooms are a shared
 resource and that is a known cost, but a test suite hitting a limit five times in
 a minute is a plausible family on a bad wifi day.
+
+### D-035 · Checking out is four writes, and an unpaid balance is not one of the reasons to refuse
+`stay_status` has had `CHECKED_OUT` since migration 0000 and nothing ever set it.
+`revokeSessionsForStay()` was written in S7 and its only caller was a test. So
+CLAUDE.md #10 — "session tokens are stored as SHA-256 hashes only, and are
+revoked at checkout" — was true in the same way an unreachable branch is: no
+checkout had ever happened.
+
+`checkOutStay()` does four things in one transaction, and each is discovered by
+the guest rather than by us if it is left out:
+
+1. **The stay becomes CHECKED_OUT**, which frees the room — D-007's partial
+   unique index only counts `CHECKED_IN`, so the next arrival can be put in 214
+   the moment this commits.
+2. **Every session on the stay is revoked** (#10). This is what stay-scoped
+   sessions were always for: the QR sticker on the nightstand is unchanged and
+   still public, and the phone that scanned it this morning stops being able to
+   order to the room this afternoon. The next guest scans the same sticker and
+   gets their own stay.
+3. **An APPROVED late checkout becomes COMPLETED**, which is the only way that
+   state was ever going to be reached (D-033 left it unreachable), and a
+   REQUESTED one is cancelled — nobody is going to decide it for a room that is
+   already being cleaned.
+4. **The event records the balance** at the moment they left.
+
+**Why an unpaid balance does not block it.** It would in a hotel that could take
+the money. This product cannot yet: settlement is a later P3 bullet and
+`postFolioLine()` deliberately cannot post a `PAYMENT`, because a payment also
+needs a `payments` row. So the desk settles by card machine or cash and records
+the departure here. A refusal would make the feature unusable and teach the desk
+to work around the screen, which is worse than an honest number on it — and the
+number goes on the EVENT, so "they left owing ₹13,180 and the desk checked them
+out at 11:04" stays answerable after the balance stops being collectable.
+
+**Why the room list is three queries and not one join.** `identity` owns rooms,
+`stay` owns stays and guests, `billing` owns folios. A single SELECT touching all
+three would be D-001 leaking out through the one screen that happens to need
+everything. Three round trips for thirty-four rooms is the same cost either way,
+and `folioBalancesForStays()` exists so the third is one query rather than one
+per room — the mistake `provisionProperty()` made before it was batched.
+
+**Check-in has no function of its own.** It is `createStay()`, which already
+takes a staff actor and already turns D-007's 23505 into a sentence a desk can
+act on. The action is its second real caller after the seeder, which is exactly
+what #4 was written for; booking becomes a fourth rather than a sixth code path.
+
+**The checkout hour is on the form, not in the code.** There is no
+property-level standard checkout time anywhere in the schema, and defaulting to
+11 inside the action would have been a business value living in a form handler.
+The desk picks it and sees what it picked. When a property setting arrives, the
+select gets a default and nothing else changes.
+
+**What is still missing.** Guest 360 — a guest's history across stays, their
+orders, their requests, their folio in one place. The room list carries the
+answer to "who is in 214 and what do they owe", which is the desk's minute-to-
+minute question; the rest is the conversation that happens when something has
+gone wrong, and it wants its own screen.

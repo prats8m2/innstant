@@ -484,7 +484,61 @@ const {Client}=require("pg");
 `agreedFeeMinor` and `chargedFeeMinor` are both on the approval, and
 `sessionsExtended` says how many phones in that room kept working.
 
-## 14 · The rules that only show up when you break them
+## 14 · The front desk — `/admin/rooms`
+
+Sign in as **frontdesk@thekesari.example** and open **Rooms**. Thirty-four rooms
+in key-rack order, four of them occupied, each showing who is in, when they are
+out, and what is on the folio. An empty room offers **Check someone in**; an
+occupied one offers **Vouch** and **Check out**.
+
+**Check somebody in.** Open room **108** → *Check someone in* → a name, a phone,
+2 nights, out at 11am → **Check in to 108**. The row fills in. That went through
+`createStay()`, the only door a stay is born through (#4), and the event log
+attributes it to Anjali Sharma rather than to SYSTEM.
+
+Now scan room 108's sticker on a phone: it resolves to the guest you just
+created. It did not resolve to anything a minute ago — a QR code with no active
+stay behind it is a bare 404 that reveals nothing about occupancy.
+
+**Check them out**, and watch the phone die. Press **Check out** on 108 and:
+
+- the row says *empty* again, and the room is immediately reusable — D-007's
+  index only counts `CHECKED_IN`;
+- every session on that stay is revoked (#10), so reload the guest's page and
+  they are back at the scan;
+- the sticker itself is untouched and still public. Check somebody else into 108
+  and the same sticker resolves to *their* stay. That is the whole reason
+  sessions bind to `stay_id` and never to `room_id`.
+
+**A returning guest keeps their history.** Check the same phone number back in
+and the row says so — `guests` is matched on `(tenant_id, phone)`, so their
+notes follow them across stays and across properties in the group.
+
+**Vouch** is D-012's front-desk bypass: "yes, that is the guest in 214." They can
+then charge to the room with no prompt. It grants CHARGE and not FULL (D-031), so
+they still answer the question themselves to see their own bill.
+
+What the departure recorded:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT el.event_type, su.email, el.payload
+   FROM event_log el LEFT JOIN staff_users su ON su.id = el.actor_staff_id
+   WHERE el.entity_type = $1 ORDER BY el.occurred_at DESC LIMIT 5`,
+   ["stay"])).rows);
+ await c.end();})();'
+```
+
+`balanceMinor` is what was still owed when they walked, and `sessionsRevoked` is
+how many phones stopped working. Checking out does **not** take the money —
+settlement is the card machine until the rest of P3 lands, and the balance stays
+on the folio until it is.
+
+## 15 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.
@@ -543,8 +597,8 @@ desk can both see what happened.
 
 ## Not built yet
 
-Front desk and check-in, express checkout and folio settlement, the PMS adapter
-and its outbox, concierge, image upload. The ops console says so on its own
+Guest 360 (a guest's history in one place), express checkout and folio
+settlement, the PMS adapter and its outbox, concierge, image upload. The ops console says so on its own
 front page rather than showing dead tiles, and the guest's stay screen offers no
 extra night for the same reason — the rate would have to be invented (D-033). See `docs/PROJECT-PLAN.md` for the phase
 each one belongs to.
