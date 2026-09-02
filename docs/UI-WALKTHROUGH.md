@@ -586,7 +586,63 @@ const {Client}=require("pg");
  await c.end();})();'
 ```
 
-## 16 · The rules that only show up when you break them
+## 16 · Settling up — taking the money at the desk
+
+The last thing D-035 left open: *"checking out does not take the money —
+settlement is still the card machine."* It still is. This records it.
+
+Sign in as **frontdesk@thekesari.example**, open **Rooms**, click a guest with a
+balance — room 210 owes ₹15,680. Under **On the room now**, open **Take a
+payment**:
+
+```
+₹15,680 on the room. Take it however they are paying, then check them out.
+
+How much  15680        How it arrived  Card        Reference  4242
+```
+
+The amount is pre-filled with what is owed, because taking all of it is the
+common case. Record it, and three things are true at once:
+
+- the desk's copy of the bill gains a **Card · 4242** line and reads **Settled
+  ₹0**;
+- the guest's own screen at `/r/{code}/stay` gains the same line, in teal, and
+  says *"Nothing left to pay. Ask at the desk if you want a copy."*;
+- the payment form is gone — a settled bill offers none.
+
+**Then check them out.** The bill closes: `folios.status` goes `SETTLED` with a
+`settled_at`. Check out a guest who has *not* paid and the stay still ends, the
+room still frees, and the balance stays on the bill with the number recorded on
+the departure event (D-035). Both are legitimate; only one of them is a hotel
+that got paid.
+
+**Two things it refuses.** Try to settle a bill with money on it and it says
+*"There is still money on this bill. Take it first."* Take ₹20,000 against a
+₹15,680 bill and it goes through — a deposit is a real thing — and the guest's
+screen says **We owe you ₹4,320**, which is the honest state rather than a
+refusal.
+
+The trail:
+
+```
+node -e '
+const {Client}=require("pg");
+(async()=>{const c=new Client({connectionString:process.env.DATABASE_MIGRATION_URL});
+ await c.connect();
+ console.table((await c.query(`
+   SELECT p.provider, p.method, p.status, p.amount_minor, rm.number AS room
+   FROM payments p
+   JOIN folios f ON f.id = p.folio_id
+   JOIN stays s ON s.id = f.stay_id
+   JOIN rooms rm ON rm.id = s.room_id`)).rows);
+ await c.end();})();'
+```
+
+`provider` is **DESK**, not RAZORPAY — the money moved through a card machine,
+and saying otherwise would make reconciliation lie the first time somebody
+compared this table to a Razorpay settlement report (D-039).
+
+## 17 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.
@@ -645,8 +701,9 @@ desk can both see what happened.
 
 ## Not built yet
 
-Express checkout and folio settlement, inbound PMS import, concierge, image
-upload. The PMS adapter's OUTBOUND half is built (D-038) and is idle by design —
+Express checkout through Razorpay, refunds, a digital receipt, inbound PMS
+import, concierge, image upload. Settling at the desk is built (D-039); what is
+missing is taking a card online, giving money back, and emailing anybody. The PMS adapter's OUTBOUND half is built (D-038) and is idle by design —
 every property runs `ManualAdapter`, which has nowhere to push to. The ops console says so on its own
 front page rather than showing dead tiles, and the guest's stay screen offers no
 extra night for the same reason — the rate would have to be invented (D-033). See `docs/PROJECT-PLAN.md` for the phase

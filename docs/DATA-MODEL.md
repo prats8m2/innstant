@@ -268,11 +268,22 @@ the status change (D-027, D-032). Nothing enforces the pair — a new charge pat
 can post and forget to reverse, which is exactly what the requests path did for
 four sessions.
 
-**`postFolioLine()` cannot post a PAYMENT.** Its `source` union deliberately
-excludes it: a payment also needs a `payments` row, and posting one through the
-generic door would leave the folio and the ledger disagreeing. The recompute
-trigger splits on the same line (`source <> 'PAYMENT'` into charges, `= 'PAYMENT'`
-into payments), and so does the guest's statement.
+**`postFolioLine()` cannot post a PAYMENT** — the union excludes it and there is
+a runtime guard, because a cast walks past a union and this is a money path.
+`recordPayment()` writes the pair (D-039): a `payments` row, which is how the
+money arrived and the row a chargeback is answered with, and a `folio_lines` row
+with `source = 'PAYMENT'`, which is what the recompute trigger sums into
+`payments_minor`. The trigger splits on the same line (`source <> 'PAYMENT'` into
+charges, `= 'PAYMENT'` into payments), and so does the guest's statement — which
+LISTS the payments separately rather than only totalling them, because "Card ·
+4242" is the half of a bill a guest checks.
+
+**`folios.status` goes SETTLED explicitly, never because the balance reached
+zero.** A folio hits zero mid-stay whenever D-027 reverses a rejected order.
+`settleFolio()` refuses a non-zero balance in either direction; `checkOutStay()`
+calls it when the bill is already square. `payments.provider` is `DESK` for money
+taken on a card machine — recording it as a provider we do not use would make
+reconciliation lie.
 
 **The guest reads it at `/r/[qrCode]/stay`**, behind the FULL tier (D-031).
 `buildGuestStatement()` turns the folio into a bill: PAYMENT rows are summed

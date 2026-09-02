@@ -928,3 +928,66 @@ stops the pass so nothing is reordered, but two drains running at once could
 still interleave. One property's queue is small enough that a single drainer is
 the right answer, and the day it is not, the advisory lock the SLA sweep already
 uses is the same fix.
+
+### D-039 · A payment is two rows written together, and the desk is a provider
+`postFolioLine()`'s `source` union has excluded `PAYMENT` since P1 and nothing
+could post one. `recordPayment()` is what it was waiting for.
+
+**Why two rows.** A `payments` row is the ledger of how money actually arrived —
+provider, method, reference, captured-at — and is the row a chargeback or a
+cash-drawer reconciliation is answered with. A `folio_lines` row with
+`source = 'PAYMENT'` is what `folio_lines_recompute` sums into `payments_minor`
+and takes off the balance. Neither does the other's job:
+
+- a `payments` row alone leaves the guest's bill showing its full amount after
+  they have paid it;
+- a folio line alone leaves a settled bill with no record of how it was settled.
+
+They are written in one transaction and the generic door stays shut. The union
+was the guard; there is now a runtime check as well, because a cast walks past a
+union and this is a money path.
+
+**`provider` is `DESK`, not `RAZORPAY`.** The money moved through a card machine
+or a cash drawer. Recording it as a payment provider we do not use would make
+reconciliation lie the first time somebody compared our `payments` table to a
+Razorpay settlement report. Express checkout is the same two rows with
+`provider = 'RAZORPAY'` and a webhook confirming them, and it needs an external
+service nobody has chosen.
+
+**Why `SETTLED` is explicit and not "balance is zero".** A folio hits zero in the
+middle of a stay whenever D-027 reverses a rejected order, and that guest is
+still here and still ordering. SETTLED means "this stay's account is closed",
+which is a decision about the stay. `settleFolio()` refuses a non-zero balance
+in both directions — a settled bill with money outstanding is the one thing the
+status must never mean, and an overpaid one has to be returned before it closes.
+
+`checkOutStay()` calls it when the bill is already square, which is what turns
+D-035's "checking out does not take the money — the balance stays on the bill"
+into an account that closes. An unpaid bill still leaves CHECKED_OUT with the
+balance on the event, unchanged.
+
+**Overpayment is allowed and visible.** A deposit before any charge is a real
+thing, and so is a fat-fingered ₹130,000 for a ₹13,000 bill. Refusing would block
+the first; the balance goes negative and the guest's own screen says "We owe you"
+(D-031's statement already worded it), which is the honest state and the one a
+desk can act on.
+
+**Idempotent on a key the screen mints per render** (#8), the same shape the
+cart's send button has used since P1. A double-click here is a second real charge
+on a card machine and a refund somebody has to arrange, which makes it the most
+expensive double-submit in the product.
+
+**A payment is listed, not just totalled.** `buildGuestStatement()` was dropping
+the PAYMENT lines after summing them — correct that they must never read as
+charges, wrong that a total is enough. "Paid ₹450" without "Card · 4242" is
+missing the half of a bill a guest actually checks: that the right card was
+charged. They have their own list now, drawn in teal like a credit, because both
+are money coming off the bill rather than going on it.
+
+**Cost / when to revisit.** No refunds. `payment:refund` exists as a permission
+and PROPERTY_ADMIN is the only role with it, and taking money back is not the
+same shape as taking it — it wants a negative `payments` row, a reason, and an
+approval trail. The day a desk needs one is the day to design it, and it will
+have this function's pair to copy. Nor is there a receipt: `folio.settled` is in
+the log and the guest can read their own bill, but nothing emails them a PDF —
+that needs an email service, which is the same conversation as Razorpay.
