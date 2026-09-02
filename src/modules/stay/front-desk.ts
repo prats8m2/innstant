@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
 import { stays, guests, checkoutRequests } from '@/db/schema/stay';
 import { listRoomsAtProperty, type RoomListing } from '@/modules/identity';
-import { folioBalancesForStays } from '@/modules/billing';
+import { folioBalancesForStays, settleFolio } from '@/modules/billing';
 import { revokeSessionsForStay } from '@/modules/access';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { notifyPms } from './pms/sync';
@@ -94,6 +94,8 @@ export interface CheckOutResult {
   /** What was still owed when they walked. Recorded on the event. */
   balanceMinor: number;
   currency: CurrencyCode;
+  /** True when the bill was square and this closed it. */
+  folioSettled: boolean;
   sessionsRevoked: number;
   /** An approved late checkout that this completes, if there was one. */
   completedCheckoutRequests: number;
@@ -215,6 +217,28 @@ export async function checkOutStay(
     ))
     .returning({ id: checkoutRequests.id });
 
+  /**
+   * Square, so the account closes here.
+   *
+   * `settleFolio()` refuses a non-zero balance, and this only reaches it when
+   * the balance is already zero — so a guest who has paid leaves with a SETTLED
+   * bill, and one who has not leaves with an OPEN one and the balance on the
+   * event (D-035). Checkout is the natural moment for the decision: the stay is
+   * over, so the account is closed or it is outstanding, and there is no third
+   * state.
+   */
+  let folioSettled = false;
+  if (folio && balanceMinor === 0 && folio.status !== 'SETTLED') {
+    const settled = await settleFolio(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      stayId: stay.id,
+      staffUserId: input.staffUserId,
+      now,
+    });
+    folioSettled = !settled.alreadySettled;
+  }
+
   await recordEvent(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
@@ -229,6 +253,7 @@ export async function checkOutStay(
       // collectable at the desk.
       balanceMinor,
       currency,
+      folioSettled,
       sessionsRevoked,
       completedCheckoutRequests: completed.length,
       cancelledCheckoutRequests: cancelled.length,
@@ -253,6 +278,7 @@ export async function checkOutStay(
     stayId: stay.id,
     balanceMinor,
     currency,
+    folioSettled,
     sessionsRevoked,
     completedCheckoutRequests: completed.length,
     cancelledCheckoutRequests: cancelled.length,

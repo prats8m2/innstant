@@ -513,3 +513,13 @@
 }
 .leaveButton:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
 .leaveButton:disabled { opacity: 0.6; cursor: progress; }
+
+/*
+ * A payment, listed under the charges. Teal like a credit, because both are
+ * money coming off the bill rather than going on it — and a guest scanning the
+ * column should be able to tell the two directions apart at arm's length.
+ */
+.line[data-payment='true'] .lineWhat,
+.line[data-payment='true'] .lineAmount {
+  color: var(--teal);
+}

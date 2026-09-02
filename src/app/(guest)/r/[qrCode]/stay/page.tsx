@@ -233,6 +233,24 @@ function Statement({
         </ul>
       ) : null}
 
+      {/*
+        * How they paid, listed. "Paid ₹450" alone is missing the half of a bill
+        * a guest actually checks — that the right card was charged.
+        */}
+      {statement.payments.length ? (
+        <ul className={styles.lines}>
+          {statement.payments.map((payment) => (
+            <li key={payment.id} className={styles.line} data-payment="true">
+              <span className={styles.lineDate}>{payment.date}</span>
+              <span className={styles.lineWhat}>{payment.description}</span>
+              <span className={`${styles.lineAmount} tabular`}>
+                {formatMoney(money(payment.amountMinor, lineCurrency))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {statement.paidMinor !== 0 ? (
         <p className={styles.paid}>
           <span className={styles.paidLabel}>Paid</span>

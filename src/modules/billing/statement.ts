@@ -28,6 +28,13 @@ export interface StatementLine {
 
 export interface GuestStatement {
   lines: StatementLine[];
+  /**
+   * What they have paid, and how. Kept separate from `lines` rather than
+   * dropped: a payment must never read as a charge (the recompute trigger
+   * splits on exactly this), and a bill that says "Paid ₹450" without saying
+   * "Card · 4242" is missing the reassurance the guest is actually looking for.
+   */
+  payments: StatementLine[];
   /** What is on the room before anything paid. Charges only, credits netted. */
   chargesMinor: number;
   paidMinor: number;
@@ -61,6 +68,7 @@ export function buildGuestStatement(
   if (!folio || !folio.lines.length) {
     return {
       lines: [],
+      payments: [],
       chargesMinor: 0,
       paidMinor: 0,
       balanceMinor: 0,
@@ -72,17 +80,19 @@ export function buildGuestStatement(
     };
   }
 
-  const lines: StatementLine[] = folio.lines
-    // PAYMENT rows are not charges and must not read as one. They are summed
-    // into `paidMinor` and shown as their own line under the total instead.
-    .filter((line) => line.source !== 'PAYMENT')
-    .map((line) => ({
-      id: line.id,
-      date: formatFolioDate(line.createdAt, options.timeZone),
-      description: line.description,
-      amountMinor: line.amountMinor,
-      isCredit: line.amountMinor < 0,
-    }));
+  const shape = (line: FolioSummary['lines'][number]): StatementLine => ({
+    id: line.id,
+    date: formatFolioDate(line.createdAt, options.timeZone),
+    description: line.description,
+    amountMinor: line.amountMinor,
+    isCredit: line.amountMinor < 0,
+  });
+
+  // PAYMENT rows are not charges and must not read as one — the recompute
+  // trigger splits on exactly this. Kept, in their own list, because how the
+  // money arrived is the half of a bill a guest checks.
+  const lines = folio.lines.filter((line) => line.source !== 'PAYMENT').map(shape);
+  const paymentLines = folio.lines.filter((line) => line.source === 'PAYMENT').map(shape);
 
   /**
    * Recomputed from the lines rather than read off the header.
@@ -102,6 +112,7 @@ export function buildGuestStatement(
 
   return {
     lines,
+    payments: paymentLines,
     chargesMinor,
     paidMinor,
     balanceMinor,

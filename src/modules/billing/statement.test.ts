@@ -147,13 +147,34 @@ describe('the folio a guest reads', () => {
   it('keeps a payment out of the charge list and off the charge total', () => {
     const statement = build(folio([
       { source: 'ORDER', amountMinor: 100_000 },
-      { source: 'PAYMENT', description: 'Card ending 4242', amountMinor: 40_000 },
+      { source: 'PAYMENT', description: 'Card · 4242', amountMinor: 40_000 },
     ]));
 
     expect(statement.lines).toHaveLength(1);
     expect(statement.chargesMinor).toBe(100_000);
     expect(statement.paidMinor).toBe(40_000);
     expect(statement.balanceMinor).toBe(60_000);
+  });
+
+  /**
+   * Kept rather than dropped. "Paid ₹450" without "Card · 4242" is missing the
+   * half of a bill a guest actually checks — that the right card was charged.
+   */
+  it('lists how they paid, separately from what they bought', () => {
+    const statement = build(folio([
+      { source: 'ORDER', description: 'Dinner', amountMinor: 100_000 },
+      { source: 'PAYMENT', description: 'Card · 4242', amountMinor: 60_000 },
+      { source: 'PAYMENT', description: 'Cash', amountMinor: 40_000 },
+    ]));
+
+    expect(statement.lines.map((l) => l.description)).toEqual(['Dinner']);
+    expect(statement.payments.map((l) => l.description)).toEqual(['Card · 4242', 'Cash']);
+    expect(statement.payments.reduce((sum, l) => sum + l.amountMinor, 0)).toBe(100_000);
+  });
+
+  it('has no payment list when nothing has been paid', () => {
+    expect(build(folio([{ amountMinor: 100 }])).payments).toEqual([]);
+    expect(build(null).payments).toEqual([]);
   });
 
   it('stops calling it a total once part of it is paid', () => {

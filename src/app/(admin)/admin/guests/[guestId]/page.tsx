@@ -5,11 +5,12 @@ import { adminAccess, AdminDenied } from '../../guard';
 import { can, findProperty } from '@/modules/identity';
 import { getGuestDossier, DIETARY_FLAGS } from '@/modules/stay';
 import { getRequestsForStay } from '@/modules/requests';
-import { getFolioForStay, buildGuestStatement } from '@/modules/billing';
+import { getFolioForStay, buildGuestStatement, PAYMENT_METHODS } from '@/modules/billing';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { formatCheckoutDay } from '@/lib/clock';
 import { AdminShell } from '../../admin-shell';
 import { GuestProfileForm } from './profile-form';
+import { TakePaymentForm } from './payment-form';
 import styles from '../../admin.module.css';
 
 /**
@@ -64,6 +65,15 @@ export default async function GuestPage({
   );
 
   if (!guest) notFound();
+
+  const maySettle = can(session, propertyId, 'folio:settle');
+
+  /**
+   * Minted here, on the server, once per render — so a double-click posts the
+   * same key twice and takes the money once (#8). The cart's send button has
+   * done this since P1 for the same reason.
+   */
+  const paymentKey = crypto.randomUUID();
 
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
   const statement = current
@@ -153,6 +163,24 @@ export default async function GuestPage({
             <p className={styles.sectionEmpty}>Nothing charged yet.</p>
           )}
 
+          {statement.payments.length ? (
+            <ul className={styles.dishes}>
+              {statement.payments.map((payment) => (
+                <li key={payment.id} className={styles.dish}>
+                  <span className={styles.dishBody}>
+                    <span className={styles.dishName}>{payment.description}</span>
+                    <span className={styles.dishFlags}>{payment.date} · taken at the desk</span>
+                  </span>
+                  <span className={`${styles.paidAmount} tabular`}>
+                    {formatMoney(money(
+                      payment.amountMinor, statement.currency as CurrencyCode,
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           <p className={styles.folioTotalRow}>
             <span className={styles.folioTotalLabel}>{statement.totalLabel}</span>
             <span className={`${styles.folioTotalAmount} tabular`}>
@@ -161,6 +189,34 @@ export default async function GuestPage({
               ))}
             </span>
           </p>
+
+          {/*
+            * Only while there is something to take and somebody allowed to take
+            * it. A settled bill offers no form — `recordPayment()` refuses one
+            * anyway, and a control that always refuses is a control nobody
+            * trusts.
+            */}
+          {maySettle && guest.currentStayId && !statement.settled ? (
+            <TakePaymentForm
+              propertyId={propertyId}
+              stayId={guest.currentStayId}
+              guestId={guest.id}
+              idempotencyKey={paymentKey}
+              methods={[...PAYMENT_METHODS]}
+              suggestedAmount={
+                statement.balanceMinor > 0
+                  ? String(statement.balanceMinor / 100)
+                  : ''
+              }
+              balanceLabel={
+                statement.balanceMinor > 0
+                  ? `${formatMoney(money(
+                    statement.balanceMinor, statement.currency as CurrencyCode,
+                  ))} on the room. Take it however they are paying, then check them out.`
+                  : 'Nothing is owed. Recording a payment here would overpay the bill.'
+              }
+            />
+          ) : null}
         </section>
       ) : null}
 

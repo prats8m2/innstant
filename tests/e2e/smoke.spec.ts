@@ -2289,3 +2289,128 @@ test.describe('a guest and what we know', () => {
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
   });
 });
+
+/**
+ * Settling a bill at the desk — the last thing D-035 left open.
+ *
+ * "Checking out does not take the money — settlement is the card machine."
+ * It still does not take it: the desk takes it on a card machine and records it
+ * here, and the bill then closes on the way out. Which is exactly how a hotel
+ * without an online payment integration works.
+ *
+ * Room 302, which nothing else in this suite touches — this checks somebody in
+ * and out of it.
+ */
+test.describe('settling up', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'checking a guest in, charging them and settling is one-copy state',
+  );
+
+  const ROOM = '302';
+
+  async function signInAsDesk(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+
+  test('a guest runs up a bill, pays it, and leaves with it closed', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/rooms');
+
+    // In.
+    await room(deskPage).getByRole('group').filter({ hasText: 'Check someone in' })
+      .locator('summary').click();
+    await room(deskPage).locator('input[name="fullName"]').fill('Nadia Rahman');
+    await room(deskPage).locator('input[name="phone"]').fill('+919820088888');
+    await room(deskPage).getByRole('button', { name: `Check in to ${ROOM}` }).click();
+    await expect(room(deskPage)).toContainText('Nadia Rahman', { timeout: 25_000 });
+    // Nothing charged yet, which reads differently from ₹0.
+    await expect(room(deskPage)).toContainText('nothing yet');
+
+    // The guest orders laundry — a real charge through a real path.
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes[ROOM]!;
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/amenities`);
+    const laundry = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
+    await guest.getByRole('button', { name: /Send 1 to room/ }).click();
+    await expect(guest.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
+    await guest.locator('input[name="answer"]').fill('8888');
+    await guest.getByRole('button', { name: 'Confirm and send' }).click();
+    await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+
+    // The desk sees the balance on the room.
+    await deskPage.reload();
+    await expect(room(deskPage)).toContainText('₹450', { timeout: 25_000 });
+
+    // Take the money.
+    await room(deskPage).getByRole('link').click();
+    await expect(deskPage).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
+    await deskPage.getByRole('group').filter({ hasText: 'Take a payment' })
+      .locator('summary').click();
+    await expect(deskPage.getByText(/₹450 on the room/)).toBeVisible();
+
+    // Pre-filled with what is owed, because taking all of it is the common case.
+    await expect(deskPage.locator('input[name="amount"]')).toHaveValue('450');
+    await deskPage.locator('select[name="method"]').selectOption('CARD');
+    await deskPage.locator('input[name="reference"]').fill('4242');
+    await deskPage.getByRole('button', { name: 'Record the payment' }).click();
+
+    /**
+     * The folio above changes, and the form goes — a settled bill offers none.
+     * That is the confirmation, and it is the durable kind: still true when the
+     * desk looks back. The action's own message is readable for a PARTIAL
+     * payment, where the form stays put.
+     */
+    const bill = deskPage.locator('section').filter({ hasText: 'On the room now' });
+    await expect(bill).toContainText('Card · 4242', { timeout: 25_000 });
+    await expect(bill).toContainText('taken at the desk');
+    await expect(bill).toContainText('Settled');
+    await expect(deskPage.getByRole('group').filter({ hasText: 'Take a payment' }))
+      .toHaveCount(0);
+
+    // The guest's own bill says so, in their own words.
+    await guest.goto(`/r/${code}/stay`);
+    const ledger = guest.locator('section').filter({ hasText: 'Room folio' });
+    await expect(ledger).toContainText('Card · 4242', { timeout: 25_000 });
+    await expect(ledger).toContainText('Settled');
+    await expect(ledger).toContainText(/Nothing left to pay/);
+
+    // And checking out closes the account rather than leaving it open with a
+    // balance (D-035, now that there is a way to have paid).
+    await deskPage.goto('/admin/rooms');
+    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+    await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
+
+    await desk.close();
+    await phone.close();
+  });
+
+  /**
+   * The bill is closed, so there is no form. `recordPayment()` refuses one
+   * anyway, and a control that always refuses is a control nobody trusts.
+   */
+  test('offers no payment form once a bill is settled', async ({ page }) => {
+    await signInAsDesk(page);
+    await page.goto('/admin/rooms');
+
+    // 210's bill still has money on it, so it DOES offer one — the contrast is
+    // the assertion.
+    await page.locator('li[data-room="210"]').getByRole('link').click();
+    await expect(page.getByRole('group').filter({ hasText: 'Take a payment' }))
+      .toHaveCount(1, { timeout: 25_000 });
+  });
+});

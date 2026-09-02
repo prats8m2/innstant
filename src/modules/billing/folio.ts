@@ -1,7 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { folios, folioLines } from '@/db/schema/billing';
-import { NotFoundError } from '@/lib/errors';
+import { NotFoundError, ValidationError } from '@/lib/errors';
 
 /**
  * The folio — what a stay owes.
@@ -64,6 +64,23 @@ export async function postFolioLine(
   tx: Tx,
   input: PostFolioLineInput,
 ): Promise<{ folioId: string; folioLineId: string }> {
+  /**
+   * Not a payment. The union already says so, and a `as` cast walks past a
+   * union — on a money path that is not enough.
+   *
+   * A payment is TWO rows that have to exist together: a `payments` row, which
+   * is the ledger of how the money arrived and the row a chargeback is answered
+   * with, and this line, which is what the recompute trigger sums into
+   * `payments_minor`. One without the other is either a paid bill still showing
+   * its balance or a settled bill with no record of how. `recordPayment()`
+   * writes both.
+   */
+  if ((input.source as string) === 'PAYMENT') {
+    throw new ValidationError(
+      'A payment needs a payments row as well as a folio line — use recordPayment().',
+    );
+  }
+
   const folio = await getOrCreateOpenFolio(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,

@@ -13,6 +13,17 @@ export {
 export type { PostFolioLineInput, FolioSummary, ReverseFolioLinesInput, FolioReversal }
   from './folio';
 
+/**
+ * Taking the money. `postFolioLine()` deliberately cannot post a PAYMENT — a
+ * payment is two rows that have to exist together, and this is where they do.
+ */
+export {
+  recordPayment, settleFolio, paymentsForStay, PAYMENT_METHODS,
+} from './settle';
+export type {
+  RecordPaymentInput, RecordedPayment, SettleFolioResult, PaymentMethod,
+} from './settle';
+
 /** The folio as a bill the guest reads — pure, and where the wording decisions live. */
 export { buildGuestStatement, EMPTY_STATEMENT_NOTE } from './statement';
 export type { GuestStatement, StatementLine } from './statement';
