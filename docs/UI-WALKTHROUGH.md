@@ -491,6 +491,21 @@ in key-rack order, four of them occupied, each showing who is in, when they are
 out, and what is on the folio. An empty room offers **Check someone in**; an
 occupied one offers **Vouch** and **Check out**.
 
+**Copy a room's guest link.** Every row carries its public code, **Copy link**
+and **Open**. Copy gives you `https://…/r/{code}` — the URL behind that room's QR
+sticker, for reprinting one or for sending a guest the link when their camera
+will not focus. **Open** loads the guest's room home in a new tab, which is how
+you check a sticker works before printing forty of them; it mints a guest session
+for that room exactly as a scan would.
+
+The code shown is the LIVE one: reprinting a sticker mints a new version and
+revokes the old, and the row follows. Behind `qr:read` — an account without it is
+not sent the code at all.
+
+If **Copy link** shows a text field instead of saying "Copied", the browser
+refused the clipboard: it needs a secure context, and plain http over a hotel LAN
+is not one. The field is selected and ready for ⌘C.
+
 **Check somebody in.** Open room **108** → *Check someone in* → a name, a phone,
 2 nights, out at 11am → **Check in to 108**. The row fills in. That went through
 `createStay()`, the only door a stay is born through (#4), and the event log

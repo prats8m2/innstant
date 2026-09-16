@@ -61,6 +61,9 @@ database is next wanted.
 - **Settling at the desk (D-039)** — `recordPayment()` writes the pair
   `postFolioLine()` has refused since P1, `settleFolio()` closes the account, and
   checkout closes it when the bill is square.
+- **The room list hands out guest links.** Every row carries its live public
+  code, Copy link and Open, behind `qr:read`. The codes have existed since P0 and
+  the only way to get one out was a database query.
 - **The lockout counts wrong answers (D-034)**, not every attempt.
 
 **Next — P4 · concierge**, which is the first whole new guest surface since P1:
@@ -558,6 +561,23 @@ Things that cost time to rediscover.
 - **`await` inside a non-async arrow passed to `withTenant()` is a PARSE error**,
   not a type error, so vitest fails the whole file with no test names. Resolve
   the value first: `const id = (await folio())!.id` then `scoped((tx) => …id)`.
+- **`describeOpenState` has THREE wordings and the e2e long covered two.**
+  "Kitchen open until 10:45pm" while open, "The kitchen opens at 7am" when the
+  next opening is TODAY (01:00–07:00), and "The kitchen opens Thursday at 7am"
+  when it is tomorrow (after closing until midnight). The suite was made
+  time-independent once and still could not pass in the evening. Any assertion on
+  that line needs all three.
+- **A guest link must be built from `APP_URL`, never from the request.**
+  Standalone binds 0.0.0.0, so `request.url` behind Railway's proxy is an
+  internal hostname — the same trap that made redirects relative. The admin's
+  room list falls back to `window.location.origin` in the browser when `APP_URL`
+  is unset, which is the origin somebody is actually on.
+- **`navigator.clipboard` needs a secure context.** A hotel running this on plain
+  http over the LAN has none and the call rejects, so a copy button needs a
+  visible fallback — the room list reveals a selected read-only field.
+- **`room_qr_codes` is seeded in `beforeAll` and the per-test wipe does not touch
+  it.** A test that revokes or reprints a code has to put it back, or every later
+  `scanQrCode(a.qrCode)` in the file fails with "revoked".
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
