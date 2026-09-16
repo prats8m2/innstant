@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { floors, properties, rooms, roomTypes } from '@/db/schema/identity';
+import { floors, properties, rooms, roomTypes, roomQrCodes } from '@/db/schema/identity';
 
 /**
  * Room lookups, for the modules that reference a room but do not own it.
@@ -100,6 +100,49 @@ export async function listRoomsAtProperty(
     .leftJoin(roomTypes, eq(roomTypes.id, rooms.roomTypeId))
     .where(and(eq(rooms.propertyId, input.propertyId), isNull(rooms.archivedAt)))
     .orderBy(asc(floors.sortOrder), asc(floors.level), asc(rooms.number));
+}
+
+/**
+ * The live QR code for each room, as the sticker on the nightstand carries it.
+ *
+ * A separate query rather than a join on `listRoomsAtProperty()`: a room can
+ * have several `room_qr_codes` rows — reprinting a sticker mints a new version
+ * and revokes the old one — so a left join would multiply the room list by its
+ * QR history. Assembled in memory, like the occupancy read beside it.
+ *
+ * "Live" means exactly what `scanQrCode()` means by it: not revoked, and the
+ * highest version when a room somehow has more than one. A code shown here that
+ * a scan would reject is worse than no code at all, because somebody will print
+ * it.
+ */
+export interface RoomQrCode {
+  roomId: string;
+  publicCode: string;
+  version: number;
+}
+
+export async function liveQrCodesForProperty(
+  tx: Tx,
+  input: { propertyId: string },
+): Promise<Map<string, RoomQrCode>> {
+  const rows = await tx
+    .select({
+      roomId: roomQrCodes.roomId,
+      publicCode: roomQrCodes.publicCode,
+      version: roomQrCodes.version,
+    })
+    .from(roomQrCodes)
+    .where(and(
+      eq(roomQrCodes.propertyId, input.propertyId),
+      isNull(roomQrCodes.revokedAt),
+    ))
+    .orderBy(asc(roomQrCodes.version));
+
+  // Ascending version, so a later row overwrites an earlier one and the highest
+  // wins — the same code a fresh scan would resolve to.
+  const byRoom = new Map<string, RoomQrCode>();
+  for (const row of rows) byRoom.set(row.roomId, row);
+  return byRoom;
 }
 
 export async function findRoomByNumber(

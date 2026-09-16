@@ -30,22 +30,50 @@ export default async function RoomsAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
+  /**
+   * `qr:read` is its own permission (FRONT_DESK and PROPERTY_ADMIN hold it). A
+   * public code is the one thing on this screen that works from outside the
+   * building — anyone holding it can reach the room's guest surface — so it is
+   * not fetched at all for an account that may not see it.
+   */
+  const maySeeQr = can(session, propertyId, 'qr:read');
+
   const { property, occupancy } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
       property: await findProperty(tx, propertyId),
-      occupancy: await listRoomsWithOccupancy(tx, { propertyId }),
+      occupancy: await listRoomsWithOccupancy(tx, { propertyId, withQrCodes: maySeeQr }),
     }),
   );
 
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
   const now = new Date();
 
+  /**
+   * Where a guest's phone should reach us.
+   *
+   * `APP_URL` and NOT anything derived from this request: `output: 'standalone'`
+   * binds 0.0.0.0, so a URL built from `request.url` behind Railway's proxy is
+   * an internal hostname — the same trap that made redirects relative. When it
+   * is unset the client falls back to its own `window.location.origin`, which is
+   * the origin the admin is actually on and is right whenever the two surfaces
+   * share a domain.
+   */
+  const guestLinkBase = process.env.APP_URL?.replace(/\/+$/, '') ?? null;
+
   const rooms: RoomView[] = occupancy.map((room) => ({
     id: room.id,
     number: room.number,
     floorName: room.floorName,
     roomTypeName: room.roomTypeName,
+    qr: room.qr
+      ? {
+        publicCode: room.qr.publicCode,
+        // The absolute link, built here so every row agrees and nothing has to
+        // reassemble it in the browser.
+        url: guestLinkBase ? `${guestLinkBase}/r/${room.qr.publicCode}` : null,
+      }
+      : null,
     stay: room.stay
       ? {
         id: room.stay.id,

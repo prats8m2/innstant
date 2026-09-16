@@ -6,7 +6,7 @@ import {
   requestCheckoutChange, decideCheckoutRequest, listCheckoutRequests,
 } from '@/modules/stay';
 import { postFolioLine } from '@/modules/billing';
-import { scanQrCode, resolveGuestSession } from '@/modules/access';
+import { scanQrCode, resolveGuestSession, QrNotUsableError } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
 import {
   ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
@@ -113,6 +113,72 @@ describe('the front desk', () => {
   it('distinguishes a guest who owes nothing from one who has bought nothing', async () => {
     await checkIn();
     expect((await rooms()).find((r) => r.number === '214')!.stay!.balanceMinor).toBeNull();
+  });
+
+  /* ── The sticker's link ──────────────────────────────────────────────── */
+
+  /**
+   * The code a desk copies off this screen is the code a phone in the corridor
+   * resolves. Showing one a scan would reject is worse than showing none,
+   * because somebody will print forty of them.
+   */
+  it('shows the code a scan actually resolves', async () => {
+    await checkIn();
+    const withQr = await scoped((tx) =>
+      listRoomsWithOccupancy(tx, { propertyId: a.propertyId, withQrCodes: true }));
+
+    const room214 = withQr.find((r) => r.number === '214')!;
+    expect(room214.qr?.publicCode).toBeTruthy();
+
+    const scan = await scanQrCode(room214.qr!.publicCode);
+    expect(scan.room.number).toBe('214');
+    expect(scan.session.propertyId).toBe(a.propertyId);
+  });
+
+  /**
+   * Reprinting a sticker mints a new version and revokes the old one, and a room
+   * then has two `room_qr_codes` rows. The screen must show the live one — and
+   * must not show the room twice, which a plain join would.
+   */
+  it('shows the live code after a reprint, once', async () => {
+    const before = await scoped((tx) =>
+      listRoomsWithOccupancy(tx, { propertyId: a.propertyId, withQrCodes: true }));
+    const old = before.find((r) => r.number === '214')!.qr!.publicCode;
+
+    await owner.query(
+      `UPDATE room_qr_codes SET revoked_at = now() WHERE public_code = $1`, [old]);
+    await owner.query(
+      `INSERT INTO room_qr_codes (tenant_id, property_id, room_id, public_code, version)
+       SELECT tenant_id, property_id, room_id, 'reprinted-214', 2
+       FROM room_qr_codes WHERE public_code = $1`, [old]);
+
+    const after = await scoped((tx) =>
+      listRoomsWithOccupancy(tx, { propertyId: a.propertyId, withQrCodes: true }));
+    const rows = after.filter((r) => r.number === '214');
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.qr?.publicCode).toBe('reprinted-214');
+
+    // And the old one is genuinely dead, which is what made it worth replacing.
+    await expect(scanQrCode(old)).rejects.toBeInstanceOf(QrNotUsableError);
+
+    // Put the fixture back. `room_qr_codes` is seeded once in `beforeAll` and
+    // the per-test wipe does not touch it, so a reprint left here kills every
+    // later scan of `a.qrCode` — which is exactly what it did the first time.
+    await owner.query(`DELETE FROM room_qr_codes WHERE public_code = 'reprinted-214'`);
+    await owner.query(
+      `UPDATE room_qr_codes SET revoked_at = NULL WHERE public_code = $1`, [old]);
+  });
+
+  /**
+   * `qr:read` is its own permission. A public code reaches the room's guest
+   * surface from anywhere, so a screen that may not show it is not handed it —
+   * not hidden in the markup, absent from the payload.
+   */
+  it('does not fetch a code for a caller that did not ask', async () => {
+    const without = await scoped((tx) =>
+      listRoomsWithOccupancy(tx, { propertyId: a.propertyId }));
+    expect(without.every((room) => room.qr === undefined)).toBe(true);
   });
 
   /* ── Check-in ────────────────────────────────────────────────────────── */

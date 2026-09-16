@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
 import { checkInGuest, checkOutGuest, vouchForRoom, type DeskState } from './actions';
+import { GuestLink } from './guest-link';
 import styles from '../admin.module.css';
 
 /**
@@ -18,6 +19,8 @@ export interface RoomView {
   number: string;
   floorName: string;
   roomTypeName: string | null;
+  /** Null when this account lacks `qr:read`. */
+  qr: { publicCode: string; url: string | null } | null;
   stay: {
     id: string;
     guestId: string;
@@ -133,6 +136,16 @@ function Room({
         <span className={`${styles.dishPrice} tabular`}>
           {room.stay.balance ?? 'nothing yet'}
         </span>
+      ) : null}
+
+      {/* The sticker's own link, whoever is in the room and whether anybody is —
+          a desk reprints stickers for empty rooms more often than full ones. */}
+      {room.qr ? (
+        <GuestLink
+          roomNumber={room.number}
+          publicCode={room.qr.publicCode}
+          url={room.qr.url}
+        />
       ) : null}
 
       {room.stay

@@ -1,7 +1,9 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
 import { stays, guests, checkoutRequests } from '@/db/schema/stay';
-import { listRoomsAtProperty, type RoomListing } from '@/modules/identity';
+import {
+  listRoomsAtProperty, liveQrCodesForProperty, type RoomListing,
+} from '@/modules/identity';
 import { folioBalancesForStays, settleFolio } from '@/modules/billing';
 import { revokeSessionsForStay } from '@/modules/access';
 import { ConflictError, NotFoundError } from '@/lib/errors';
@@ -23,6 +25,12 @@ import type { CurrencyCode } from '@/lib/money';
  */
 
 export interface RoomOccupancy extends RoomListing {
+  /**
+   * The code on the sticker, when the caller asked for it. Absent rather than
+   * null when they did not — reading it needs `qr:read`, and a screen that
+   * cannot show it should not be handed it.
+   */
+  qr?: { publicCode: string; version: number };
   stay: {
     id: string;
     guestId: string;
@@ -47,9 +55,15 @@ export interface RoomOccupancy extends RoomListing {
  */
 export async function listRoomsWithOccupancy(
   tx: Tx,
-  input: { propertyId: string },
+  input: { propertyId: string; withQrCodes?: boolean },
 ): Promise<RoomOccupancy[]> {
   const rooms = await listRoomsAtProperty(tx, { propertyId: input.propertyId });
+
+  // Only when the caller says so: `qr:read` is its own permission, and a public
+  // code is the one thing on this screen that works from outside the building.
+  const qrCodes = input.withQrCodes
+    ? await liveQrCodesForProperty(tx, { propertyId: input.propertyId })
+    : null;
 
   const active = await tx.select({
     id: stays.id,
@@ -70,11 +84,15 @@ export async function listRoomsWithOccupancy(
   const byRoom = new Map(active.map((stay) => [stay.roomId, stay]));
 
   return rooms.map((room) => {
+    const qr = qrCodes?.get(room.id);
+    const withQr = qr ? { qr: { publicCode: qr.publicCode, version: qr.version } } : {};
+
     const stay = byRoom.get(room.id);
-    if (!stay) return { ...room, stay: null };
+    if (!stay) return { ...room, ...withQr, stay: null };
     const folio = balances.get(stay.id);
     return {
       ...room,
+      ...withQr,
       stay: {
         id: stay.id,
         guestId: stay.guestId,

@@ -891,3 +891,36 @@
   font-size: var(--text-xl);
   color: var(--accent);
 }
+
+/* ── The sticker's link, on a room row ──────────────────────────────────── */
+.guestLink {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/*
+ * The public code, so a desk can match a row to a printed sticker by eye. Mono
+ * because it is a code — the same reason order refs and room numbers are.
+ */
+.guestCode {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  color: var(--plaster-faint);
+  white-space: nowrap;
+}
+
+/* Only appears when the clipboard refused — see guest-link.tsx. */
+.guestLinkField {
+  width: 22ch;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text);
+}

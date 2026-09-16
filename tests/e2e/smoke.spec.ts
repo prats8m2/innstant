@@ -694,8 +694,15 @@ test.describe('the kitchen settings', () => {
      */
     await emptyCart(guest, seed!.qrCodes[ROOM]!);
 
+    /**
+     * Three wordings, not two. `describeOpenState` says "open until 10:45pm"
+     * while open, "opens at 7am" when the next opening is TODAY (01:00–07:00),
+     * and "opens Thursday at 7am" when it is tomorrow (22:45–midnight). The
+     * third branch was missed when this was first made time-independent, and
+     * the suite failed the next time it ran late in the evening.
+     */
     await guest.goto(`/r/${seed!.qrCodes[ROOM]}/menu`);
-    await expect(guest.getByText(/Kitchen open until 10:45pm|The kitchen opens at 7am/))
+    await expect(guest.getByText(/Kitchen open until 10:45pm|The kitchen opens (at 7am|\w+ at 7am)/))
       .toBeVisible({ timeout: 25_000 });
 
     // Put the seeded hours back so the suite is repeatable.
@@ -2136,6 +2143,47 @@ test.describe('the front desk', () => {
     await phone.close();
   });
 
+  /**
+   * The link on the sticker, copyable from the desk — for reprinting one, or for
+   * sending a guest the URL when their camera will not focus on the QR.
+   *
+   * The claim: the code shown on the row is the code that opens that room. A
+   * stale one is worse than none, because somebody prints forty of them.
+   */
+  test('hands the desk a link that opens the room it is on', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const deskPage = await desk.newPage();
+    await signInAsDesk(deskPage);
+    await deskPage.goto('/admin/rooms');
+
+    /**
+     * 214, not this suite's 108: by now 108 has been checked out, and an empty
+     * room's sticker correctly resolves to nothing — a scanner in a corridor
+     * must not learn occupancy. 214 is the seeder's stay and nothing checks it
+     * out.
+     */
+    const occupied = deskPage.locator('li[data-room="214"]');
+    await expect(occupied).toBeVisible({ timeout: 25_000 });
+
+    // The public code is on the row, so a desk can match it to a printed
+    // sticker by eye.
+    const code = (await occupied.locator('code').first().textContent())!.trim();
+    expect(code).toBe(seed!.qrCodes['214']);
+
+    // And "Open" goes where a scan goes.
+    const link = occupied.getByRole('link', { name: 'Open' });
+    await expect(link).toHaveAttribute('href', new RegExp(`/r/${code}$`));
+
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await guest.goto((await link.getAttribute('href'))!);
+    await expect(guest).toHaveURL(new RegExp(`/r/${code}/home$`), { timeout: 25_000 });
+    await expect(guest.getByText('Room 214').first()).toBeVisible();
+
+    await desk.close();
+    await phone.close();
+  });
+
   test('turns away an account that cannot check people in', async ({ page }) => {
     // KITCHEN holds no stay permission at all.
     await page.goto('/admin/login');
@@ -2181,7 +2229,9 @@ test.describe('a guest and what we know', () => {
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
     await page.goto('/admin/rooms');
-    await page.locator(`li[data-room="${ROOM}"]`).getByRole('link').click();
+    // By name: the row also carries the sticker's "Open" link now.
+    await page.locator(`li[data-room="${ROOM}"]`).getByRole('link', { name: 'Rhea Kapoor' })
+      .click();
     await expect(page).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
   }
 
@@ -2357,7 +2407,8 @@ test.describe('settling up', () => {
     await expect(room(deskPage)).toContainText('₹450', { timeout: 25_000 });
 
     // Take the money.
-    await room(deskPage).getByRole('link').click();
+    // By name: the row also carries the sticker's "Open" link now.
+    await room(deskPage).getByRole('link', { name: 'Nadia Rahman' }).click();
     await expect(deskPage).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
     await deskPage.getByRole('group').filter({ hasText: 'Take a payment' })
       .locator('summary').click();
@@ -2409,7 +2460,8 @@ test.describe('settling up', () => {
 
     // 210's bill still has money on it, so it DOES offer one — the contrast is
     // the assertion.
-    await page.locator('li[data-room="210"]').getByRole('link').click();
+    await page.locator('li[data-room="210"]').getByRole('link', { name: 'Iqbal Qureshi' })
+      .click();
     await expect(page.getByRole('group').filter({ hasText: 'Take a payment' }))
       .toHaveCount(1, { timeout: 25_000 });
   });
