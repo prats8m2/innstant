@@ -15,7 +15,16 @@ export async function getStaffSession(): Promise<StaffSession | null> {
   return resolveStaffSession(store.get(STAFF_SESSION_COOKIE)?.value);
 }
 
-/** Signed in, at all. Throws UnauthenticatedError (401). */
+/**
+ * Signed in, at all. Throws UnauthenticatedError (401).
+ *
+ * For Server Actions and route handlers ONLY, where a throw is mapped to a
+ * status in one place. A PAGE must not use this: a thrown error in a Server
+ * Component has no mapping to run and renders the error boundary, so somebody
+ * holding a revoked or expired cookie reads "Application error" instead of being
+ * sent to the sign-in form. Pages use `getStaffSession()` and redirect —
+ * `adminAccess()` and the three ops surfaces all do.
+ */
 export async function requireStaffSession(): Promise<StaffSession> {
   return requireSession(await getStaffSession());
 }

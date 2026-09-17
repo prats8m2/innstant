@@ -2475,6 +2475,167 @@ test.describe('settling up', () => {
  * guarantee by construction: a room added from a screen is a room a guest can
  * scan into.
  */
+/**
+ * P3.5 — a hotel adding its second staff member.
+ *
+ * `provisionProperty()` creates exactly one PROPERTY_ADMIN as INVITED with no
+ * password, and S5 never built the flow that gives them one — the demo's GM can
+ * only sign in because `demo:reset` writes their password directly. Until this
+ * screen existed, a hotel's second staff member was a seeder run.
+ */
+test.describe('staff and roles', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'inviting into the shared demo property is one-copy state',
+  );
+
+  const NEW_STAFF = 'newjoiner@thekesari.example';
+  const NEW_PASSWORD = 'a-long-enough-one';
+
+  async function signInAsGm(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('gm@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  test('invites somebody, who sets a password from the link and signs in',
+    async ({ browser }) => {
+      const desk = await browser.newContext();
+      const admin = await desk.newPage();
+      await signInAsGm(admin);
+      await admin.goto('/admin/staff');
+
+      await admin.getByRole('group').filter({ hasText: 'Add somebody' })
+        .locator('summary').click();
+      const form = admin.locator('details').filter({ hasText: 'Add somebody' });
+      await form.locator('input[name="fullName"]').fill('New Joiner');
+      await form.locator('input[name="email"]').fill(NEW_STAFF);
+      await form.locator('select[name="roleKey"]').selectOption('FRONT_DESK');
+      await admin.getByRole('button', { name: 'Invite them' }).click();
+
+      /**
+       * The link is shown ONCE. Only its SHA-256 is stored (#10), so this render
+       * is the only moment it exists anywhere a person can reach — which is why
+       * it comes back in the action's own result rather than being fetched.
+       */
+      const link = admin.locator('[data-invite-link] input');
+      await expect(link).toBeVisible({ timeout: 25_000 });
+      const url = await link.inputValue();
+      expect(url).toContain('/admin/invite/');
+
+      // Listed before they have signed in, which is the point of the row.
+      const row = admin.locator(`li[data-staff="${NEW_STAFF}"]`);
+      await expect(row).toContainText('not signed in');
+      await expect(row).toContainText('Front desk');
+
+      /**
+       * A fresh browser with no cookie. The middleware has to let this through:
+       * gating it would redirect a new staff member to a login form for an
+       * account they cannot yet log in to.
+       */
+      const theirs = await browser.newContext();
+      const joiner = await theirs.newPage();
+      await joiner.goto(url);
+      await expect(joiner.getByRole('heading', { name: /Welcome, New Joiner/ }))
+        .toBeVisible({ timeout: 25_000 });
+
+      await joiner.locator('input[name="password"]').fill(NEW_PASSWORD);
+      await joiner.locator('input[name="confirm"]').fill(NEW_PASSWORD);
+      await joiner.getByRole('button', { name: 'Set my password' }).click();
+
+      // Straight in, rather than back to a login form to type it a third time.
+      await joiner.waitForURL((u) => u.pathname === '/admin', { timeout: 25_000 });
+      // Scoped to the nav: the overview cards link to /admin/rooms too, and the
+      // front desk's own card is named "Rooms" as well.
+      await expect(
+        joiner.getByRole('navigation').getByRole('link', { name: 'Rooms', exact: true }),
+      ).toBeVisible();
+
+      // And the link is spent — a second use would be a credential reset anybody
+      // holding the old chat message could perform.
+      const stranger = await browser.newContext();
+      const probe = await stranger.newPage();
+      await probe.goto(url);
+      await expect(probe.getByRole('heading', { name: /expired/ })).toBeVisible({
+        timeout: 25_000,
+      });
+
+      await desk.close();
+      await theirs.close();
+      await stranger.close();
+    });
+
+  test('switching somebody off stops the device they are signed in on',
+    async ({ browser }) => {
+      const theirs = await browser.newContext();
+      const joiner = await theirs.newPage();
+      await joiner.goto('/admin/login');
+      await joiner.locator('input[name="email"]').fill(NEW_STAFF);
+      await joiner.locator('input[name="password"]').fill(NEW_PASSWORD);
+      await joiner.getByRole('button', { name: 'Sign in' }).click();
+      await joiner.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+      const desk = await browser.newContext();
+      const admin = await desk.newPage();
+      await signInAsGm(admin);
+      await admin.goto('/admin/staff');
+      await admin.locator(`li[data-staff="${NEW_STAFF}"]`)
+        .getByRole('button', { name: 'Switch off' }).click();
+      await expect(admin.locator(`li[data-staff="${NEW_STAFF}"]`))
+        .toContainText('switched off', { timeout: 25_000 });
+
+      /**
+       * A session lives for its TTL, so a deactivation that only flipped the
+       * status would leave the screen they are logged into working until the
+       * cookie aged out.
+       */
+      await joiner.goto('/admin/rooms');
+      await expect(joiner).toHaveURL(/\/admin\/login/, { timeout: 25_000 });
+
+      await desk.close();
+      await theirs.close();
+    });
+
+  /**
+   * A hotel that locks itself out of its own console on a Tuesday afternoon has
+   * no route back that does not involve us and a database prompt.
+   */
+  test('refuses to leave the property without an admin', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/staff');
+
+    const me = page.locator('li[data-staff="gm@thekesari.example"]');
+    // No Switch off at all for your own row — the service refuses too.
+    await expect(me.getByRole('button', { name: 'Switch off' })).toHaveCount(0);
+
+    await me.getByRole('group').filter({ hasText: 'Roles' }).locator('summary').click();
+    await me.getByRole('button', { name: 'Take away' }).first().click();
+    await expect(page.getByText(/only property admin here|only role here/))
+      .toBeVisible({ timeout: 25_000 });
+  });
+
+  /**
+   * `staff:read` is PROPERTY_ADMIN's alone — the front desk does not hold it, so
+   * the screen is not theirs to see at all.
+   */
+  test('keeps the front desk out of it', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/staff');
+    await expect(page.getByText(/cannot change this|no property assigned/))
+      .toBeVisible({ timeout: 25_000 });
+  });
+});
+
 test.describe('the building', () => {
   test.describe.configure({ mode: 'serial' });
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
@@ -2655,6 +2816,103 @@ test.describe('the building', () => {
     await page.goto('/admin/property');
     await expect(page.getByRole('heading', { name: 'Floors' })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByRole('group').filter({ hasText: 'Add a floor' })).toHaveCount(0);
+    await expect(page.getByRole('group').filter({ hasText: 'Add a room type' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retire' })).toHaveCount(0);
+
+    // `property:read` and not `property:update` — the hotel's own settings are
+    // a sentence rather than a form.
+    await expect(page.getByRole('heading', { name: 'This hotel' })).toBeVisible();
+    await expect(page.locator('input[name="timezone"], select[name="timezone"]')).toHaveCount(0);
+  });
+
+  /**
+   * EXTENSION-POINTS §1 — rates and inventory are priced per room TYPE, so the
+   * table has existed since 0000. Only `provisionProperty()` ever wrote to it,
+   * and the screen said so out loud rather than pretending: "This property has
+   * no room types, so a room has nothing to be."
+   */
+  test('adds a room type, and a new room can be it', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/property');
+
+    await page.getByRole('group').filter({ hasText: 'Add a room type' })
+      .locator('summary').click();
+    const form = page.locator('details').filter({ hasText: 'Add a room type' });
+    await form.locator('input[name="name"]').fill('Courtyard');
+    await form.locator('input[name="code"]').fill('cyd');
+    await page.getByRole('button', { name: 'Add the room type' }).click();
+
+    // Normalised on the way in: "cyd", " CYD " and "Cyd" must not become three
+    // room types at one hotel.
+    const row = page.locator('li[data-room-type="CYD"]');
+    await expect(row).toBeVisible({ timeout: 25_000 });
+    await expect(row).toContainText('no rooms');
+
+    // And it is offered to a room.
+    await expect(
+      page.locator('select[name="roomTypeId"]').first().locator('option', { hasText: 'Courtyard' }),
+    ).toHaveCount(1);
+  });
+
+  /**
+   * `property:update` has been a declared permission since S5 with nothing
+   * calling it: `provisionProperty()` set the name, clock and currency once and
+   * nothing could ever change them.
+   *
+   * Renamed and renamed back within the test — this is the shared demo property
+   * and its name is in the admin bar on every screen.
+   */
+  test('renames the hotel, and pins the currency once it has charged', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/property');
+
+    const hotel = page.locator('section').filter({ hasText: 'This hotel' });
+    await hotel.locator('input[name="name"]').fill('The Kesari Haveli');
+    await hotel.getByRole('button', { name: 'Save' }).click();
+
+    // The bar reads it on every screen, which is why the action revalidates the
+    // whole layout rather than these two routes.
+    await expect(page.getByRole('link', { name: 'The Kesari Haveli' }))
+      .toBeVisible({ timeout: 25_000 });
+
+    /**
+     * #5 — every row holding an amount carries its own currency, and nothing
+     * converts a past bill. The demo property has live orders, so the field is
+     * read-only and the hint says why rather than letting somebody type into a
+     * box that will refuse.
+     */
+    await expect(hotel.locator('input[name="currency"]')).toHaveAttribute('readonly', '');
+    await expect(hotel).toContainText('already charged in it');
+
+    await hotel.locator('input[name="name"]').fill('The Kesari');
+    await hotel.getByRole('button', { name: 'Save' }).click();
+    await expect(page.getByRole('link', { name: 'The Kesari', exact: true }))
+      .toBeVisible({ timeout: 25_000 });
+  });
+
+  test('retires a room type nothing is, and refuses one in use', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/property');
+
+    // The demo property's own types have rooms on them, and `room_type_id` is
+    // NOT NULL — so retiring one would leave rooms pointing at something the
+    // edit form can no longer offer.
+    const inUse = page.locator('li[data-room-type="LKV"]');
+    await inUse.getByRole('button', { name: 'Retire' }).click();
+    await expect(page.getByText(/rooms are still a|room is still a/)).toBeVisible({
+      timeout: 25_000,
+    });
+
+    const spare = page.locator('li[data-room-type="CYD"]');
+    await spare.getByRole('button', { name: 'Retire' }).click();
+    await expect(page.locator('li[data-room-type="CYD"]')).toContainText('retired', {
+      timeout: 25_000,
+    });
+
+    // Retired means not offered — and it still holds its code.
+    await expect(
+      page.locator('select[name="roomTypeId"]').first().locator('option', { hasText: 'Courtyard' }),
+    ).toHaveCount(0);
   });
 });

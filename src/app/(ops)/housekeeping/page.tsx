@@ -1,5 +1,7 @@
 import { withTenant } from '@/db';
-import { requireStaffSession } from '@/lib/auth-context';
+import { redirect } from 'next/navigation';
+import { getStaffSession } from '@/lib/auth-context';
+import { requestPathname } from '@/lib/request-path';
 import { can, findProperty, listFloors } from '@/modules/identity';
 import { getOpenRequests, OPEN_REQUEST_STATUSES } from '@/modules/requests';
 import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
@@ -23,7 +25,18 @@ import styles from './housekeeping.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function HousekeepingBoard() {
-  const session = await requireStaffSession();
+  /**
+   * No session redirects rather than throwing. The middleware is a cookie
+   * turnstile that cannot reach Postgres from the edge, so it waves through a
+   * REVOKED or expired cookie; throwing here renders the error boundary and an
+   * always-on kitchen tablet shows "Application error" instead of a sign-in
+   * form. Same reasoning as `adminAccess()`.
+   */
+  const session = await getStaffSession();
+  if (!session) {
+    const next = await requestPathname();
+    redirect(next ? `/admin/login?next=${encodeURIComponent(next)}` : '/admin/login');
+  }
 
   const propertyId = [...session.properties.keys()][0];
   if (!propertyId) {

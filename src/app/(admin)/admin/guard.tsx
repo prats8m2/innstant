@@ -1,4 +1,6 @@
-import { requireStaffSession } from '@/lib/auth-context';
+import { redirect } from 'next/navigation';
+import { getStaffSession } from '@/lib/auth-context';
+import { requestPathname } from '@/lib/request-path';
 import { can } from '@/modules/identity';
 import type { Permission, StaffSession } from '@/modules/identity';
 import styles from './admin.module.css';
@@ -21,6 +23,26 @@ import styles from './admin.module.css';
  *
  * The server action behind every button re-checks regardless. Nothing here is
  * load-bearing for security — it decides what to draw.
+ *
+ * ─── Why NO session redirects rather than throwing ─────────────────────────
+ *
+ * The middleware is a cookie turnstile and nothing more: it cannot reach
+ * Postgres from the edge runtime, so it waves through anybody HOLDING a cookie,
+ * including one that has been revoked or has expired. The session then resolves
+ * to null here — and `requireStaffSession()` throws `UnauthenticatedError`,
+ * which in a Server Component has no mapping to run and renders the error
+ * boundary. The browser gets "Application error".
+ *
+ * That was true for an ordinary expiry all along and went unnoticed because
+ * nothing could revoke a session mid-shift. `deactivateStaff()` (P3.5) revokes
+ * every session in the same transaction, which made it happen on purpose and in
+ * front of a test: somebody switched off mid-shift saw a 500 rather than the
+ * sign-in page.
+ *
+ * So this redirects, exactly as the middleware would have, carrying where they
+ * were going. The permission case below still renders a sentence — they ARE
+ * signed in, and sending them to a login form they have already passed would be
+ * a loop.
  */
 export type AdminAccess =
   | { ok: true; session: StaffSession; propertyId: string }
@@ -29,7 +51,11 @@ export type AdminAccess =
 export async function adminAccess(
   ...permissions: readonly Permission[]
 ): Promise<AdminAccess> {
-  const session = await requireStaffSession();
+  const session = await getStaffSession();
+  if (!session) {
+    const next = await requestPathname();
+    redirect(next ? `/admin/login?next=${encodeURIComponent(next)}` : '/admin/login');
+  }
 
   // A group F&B manager legitimately has several properties; the switcher is
   // still admin work, and the KDS and runner make the same placeholder choice.

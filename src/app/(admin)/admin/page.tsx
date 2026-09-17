@@ -35,6 +35,7 @@ export default async function AdminHome() {
   const maySeeRequests = can(session, propertyId, 'request:read');
   const maySeeStays = can(session, propertyId, 'stay:read');
   const maySeeBuilding = can(session, propertyId, 'room:read');
+  const maySeeStaff = can(session, propertyId, 'staff:read');
 
   return (
     <AdminShell
@@ -106,6 +107,18 @@ export default async function AdminHome() {
               <span className={styles.cardBody}>
                 The hotel&rsquo;s name and clock, its room types, its floors and
                 rooms. A room added here gets its own QR sticker.
+              </span>
+            </Link>
+          </li>
+        ) : null}
+
+        {maySeeStaff ? (
+          <li className={styles.card}>
+            <Link href="/admin/staff" className={styles.cardLink}>
+              <span className={styles.cardTitle}>Staff</span>
+              <span className={styles.cardBody}>
+                Who works here and what they can do. An invite link gives
+                somebody their first password.
               </span>
             </Link>
           </li>

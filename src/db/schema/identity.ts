@@ -194,6 +194,48 @@ export const staffPropertyRoles = pgTable('staff_property_roles', {
   index('staff_property_roles_staff_idx').on(t.staffUserId),
 ]);
 
+/**
+ * A one-time link that turns an INVITED staff row into an account with a
+ * password. P3.5.
+ *
+ * `provisionProperty()` has created exactly one PROPERTY_ADMIN as INVITED with
+ * `password_hash` NULL since P0, and S5 never built the flow that fills it in —
+ * so a second staff member was a seeder run, and the first one could only sign in
+ * because the demo seeder set their password directly.
+ *
+ * ─── Why a token rather than an emailed password ───────────────────────────
+ *
+ * There is no mail provider in this product and adding one is a decision, not a
+ * session (CLAUDE.md "Ask before"). So the invite is a LINK the manager copies
+ * and hands over — the same shape as the guest link on the room list, and the
+ * same shape as what a mail provider would send if one existed. When mail
+ * arrives, it sends this link; nothing about the table changes.
+ *
+ * The token is stored as SHA-256 only, exactly like `staff_sessions.token_hash`
+ * and guest sessions (#10). The plaintext exists once, in the response that
+ * created it, and is never recoverable — a manager who loses it issues another.
+ */
+export const staffInvites = pgTable('staff_invites', {
+  id: pk(),
+  tenantId: tenantId(),
+  /** The property they were invited to work at, and where their role is granted. */
+  propertyId: propertyId(),
+  staffUserId: uuid('staff_user_id').notNull()
+    .references(() => staffUsers.id, { onDelete: 'cascade' }),
+
+  tokenHash: text('token_hash').notNull(),
+  invitedByStaffId: uuid('invited_by_staff_id'),
+
+  expiresAt: ts('expires_at').notNull(),
+  acceptedAt: ts('accepted_at'),
+  revokedAt: ts('revoked_at'),
+
+  createdAt: createdAt(),
+}, (t) => [
+  uniqueIndex('staff_invites_token_hash_uq').on(t.tokenHash),
+  index('staff_invites_staff_idx').on(t.staffUserId),
+]);
+
 /** Token stored as SHA-256 only — same rule as guest sessions (#10). */
 export const staffSessions = pgTable('staff_sessions', {
   id: pk(),

@@ -1,5 +1,7 @@
 import { withTenant } from '@/db';
-import { requireStaffSession } from '@/lib/auth-context';
+import { redirect } from 'next/navigation';
+import { getStaffSession } from '@/lib/auth-context';
+import { requestPathname } from '@/lib/request-path';
 import { can } from '@/modules/identity';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets } from '@/modules/ordering';
@@ -21,7 +23,18 @@ import styles from './runner.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function RunnerApp() {
-  const session = await requireStaffSession();
+  /**
+   * No session redirects rather than throwing. The middleware is a cookie
+   * turnstile that cannot reach Postgres from the edge, so it waves through a
+   * REVOKED or expired cookie; throwing here renders the error boundary and an
+   * always-on kitchen tablet shows "Application error" instead of a sign-in
+   * form. Same reasoning as `adminAccess()`.
+   */
+  const session = await getStaffSession();
+  if (!session) {
+    const next = await requestPathname();
+    redirect(next ? `/admin/login?next=${encodeURIComponent(next)}` : '/admin/login');
+  }
 
   // A runner has one property. Picking the first is the same placeholder the
   // KDS uses — the property switcher is admin work.

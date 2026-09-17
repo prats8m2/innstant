@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { STAFF_SESSION_COOKIE } from '@/modules/identity/cookie';
 import { REQUEST_ID_HEADER, requestIdFrom } from '@/lib/request-id';
+import { PATHNAME_HEADER } from '@/lib/request-path';
 
 /**
  * Two jobs: stamp every request with an id, and turn staff surfaces away when
@@ -34,20 +35,43 @@ import { REQUEST_ID_HEADER, requestIdFrom } from '@/lib/request-id';
  */
 const STAFF_PREFIXES = ['/admin', '/kds', '/runner', '/housekeeping'];
 
+/**
+ * The two staff pages that exist for people who are NOT signed in: the sign-in
+ * form, and the invite link that gives somebody their first password (P3.5).
+ * Gating either behind a cookie would redirect a new staff member to a login
+ * form for an account they cannot yet log in to.
+ *
+ * Both do their own work server-side against the database. This list only
+ * decides who gets bounced to `/admin/login`, never who is allowed to do
+ * anything — the invite page resolves a hashed token under `withTenant()` and
+ * returns the same "expired" message for every failure.
+ */
+const SIGNED_OUT_PAGES = ['/admin/login', '/admin/invite'];
+
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const requestId = requestIdFrom(request.headers);
 
   const forwarded = new Headers(request.headers);
   forwarded.set(REQUEST_ID_HEADER, requestId);
+  /**
+   * Next does not give a Server Component its own pathname, and a page that has
+   * to send somebody to the login form needs it to say where they were going.
+   * This is the only place that knows.
+   */
+  forwarded.set(PATHNAME_HEADER, pathname);
   const pass = () => NextResponse.next({ request: { headers: forwarded } });
 
   const isStaffSurface = STAFF_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 
+  const signedOutPage = SIGNED_OUT_PAGES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
+
   const response =
-    !isStaffSurface || pathname.startsWith('/admin/login')
+    !isStaffSurface || signedOutPage
       ? pass()
       : gateStaff(request, pathname, pass);
 

@@ -8,28 +8,15 @@ import {
 } from '@/modules/identity';
 import { AppError, UnauthenticatedError, publicPayloadFor, ValidationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { staffTenantId } from './tenant';
 
 /**
  * Staff sign-in.
  *
- * ─── The open question this does NOT answer ────────────────────────────────
- *
- * `login()` needs a tenant, and how a browser establishes which tenant it is
- * signing in to is part of the tenancy model — CLAUDE.md says ask before
- * changing that, so this does not.
- *
- * `STAFF_TENANT_ID` is an explicit stopgap for the single-tenant demo. The two
- * real answers, both of which are a decision rather than a refactor:
- *
- *   1. Subdomain — `kesari.hgs.app` resolves to a tenant. Standard, works with
- *      one login form, and needs wildcard DNS and a certificate.
- *   2. An email → tenant lookup through a SECURITY DEFINER function, exactly
- *      like `resolve_qr_routing()` (migration 0003) does for a QR scan. Same
- *      shape of problem: a caller with no tenant context needs routing
- *      information and nothing else.
- *
- * Until one is chosen, this refuses to guess rather than silently signing
- * someone in to the wrong hotel.
+ * Which tenant a signed-out browser belongs to is an open question in the
+ * tenancy model, and `./tenant.ts` holds the one stopgap answer both signed-out
+ * pages share. Until it is settled, this refuses to guess rather than silently
+ * signing someone in to the wrong hotel.
  */
 const Credentials = z.object({
   email: z.email(),
@@ -42,7 +29,7 @@ export interface LoginState {
 }
 
 function requireTenantId(): string {
-  const tenantId = process.env.STAFF_TENANT_ID;
+  const tenantId = staffTenantId();
   if (!tenantId) {
     throw new ValidationError(
       'This deployment has no staff tenant configured. Set STAFF_TENANT_ID.',
