@@ -127,6 +127,8 @@ export default async function RoomsAdmin() {
           checkIn: can(session, propertyId, 'stay:check_in'),
           checkOut: can(session, propertyId, 'stay:check_out'),
           vouch: can(session, propertyId, 'guest:vouch'),
+          // Its own permission since S5, with nothing calling it until now.
+          reprintQr: maySeeQr && can(session, propertyId, 'qr:regenerate'),
         }}
       />
 

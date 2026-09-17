@@ -38,6 +38,8 @@ export interface DeskPermissions {
   checkIn: boolean;
   checkOut: boolean;
   vouch: boolean;
+  /** `qr:regenerate` — kills the sticker on the nightstand. */
+  reprintQr: boolean;
 }
 
 export function RoomBoard({
@@ -142,9 +144,13 @@ function Room({
           a desk reprints stickers for empty rooms more often than full ones. */}
       {room.qr ? (
         <GuestLink
+          propertyId={propertyId}
+          roomId={room.id}
           roomNumber={room.number}
           publicCode={room.qr.publicCode}
           url={room.qr.url}
+          mayReprint={permissions.reprintQr}
+          occupied={room.stay != null}
         />
       ) : null}
 

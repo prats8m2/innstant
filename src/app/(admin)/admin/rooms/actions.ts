@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
-import { findProperty } from '@/modules/identity';
+import { findProperty, regenerateQrCode } from '@/modules/identity';
 import { createStay, checkOutStay } from '@/modules/stay';
 import { vouchForGuest } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
@@ -191,6 +191,61 @@ export async function vouchForRoom(
     return { done: 'Vouched. They can charge to the room without being asked.' };
   } catch (error) {
     return handle(error, 'vouch');
+  }
+}
+
+const Reprint = z.object({
+  propertyId: z.uuid(),
+  roomId: z.uuid(),
+});
+
+/**
+ * Reprint a room's sticker.
+ *
+ * Its own permission (`qr:regenerate`), which FRONT_DESK and PROPERTY_ADMIN hold
+ * and nothing else does — a runner who can see a room should not be able to kill
+ * the code on its nightstand. Separate from `room:manage` because the desk is
+ * who notices a peeled sticker and the desk does not renumber wings.
+ */
+export async function reprintQrCode(
+  _previous: DeskState,
+  formData: FormData,
+): Promise<DeskState> {
+  const parsed = Reprint.safeParse({
+    propertyId: formData.get('propertyId'),
+    roomId: formData.get('roomId'),
+  });
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+
+  try {
+    const session = await requirePermission(parsed.data.propertyId, 'qr:regenerate');
+
+    const issued = await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      (tx) => regenerateQrCode(tx, {
+        tenantId: session.tenantId,
+        propertyId: parsed.data.propertyId,
+        roomId: parsed.data.roomId,
+        staffUserId: session.staffUserId,
+      }),
+    );
+
+    // The code is not logged — it reaches the guest surface, and `logger` output
+    // is the one place in this codebase most likely to be shipped somewhere
+    // else. The version says which sticker without saying what it opens.
+    logger.info(
+      { roomId: parsed.data.roomId, version: issued.version },
+      'qr sticker reprinted',
+    );
+
+    revalidatePath('/admin/rooms');
+    revalidatePath('/admin/property');
+
+    return {
+      done: `New link, sticker ${issued.version}. The old one stops working now — anyone already in the room stays signed in.`,
+    };
+  } catch (error) {
+    return handle(error, 'reprint qr');
   }
 }
 

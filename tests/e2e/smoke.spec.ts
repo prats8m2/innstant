@@ -2550,6 +2550,49 @@ test.describe('the building', () => {
     });
 
   /**
+   * A peeled sticker, or one photographed by somebody who is not a guest.
+   *
+   * `qr:regenerate` has been a declared permission since S5 and
+   * `room_qr_codes.version` has carried the comment "reprinting a sticker
+   * invalidates the old one" since 0000 — describing a thing no code did.
+   *
+   * Room 401 still has a guest in it here, deliberately: the occupied room is
+   * exactly the one whose code gets photographed, and a desk that cannot reprint
+   * without evicting somebody will not reprint at all.
+   */
+  test('reprints a sticker, and the old one stops working', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const admin = await desk.newPage();
+    await signInAsGm(admin);
+    await admin.goto('/admin/rooms');
+
+    const row = admin.locator('li[data-room="401"]');
+    const old = (await row.locator('code').first().textContent())!.trim();
+
+    await row.getByRole('group').filter({ hasText: 'Reprint' }).locator('summary').click();
+    await row.getByRole('button', { name: 'Issue a new code' }).click();
+
+    // The code on the row is the assertion, not the toast: the toast is one
+    // render away from being unmounted by the revalidate, and what a desk
+    // actually prints from is the row.
+    await expect(row.locator('code').first()).not.toHaveText(old, { timeout: 25_000 });
+    const fresh = (await row.locator('code').first().textContent())!.trim();
+
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+
+    await guest.goto(`/r/${old}`);
+    await expect(guest.getByText('Room 401')).toHaveCount(0, { timeout: 25_000 });
+
+    await guest.goto(`/r/${fresh}`);
+    await expect(guest).toHaveURL(new RegExp(`/r/${fresh}/home$`), { timeout: 25_000 });
+    await expect(guest.getByText('Room 401').first()).toBeVisible();
+
+    await desk.close();
+    await phone.close();
+  });
+
+  /**
    * The sticker has to die with the room — otherwise a code in a corridor
    * resolves to a real property for ever.
    */

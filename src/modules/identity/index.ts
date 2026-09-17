@@ -40,6 +40,7 @@ export { provisionProperty, provisionTenant } from './provision';
 export {
   createFloor, renameFloor, deleteFloor,
   createRoom, updateRoom, archiveRoom, restoreRoom,
+  regenerateQrCode,
 } from './property-setup';
 export type { FloorInput, RoomInput, CreatedRoom } from './property-setup';
 export type {

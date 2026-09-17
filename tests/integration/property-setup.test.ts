@@ -3,11 +3,11 @@ import type pg from 'pg';
 import { withTenant, readEventHistory } from '@/db';
 import {
   createFloor, renameFloor, deleteFloor,
-  createRoom, updateRoom, archiveRoom, restoreRoom,
+  createRoom, updateRoom, archiveRoom, restoreRoom, regenerateQrCode,
   listRoomsAtProperty, liveQrCodesForProperty, listFloors,
 } from '@/modules/identity';
 import { createStay, checkOutStay } from '@/modules/stay';
-import { scanQrCode, QrNotUsableError } from '@/modules/access';
+import { scanQrCode, resolveGuestSession, QrNotUsableError } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
 import {
   ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
@@ -290,6 +290,101 @@ describe('setting up the building', () => {
     const room = await addRoom({ number: '215' });
     const history = await scoped((tx) => readEventHistory(tx, 'room', room.id));
     expect(JSON.stringify(history)).not.toContain(room.publicCode);
+  });
+
+  /* ── Reprinting a sticker ────────────────────────────────────────────── */
+
+  const reprint = (roomId: string) => scoped((tx) => regenerateQrCode(tx, {
+    tenantId: a.tenantId, propertyId: a.propertyId, roomId, staffUserId: gm,
+  }));
+
+  const checkIn = (roomId: string, fullName: string) => scoped((tx) => createStay(tx, {
+    tenantId: a.tenantId, propertyId: a.propertyId, roomId,
+    guest: { fullName, phone: '+919820012121' },
+    scheduledCheckoutAt: atLocalHourOnSameDay(new Date(Date.now() + 86_400_000), 11, TZ),
+    actor: { kind: 'STAFF', staffUserId: gm },
+  }));
+
+  /**
+   * The claim `room_qr_codes.version` has carried since 0000 — "reprinting a
+   * sticker invalidates the old one" — and which nothing did until P3.5.
+   */
+  it('kills the old sticker and issues a working one', async () => {
+    const room = await addRoom({ number: '215' });
+    await checkIn(room.id, 'Photographed In The Lift');
+
+    const issued = await reprint(room.id);
+
+    expect(issued.publicCode).not.toBe(room.publicCode);
+    expect(issued.version).toBe(2);
+    expect((await codesNow()).get(room.id)?.publicCode).toBe(issued.publicCode);
+
+    await expect(scanQrCode(room.publicCode)).rejects.toBeInstanceOf(QrNotUsableError);
+    expect((await scanQrCode(issued.publicCode)).room.number).toBe('215');
+  });
+
+  /**
+   * #10 — sessions bind to `stay_id`, never to the room and never to the code.
+   *
+   * This is the reason a desk can reprint a sticker on an OCCUPIED room, which
+   * is exactly the room whose code got photographed. A reprint that signed the
+   * guest out would make the desk afraid to use it, and the control would be
+   * there without ever being reached for.
+   */
+  it('does not sign out the guest already in the room', async () => {
+    const room = await addRoom({ number: '215' });
+    await checkIn(room.id, 'Already Scanned');
+
+    const scan = await scanQrCode(room.publicCode);
+    await reprint(room.id);
+
+    const still = await resolveGuestSession(scan.cookieValue);
+    expect(still?.stayId).toBe(scan.session.stayId);
+  });
+
+  /**
+   * Never backwards. A room reprinted, shut and reopened reads 1, 2, 3 — so the
+   * number in the audit trail is the number on the plastic. Derived from
+   * `max(version)` rather than a row count, so a code deleted by hand cannot
+   * make two stickers both claim to be the second.
+   */
+  it('numbers stickers by how many have been printed, not how many are live', async () => {
+    const room = await addRoom({ number: '215' });
+
+    expect((await reprint(room.id)).version).toBe(2);
+
+    await scoped((tx) => archiveRoom(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomId: room.id, staffUserId: gm,
+    }));
+    await scoped((tx) => restoreRoom(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomId: room.id, staffUserId: gm,
+    }));
+
+    expect((await codesNow()).get(room.id)?.version).toBe(3);
+    expect((await reprint(room.id)).version).toBe(4);
+  });
+
+  it('refuses on a room that is out of service, and says what to do instead', async () => {
+    const room = await addRoom({ number: '215' });
+    await scoped((tx) => archiveRoom(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomId: room.id, staffUserId: gm,
+    }));
+
+    await expect(reprint(room.id)).rejects.toThrow(/out of service. Bring it back/);
+    // And still nothing live, so the refusal did not leave a working code on a
+    // door the desk cannot put anybody behind.
+    expect((await codesNow()).get(room.id)).toBeUndefined();
+  });
+
+  it('records the reprint without recording the code', async () => {
+    const room = await addRoom({ number: '215' });
+    const issued = await reprint(room.id);
+
+    const history = await scoped((tx) => readEventHistory(tx, 'room', room.id));
+    const event = history.find((row) => row.event_type === 'qr.regenerated');
+    expect(event).toBeTruthy();
+    expect(event!.actor_kind).toBe('STAFF');
+    expect(JSON.stringify(history)).not.toContain(issued.publicCode);
   });
 
   /* ── Isolation ───────────────────────────────────────────────────────── */

@@ -197,13 +197,10 @@ export async function createRoom(
     notes: input.notes?.trim() || null,
   }).returning({ id: rooms.id });
 
-  const publicCode = newPublicCode();
-  await tx.insert(roomQrCodes).values({
+  const { publicCode } = await issueQrCode(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
     roomId: created!.id,
-    publicCode,
-    version: 1,
   });
 
   await recordEvent(tx, {
@@ -327,9 +324,7 @@ export async function archiveRoom(
    * then to an active stay; leaving the code live on a room out of service means
    * a sticker in a corridor that resolves to a real property for ever.
    */
-  await tx.update(roomQrCodes)
-    .set({ revokedAt: now })
-    .where(and(eq(roomQrCodes.roomId, input.roomId), isNull(roomQrCodes.revokedAt)));
+  await revokeQrCodes(tx, input.roomId);
 
   await recordEvent(tx, {
     tenantId: input.tenantId,
@@ -368,18 +363,10 @@ export async function restoreRoom(
     .set({ archivedAt: null, updatedAt: now })
     .where(eq(rooms.id, input.roomId));
 
-  const live = await tx.select({ version: roomQrCodes.version })
-    .from(roomQrCodes)
-    .where(eq(roomQrCodes.roomId, input.roomId))
-    .orderBy(asc(roomQrCodes.version));
-
-  const publicCode = newPublicCode();
-  await tx.insert(roomQrCodes).values({
+  const { publicCode } = await issueQrCode(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
     roomId: input.roomId,
-    publicCode,
-    version: (live.at(-1)?.version ?? 0) + 1,
   });
 
   await recordEvent(tx, {
@@ -393,6 +380,111 @@ export async function restoreRoom(
   });
 
   return { publicCode };
+}
+
+/* ── The sticker ────────────────────────────────────────────────────────── */
+
+/**
+ * Reprint a room's QR sticker.
+ *
+ * `qr:regenerate` has been a declared permission since S5 with nothing calling
+ * it, and `room_qr_codes.version` has carried the comment "reprinting a sticker
+ * invalidates the old one" since 0000 — describing a thing no code did. A
+ * sticker peels off, gets covered in chai, or is photographed by somebody who
+ * is not a guest, and the only route back was a database write.
+ *
+ * ─── What a reprint does and does not break ────────────────────────────────
+ *
+ * It kills the OLD code immediately: `scanQrCode()` will not resolve it again,
+ * so a photograph of the sticker taken in the lift is worthless from here on.
+ * That is the whole point, and it is why this is its own permission rather than
+ * part of `room:manage`.
+ *
+ * It does NOT sign the current guest out. Sessions bind to `stay_id`, never to
+ * the room and never to the code (#10) — so the phone already on the nightstand
+ * keeps working, and only a fresh scan needs the fresh sticker. A reprint that
+ * logged the occupant out would make the desk afraid to use it, which is how a
+ * compromised code stays live.
+ */
+export async function regenerateQrCode(
+  tx: Tx,
+  input: { tenantId: string; propertyId: string; roomId: string; staffUserId: string },
+): Promise<{ publicCode: string; version: number }> {
+  const found = await tx.select({ number: rooms.number, archivedAt: rooms.archivedAt })
+    .from(rooms)
+    .where(and(eq(rooms.id, input.roomId), eq(rooms.propertyId, input.propertyId)))
+    .limit(1);
+
+  const room = found[0];
+  if (!room) throw new NotFoundError('No such room at this property.');
+  // An out-of-service room's codes are already revoked, and minting a live one
+  // for a room the desk cannot put anybody in would put a working sticker on a
+  // door that should stay shut. Restoring is the way, and it issues one.
+  if (room.archivedAt) {
+    throw new ConflictError(
+      `Room ${room.number} is out of service. Bring it back — that issues a new sticker.`,
+    );
+  }
+
+  await revokeQrCodes(tx, input.roomId);
+  const issued = await issueQrCode(tx, input);
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'room',
+    entityId: input.roomId,
+    eventType: 'qr.regenerated',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    // The version, never the code: `event_log` is readable by anything holding
+    // `audit:read`, and a public code reaches the guest surface.
+    payload: { number: room.number, version: issued.version },
+  });
+
+  return issued;
+}
+
+/**
+ * Mint the live code for a room, at one past the highest version it has ever
+ * had.
+ *
+ * `version` counts stickers printed, not stickers live, so it never goes
+ * backwards: a room reprinted, archived and restored reads 1, 2, 3 and the
+ * numbers on the audit trail line up with the numbers on the plastic. Deriving
+ * it from `max(version)` rather than counting rows means a code deleted by hand
+ * cannot make two stickers claim to be version 2.
+ *
+ * Callers revoke first where revoking is the point (`archiveRoom`,
+ * `regenerateQrCode`); a brand-new room has nothing to revoke.
+ */
+async function issueQrCode(
+  tx: Tx,
+  input: { tenantId: string; propertyId: string; roomId: string },
+): Promise<{ publicCode: string; version: number }> {
+  const printed = await tx.select({ version: roomQrCodes.version })
+    .from(roomQrCodes)
+    .where(eq(roomQrCodes.roomId, input.roomId))
+    .orderBy(asc(roomQrCodes.version));
+
+  const publicCode = newPublicCode();
+  const version = (printed.at(-1)?.version ?? 0) + 1;
+
+  await tx.insert(roomQrCodes).values({
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    roomId: input.roomId,
+    publicCode,
+    version,
+  });
+
+  return { publicCode, version };
+}
+
+/** Every live code for the room, so a reprint leaves exactly one. */
+async function revokeQrCodes(tx: Tx, roomId: string): Promise<void> {
+  await tx.update(roomQrCodes)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(roomQrCodes.roomId, roomId), isNull(roomQrCodes.revokedAt)));
 }
 
 /* ── Shared ─────────────────────────────────────────────────────────────── */
