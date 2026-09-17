@@ -4,6 +4,7 @@ import {
   can, findProperty, listFloors, listRoomsAtProperty, listRoomTypesWithUse,
   currencyIsStillOpen,
 } from '@/modules/identity';
+import { offeredTimezones } from '@/lib/timezones';
 import { AdminShell } from '../admin-shell';
 import {
   PropertyEditor,
@@ -93,12 +94,11 @@ export default async function PropertyAdmin() {
   };
 
   /**
-   * Every zone the runtime knows, rather than a list kept here. A hotel can be
-   * anywhere, and a hand-maintained list is one that goes stale the first time
-   * somebody opens in a country nobody thought of — while `Intl` ships the tz
-   * database and `cleanTimezone()` validates against the very same source.
+   * Every zone the runtime knows, PLUS the one this property is already on —
+   * which is not always in that list, and whose absence silently rewrote the
+   * hotel's clock. See `offeredTimezones()`; it is the whole story.
    */
-  const timezones = Intl.supportedValuesOf('timeZone');
+  const timezones = offeredTimezones(settings.timezone);
 
   return (
     <AdminShell

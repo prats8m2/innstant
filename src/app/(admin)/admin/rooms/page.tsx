@@ -3,7 +3,7 @@ import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import { listRoomsWithOccupancy } from '@/modules/stay';
 import { formatMoney, money } from '@/lib/money';
-import { formatCheckoutDay, nightsUntil } from '@/lib/clock';
+import { formatCheckoutShort, nightsUntil } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
 import { RoomBoard, type RoomView } from './room-board';
 import styles from '../admin.module.css';
@@ -80,7 +80,9 @@ export default async function RoomsAdmin() {
         guestId: room.stay.guestId,
         guestName: room.stay.guestName,
         guestPhone: room.stay.guestPhone,
-        dueOut: formatCheckoutDay(room.stay.scheduledCheckoutAt, timeZone),
+        // The column form: a full weekday either truncates here or takes the
+        // width the guest's name needs.
+        dueOut: formatCheckoutShort(room.stay.scheduledCheckoutAt, timeZone),
         // Zero means today, which is the number a desk is actually working from.
         nightsLeft: nightsUntil(now, room.stay.scheduledCheckoutAt, timeZone),
         // Null is "nothing has ever been charged", which is not the same as ₹0

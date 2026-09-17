@@ -33,6 +33,12 @@
   --saffron: #E9A227;
   --saffron-lit: #F2B84B;
   --teal: #6E9C95;
+  /* The console needed a third status colour and had been overloading saffron
+     for both "look at this" and "this is destructive" — a Delete button and a
+     late ticket read identically. Terracotta rather than a pure red: it sits in
+     the haveli palette beside saffron, and it clears AA on all three surfaces
+     (5.4:1 on --ink-600, the lightest). Asserted in theme-contrast.test.ts. */
+  --clay: #E4867A;
 
   /* ── Text ────────────────────────────────────────────────────────────────
      Lime plaster, not white — it is the wall colour of the haveli. */
@@ -60,6 +66,29 @@
   --text-muted: var(--plaster-dim);
   --accent: var(--saffron);
   --accent-hover: var(--saffron-lit);
+
+  /* ── Status ──────────────────────────────────────────────────────────────
+     Three tones, named for what they MEAN rather than what they look like, so
+     a badge and a button reach for the same word. "Attention" is saffron and is
+     the console's default emphasis; "positive" confirms; "critical" is for
+     things that destroy or refuse. */
+  --status-positive: var(--teal);
+  --status-attention: var(--saffron);
+  --status-critical: var(--clay);
+
+  /* ── Elevation ───────────────────────────────────────────────────────────
+     On indigo a drop shadow reads as dirt, so depth is mostly a lighter
+     surface plus a border. These two are for things that genuinely float above
+     the page — a sticky header, an open panel — and nothing else. */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.24);
+  --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.45);
+
+  /* ── Console layout ──────────────────────────────────────────────────────
+     The ops console is desktop furniture and needs fixed measurements the way a
+     document does not. The sidebar replaced a wrapping top bar that had already
+     broken a page once at 412px by covering it. */
+  --nav-w: 228px;
+  --content-max: 1360px;
 
   /* ── Shape ───────────────────────────────────────────────────────────────
      Deliberately sharp. 8px-everywhere is the shadcn default the brief ruled

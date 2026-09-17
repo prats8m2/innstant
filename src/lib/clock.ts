@@ -122,6 +122,28 @@ export function formatCheckoutDay(instant: Date, timeZone: string): string {
 }
 
 /**
+ * The same instant, short enough for a column.
+ *
+ * "Sun 5:30am" rather than "Sunday, 5:30am". The front desk reads this as one
+ * cell in a table of thirty-four rooms, where a weekday spelled in full either
+ * truncates or takes the width the guest's name needs; a guest reads the long
+ * form in a sentence about their own stay, and keeps it.
+ */
+export function formatCheckoutShort(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone,
+  })
+    .format(instant)
+    .replace(/\s?([ap])m/i, (_, meridiem: string) => `${meridiem.toLowerCase()}m`)
+    .replace(/:00(?=[ap]m)/i, '')
+    .replace(',', '');
+}
+
+/**
  * How many nights are left, counted in property-local calendar days.
  *
  * Calendar days rather than 24-hour blocks, because that is what a night is: a

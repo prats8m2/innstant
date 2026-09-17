@@ -2868,6 +2868,19 @@ test.describe('the building', () => {
     await page.goto('/admin/property');
 
     const hotel = page.locator('section').filter({ hasText: 'This hotel' });
+
+    /**
+     * The clock before and after, because saving a NAME must not move it.
+     *
+     * A `<select>` whose value matches no option selects the first one, and the
+     * next submit posts that. `Intl.supportedValuesOf` returns whatever spelling
+     * the runtime's ICU calls canonical — `Asia/Calcutta` here, while every
+     * property stores `Asia/Kolkata` — so the list had 418 zones and not this
+     * one, and typing a new name moved The Kesari to Africa/Abidjan.
+     */
+    const zoneBefore = await hotel.locator('select[name="timezone"]').inputValue();
+    expect(zoneBefore).toBe('Asia/Kolkata');
+
     await hotel.locator('input[name="name"]').fill('The Kesari Haveli');
     await hotel.getByRole('button', { name: 'Save' }).click();
 
@@ -2889,6 +2902,9 @@ test.describe('the building', () => {
     await hotel.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByRole('link', { name: 'The Kesari', exact: true }))
       .toBeVisible({ timeout: 25_000 });
+
+    // Still where the hotel is.
+    await expect(hotel.locator('select[name="timezone"]')).toHaveValue(zoneBefore);
   });
 
   test('retires a room type nothing is, and refuses one in use', async ({ page }) => {

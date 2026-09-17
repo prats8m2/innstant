@@ -312,13 +312,13 @@ function RoomType({
   return (
     <li
       className={`${styles.dish} ${styles.typeRow}`}
-      data-available={!type.archived}
+      data-muted={type.archived}
       data-room-type={type.code}
     >
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {type.name}
-          {type.archived ? <span className={styles.offTag}>retired</span> : null}
+          {type.archived ? <span className={styles.offTag} data-tone="neutral">retired</span> : null}
         </span>
         <span className={styles.dishFlags}>
           {type.code} · sleeps {type.maxOccupancy} ·{' '}
@@ -331,10 +331,10 @@ function RoomType({
       </span>
 
       {mayManage ? (
-        <>
+        <span className={styles.rowEnd}>
           {type.archived ? null : <EditRoomType propertyId={propertyId} type={type} />}
           <RoomTypeSwitch propertyId={propertyId} type={type} />
-        </>
+        </span>
       ) : null}
     </li>
   );
@@ -488,10 +488,10 @@ function Floor({
       </span>
 
       {mayManage ? (
-        <>
+        <span className={styles.rowEnd}>
           <RenameFloor propertyId={propertyId} floor={floor} />
           <DeleteFloor propertyId={propertyId} floor={floor} />
-        </>
+        </span>
       ) : null}
     </li>
   );
@@ -532,6 +532,7 @@ function DeleteFloor({ propertyId, floor }: { propertyId: string; floor: FloorVi
       <input type="hidden" name="floorId" value={floor.id} />
       <SubmitButton
         label="Delete"
+        danger
         title={
           floor.roomCount
             ? `Move or remove its ${floor.roomCount} rooms first`
@@ -592,19 +593,19 @@ function Room({
   return (
     <li
       className={`${styles.dish} ${styles.typeRow}`}
-      data-available={!room.archived}
+      data-muted={room.archived}
       data-room={room.number}
     >
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {room.number}
-          {room.archived ? <span className={styles.offTag}>out of service</span> : null}
+          {room.archived ? <span className={styles.offTag} data-tone="critical">out of service</span> : null}
         </span>
         <span className={styles.dishFlags}>{room.roomTypeName ?? 'No room type'}</span>
       </span>
 
       {mayManage ? (
-        <>
+        <span className={styles.rowEnd}>
           {room.archived ? null : (
             <EditRoom
               propertyId={propertyId}
@@ -614,7 +615,7 @@ function Room({
             />
           )}
           <ServiceSwitch propertyId={propertyId} room={room} />
-        </>
+        </span>
       ) : null}
     </li>
   );
@@ -762,16 +763,19 @@ function SubmitButton({
   label,
   title,
   primary = false,
+  danger = false,
 }: {
   label: string;
   title?: string;
   primary?: boolean;
+  /** Destroys something. Outlined clay, so it is findable without shouting. */
+  danger?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className={primary ? styles.primary : styles.secondary}
+      className={danger ? styles.danger : primary ? styles.primary : styles.secondary}
       title={title}
       disabled={pending}
     >

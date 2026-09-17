@@ -82,6 +82,18 @@ describe('WCAG AA contrast', () => {
    * three. P5's accessibility pass can revisit; until then the number is here
    * rather than a surprise.
    */
+  /**
+   * The console had been using saffron for both "look at this" and "this
+   * destroys something", so a Delete button and a late ticket read identically.
+   * --clay is the third tone. It carries refusals and destructive actions, which
+   * are exactly the words somebody must be able to read.
+   */
+  it('the critical status colour passes AA on every surface', () => {
+    for (const on of [bg, surface, card]) {
+      expect(contrast(hexOf('--clay'), on), '--clay').toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
   it('--plaster-faint clears 3:1 everywhere, and is never claimed to pass AA', () => {
     for (const on of [bg, surface, card]) {
       const ratio = contrast(plasterOver(0.45, on), on);

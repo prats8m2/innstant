@@ -1,81 +1,167 @@
 /*
- * The ops console. Desktop, dense, read sitting down — the opposite of the
- * guest PWA, and the same tokens. Every value from theme.css.
+ * The ops console.
+ *
+ * Desktop furniture, read sitting down, for eight hours — the opposite of the
+ * guest PWA, and the same tokens. Every value comes from theme.css; a hardcoded
+ * hex, radius or duration here is a review failure (CLAUDE.md).
+ *
+ * ─── What this replaced, and why ───────────────────────────────────────────
+ *
+ * One 960px column, a wrapping top bar of eight links, and a single `.dish` row
+ * doing duty for dishes, rooms, floors, room types, staff, roles and request
+ * types. Three separate comments in the old file described fighting the same
+ * thing: a form opening INSIDE a flex row squeezed the row's name to three
+ * characters, and each screen patched it locally with `order: 1` and
+ * `flex-basis: 100%`.
+ *
+ * The shape here answers that once:
+ *
+ *   rail + canvas      the console has horizontal room and no vertical room;
+ *                      a wrapping sticky bar had already covered a page
+ *   panel              a section is a bordered card with a header, not two
+ *                      lines separated by a hairline
+ *   row                a grid, so a form that opens spans the row instead of
+ *                      competing with it for width
+ *   badge / tone       status has three named tones instead of one saffron span
+ *                      meaning "look" and "danger" at the same time
  */
+
+/* ── Shell ──────────────────────────────────────────────────────────────── */
 .frame {
   min-height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--nav-w) minmax(0, 1fr);
   background: var(--bg);
 }
 
-/* ── The bar ────────────────────────────────────────────────────────────── */
-/*
- * The console is desktop-first — it is used sitting down. It still has to
- * DEGRADE rather than break, and a fixed 56px height did not: the bar is sticky,
- * so once the nav outgrew one line the overflow sat on top of the page and
- * swallowed clicks. Adding a sixth nav item was enough to do it at 412px, and it
- * surfaced as a summary that would not open on a screen nobody was looking at.
- *
- * `min-height` and a wrapping row: on a desk it is one 56px line exactly as
- * before, and on a narrow screen the bar grows instead of covering things.
- */
-.bar {
+.rail {
   position: sticky;
   top: 0;
-  z-index: 2;
+  align-self: start;
+  height: 100dvh;
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-6);
-  min-height: 56px;
-  padding: var(--space-2) var(--space-6);
+  flex-direction: column;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+.railHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .brand {
   font-family: var(--font-display);
   font-size: var(--text-lg);
+  line-height: 1.2;
   color: var(--text);
+  text-wrap: balance;
 }
 .brand:hover { color: var(--accent); }
 
+.brandSub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
 .nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-3);
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.navGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.navGroupTitle {
+  margin: 0 0 var(--space-2);
+  padding-inline: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
 }
 
 .navLink {
+  position: relative;
   display: flex;
   align-items: center;
+  gap: var(--space-2);
   min-height: var(--touch-min);
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--text-base);
   color: var(--text-muted);
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 .navLink:hover { background: var(--surface-hover); color: var(--text); }
+
 .navLink[aria-current='page'] {
-  color: var(--accent);
+  color: var(--text);
   background: color-mix(in srgb, var(--saffron) 12%, transparent);
 }
+/* A saffron edge rather than only a tint: the tint alone is a 12% wash that
+   disappears on a dim screen in a back office, which is where this is read. */
+.navLink[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+}
 
-.who {
-  margin-left: auto;
+.navLabel { flex: 1; min-width: 0; }
+
+.navAway {
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+.railFoot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-soft);
+}
+
+.railFootRow {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
 }
 
 .whoName {
+  min-width: 0;
   font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .signOut {
   min-height: var(--touch-min);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   border: 0;
   background: transparent;
   border-radius: var(--radius-sm);
@@ -86,10 +172,12 @@
 }
 .signOut:hover { color: var(--text); background: var(--surface-hover); }
 
+.canvas { min-width: 0; }
+
 .main {
-  max-width: 960px;
+  max-width: var(--content-max);
   margin-inline: auto;
-  padding: var(--space-8) var(--space-6) var(--space-10);
+  padding: var(--space-8) var(--space-8) var(--space-10);
 }
 
 /* ── Page furniture ────────────────────────────────────────────────────── */
@@ -98,6 +186,7 @@
   align-items: flex-start;
   gap: var(--space-6);
   flex-wrap: wrap;
+  margin-bottom: var(--space-6);
 }
 
 .title {
@@ -105,6 +194,7 @@
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 400;
+  line-height: 1.15;
   color: var(--text);
 }
 
@@ -112,6 +202,14 @@
   margin: var(--space-2) 0 0;
   font-size: var(--text-base);
   color: var(--text-muted);
+}
+
+.pageActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .empty {
@@ -125,18 +223,89 @@
 
 .footnote {
   margin: var(--space-8) 0 0;
-  max-width: 70ch;
+  max-width: 78ch;
+  padding: var(--space-4);
+  border-left: 2px solid var(--border);
   font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--plaster-faint);
   text-wrap: pretty;
 }
 
+/* ── The overview's numbers ─────────────────────────────────────────────
+ *
+ * Four tiles, each a link to the screen that can act on the number. A GM opening
+ * the console at 8am wants to know whether anything needs them, and the front
+ * page used to answer that with a list of ten links to go and look.
+ */
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.stat {
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.stat:hover { border-color: var(--ink-300); }
+
+/* Saffron means "somebody needs to do something" everywhere in this console,
+   so the tile earns it only when the number is one somebody must act on. */
+.stat[data-attention='true'] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.statLink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-5);
+  color: inherit;
+}
+.statLink:hover { color: inherit; background: var(--surface-hover); }
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-3xl);
+  line-height: 1;
+  color: var(--text);
+}
+.stat[data-attention='true'] .statValue { color: var(--accent); }
+
+.statOf {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--plaster-faint);
+}
+
+.statNote {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* ── Overview cards ────────────────────────────────────────────────────── */
 .cards {
   list-style: none;
-  margin: var(--space-6) 0 0;
-  padding: 0;
+  margin: 0;
+  padding: var(--space-5);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-4);
@@ -147,7 +316,10 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
 }
+.card:has(.cardLink:hover) { border-color: var(--ink-300); }
 
 .cardLink,
 .card.soon {
@@ -178,28 +350,23 @@
 .soon .cardTitle { color: var(--text-muted); }
 .soon .cardBody { color: var(--plaster-faint); }
 
-/* ── The menu editor ───────────────────────────────────────────────────── */
-.outletSwitch {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.outletState {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-}
-.outletState[data-open='true'] { color: var(--teal); }
-
+/* ── Panels ─────────────────────────────────────────────────────────────
+ *
+ * A section of a screen. Previously two lines of text with a hairline above
+ * them, which gave a page of six sections no edges at all — a GM scrolling the
+ * property screen could not tell where floors stopped and rooms began.
+ */
 .section {
-  margin-top: var(--space-8);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-soft);
+  margin-top: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  /*
+   * NOT `overflow: hidden`. A form that opens on a row is anchored to it and
+   * hangs below — clipping the panel would cut it off at the last row, which is
+   * exactly where the desk opens one. The head and footer round their own
+   * corners instead.
+   */
 }
 
 .sectionHead {
@@ -207,12 +374,16 @@
   align-items: baseline;
   gap: var(--space-4);
   flex-wrap: wrap;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-soft);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: color-mix(in srgb, var(--ink-700) 55%, transparent);
 }
 
 .sectionTitle {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 400;
   color: var(--text);
 }
@@ -220,7 +391,7 @@
 .sectionBlurb {
   margin: 0;
   flex: 1;
-  min-width: 12ch;
+  min-width: 16ch;
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-muted);
@@ -235,42 +406,92 @@
 }
 
 .sectionEmpty {
-  margin: var(--space-4) 0 0;
+  margin: 0;
+  padding: var(--space-6) var(--space-5);
   font-size: var(--text-sm);
   color: var(--plaster-faint);
 }
 
+/*
+ * A form that IS the panel's body rather than a row's.
+ *
+ * `.dishForm` and `.hoursForm` carry their own card styling because they are
+ * also used standalone on a page of their own (the dish editor). Inside a panel
+ * that would be a card inside a card sharing an edge, so here they give up the
+ * border and take the panel's padding instead.
+ */
+.section > .dishForm,
+.section > .hoursForm,
+.section > .stackedForm {
+  margin: var(--space-5);
+  max-width: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+/* ── Rows ───────────────────────────────────────────────────────────────
+ *
+ * The list primitive. A GRID, not a flex row: a `<details>` that opens inside a
+ * flex row competes with the row's own content for width, which is what
+ * squeezed a room number to three characters and pushed its buttons off the
+ * end. Here an open form takes the full width on its own line and the row above
+ * it does not move.
+ */
 .dishes {
   list-style: none;
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 .dish {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding: var(--space-3) 0;
+  position: relative;
+  display: grid;
+  /*
+   * One flexible first column and a max-content column per trailing child,
+   * created as needed. A fixed `1fr auto` template wrapped the third control
+   * onto its own line, which is what made a staff row two lines tall and an
+   * empty room two lines tall — and a per-screen modifier class for "this list
+   * has a price column" is how the old file ended up with three of them.
+   */
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   border-bottom: 1px solid var(--border-soft);
+  transition: background var(--dur-fast) var(--ease-out);
 }
-/* A dish that is off tonight reads as off, without disappearing. */
-.dish[data-available='false'] .dishName,
-.dish[data-available='false'] .dishPrice { color: var(--plaster-faint); }
+.dish:last-child { border-bottom: 0; }
+.dish:hover { background: color-mix(in srgb, var(--ink-700) 40%, transparent); }
+
+/*
+ * Dimmed because it is SWITCHED OFF, said explicitly.
+ *
+ * This used to key off `data-available`, which means opposite things on
+ * different screens — a dish that is on tonight, a room type not archived, a
+ * staff account not disabled, and on the front desk an EMPTY room. So every
+ * occupied room, the rows a desk actually works from, rendered its number in the
+ * faintest colour on the page. `data-muted` says one thing only.
+ */
+.dish[data-muted='true'] .dishName,
+.dish[data-muted='true'] .dishPrice { color: var(--plaster-faint); }
 
 .dishBody {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .dishName {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
   font-size: var(--text-base);
   font-weight: 600;
   color: var(--text);
@@ -278,14 +499,6 @@
 
 .dishLink { color: inherit; }
 .dishLink:hover { color: var(--accent); }
-
-.offTag {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
 
 .dishBlurb {
   font-size: var(--text-sm);
@@ -297,54 +510,160 @@
 .dishFlags {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   color: var(--plaster-faint);
 }
 
 .dishPrice {
   flex: none;
+  justify-self: end;
   font-size: var(--text-base);
   color: var(--text);
 }
 
 .dishActions {
   flex: none;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/*
+ * Everything trailing the body shares one grid cell, so buttons line up down
+ * the list however many each row happens to have. Without it a row with two
+ * controls and a row with four put their first button in different places, and
+ * the eye has to re-find the target on every line.
+ */
+.rowEnd {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .addDish {
   display: inline-flex;
   align-items: center;
   min-height: var(--touch-min);
-  margin-top: var(--space-3);
+  padding: 0 var(--space-5);
   font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--accent);
 }
 .addDish:hover { color: var(--accent-hover); }
 
-/* ── Buttons and inline forms ──────────────────────────────────────────── */
+/* ── Badges ─────────────────────────────────────────────────────────────
+ *
+ * One span used to carry "out of service", "you", "retired", "not signed in"
+ * and "switched off" in the same saffron. Three tones, named for meaning.
+ */
+.offTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: var(--radius-pill-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--accent);
+}
+
+.offTag[data-tone='positive'] {
+  border-color: color-mix(in srgb, var(--status-positive) 45%, transparent);
+  background: color-mix(in srgb, var(--status-positive) 14%, transparent);
+  color: var(--status-positive);
+}
+
+.offTag[data-tone='critical'] {
+  border-color: color-mix(in srgb, var(--status-critical) 45%, transparent);
+  background: color-mix(in srgb, var(--status-critical) 14%, transparent);
+  color: var(--status-critical);
+}
+
+.offTag[data-tone='neutral'] {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+/* ── The role reference ─────────────────────────────────────────────────
+ *
+ * Which roles exist and how many people hold each. Eight rows at list-row
+ * height was most of a screen to say "1 person" eight times; the count matters
+ * because `request_types.route_to_role_key` routes to whoever holds a role, so
+ * a role nobody holds is a queue nobody is watching — and "nobody" is the one
+ * value worth finding.
+ */
+.roleGrid {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.roleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.roleName {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.roleCount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+.roleNobody {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--status-critical);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
 .inlineForm {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 .primary,
-.secondary {
+.secondary,
+.danger {
   min-height: var(--touch-min);
   padding: 0 var(--space-4);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: background var(--dur-fast) var(--ease-out),
-              border-color var(--dur-fast) var(--ease-out);
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 
 .primary {
@@ -356,67 +675,121 @@
 
 .secondary {
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface-raised);
   color: var(--text-muted);
 }
-.secondary:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
+.secondary:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--ink-300);
+  background: var(--surface-hover);
+}
+
+/*
+ * Destructive. Outlined rather than filled: a solid red button is the loudest
+ * thing on a screen, and Delete sits on the same row as Rename on every setup
+ * list here — loud enough to find, quiet enough not to drag the eye down a
+ * column of thirty rows.
+ */
+.danger {
+  border: 1px solid color-mix(in srgb, var(--status-critical) 45%, transparent);
+  background: transparent;
+  color: var(--status-critical);
+}
+.danger:hover:not(:disabled) {
+  border-color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 14%, transparent);
+}
 
 .primary:disabled,
-.secondary:disabled { opacity: 0.6; cursor: progress; }
+.secondary:disabled,
+.danger:disabled { opacity: 0.55; cursor: progress; }
 
 .inlineError {
   font-size: var(--text-sm);
-  color: var(--accent);
+  color: var(--status-critical);
 }
 
 .inlineDone {
   font-size: var(--text-sm);
-  color: var(--teal);
+  color: var(--status-positive);
 }
 
-/* ── Disclosures ──────────────────────────────────────────────────────── */
-.disclosure,
-.newSection {
-  display: inline-block;
-}
-
-.newSection {
-  display: block;
-  margin-top: var(--space-8);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-soft);
-}
+/* ── Disclosures ────────────────────────────────────────────────────────── */
+.disclosure { display: inline-block; }
 
 .disclosureHead {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   min-height: var(--touch-min);
   padding: 0 var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: var(--surface-raised);
   font-size: var(--text-sm);
   font-weight: 600;
+  white-space: nowrap;
   color: var(--text-muted);
   cursor: pointer;
   list-style: none;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 .disclosureHead::-webkit-details-marker { display: none; }
-.disclosureHead:hover { color: var(--text); border-color: var(--ink-300); }
+.disclosureHead:hover {
+  color: var(--text);
+  border-color: var(--ink-300);
+  background: var(--surface-hover);
+}
 
+/* Open reads as open, without a marker glyph that would need a second colour. */
+details[open] > .disclosureHead {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/*
+ * "Add a floor", "Add somebody" — the one thing you came to this panel to do.
+ * It sits in the panel's own footer strip rather than floating after the list,
+ * so the panel has a bottom edge and the button has somewhere to be.
+ */
+.newSection {
+  display: block;
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-soft);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: color-mix(in srgb, var(--ink-700) 35%, transparent);
+}
+
+/*
+ * The same control when it belongs to the PAGE rather than to a panel — "Add a
+ * section" on the menu. As a bare footer it read as the last section's, which
+ * is wrong: it makes a new one.
+ */
+.main > .newSection,
+.canvas > .main > .newSection {
+  margin-top: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
 .stackedForm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  max-width: 520px;
-  margin-top: var(--space-3);
-  padding: var(--space-4);
-  background: var(--surface);
+  align-items: flex-start;
+  gap: var(--space-4);
+  max-width: 640px;
+  margin-top: var(--space-4);
+  padding: var(--space-5);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
-/* ── Fields ───────────────────────────────────────────────────────────── */
-.field { display: block; }
+.field { display: block; min-width: 0; }
 
 .label {
   display: block;
@@ -433,15 +806,18 @@
   width: 100%;
   min-height: var(--touch-min);
   padding: var(--space-2) var(--space-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease-out);
 }
 .textarea { line-height: 1.5; resize: vertical; }
+.input:hover, .textarea:hover { border-color: var(--ink-300); }
 .input:focus, .textarea:focus { border-color: var(--accent); }
+.input[readonly] { color: var(--text-muted); background: var(--bg); }
 
 .hint {
   display: block;
@@ -452,22 +828,26 @@
   text-wrap: pretty;
 }
 
-/* ── The dish form ────────────────────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-5);
+  width: 100%;
+}
+
+.wide { grid-column: 1 / -1; }
+
 .dishForm {
   margin-top: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 720px;
+  max-width: 820px;
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
-
-.formGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
-}
-
-.wide { grid-column: 1 / -1; }
 
 .fieldset {
   margin: 0;
@@ -529,20 +909,189 @@
 .formError {
   margin: 0;
   font-size: var(--text-base);
-  color: var(--accent);
+  color: var(--status-critical);
+}
+
+.formDone {
+  margin: 0;
+  font-size: var(--text-base);
+  color: var(--status-positive);
 }
 
 .formActions {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
+
+/* ── Row-level forms ────────────────────────────────────────────────────
+ *
+ * A form that belongs to one row, ANCHORED to that row rather than inserted
+ * into it.
+ *
+ * The old file had three separate patches for this — `.typeForm`,
+ * `.checkoutDecide` and `.roomForm` each set `flex-basis: 100%; order: 1` to
+ * escape a flex row that was squeezing them. They escaped the row and still
+ * moved everything below it: opening a check-in form pushed thirty rooms down
+ * the page, and the row you were working on jumped under the cursor.
+ *
+ * Anchoring solves every case at once, including the nested ones a grid could
+ * not reach — the reprint form lives two elements deep inside the sticker cell,
+ * and there is no `grid-column` that gets it out.
+ *
+ * It needs the row to be a positioning context and the panel not to be clipped;
+ * `.section` gives up `overflow: hidden` for exactly this. Below 960px it goes
+ * back to being an ordinary block, because a 560px panel anchored to the right
+ * of a 380px screen is off it.
+ */
+.dishes details[open] > .stackedForm {
+  position: absolute;
+  z-index: 3;
+  top: calc(100% - var(--space-2));
+  right: var(--space-5);
+  width: min(600px, calc(100vw - var(--nav-w) - var(--space-10)));
+  max-width: none;
+  margin: 0;
+  box-shadow: var(--shadow-md);
+}
+
+/* Only inside a row. These classes are also used for a panel-level form (the
+   guest's payment form), where pinning it to the right edge is wrong. */
+.dish > .roomForm,
+.dish > .typeForm,
+.rowEnd > .roomForm,
+.rowEnd > .typeForm { flex: none; }
+.dish > .roomForm,
+.dish > .typeForm { justify-self: end; }
+
+.typeRow { /* kept for callers; the grid handles what it used to patch */ }
+
+/* ── The room board ─────────────────────────────────────────────────────
+ *
+ * Six tracks belonging to the LIST, borrowed by every row through `subgrid`.
+ *
+ * Each `<li>` being its own grid is not enough: an `auto` track sizes to that
+ * row's own content, so an occupied room (Vouch, Check out) and an empty one
+ * (Check someone in) produced different column widths, and the header printed
+ * STICKER four hundred pixels from the stickers. Only fixed tracks lined up.
+ *
+ * `subgrid` gives the tracks to the list and lends them to each row, so the
+ * columns are shared while every row keeps its own box — which it needs for its
+ * background, its border and the form anchored to it. Where subgrid is missing
+ * the rows fall back to sizing themselves, which is what they did before.
+ */
+.roomTable {
+  display: grid;
+  grid-template-columns:
+    minmax(11ch, 14ch)     /* number + type      */
+    minmax(0, 1fr)         /* guest              */
+    minmax(10ch, 12ch)     /* due out            */
+    minmax(11ch, 13ch)     /* balance            */
+    max-content            /* sticker            */
+    max-content;           /* what you can do    */
+}
+
+.roomRow {
+  grid-auto-flow: column;
+  grid-template-columns:
+    minmax(11ch, 14ch) minmax(0, 1fr) minmax(10ch, 12ch) minmax(11ch, 13ch) auto auto;
+  column-gap: var(--space-5);
+}
+
+@supports (grid-template-columns: subgrid) {
+  .roomTable > .roomRow {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    grid-auto-flow: row;
+  }
+}
+
+.rowHead {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+.rowHead:hover { background: transparent; }
+/* The cells below set their own size, weight and colour; a header that
+   inherited them printed BALANCE in white bold beside five faint labels. */
+.dish.rowHead > * {
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.roomCell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roomNumber {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.roomType,
+.roomMeta {
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guestName {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.guestName:hover { color: var(--accent); }
+
+.roomEmpty {
+  font-size: var(--text-sm);
+  color: var(--plaster-faint);
+}
+
+/* The one value in this column a desk is scanning for. */
+.dueToday {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.roomBalance {
+  justify-self: end;
+  text-align: right;
+  font-size: var(--text-base);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.roomSticker { display: flex; justify-content: flex-end; }
+
+/* An occupied room is the one with something to do on it. */
+.dish[data-occupied='true'] { background: color-mix(in srgb, var(--ink-700) 30%, transparent); }
+.dish[data-occupied='true']:hover { background: color-mix(in srgb, var(--ink-700) 55%, transparent); }
 
 /* ── The audit trail ──────────────────────────────────────────────────── */
 .history {
-  margin-top: var(--space-10);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-soft);
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .historyTitle {
@@ -563,25 +1112,27 @@
 }
 
 .historyRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 12ch minmax(0, 1fr);
   gap: var(--space-4);
   font-size: var(--text-sm);
 }
 
 .historyWhen {
   flex: none;
+  font-family: var(--font-mono);
   color: var(--plaster-faint);
 }
 
 .historyWhat { color: var(--text-muted); }
 
-/* ── The hours table ──────────────────────────────────────────────────────── */
+/* ── Tables ─────────────────────────────────────────────────────────────── */
 .hoursForm {
   margin-top: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  max-width: 640px;
+  max-width: 680px;
 }
 
 .hoursTable {
@@ -622,7 +1173,7 @@
 .timeInput {
   min-height: var(--touch-min);
   padding: var(--space-2) var(--space-3);
-  background: var(--bg);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
@@ -631,43 +1182,35 @@
 }
 .timeInput:focus { border-color: var(--accent); }
 
-.formDone {
-  margin: 0;
-  font-size: var(--text-base);
-  color: var(--teal);
+/* ── Menu: outlet switch ────────────────────────────────────────────────── */
+.outletSwitch {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-/*
- * The console is desktop-first — it is used sitting down — but a GM opening it
- * on a phone must still get a usable page rather than a two-column grid
- * overlapping the table below it. Found by an e2e running the settings tests in
- * the mobile project: the checkbox it wanted was covered.
- */
-@media (max-width: 640px) {
-  .bar {
-    height: auto;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-3) var(--space-4);
-  }
-
-  .main { padding: var(--space-5) var(--space-4) var(--space-10); }
-
-  .formGrid { grid-template-columns: minmax(0, 1fr); }
-
-  .pageHead { flex-direction: column; }
-  .outletSwitch { margin-left: 0; }
-
-  .dish { flex-wrap: wrap; }
-  .dishActions { margin-left: auto; }
-
-  /* A table of times cannot usefully reflow, so it scrolls inside itself
-     rather than pushing the page sideways. */
-  .hoursForm { overflow-x: auto; }
-  .hoursTable { min-width: 460px; }
+.outletState {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
 }
+.outletState::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.outletState[data-open='true'] { color: var(--status-positive); }
 
-/* ── Collections ──────────────────────────────────────────────────────────── */
+/* ── Collections ────────────────────────────────────────────────────────── */
 .collectionState {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -688,8 +1231,9 @@
 }
 
 .collectionSummary {
-  margin: var(--space-3) 0 0;
-  max-width: 70ch;
+  margin: 0;
+  padding: var(--space-4) var(--space-5) 0;
+  max-width: 78ch;
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--text-muted);
@@ -702,29 +1246,29 @@
   color: var(--plaster-faint);
 }
 
-.collectionDetails { display: block; margin-top: var(--space-4); }
+.collectionDetails { display: block; padding: 0 var(--space-5) var(--space-5); }
 
-/* ── Option groups ────────────────────────────────────────────────────────── */
+/* ── Option groups ──────────────────────────────────────────────────────── */
 .options {
   list-style: none;
-  margin: var(--space-4) 0 0;
+  margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
 }
 
 .option { border-bottom: 1px solid var(--border-soft); }
+.option:last-child { border-bottom: 0; }
 
 .optionSummary {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
   min-height: var(--touch-min);
-  padding: var(--space-2) 0;
+  padding: var(--space-2) var(--space-5);
   cursor: pointer;
   list-style: none;
 }
 .optionSummary::-webkit-details-marker { display: none; }
+.optionSummary:hover { background: color-mix(in srgb, var(--ink-700) 40%, transparent); }
 .optionSummary:hover .optionName { color: var(--accent); }
 
 .optionName {
@@ -736,6 +1280,7 @@
 
 .optionDelta {
   flex: none;
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -746,61 +1291,36 @@
   font-style: normal;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--teal);
+  color: var(--status-positive);
 }
 
 .archiveGroup {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-/*
- * A request-type row: the dish row's shape — name, price, buttons — plus an
- * edit form that has to open UNDERNEATH them rather than between them. Nine
- * fields as a flex item squeezed the name into a three-character column and
- * pushed "Take off" out to the right of the open form.
- */
-.typeRow {
-  flex-wrap: wrap;
-}
-
-.typeForm {
-  /* Its own line, after everything else on the row, whatever the source order. */
-  flex-basis: 100%;
-  order: 1;
-  margin-top: var(--space-2);
-}
-
-.typeForm[open] {
-  padding-bottom: var(--space-2);
+  padding: var(--space-4) var(--space-5);
 }
 
 /*
  * A routing role that will never match. `request_types.route_to_role_key` is
  * compared against the roles staff hold at the property, so a role nobody holds
  * means every request of that type sits OPEN for ever with the router working
- * exactly as designed. Saffron rather than a new colour — this is the same
- * "somebody needs to look at this" the late badge uses.
+ * exactly as designed.
  */
-.routeBroken {
-  color: var(--accent);
-}
+.routeBroken { color: var(--status-critical); }
 
-/*
- * The desk's decision controls. They sit under the request rather than beside
- * it — a fee field and a reason field squeezed into a flex row leave the guest's
- * name three characters wide, the same lesson the request-type editor learned.
- */
+/* ── The desk ───────────────────────────────────────────────────────────── */
 .checkoutDecide {
-  flex-basis: 100%;
-  order: 1;
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: var(--space-3);
   margin-top: var(--space-3);
+  padding: var(--space-4);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
 .checkoutFee { flex: 0 0 160px; }
@@ -811,7 +1331,6 @@
   gap: var(--space-2);
 }
 
-/* The desk's per-room controls: vouch and check out, side by side. */
 .roomActions {
   flex: none;
   display: flex;
@@ -819,37 +1338,12 @@
   gap: var(--space-2);
 }
 
-/* An empty room is not a disabled row — it is the one you can act on. */
-.dish[data-available='true'] .dishName { color: var(--text); }
-
-/*
- * A disclosure that is inline while shut and a full row once open.
- *
- * The room board is thirty-four rows, most of them empty, and a check-in form
- * that claimed a full-width row even when closed made every empty room three
- * lines tall — a desk scrolling past thirty of those to reach the occupied ones.
- * Closed it sits beside the room like a button; open it drops below and gets the
- * width the form needs.
- */
-.roomForm { flex: none; }
-.roomForm[open] {
-  flex-basis: 100%;
-  order: 1;
-  margin-top: var(--space-3);
-  padding-bottom: var(--space-2);
-}
-
 /* ── The guest's page ───────────────────────────────────────────────────── */
-
-/*
- * A charging hold, said once at the top. It changes what the product does for
- * every screen this guest touches, so it is not a checkbox somebody has to
- * scroll to find.
- */
 .holdBanner {
   margin: 0 0 var(--space-6);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--accent);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-left-width: 3px;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--saffron) 10%, transparent);
   font-size: var(--text-base);
@@ -860,8 +1354,9 @@
 .readOnlyProfile {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-6);
-  margin: var(--space-4) 0 0;
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+  padding: var(--space-5);
 }
 
 .readOnlyValue {
@@ -875,7 +1370,10 @@
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-3);
-  margin: var(--space-4) 0 0;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--ink-700) 45%, transparent);
 }
 
 .folioTotalLabel {
@@ -892,12 +1390,15 @@
   color: var(--accent);
 }
 
+.paidAmount { color: var(--status-positive); }
+
 /* ── The sticker's link, on a room row ──────────────────────────────────── */
 .guestLink {
   flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  flex-wrap: wrap;
 }
 
 /*
@@ -914,7 +1415,7 @@
 
 /* Only appears when the clipboard refused — see guest-link.tsx. */
 .guestLinkField {
-  width: 22ch;
+  width: 24ch;
   min-height: var(--touch-min);
   padding: 0 var(--space-2);
   background: var(--surface);
@@ -923,4 +1424,91 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text);
+}
+
+/* ── Narrow screens ─────────────────────────────────────────────────────
+ *
+ * The console is desktop furniture, but a GM opens it on a phone and must get a
+ * usable page rather than a rail eating half the width. The rail lies down into
+ * a strip that SCROLLS rather than wraps: the old bar wrapped, and because it is
+ * sticky the second line sat on top of the page and swallowed clicks.
+ */
+@media (max-width: 960px) {
+  .frame { grid-template-columns: minmax(0, 1fr); }
+
+  .rail {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .railHead {
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 0;
+  }
+
+  .nav {
+    flex-direction: row;
+    gap: var(--space-4);
+    overflow-x: auto;
+    padding: 0 var(--space-4) var(--space-3);
+    scrollbar-width: thin;
+  }
+
+  .navGroup { flex-direction: row; gap: var(--space-1); }
+  .navGroupTitle { display: none; }
+  .navLink { white-space: nowrap; }
+  .navLink[aria-current='page']::before { display: none; }
+
+  .railFoot {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--border-soft);
+  }
+  .railFootRow { margin-left: 0; }
+
+  .main { padding: var(--space-5) var(--space-4) var(--space-10); }
+
+  .formGrid { grid-template-columns: minmax(0, 1fr); }
+
+  .pageHead { flex-direction: column; }
+  .pageActions { margin-left: 0; }
+  .outletSwitch { margin-left: 0; }
+
+  .dish {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: auto;
+    padding-inline: var(--space-4);
+  }
+  .dishPrice, .dishActions, .rowEnd { justify-self: start; grid-column: 1; }
+
+  .roomTable { display: block; }
+  .roomRow { grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); }
+  .roomBalance, .roomSticker, .roomForm, .typeForm { justify-self: start; text-align: left; }
+
+  /* Stacked, an empty cell is a blank line rather than a narrow column — and
+     most rooms are empty, so the board was mostly blank lines. */
+  .roomCell:empty, .roomBalance:empty, .roomSticker:empty { display: none; }
+  .roomSticker { justify-content: flex-start; }
+  .rowHead { display: none; }
+
+  /* A 600px panel anchored to the right of a 380px screen is off it. */
+  .dishes details[open] > .stackedForm {
+    position: static;
+    width: auto;
+    box-shadow: none;
+    margin-top: var(--space-3);
+  }
+
+  .historyRow { grid-template-columns: minmax(0, 1fr); gap: 0; }
+
+  /* A table of times cannot usefully reflow, so it scrolls inside itself
+     rather than pushing the page sideways. */
+  .hoursForm { overflow-x: auto; }
+  .hoursTable { min-width: 460px; }
 }

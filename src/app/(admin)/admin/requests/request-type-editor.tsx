@@ -135,7 +135,7 @@ function RequestTypeRow({
   const routedTo = roles.find((role) => role.key === type.routeToRoleKey);
 
   return (
-    <li className={`${styles.dish} ${styles.typeRow}`} data-available={type.isActive}>
+    <li className={`${styles.dish} ${styles.typeRow}`} data-muted={!type.isActive}>
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {type.name}
@@ -163,18 +163,18 @@ function RequestTypeRow({
         {type.isChargeable ? formatMoney(money(type.priceMinor, type.currency)) : 'Free'}
       </span>
 
-      <span className={styles.dishActions}>
-        {mayManage ? (
-          <>
-            <ActiveSwitch propertyId={propertyId} type={type} />
-            <ArchiveTypeButton propertyId={propertyId} type={type} />
-          </>
-        ) : null}
-      </span>
-
-      {/* Outside `.dishActions` and last: the form opens across the whole row,
-          under the name and the buttons, rather than between them. */}
-      {mayManage ? <EditType propertyId={propertyId} type={type} roles={roles} /> : null}
+      {/*
+        * One trailing cell, in the order a manager reaches for them: the thing
+        * they came to do, then the switch, then the one that removes it. The
+        * edit form opens anchored to the row rather than inside it.
+        */}
+      {mayManage ? (
+        <span className={styles.rowEnd}>
+          <EditType propertyId={propertyId} type={type} roles={roles} />
+          <ActiveSwitch propertyId={propertyId} type={type} />
+          <ArchiveTypeButton propertyId={propertyId} type={type} />
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -229,6 +229,7 @@ function ArchiveTypeButton({ propertyId, type }: { propertyId: string; type: Adm
       <input type="hidden" name="requestTypeId" value={type.id} />
       <SubmitButton
         label="Remove"
+        danger
         title={
           type.liveCount
             ? `Finish its ${type.liveCount} open ${type.liveCount === 1 ? 'request' : 'requests'} first`
@@ -435,16 +436,19 @@ function SubmitButton({
   label,
   title,
   primary = false,
+  danger = false,
 }: {
   label: string;
   title?: string;
   primary?: boolean;
+  /** Takes something off for good. */
+  danger?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className={primary ? styles.primary : styles.secondary}
+      className={danger ? styles.danger : primary ? styles.primary : styles.secondary}
       title={title}
       disabled={pending}
     >

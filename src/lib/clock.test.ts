@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
+  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, formatCheckoutShort, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
 } from './clock';
 
 /**
@@ -91,6 +91,18 @@ describe('when the guest is due out', () => {
     // Thursday 12 March 2026, 11:00 IST = 05:30 UTC.
     expect(formatCheckoutDay(new Date('2026-03-12T05:30:00Z'), UDAIPUR))
       .toBe('Thursday, 11am');
+  });
+
+  /**
+   * The desk's column form. Same instant, same timezone, fewer characters —
+   * a weekday spelled in full either truncates or steals the width the guest's
+   * name needs, in a table of thirty-four rooms.
+   */
+  it('has a short form for the board, with no comma', () => {
+    expect(formatCheckoutShort(new Date('2026-03-12T05:30:00Z'), UDAIPUR))
+      .toBe('Thu 11am');
+    expect(formatCheckoutShort(new Date('2026-03-12T06:00:00Z'), UDAIPUR))
+      .toBe('Thu 11:30am');
   });
 
   it('keeps the minutes when there are any', () => {

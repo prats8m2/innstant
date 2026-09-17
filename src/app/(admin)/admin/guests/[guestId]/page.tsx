@@ -102,7 +102,7 @@ export default async function GuestPage({
         <div>
           <h1 className={styles.title}>
             {guest.fullName}
-            {guest.isVip ? <span className={styles.offTag}>VIP</span> : null}
+            {guest.isVip ? <span className={styles.offTag} data-tone="positive">VIP</span> : null}
           </h1>
           <p className={styles.lede}>
             {guest.phone ?? 'No phone on file'}
@@ -117,7 +117,12 @@ export default async function GuestPage({
               : ''}
           </p>
         </div>
-        <Link href="/admin/rooms" className={styles.secondary}>Rooms</Link>
+        {/* Where they came from. In the header's actions slot, so it is at the
+            top right of every screen that has one rather than tucked beside the
+            guest's name. */}
+        <div className={styles.pageActions}>
+          <Link href="/admin/rooms" className={styles.secondary}>Back to rooms</Link>
+        </div>
       </header>
 
       {guest.chargingBlocked ? (
@@ -207,7 +212,10 @@ export default async function GuestPage({
             * anyway, and a control that always refuses is a control nobody
             * trusts.
             */}
+          {/* In the panel's footer, because it is the panel's action — taking
+              money against the bill printed above it. */}
           {maySettle && guest.currentStayId && !statement.settled ? (
+            <div className={styles.newSection}>
             <TakePaymentForm
               propertyId={propertyId}
               stayId={guest.currentStayId}
@@ -227,6 +235,7 @@ export default async function GuestPage({
                   : 'Nothing is owed. Recording a payment here would overpay the bill.'
               }
             />
+            </div>
           ) : null}
         </section>
       ) : null}
@@ -260,7 +269,7 @@ export default async function GuestPage({
         </header>
         <ul className={styles.dishes}>
           {guest.stays.map((stay) => (
-            <li key={stay.id} className={styles.dish} data-available={stay.status === 'CHECKED_IN'}>
+            <li key={stay.id} className={styles.dish} data-muted={stay.status !== 'CHECKED_IN'}>
               <span className={styles.dishBody}>
                 <span className={styles.dishName}>Room {stay.roomNumber}</span>
                 <span className={styles.dishFlags}>

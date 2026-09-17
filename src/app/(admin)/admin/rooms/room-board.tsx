@@ -62,7 +62,9 @@ export function RoomBoard({
           <header className={styles.sectionHead}>
             <h2 className={styles.sectionTitle}>{floor}</h2>
           </header>
-          <ul className={styles.dishes}>
+          {/* The list owns the tracks; every row borrows them (`subgrid`). */}
+          <ul className={`${styles.dishes} ${styles.roomTable}`}>
+            <RoomsHead />
             {rooms.filter((room) => room.floorName === floor).map((room) => (
               <Room
                 key={room.id}
@@ -79,6 +81,17 @@ export function RoomBoard({
   );
 }
 
+/**
+ * One room, as a table row.
+ *
+ * Explicit cells rather than "whatever children happen to be here", because the
+ * desk reads DOWN this list: thirty-four rooms whose guest name starts at a
+ * different x each line is thirty-four separate searches. The grid template is
+ * in `.roomRow`, and `RoomsHead` prints the same tracks as a header.
+ *
+ * It also fixes the shape that made every empty room two lines tall — the
+ * check-in disclosure was the third child of a two-column grid, so it wrapped.
+ */
 function Room({
   propertyId,
   room,
@@ -90,38 +103,48 @@ function Room({
   checkoutHours: number[];
   permissions: DeskPermissions;
 }) {
+  const stay = room.stay;
+
   return (
     <li
-      className={`${styles.dish} ${styles.typeRow}`}
-      data-available={!room.stay}
+      className={`${styles.dish} ${styles.roomRow}`}
       /* A stable hook for a desk's Ctrl-F and for the e2e suite: the room number
          is inside a name that changes the moment somebody checks in. */
       data-room={room.number}
+      data-occupied={stay ? 'true' : 'false'}
     >
-      <span className={styles.dishBody}>
-        <span className={styles.dishName}>
-          {room.number}
-          {room.stay ? (
-            <>
-              {' · '}
-              {/* Straight to what the desk needs when a guest rings down about a
-                  charge, or when something has gone wrong. */}
-              <Link href={`/admin/guests/${room.stay.guestId}`} className={styles.dishLink}>
-                {room.stay.guestName}
-              </Link>
-            </>
-          ) : null}
-        </span>
-        <span className={styles.dishFlags}>
-          {room.roomTypeName ?? 'Room'}
-          {room.stay ? (
-            <>
-              {' · '}
-              {room.stay.nightsLeft === 0 ? 'out today' : `out ${room.stay.dueOut}`}
-              {room.stay.guestPhone ? ` · ${room.stay.guestPhone}` : null}
-            </>
-          ) : ' · empty'}
-        </span>
+      <span className={styles.roomCell}>
+        <span className={`${styles.roomNumber} tabular`}>{room.number}</span>
+        <span className={styles.roomType}>{room.roomTypeName ?? 'Room'}</span>
+      </span>
+
+      <span className={styles.roomCell}>
+        {stay ? (
+          <>
+            {/* Straight to what the desk needs when a guest rings down about a
+                charge, or when something has gone wrong. */}
+            <Link href={`/admin/guests/${stay.guestId}`} className={styles.guestName}>
+              {stay.guestName}
+            </Link>
+            {stay.guestPhone ? (
+              <span className={styles.roomMeta}>{stay.guestPhone}</span>
+            ) : null}
+          </>
+        ) : (
+          <span className={styles.roomEmpty}>empty</span>
+        )}
+      </span>
+
+      <span className={styles.roomCell}>
+        {stay ? (
+          <>
+            {/* Zero nights left is today, which is the only value a desk scans
+                this column for — so it says so rather than printing a date. */}
+            <span className={stay.nightsLeft === 0 ? styles.dueToday : styles.roomMeta}>
+              {stay.nightsLeft === 0 ? 'out today' : stay.dueOut}
+            </span>
+          </>
+        ) : null}
       </span>
 
       {/*
@@ -134,31 +157,54 @@ function Room({
         * "nothing yet" rather than ₹0: a guest who has bought nothing and one
         * who has paid up look different to a desk.
         */}
-      {room.stay ? (
-        <span className={`${styles.dishPrice} tabular`}>
-          {room.stay.balance ?? 'nothing yet'}
-        </span>
-      ) : null}
+      <span className={`${styles.roomBalance} tabular`}>
+        {stay ? stay.balance ?? 'nothing yet' : null}
+      </span>
 
       {/* The sticker's own link, whoever is in the room and whether anybody is —
           a desk reprints stickers for empty rooms more often than full ones. */}
-      {room.qr ? (
-        <GuestLink
-          propertyId={propertyId}
-          roomId={room.id}
-          roomNumber={room.number}
-          publicCode={room.qr.publicCode}
-          url={room.qr.url}
-          mayReprint={permissions.reprintQr}
-          occupied={room.stay != null}
-        />
-      ) : null}
+      <span className={styles.roomSticker}>
+        {room.qr ? (
+          <GuestLink
+            propertyId={propertyId}
+            roomId={room.id}
+            roomNumber={room.number}
+            publicCode={room.qr.publicCode}
+            url={room.qr.url}
+            mayReprint={permissions.reprintQr}
+            occupied={stay != null}
+          />
+        ) : null}
+      </span>
 
-      {room.stay
-        ? <Occupied propertyId={propertyId} room={room} permissions={permissions} />
-        : permissions.checkIn
-          ? <CheckIn propertyId={propertyId} room={room} checkoutHours={checkoutHours} />
-          : null}
+      <span className={styles.roomActions}>
+        {stay
+          ? <Occupied propertyId={propertyId} room={room} permissions={permissions} />
+          : permissions.checkIn
+            ? <CheckIn propertyId={propertyId} room={room} checkoutHours={checkoutHours} />
+            : null}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * The column names, printed once per floor.
+ *
+ * `aria-hidden` and not a `<th>`: this is a list of rooms, not a data table —
+ * each row's own text already names what it holds ("out today", "₹15,680"), and
+ * a screen reader hearing six column names before every floor would be read a
+ * header it cannot use to navigate. It is a sighted-scanning aid.
+ */
+function RoomsHead() {
+  return (
+    <li className={`${styles.dish} ${styles.roomRow} ${styles.rowHead}`} aria-hidden="true">
+      <span>Room</span>
+      <span>Guest</span>
+      <span>Due out</span>
+      <span className={styles.roomBalance}>Balance</span>
+      <span>Sticker</span>
+      <span />
     </li>
   );
 }
@@ -175,14 +221,14 @@ function Occupied({
   const stay = room.stay!;
 
   return (
-    <span className={styles.roomActions}>
+    <>
       {permissions.vouch ? (
         <Vouch propertyId={propertyId} stayId={stay.id} roomNumber={room.number} />
       ) : null}
       {permissions.checkOut ? (
         <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} />
       ) : null}
-    </span>
+    </>
   );
 }
 

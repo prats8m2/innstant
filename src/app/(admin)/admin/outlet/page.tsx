@@ -63,12 +63,23 @@ export default async function OutletAdmin() {
       </p>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>What it charges</h2>
+        <header className={styles.sectionHead}>
+          <h2 className={styles.sectionTitle}>What it charges</h2>
+          <p className={styles.sectionBlurb}>
+            Tax, service and delivery, and the promise a guest reads while they
+            wait. A rate changed here never touches an order already placed.
+          </p>
+        </header>
         <OutletSettingsForm propertyId={propertyId} outlet={outlet} />
       </section>
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>When it is open</h2>
+        <header className={styles.sectionHead}>
+          <h2 className={styles.sectionTitle}>When it is open</h2>
+          <p className={styles.sectionBlurb}>
+            The property&rsquo;s own clock, never the server&rsquo;s.
+          </p>
+        </header>
         <OutletHoursForm propertyId={propertyId} outlet={outlet} />
       </section>
 

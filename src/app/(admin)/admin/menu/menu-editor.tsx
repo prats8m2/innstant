@@ -177,7 +177,7 @@ function Dish({
   permissions: MenuPermissions;
 }) {
   return (
-    <li className={styles.dish} data-available={item.isAvailable}>
+    <li className={styles.dish} data-muted={!item.isAvailable}>
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {permissions.manage ? (
@@ -267,7 +267,7 @@ function ArchiveDish({
       <input type="hidden" name="propertyId" value={propertyId} />
       <input type="hidden" name="outletId" value={outletId} />
       <input type="hidden" name="itemId" value={item.id} />
-      <SubmitButton label="Remove" title={`Take ${item.name} off the menu for good`} />
+      <SubmitButton label="Remove" danger title={`Take ${item.name} off the menu for good`} />
       {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
     </form>
   );
@@ -292,6 +292,7 @@ function ArchiveSection({
       <input type="hidden" name="outletId" value={outletId} />
       <input type="hidden" name="categoryId" value={categoryId} />
       <SubmitButton
+        danger
         label="Archive section"
         title={
           itemCount
@@ -420,16 +421,20 @@ function SubmitButton({
   label,
   title,
   primary = false,
+  danger = false,
 }: {
   label: string;
   title?: string;
   primary?: boolean;
+  /** Takes something off for good. Outlined clay, so it is findable without
+   *  shouting down a column of thirty rows. */
+  danger?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
     <button
       type="submit"
-      className={primary ? styles.primary : styles.secondary}
+      className={danger ? styles.danger : primary ? styles.primary : styles.secondary}
       title={title}
       disabled={pending}
     >

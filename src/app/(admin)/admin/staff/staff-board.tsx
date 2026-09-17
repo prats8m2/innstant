@@ -116,16 +116,16 @@ export function StaffBoard({
             queue nobody is watching.
           </p>
         </header>
-        <ul className={styles.dishes}>
+        {/* A reference table, not a list of things to act on: eight rows at
+            row height was most of a screen to say "1 person" eight times. */}
+        <ul className={styles.roleGrid}>
           {roles.map((role) => (
-            <li key={role.key} className={`${styles.dish} ${styles.typeRow}`} data-role={role.key}>
-              <span className={styles.dishBody}>
-                <span className={styles.dishName}>{role.name}</span>
-                <span className={styles.dishFlags}>
-                  {role.staffCount
-                    ? `${role.staffCount} ${role.staffCount === 1 ? 'person' : 'people'}`
-                    : 'nobody'}
-                </span>
+            <li key={role.key} className={styles.roleCell} data-role={role.key}>
+              <span className={styles.roleName}>{role.name}</span>
+              <span className={role.staffCount ? styles.roleCount : styles.roleNobody}>
+                {role.staffCount
+                  ? `${role.staffCount} ${role.staffCount === 1 ? 'person' : 'people'}`
+                  : 'nobody'}
               </span>
             </li>
           ))}
@@ -151,15 +151,15 @@ function Member({
   return (
     <li
       className={`${styles.dish} ${styles.typeRow}`}
-      data-available={member.status !== 'DISABLED'}
+      data-muted={member.status === 'DISABLED'}
       data-staff={member.email}
     >
       <span className={styles.dishBody}>
         <span className={styles.dishName}>
           {member.fullName}
-          {member.isYou ? <span className={styles.offTag}>you</span> : null}
+          {member.isYou ? <span className={styles.offTag} data-tone="neutral">you</span> : null}
           {member.status === 'INVITED' ? <span className={styles.offTag}>not signed in</span> : null}
-          {member.status === 'DISABLED' ? <span className={styles.offTag}>switched off</span> : null}
+          {member.status === 'DISABLED' ? <span className={styles.offTag} data-tone="critical">switched off</span> : null}
         </span>
         <span className={styles.dishFlags}>
           {member.email}
@@ -168,24 +168,29 @@ function Member({
         </span>
       </span>
 
-      {permissions.update && member.status !== 'DISABLED' ? (
-        <EditMember propertyId={propertyId} member={member} />
-      ) : null}
+      {/* One cell, so four controls and two controls start at the same x down
+          the list. As separate grid children they wrapped onto a second line the
+          moment a row had three. */}
+      <span className={styles.rowEnd}>
+        {permissions.update && member.status !== 'DISABLED' ? (
+          <EditMember propertyId={propertyId} member={member} />
+        ) : null}
 
-      {permissions.assignRole && member.status !== 'DISABLED' ? (
-        <Roles propertyId={propertyId} member={member} roles={roles} />
-      ) : null}
+        {permissions.assignRole && member.status !== 'DISABLED' ? (
+          <Roles propertyId={propertyId} member={member} roles={roles} />
+        ) : null}
 
-      {permissions.invite && member.status !== 'ACTIVE' ? (
-        <Reissue propertyId={propertyId} member={member} />
-      ) : null}
+        {permissions.invite && member.status !== 'ACTIVE' ? (
+          <Reissue propertyId={propertyId} member={member} />
+        ) : null}
 
-      {/* Never for yourself: switching off the account you are holding is the
-          fastest way to lock a hotel out, and the person doing it is by
-          definition the one who then cannot undo it. The service refuses too. */}
-      {permissions.deactivate && !member.isYou ? (
-        <ActiveSwitch propertyId={propertyId} member={member} />
-      ) : null}
+        {/* Never for yourself: switching off the account you are holding is the
+            fastest way to lock a hotel out, and the person doing it is by
+            definition the one who then cannot undo it. The service refuses too. */}
+        {permissions.deactivate && !member.isYou ? (
+          <ActiveSwitch propertyId={propertyId} member={member} />
+        ) : null}
+      </span>
     </li>
   );
 }
