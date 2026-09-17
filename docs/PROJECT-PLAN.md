@@ -150,6 +150,61 @@ interactions to a settled folio, and every line reconciles to a payment.
 
 ---
 
+## P3.5 · Running the property — 2 weeks
+
+**Not in the original six phases, and that was a gap rather than a decision.**
+The plan covers the guest-facing product and its daily operation; it never
+covered a hotel setting itself up. P0 made `provisionProperty()` correct and
+transactional and its exit criterion was about ISOLATION — "two properties exist
+in one database" — never about a human creating the second one. P1 said so out
+loud for outlets: *"a second outlet is created by `provisionProperty()`, not from
+a screen"*, and the same was quietly true of floors, rooms, staff and settings.
+
+The measure of the gap: **21 of 55 declared permissions had no caller anywhere**
+when this phase was written. Three are P4's concierge. The rest are this.
+
+A GM cannot add their night manager, add a room, reprint a damaged QR sticker, or
+change the hotel's name. That is fine for a demo and fatal for a pilot — it is
+the first thing a real hotel asks for, and P5's exit criterion is a real hotel
+running on this for two weeks.
+
+- [ ] **Floors and rooms** — add, rename, archive. A room added here mints its QR
+      code, or it is a room no sticker reaches. Archiving is refused while a
+      floor holds rooms or a room holds an active stay
+      *(`room:read`, `room:manage`)*
+- [ ] **Room types** — the dropdown `rooms` already points at. Never a price
+      (#11) *(`room:manage`)*
+- [ ] **QR reprint** — bump `version`, revoke the old code, next to the Copy link
+      that already exists on the room row. The one operation that invalidates
+      something physically on a nightstand *(`qr:regenerate`)*
+- [ ] **Staff and roles** — invite, edit, deactivate, assign a role at a
+      property. `provisionProperty()` creates exactly one PROPERTY_ADMIN as
+      INVITED with no password, and S5 never built the invite flow, so a second
+      staff member is currently a seeder run
+      *(`staff:*`, `role:read`, `role:assign`)*
+- [ ] **Property settings** — name, timezone, currency, address. `branding` is
+      the theme editor and stays in P5 *(`property:update`)*
+
+**Deliberately NOT in this phase:**
+
+- **Client onboarding** — creating a tenant is above the tenant boundary. Every
+  page runs inside `withTenant()` and a screen that creates tenants cannot, by
+  definition. It needs a decision about how a platform operator authenticates,
+  and that changes the tenancy model — CLAUDE.md says ask first. `provisionTenant()`
+  and `provisionProperty()` remain the way, called from a script.
+- **The rota** (`shift:manage`) — P5 already owns it: *"a rota that schedules
+  them ahead is P5 work"*.
+- **`folio:read`, `payment:read`, `order:dispute`, `stay:update`** — money and
+  stay reads that belong to screens P3 built or P5 will. `folio:read` was the
+  one real bug the sweep found: the guest 360 page showed a folio behind
+  `guest:read`, which CONCIERGE holds and `folio:read` deliberately is not.
+
+**Exit criterion:** a GM who has never seen a seeder can add a floor, put three
+rooms on it, print their stickers, and give the new night manager a login — and a
+guest scans one of those stickers and orders dinner.
+
+---
+
 ## P4 · Concierge — 2–3 weeks
 
 - [ ] POI admin with editorial note, partner flag, offer
@@ -193,6 +248,12 @@ means building it twice.
 
 **P3 before P4.** Money is a harder sale to get wrong than concierge content, and
 the folio is what makes the GM trust the system.
+
+**P3.5 before P4, and before any pilot.** It was not in the original six phases
+at all — the plan covered the product and never covered a hotel setting itself
+up. A hotel that cannot add a staff member or a room cannot run the two-week
+pilot P5's exit criterion asks for, and concierge content is worth nothing to a
+hotel that cannot give its concierge a login.
 
 **The four features that kill the "extra effort" objection** are in P5 and feel
 unglamorous: CSV menu import, QR print sheets, WhatsApp alerts, daily digest.
