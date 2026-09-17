@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { floors, properties, rooms, roomTypes, roomQrCodes } from '@/db/schema/identity';
 
@@ -138,6 +138,54 @@ export async function listRoomTypes(
       isNull(roomTypes.archivedAt),
     ))
     .orderBy(asc(roomTypes.sortOrder), asc(roomTypes.name));
+}
+
+/**
+ * Room types as the setup screen needs them: retired ones included, and how many
+ * rooms are each one.
+ *
+ * The count is not decoration. `rooms.room_type_id` is NOT NULL, so a type with
+ * rooms on it cannot be retired, and `archiveRoomType()` refuses on exactly this
+ * number. A list without it lets somebody press Retire and read a refusal they
+ * could have been shown before pressing — the same reasoning as the staff count
+ * on `listRolesAtProperty()`.
+ *
+ * Archived ROOMS are counted too, because they still point here by FK and
+ * restoring one has to find its type still selectable.
+ */
+export interface RoomTypeListing extends RoomTypeOption {
+  maxOccupancy: number;
+  roomCount: number;
+  archivedAt: Date | null;
+}
+
+export async function listRoomTypesWithUse(
+  tx: Tx,
+  input: { propertyId: string },
+): Promise<RoomTypeListing[]> {
+  const rows = await tx
+    .select({
+      id: roomTypes.id,
+      name: roomTypes.name,
+      code: roomTypes.code,
+      maxOccupancy: roomTypes.maxOccupancy,
+      archivedAt: roomTypes.archivedAt,
+      sortOrder: roomTypes.sortOrder,
+      roomCount: sql<number>`count(${rooms.id})::int`,
+    })
+    .from(roomTypes)
+    .leftJoin(rooms, eq(rooms.roomTypeId, roomTypes.id))
+    .where(eq(roomTypes.propertyId, input.propertyId))
+    .groupBy(
+      roomTypes.id, roomTypes.name, roomTypes.code,
+      roomTypes.maxOccupancy, roomTypes.archivedAt, roomTypes.sortOrder,
+    )
+    .orderBy(asc(roomTypes.sortOrder), asc(roomTypes.name));
+
+  return rows.map(({ sortOrder: _sortOrder, ...type }) => ({
+    ...type,
+    roomCount: Number(type.roomCount),
+  }));
 }
 
 /**

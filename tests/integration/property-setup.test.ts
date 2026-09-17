@@ -4,9 +4,13 @@ import { withTenant, readEventHistory } from '@/db';
 import {
   createFloor, renameFloor, deleteFloor,
   createRoom, updateRoom, archiveRoom, restoreRoom, regenerateQrCode,
+  createRoomType, updateRoomType, archiveRoomType, restoreRoomType,
   listRoomsAtProperty, liveQrCodesForProperty, listFloors,
+  listRoomTypes, listRoomTypesWithUse,
+  updatePropertySettings, currencyIsStillOpen, findProperty,
 } from '@/modules/identity';
 import { createStay, checkOutStay } from '@/modules/stay';
+import { postFolioLine } from '@/modules/billing';
 import { scanQrCode, resolveGuestSession, QrNotUsableError } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
 import {
@@ -79,10 +83,19 @@ describe('setting up the building', () => {
       `DELETE FROM rooms WHERE property_id = $1 AND number <> '214'`, [a.propertyId]);
     await owner.query(
       `DELETE FROM floors WHERE property_id = $1 AND id <> $2`, [a.propertyId, a.floorId]);
+    // Anything these tests added, but never the three the fixture provisions.
+    await owner.query(
+      `DELETE FROM room_types WHERE property_id = $1 AND code = ANY($2)`,
+      [a.propertyId, ['CYD']]);
+    await owner.query(
+      `UPDATE room_types SET archived_at = NULL WHERE property_id = $1`, [a.propertyId]);
     await owner.query(
       `UPDATE rooms SET archived_at = NULL WHERE property_id = $1`, [a.propertyId]);
     await owner.query(
       `UPDATE room_qr_codes SET revoked_at = NULL WHERE property_id = $1`, [a.propertyId]);
+    await owner.query(
+      `UPDATE properties SET name = 'Hotel A', timezone = 'Asia/Kolkata', currency = 'INR'
+       WHERE id = $1`, [a.propertyId]);
     await owner.query(`DELETE FROM event_log WHERE tenant_id = ANY($1)`, [[TENANT_A, TENANT_B]]);
     await owner.query(`SET session_replication_role = origin`);
   });
@@ -290,6 +303,202 @@ describe('setting up the building', () => {
     const room = await addRoom({ number: '215' });
     const history = await scoped((tx) => readEventHistory(tx, 'room', room.id));
     expect(JSON.stringify(history)).not.toContain(room.publicCode);
+  });
+
+  /* ── The hotel itself ────────────────────────────────────────────────── */
+
+  const settingsNow = () => scoped((tx) => findProperty(tx, a.propertyId));
+
+  const saveSettings = (over: Record<string, unknown> = {}) =>
+    scoped((tx) => updatePropertySettings(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId,
+      name: 'The Kesari', timezone: 'Asia/Kolkata', currency: 'INR',
+      staffUserId: gm, ...over,
+    }));
+
+  it('renames the hotel and moves its clock', async () => {
+    await saveSettings({ name: 'The Kesari Haveli', timezone: 'Asia/Dubai' });
+
+    const now = await settingsNow();
+    expect(now?.name).toBe('The Kesari Haveli');
+    expect(now?.timezone).toBe('Asia/Dubai');
+
+    const history = await scoped((tx) => readEventHistory(tx, 'property', a.propertyId));
+    const event = history.find((row) => row.event_type === 'property.updated');
+    expect(event).toBeTruthy();
+  });
+
+  /**
+   * A typo here surfaces weeks later as a guest reading "by 3:26 am", not as an
+   * error — kitchen hours, availability windows and business-day rollovers are
+   * all property-local. Validated against the runtime's own tz database rather
+   * than a list kept here.
+   */
+  it('refuses a timezone that is not one', async () => {
+    await expect(saveSettings({ timezone: 'Asia/Kolkatta' }))
+      .rejects.toThrow(/not a timezone/);
+    expect((await settingsNow())?.timezone).toBe('Asia/Kolkata');
+  });
+
+  it('takes a real IANA alias', async () => {
+    await saveSettings({ timezone: 'Asia/Calcutta' });
+    expect((await settingsNow())?.timezone).toBe('Asia/Calcutta');
+  });
+
+  it('refuses something that is not a currency code', async () => {
+    await expect(saveSettings({ currency: 'Rupees' })).rejects.toThrow(/three-letter ISO/);
+  });
+
+  /**
+   * #5 — every row holding an amount carries its OWN currency. Nothing converts
+   * a past bill, and a folio whose rows disagree is not a bill. So the currency
+   * is settable during setup and fixed from the first charge onwards.
+   */
+  it('lets the currency change before anything is charged', async () => {
+    expect(await scoped((tx) => currencyIsStillOpen(tx, a.propertyId))).toBe(true);
+
+    await saveSettings({ currency: 'aed' });
+    expect((await settingsNow())?.currency).toBe('AED');
+  });
+
+  it('fixes the currency once the property has charged', async () => {
+    const room = await addRoom({ number: '215' });
+    const stay = await scoped((tx) => createStay(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomId: room.id,
+      guest: { fullName: 'Paid For Something', phone: '+919820013131' },
+      scheduledCheckoutAt: atLocalHourOnSameDay(new Date(Date.now() + 86_400_000), 11, TZ),
+      actor: { kind: 'STAFF', staffUserId: gm },
+    }));
+
+    await scoped((tx) => postFolioLine(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, stayId: stay.stayId,
+      source: 'MANUAL', description: 'Laundry', amountMinor: 30_000, currency: 'INR',
+      postedByStaffId: gm,
+    }));
+
+    expect(await scoped((tx) => currencyIsStillOpen(tx, a.propertyId))).toBe(false);
+
+    await expect(saveSettings({ currency: 'AED' }))
+      .rejects.toThrow(/already charged in INR/);
+    expect((await settingsNow())?.currency).toBe('INR');
+
+    // The name and the clock are still editable — only the currency is pinned.
+    await saveSettings({ name: 'The Kesari Haveli' });
+    expect((await settingsNow())?.name).toBe('The Kesari Haveli');
+  });
+
+  /* ── Room types ──────────────────────────────────────────────────────── */
+
+  const typesNow = () => scoped((tx) => listRoomTypesWithUse(tx, { propertyId: a.propertyId }));
+  const offeredNow = () => scoped((tx) => listRoomTypes(tx, { propertyId: a.propertyId }));
+
+  const addType = (over: Record<string, unknown> = {}) => scoped((tx) => createRoomType(tx, {
+    tenantId: a.tenantId, propertyId: a.propertyId,
+    name: 'Courtyard', code: 'CYD', maxOccupancy: 2, staffUserId: gm, ...over,
+  }));
+
+  it('adds a room type, and a room can be it', async () => {
+    const type = await addType();
+
+    expect((await offeredNow()).find((t) => t.id === type.id)?.code).toBe('CYD');
+
+    const room = await addRoom({ number: '215', roomTypeId: type.id });
+    expect((await roomsNow()).find((r) => r.id === room.id)?.roomTypeName).toBe('Courtyard');
+
+    const history = await scoped((tx) => readEventHistory(tx, 'room_type', type.id));
+    expect(history[0]!.event_type).toBe('room_type.created');
+  });
+
+  /**
+   * "lkv", " LKV " and "Lkv" must not become three room types at the same hotel.
+   * A code is what a rate sheet, a PMS export and a channel manager will key on.
+   */
+  it('normalises the code, and refuses a second one like it', async () => {
+    const type = await addType({ code: ' cyd ' });
+    expect((await typesNow()).find((t) => t.id === type.id)?.code).toBe('CYD');
+
+    await expect(addType({ name: 'Courtyard again', code: 'Cyd' }))
+      .rejects.toThrow(/already in use here/);
+  });
+
+  it('refuses a code with punctuation in it', async () => {
+    await expect(addType({ code: 'C/D' })).rejects.toThrow(/letters, numbers/);
+  });
+
+  it('renames one, and the guest reads the new name', async () => {
+    const type = await addType();
+    const room = await addRoom({ number: '215', roomTypeId: type.id });
+
+    await scoped((tx) => updateRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id,
+      name: 'Courtyard deluxe', code: 'CYD', maxOccupancy: 3, staffUserId: gm,
+    }));
+
+    expect((await roomsNow()).find((r) => r.id === room.id)?.roomTypeName)
+      .toBe('Courtyard deluxe');
+    expect((await typesNow()).find((t) => t.id === type.id)?.maxOccupancy).toBe(3);
+  });
+
+  /**
+   * `rooms.room_type_id` is NOT NULL, so a type with rooms on it cannot be
+   * deleted — and must not be archived either, or those rooms would point at
+   * something the edit form can no longer offer.
+   */
+  it('refuses to retire a type that rooms still are, and counts them first', async () => {
+    const type = await addType();
+    await addRoom({ number: '215', roomTypeId: type.id });
+    await addRoom({ number: '216', roomTypeId: type.id });
+
+    expect((await typesNow()).find((t) => t.id === type.id)?.roomCount).toBe(2);
+
+    await expect(scoped((tx) => archiveRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id, staffUserId: gm,
+    }))).rejects.toThrow(/2 rooms are still a Courtyard/);
+  });
+
+  /** Archived ROOMS hold their type too — restoring one has to find it. */
+  it('counts an out-of-service room against its type', async () => {
+    const type = await addType();
+    const room = await addRoom({ number: '215', roomTypeId: type.id });
+    await scoped((tx) => archiveRoom(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomId: room.id, staffUserId: gm,
+    }));
+
+    expect((await typesNow()).find((t) => t.id === type.id)?.roomCount).toBe(1);
+    await expect(scoped((tx) => archiveRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id, staffUserId: gm,
+    }))).rejects.toThrow(/One room is still a Courtyard/);
+  });
+
+  it('retires an unused one, which stops being offered but keeps its code', async () => {
+    const type = await addType();
+
+    await scoped((tx) => archiveRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id, staffUserId: gm,
+    }));
+
+    expect((await offeredNow()).find((t) => t.id === type.id)).toBeUndefined();
+    expect((await typesNow()).find((t) => t.id === type.id)?.archivedAt).toBeTruthy();
+
+    // The code is still taken: room_types_property_code_uq has no partial
+    // predicate, and saying so beats a 23505.
+    await expect(addType({ name: 'Courtyard II', code: 'CYD' }))
+      .rejects.toThrow(/retired room type, which still holds the code/);
+
+    await scoped((tx) => restoreRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id, staffUserId: gm,
+    }));
+    expect((await offeredNow()).find((t) => t.id === type.id)?.code).toBe('CYD');
+  });
+
+  it('will not put a room on a retired type', async () => {
+    const type = await addType();
+    await scoped((tx) => archiveRoomType(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, roomTypeId: type.id, staffUserId: gm,
+    }));
+
+    await expect(addRoom({ number: '215', roomTypeId: type.id }))
+      .rejects.toThrow(/Pick a room type at this property/);
   });
 
   /* ── Reprinting a sticker ────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   addFloor, renameFloorAction, removeFloor, saveRoom, setRoomInService,
+  saveRoomType, setRoomTypeInUse, savePropertySettings,
   type PropertyState,
 } from './actions';
 import styles from '../admin.module.css';
@@ -33,26 +34,89 @@ export interface RoomSetupView {
   archived: boolean;
 }
 
+export interface SettingsView {
+  name: string;
+  timezone: string;
+  currency: string;
+  /** False once anything has been charged — the currency is write-once (D-043). */
+  currencyStillOpen: boolean;
+}
+
 export interface RoomTypeView {
   id: string;
   name: string;
 }
 
+export interface RoomTypeSetupView extends RoomTypeView {
+  code: string;
+  maxOccupancy: number;
+  /** Archived rooms included — they still point here by FK. */
+  roomCount: number;
+  archived: boolean;
+}
+
 export function PropertyEditor({
   propertyId,
+  settings,
   floors,
   rooms,
   roomTypes,
   mayManage,
+  mayEditSettings,
+  timezones,
 }: {
   propertyId: string;
+  settings: SettingsView;
   floors: FloorView[];
   rooms: RoomSetupView[];
-  roomTypes: RoomTypeView[];
+  roomTypes: RoomTypeSetupView[];
   mayManage: boolean;
+  /** `property:update`, which is PROPERTY_ADMIN's alone. */
+  mayEditSettings: boolean;
+  timezones: string[];
 }) {
+  // Only the ones a room can still BE. A retired type keeps its rows and its
+  // code; it just stops being offered.
+  const offerable = roomTypes.filter((type) => !type.archived);
+
   return (
     <>
+      <Settings
+        propertyId={propertyId}
+        settings={settings}
+        timezones={timezones}
+        mayEdit={mayEditSettings}
+      />
+
+      <section className={styles.section}>
+        <header className={styles.sectionHead}>
+          <h2 className={styles.sectionTitle}>Room types</h2>
+          <p className={styles.sectionBlurb}>
+            What a room is — never what it costs. A price belongs to a rate plan
+            for a type on a date, and there is nowhere here to put one.
+          </p>
+        </header>
+
+        {roomTypes.length ? (
+          <ul className={styles.dishes}>
+            {roomTypes.map((type) => (
+              <RoomType
+                key={type.id}
+                propertyId={propertyId}
+                type={type}
+                mayManage={mayManage}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.sectionEmpty}>
+            No room types yet. A room has to be one of these before it can exist.
+          </p>
+        )}
+
+        {mayManage ? <NewRoomType propertyId={propertyId} /> : null}
+      </section>
+
       <section className={styles.section}>
         <header className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Floors</h2>
@@ -103,32 +167,300 @@ export function PropertyEditor({
                     propertyId={propertyId}
                     room={room}
                     floors={floors}
-                    roomTypes={roomTypes}
+                    roomTypes={offerable}
                     mayManage={mayManage}
                   />
                 ))}
               </ul>
             ) : null}
 
-            {mayManage && roomTypes.length ? (
+            {mayManage && offerable.length ? (
               <NewRoom
                 propertyId={propertyId}
                 floor={floor}
                 floors={floors}
-                roomTypes={roomTypes}
+                roomTypes={offerable}
               />
             ) : null}
           </section>
         );
       })}
 
-      {mayManage && !roomTypes.length ? (
+      {mayManage && !offerable.length ? (
         <p className={styles.sectionEmpty}>
-          This property has no room types, so a room has nothing to be. They are
-          created with the property — see <code>provisionProperty()</code>.
+          Every room type here is retired, so a room has nothing to be. Bring one
+          back, or add another, before adding a room.
         </p>
       ) : null}
     </>
+  );
+}
+
+/* ── The hotel itself ───────────────────────────────────────────────────── */
+
+function Settings({
+  propertyId,
+  settings,
+  timezones,
+  mayEdit,
+}: {
+  propertyId: string;
+  settings: SettingsView;
+  timezones: string[];
+  mayEdit: boolean;
+}) {
+  const [state, action] = useActionState<PropertyState, FormData>(savePropertySettings, {});
+
+  return (
+    <section className={styles.section}>
+      <header className={styles.sectionHead}>
+        <h2 className={styles.sectionTitle}>This hotel</h2>
+        <p className={styles.sectionBlurb}>
+          The name in the bar above, the clock every screen reads, and what the
+          bill is in.
+        </p>
+      </header>
+
+      {mayEdit ? (
+        <form action={action} className={styles.stackedForm}>
+          <input type="hidden" name="propertyId" value={propertyId} />
+
+          <div className={styles.formGrid}>
+            <label className={styles.field}>
+              <span className={styles.label}>Name</span>
+              <input
+                name="name"
+                defaultValue={settings.name}
+                className={styles.input}
+                required
+                maxLength={120}
+              />
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Timezone</span>
+              <select
+                name="timezone"
+                defaultValue={settings.timezone}
+                className={styles.input}
+                required
+              >
+                {timezones.map((zone) => (
+                  <option key={zone} value={zone}>{zone}</option>
+                ))}
+              </select>
+              {/* Not cosmetic: kitchen hours, availability windows and
+                  business-day rollovers are all property-local. */}
+              <span className={styles.hint}>
+                Everything a guest reads is rendered here, never in the server&rsquo;s zone.
+              </span>
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.label}>Currency</span>
+              <input
+                name="currency"
+                defaultValue={settings.currency}
+                className={styles.input}
+                required
+                maxLength={3}
+                /* Not disabled — the server decides, and a disabled input sends
+                   nothing, which would read as "clear it". Read-only keeps the
+                   value in the post and the refusal honest. */
+                readOnly={!settings.currencyStillOpen}
+              />
+              <span className={styles.hint}>
+                {settings.currencyStillOpen
+                  ? 'Set it before the first order. Nothing converts a past bill.'
+                  : 'Fixed — this hotel has already charged in it, and nothing converts a past bill.'}
+              </span>
+            </label>
+          </div>
+
+          {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+          {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+
+          <SubmitButton label="Save" primary />
+        </form>
+      ) : (
+        <ul className={styles.dishes}>
+          <li className={`${styles.dish} ${styles.typeRow}`}>
+            <span className={styles.dishBody}>
+              <span className={styles.dishName}>{settings.name}</span>
+              <span className={styles.dishFlags}>
+                {settings.timezone} · {settings.currency}
+              </span>
+            </span>
+          </li>
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ── Room types ─────────────────────────────────────────────────────────── */
+
+function RoomType({
+  propertyId,
+  type,
+  mayManage,
+}: {
+  propertyId: string;
+  type: RoomTypeSetupView;
+  mayManage: boolean;
+}) {
+  return (
+    <li
+      className={`${styles.dish} ${styles.typeRow}`}
+      data-available={!type.archived}
+      data-room-type={type.code}
+    >
+      <span className={styles.dishBody}>
+        <span className={styles.dishName}>
+          {type.name}
+          {type.archived ? <span className={styles.offTag}>retired</span> : null}
+        </span>
+        <span className={styles.dishFlags}>
+          {type.code} · sleeps {type.maxOccupancy} ·{' '}
+          {/* The count is what Retire refuses on, so it is shown before the
+              button rather than after the refusal. */}
+          {type.roomCount
+            ? `${type.roomCount} ${type.roomCount === 1 ? 'room' : 'rooms'}`
+            : 'no rooms'}
+        </span>
+      </span>
+
+      {mayManage ? (
+        <>
+          {type.archived ? null : <EditRoomType propertyId={propertyId} type={type} />}
+          <RoomTypeSwitch propertyId={propertyId} type={type} />
+        </>
+      ) : null}
+    </li>
+  );
+}
+
+function RoomTypeSwitch({
+  propertyId,
+  type,
+}: {
+  propertyId: string;
+  type: RoomTypeSetupView;
+}) {
+  const [state, action] = useActionState<PropertyState, FormData>(setRoomTypeInUse, {});
+
+  return (
+    <form action={action} className={styles.inlineForm}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="roomTypeId" value={type.id} />
+      <input type="hidden" name="restore" value={String(type.archived)} />
+      <SubmitButton
+        label={type.archived ? 'Bring back' : 'Retire'}
+        title={
+          type.archived
+            ? `Offer ${type.name} to rooms again`
+            : type.roomCount
+              ? `Change its ${type.roomCount} rooms first`
+              : `Stop offering ${type.name}`
+        }
+      />
+      {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
+    </form>
+  );
+}
+
+function EditRoomType({
+  propertyId,
+  type,
+}: {
+  propertyId: string;
+  type: RoomTypeSetupView;
+}) {
+  const [state, action] = useActionState<PropertyState, FormData>(saveRoomType, {});
+
+  return (
+    <details className={styles.roomForm}>
+      <summary className={styles.disclosureHead}>Edit</summary>
+      <form action={action} className={styles.stackedForm}>
+        <input type="hidden" name="propertyId" value={propertyId} />
+        <input type="hidden" name="roomTypeId" value={type.id} />
+        <RoomTypeFields type={type} />
+        {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+        {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+        <SubmitButton label="Save" primary />
+      </form>
+    </details>
+  );
+}
+
+function NewRoomType({ propertyId }: { propertyId: string }) {
+  const [state, action] = useActionState<PropertyState, FormData>(saveRoomType, {});
+
+  return (
+    <details className={styles.newSection}>
+      <summary className={styles.disclosureHead}>Add a room type</summary>
+      <form action={action} className={styles.stackedForm}>
+        <input type="hidden" name="propertyId" value={propertyId} />
+        <RoomTypeFields type={null} />
+        {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+        {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+        <SubmitButton label="Add the room type" primary />
+      </form>
+    </details>
+  );
+}
+
+function RoomTypeFields({ type }: { type: RoomTypeSetupView | null }) {
+  return (
+    <div className={styles.formGrid}>
+      <label className={styles.field}>
+        <span className={styles.label}>Name</span>
+        <input
+          name="name"
+          defaultValue={type?.name ?? ''}
+          className={styles.input}
+          required
+          maxLength={80}
+          placeholder="Lake view"
+        />
+        {/* What the guest reads on their own screen — describeRoom() takes the
+            name from here rather than inventing a descriptor. */}
+        <span className={styles.hint}>The guest sees this on their room screen.</span>
+      </label>
+
+      <label className={styles.field}>
+        <span className={styles.label}>Code</span>
+        <input
+          name="code"
+          defaultValue={type?.code ?? ''}
+          className={styles.input}
+          required
+          maxLength={12}
+          placeholder="LKV"
+        />
+        <span className={styles.hint}>
+          Short and uppercase. A rate sheet will key on it.
+        </span>
+      </label>
+
+      <label className={styles.field}>
+        <span className={styles.label}>Sleeps</span>
+        <input
+          name="maxOccupancy"
+          type="number"
+          min={1}
+          max={20}
+          defaultValue={type?.maxOccupancy ?? 2}
+          className={styles.input}
+          required
+        />
+        {/* Recorded, not enforced: nothing in the guest product counts heads.
+            It is here because rates and inventory will be priced per type
+            (EXTENSION-POINTS §1) and backfilling it across live data later is
+            the expensive version. */}
+        <span className={styles.hint}>Recorded for rates later. Nothing counts heads today.</span>
+      </label>
+    </div>
   );
 }
 

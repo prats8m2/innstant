@@ -1,14 +1,19 @@
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import {
-  can, findProperty, listFloors, listRoomsAtProperty, listRoomTypes,
+  can, findProperty, listFloors, listRoomsAtProperty, listRoomTypesWithUse,
+  currencyIsStillOpen,
 } from '@/modules/identity';
 import { AdminShell } from '../admin-shell';
-import { PropertyEditor, type FloorView, type RoomSetupView } from './property-editor';
+import {
+  PropertyEditor,
+  type FloorView, type RoomSetupView, type RoomTypeSetupView, type SettingsView,
+} from './property-editor';
 import styles from '../admin.module.css';
 
 /**
- * The building — floors, and the rooms on them.
+ * The property — what the hotel is called, what it is made of, and what a room
+ * can be.
  *
  * `provisionProperty()` has created these in one transaction since P0 and was
  * the only thing that ever did, so a hotel that opened a floor had a seeder run
@@ -33,7 +38,7 @@ export default async function PropertyAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, floors, rooms, roomTypes } = await withTenant(
+  const { property, floors, rooms, roomTypes, currencyOpen } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
       property: await findProperty(tx, propertyId),
@@ -41,7 +46,12 @@ export default async function PropertyAdmin() {
       // Archived ones too: this is the only screen a room comes back from, and
       // a room you cannot see is a room you cannot restore.
       rooms: await listRoomsAtProperty(tx, { propertyId, includeArchived: true }),
-      roomTypes: await listRoomTypes(tx, { propertyId }),
+      // Retired ones too, and how many rooms are each: this is the only screen
+      // a type comes back from, and Retire refuses on exactly that count.
+      roomTypes: await listRoomTypesWithUse(tx, { propertyId }),
+      // The same query the save guard runs, so the hint and the refusal cannot
+      // disagree.
+      currencyOpen: await currencyIsStillOpen(tx, propertyId),
     }),
   );
 
@@ -63,7 +73,32 @@ export default async function PropertyAdmin() {
     roomCount: roomViews.filter((room) => room.floorId === floor.id).length,
   }));
 
+  const typeViews: RoomTypeSetupView[] = roomTypes.map((type) => ({
+    id: type.id,
+    name: type.name,
+    code: type.code,
+    maxOccupancy: type.maxOccupancy,
+    roomCount: type.roomCount,
+    archived: type.archivedAt != null,
+  }));
+
   const inService = roomViews.filter((room) => !room.archived).length;
+  const offeredTypes = typeViews.filter((type) => !type.archived).length;
+
+  const settings: SettingsView = {
+    name: property?.name ?? '',
+    timezone: property?.timezone ?? 'Asia/Kolkata',
+    currency: property?.currency ?? 'INR',
+    currencyStillOpen: currencyOpen,
+  };
+
+  /**
+   * Every zone the runtime knows, rather than a list kept here. A hotel can be
+   * anywhere, and a hand-maintained list is one that goes stale the first time
+   * somebody opens in a country nobody thought of — while `Intl` ships the tz
+   * database and `cleanTimezone()` validates against the very same source.
+   */
+  const timezones = Intl.supportedValuesOf('timeZone');
 
   return (
     <AdminShell
@@ -74,22 +109,27 @@ export default async function PropertyAdmin() {
     >
       <header className={styles.pageHead}>
         <div>
-          <h1 className={styles.title}>The building</h1>
+          <h1 className={styles.title}>The property</h1>
           <p className={styles.lede}>
             {floorViews.length} {floorViews.length === 1 ? 'floor' : 'floors'} ·{' '}
             {inService} {inService === 1 ? 'room' : 'rooms'} in service
             {roomViews.length > inService
               ? ` · ${roomViews.length - inService} out of service`
               : ''}
+            {' · '}
+            {offeredTypes} {offeredTypes === 1 ? 'room type' : 'room types'}
           </p>
         </div>
       </header>
 
       <PropertyEditor
         propertyId={propertyId}
+        settings={settings}
+        timezones={timezones}
+        mayEditSettings={can(session, propertyId, 'property:update')}
         floors={floorViews}
         rooms={roomViews}
-        roomTypes={roomTypes.map((type) => ({ id: type.id, name: type.name }))}
+        roomTypes={typeViews}
         mayManage={can(session, propertyId, 'room:manage')}
       />
 

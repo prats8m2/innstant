@@ -102,9 +102,10 @@ export default async function AdminHome() {
         {maySeeBuilding ? (
           <li className={styles.card}>
             <Link href="/admin/property" className={styles.cardLink}>
-              <span className={styles.cardTitle}>The building</span>
+              <span className={styles.cardTitle}>The property</span>
               <span className={styles.cardBody}>
-                Floors and rooms. A room added here gets its own QR sticker.
+                The hotel&rsquo;s name and clock, its room types, its floors and
+                rooms. A room added here gets its own QR sticker.
               </span>
             </Link>
           </li>

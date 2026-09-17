@@ -382,6 +382,209 @@ export async function restoreRoom(
   return { publicCode };
 }
 
+/* ── Room types ─────────────────────────────────────────────────────────── */
+
+export interface RoomTypeInput {
+  tenantId: string;
+  propertyId: string;
+  name: string;
+  /** Short, uppercase, and what a rate sheet will key on. Unique per property. */
+  code: string;
+  maxOccupancy: number;
+  staffUserId: string;
+}
+
+/**
+ * A room type — what a room IS, never what it costs.
+ *
+ * EXTENSION-POINTS §1 calls this the single most expensive thing that could be
+ * deferred: rates and inventory are priced per room type, so booking cannot
+ * exist without the table, and adding it later means reconciling a varchar's
+ * typos across live data. The table has existed since 0000 and only
+ * `provisionProperty()` ever wrote to it — so a hotel that opened a new class of
+ * room could not describe it, and `/admin/property` said so out loud rather than
+ * pretending ("This property has no room types, so a room has nothing to be").
+ *
+ * #11 applies with full force. There is no price field here and there is nowhere
+ * to put one: a price belongs to a rate plan for a type on a DATE, and a
+ * `nightly_rate` added "just for the setup screen" would commit the model to
+ * per-type flat pricing before the rate calendar exists to disagree.
+ */
+export async function createRoomType(
+  tx: Tx,
+  input: RoomTypeInput,
+): Promise<{ id: string }> {
+  const name = cleanName(input.name, 'room type');
+  const code = cleanTypeCode(input.code);
+  assertOccupancy(input.maxOccupancy);
+
+  await assertTypeCodeFree(tx, { propertyId: input.propertyId, code });
+
+  // After the existing ones, so a property that has always had three gets its
+  // fourth at the bottom rather than jumbled into the middle of the list.
+  const last = await tx.select({ sortOrder: roomTypes.sortOrder })
+    .from(roomTypes)
+    .where(eq(roomTypes.propertyId, input.propertyId))
+    .orderBy(asc(roomTypes.sortOrder));
+
+  const [created] = await tx.insert(roomTypes).values({
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    name,
+    code,
+    maxOccupancy: input.maxOccupancy,
+    sortOrder: (last.at(-1)?.sortOrder ?? -1) + 1,
+  }).returning({ id: roomTypes.id });
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'room_type',
+    entityId: created!.id,
+    eventType: 'room_type.created',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    payload: { name, code, maxOccupancy: input.maxOccupancy },
+  });
+
+  return created!;
+}
+
+export async function updateRoomType(
+  tx: Tx,
+  input: RoomTypeInput & { roomTypeId: string },
+): Promise<void> {
+  const name = cleanName(input.name, 'room type');
+  const code = cleanTypeCode(input.code);
+  assertOccupancy(input.maxOccupancy);
+
+  const before = await tx.select({
+    name: roomTypes.name,
+    code: roomTypes.code,
+    maxOccupancy: roomTypes.maxOccupancy,
+    archivedAt: roomTypes.archivedAt,
+  }).from(roomTypes)
+    .where(and(eq(roomTypes.id, input.roomTypeId), eq(roomTypes.propertyId, input.propertyId)))
+    .limit(1);
+
+  const previous = before[0];
+  if (!previous) throw new NotFoundError('No such room type at this property.');
+  if (previous.archivedAt) {
+    throw new ConflictError('This room type is retired. Bring it back before editing it.');
+  }
+
+  if (code !== previous.code) {
+    await assertTypeCodeFree(tx, { propertyId: input.propertyId, code });
+  }
+
+  const next = { name, code, maxOccupancy: input.maxOccupancy };
+
+  await tx.update(roomTypes)
+    .set({ ...next, updatedAt: new Date() })
+    .where(eq(roomTypes.id, input.roomTypeId));
+
+  const changed = Object.fromEntries(
+    (Object.keys(next) as Array<keyof typeof next>)
+      .filter((field) => previous[field] !== next[field])
+      .map((field) => [field, { from: previous[field], to: next[field] }]),
+  );
+  if (!Object.keys(changed).length) return;
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'room_type',
+    entityId: input.roomTypeId,
+    eventType: 'room_type.updated',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    payload: { name, changed },
+  });
+}
+
+/**
+ * Retire a room type, and only one nothing is.
+ *
+ * `rooms.room_type_id` is NOT NULL, so a type with rooms on it cannot be deleted
+ * and must not be archived either — `listRoomTypes()` stops offering an archived
+ * type, so archiving one still in use would leave rooms pointing at something
+ * the edit form cannot re-select, and the first person to touch an unrelated
+ * field on that room would be told to pick a room type that is no longer there.
+ *
+ * Archived rather than deleted for the same reason as a room: a stay that
+ * happened in a Jharokha suite is still the answer to what the guest booked, and
+ * `describeRoom()` reads the name for the guest's own screen.
+ */
+export async function archiveRoomType(
+  tx: Tx,
+  input: { tenantId: string; propertyId: string; roomTypeId: string; staffUserId: string },
+): Promise<void> {
+  const found = await tx.select({ name: roomTypes.name, archivedAt: roomTypes.archivedAt })
+    .from(roomTypes)
+    .where(and(eq(roomTypes.id, input.roomTypeId), eq(roomTypes.propertyId, input.propertyId)))
+    .limit(1);
+
+  const type = found[0];
+  if (!type) throw new NotFoundError('No such room type at this property.');
+  if (type.archivedAt) throw new ConflictError(`${type.name} is already retired.`);
+
+  // Archived rooms count: they still point here by FK, and restoring one has to
+  // find its type still selectable.
+  const held = await tx.select({ n: sql<number>`count(*)::int` })
+    .from(rooms).where(eq(rooms.roomTypeId, input.roomTypeId));
+  const count = Number(held[0]?.n ?? 0);
+
+  if (count > 0) {
+    throw new ConflictError(
+      count === 1
+        ? `One room is still a ${type.name}. Change it first.`
+        : `${count} rooms are still a ${type.name}. Change them first.`,
+    );
+  }
+
+  const now = new Date();
+  await tx.update(roomTypes)
+    .set({ archivedAt: now, updatedAt: now })
+    .where(and(eq(roomTypes.id, input.roomTypeId), isNull(roomTypes.archivedAt)));
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'room_type',
+    entityId: input.roomTypeId,
+    eventType: 'room_type.archived',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    payload: { name: type.name },
+  });
+}
+
+export async function restoreRoomType(
+  tx: Tx,
+  input: { tenantId: string; propertyId: string; roomTypeId: string; staffUserId: string },
+): Promise<void> {
+  const found = await tx.select({ name: roomTypes.name, archivedAt: roomTypes.archivedAt })
+    .from(roomTypes)
+    .where(and(eq(roomTypes.id, input.roomTypeId), eq(roomTypes.propertyId, input.propertyId)))
+    .limit(1);
+
+  const type = found[0];
+  if (!type) throw new NotFoundError('No such room type at this property.');
+  if (!type.archivedAt) throw new ConflictError(`${type.name} is already in use.`);
+
+  const now = new Date();
+  await tx.update(roomTypes)
+    .set({ archivedAt: null, updatedAt: now })
+    .where(eq(roomTypes.id, input.roomTypeId));
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'room_type',
+    entityId: input.roomTypeId,
+    eventType: 'room_type.restored',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    payload: { name: type.name },
+  });
+}
+
 /* ── The sticker ────────────────────────────────────────────────────────── */
 
 /**
@@ -532,4 +735,48 @@ async function assertFloorAndType(
     ))
     .limit(1);
   if (!type[0]) throw new ValidationError('Pick a room type at this property.');
+}
+
+/**
+ * A type code is what a rate sheet, a PMS export and a channel manager will key
+ * on one day, so it is normalised HERE rather than left to whoever typed it:
+ * "lkv", " LKV " and "Lkv" must not become three room types at the same hotel.
+ */
+function cleanTypeCode(value: string): string {
+  const code = value.trim().toUpperCase();
+  if (!code) throw new ValidationError('Give the room type a short code.');
+  if (code.length > 12) throw new ValidationError('A room type code is 12 characters at most.');
+  if (!/^[A-Z0-9_-]+$/.test(code)) {
+    throw new ValidationError('A room type code is letters, numbers, - and _ only.');
+  }
+  return code;
+}
+
+function assertOccupancy(value: number): void {
+  if (!Number.isInteger(value) || value < 1 || value > 20) {
+    throw new ValidationError('Occupancy is a whole number between 1 and 20.');
+  }
+}
+
+/**
+ * Against archived types too: `room_types_property_code_uq` has no partial
+ * predicate, so a retired LKV still holds LKV — the same trap as an archived
+ * room holding its number, and worth the same sentence rather than a 23505.
+ */
+async function assertTypeCodeFree(
+  tx: Tx,
+  input: { propertyId: string; code: string },
+): Promise<void> {
+  const clash = await tx.select({ id: roomTypes.id, archivedAt: roomTypes.archivedAt })
+    .from(roomTypes)
+    .where(and(eq(roomTypes.propertyId, input.propertyId), eq(roomTypes.code, input.code)))
+    .limit(1);
+
+  if (!clash[0]) return;
+
+  throw new ConflictError(
+    clash[0].archivedAt
+      ? `${input.code} belongs to a retired room type, which still holds the code. Bring that one back instead.`
+      : `${input.code} is already in use here.`,
+  );
 }

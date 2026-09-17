@@ -60,7 +60,7 @@ export async function AdminShell({
             className={styles.navLink}
             aria-current={current === 'property' ? 'page' : undefined}
           >
-            Building
+            Property
           </Link>
           <Link
             href="/admin/menu"

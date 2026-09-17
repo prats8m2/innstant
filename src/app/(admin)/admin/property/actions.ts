@@ -7,17 +7,22 @@ import { requirePermission } from '@/lib/auth-context';
 import {
   createFloor, renameFloor, deleteFloor,
   createRoom, updateRoom, archiveRoom, restoreRoom,
+  createRoomType, updateRoomType, archiveRoomType, restoreRoomType,
+  updatePropertySettings,
 } from '@/modules/identity';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
 /**
- * The building's own settings. P3.5.
+ * The property: what the hotel is called, what a room can be, and what it is
+ * made of. P3.5.
  *
- * All of it behind `room:manage`, which PROPERTY_ADMIN holds and the front desk
- * does not — a desk that can check people in has no business renumbering a wing,
- * and `permissions.ts` has kept `room:read` and `room:manage` apart since S5
- * with nothing using either.
+ * The building half is behind `room:manage`, which PROPERTY_ADMIN holds and the
+ * front desk does not — a desk that can check people in has no business
+ * renumbering a wing, and `permissions.ts` has kept `room:read` and
+ * `room:manage` apart since S5 with nothing using either. The hotel's own name,
+ * clock and currency are behind `property:update`, which is narrower still: the
+ * desk holds `property:read` and not this.
  */
 
 export interface PropertyState {
@@ -151,6 +156,164 @@ export async function removeFloor(
     );
     revalidateBoth();
     return { done: 'Gone.' };
+  });
+}
+
+/* ── The hotel itself ───────────────────────────────────────────────────── */
+
+/**
+ * `property:update`, which is PROPERTY_ADMIN's alone — the front desk holds
+ * `property:read` and not this. Renaming the hotel or moving its clock is not a
+ * shift-level act.
+ */
+const Settings = z.object({
+  propertyId: z.uuid(),
+  name: z.string().trim().min(1, 'Give the property a name.').max(120),
+  timezone: z.string().trim().min(1, 'Pick a timezone.').max(64),
+  currency: z.string().trim().length(3, 'A currency is three letters, like INR.'),
+});
+
+export async function savePropertySettings(
+  _previous: PropertyState,
+  formData: FormData,
+): Promise<PropertyState> {
+  const parsed = Settings.safeParse({
+    propertyId: formData.get('propertyId'),
+    name: formData.get('name') ?? '',
+    timezone: formData.get('timezone') ?? '',
+    currency: formData.get('currency') ?? '',
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check the settings.' };
+  }
+  const input = parsed.data;
+
+  return guard('save property settings', async () => {
+    const session = await requirePermission(input.propertyId, 'property:update');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: input.propertyId },
+      (tx) => updatePropertySettings(tx, {
+        tenantId: session.tenantId,
+        propertyId: input.propertyId,
+        name: input.name,
+        timezone: input.timezone,
+        currency: input.currency,
+        staffUserId: session.staffUserId,
+      }),
+    );
+
+    /**
+     * Everything, not just these two screens. The property name is in the admin
+     * bar on every page, and the timezone decides what "today" means on the
+     * kitchen's hours, the desk's due-out column and every time a guest reads.
+     */
+    revalidatePath('/', 'layout');
+    return { done: 'Saved. Every screen reads the new clock from here.' };
+  });
+}
+
+/* ── Room types ─────────────────────────────────────────────────────────── */
+
+/**
+ * #11, at the boundary. There is no price field on this form and no `feeMinor`
+ * in this schema, because a price belongs to a rate plan for a type on a DATE —
+ * `rate_plans` and `rate_calendar` are reserved names (#12) and this is the
+ * table they will attach to.
+ */
+const RoomType = z.object({
+  propertyId: z.uuid(),
+  roomTypeId: z.uuid().optional(),
+  name: z.string().trim().min(1, 'Give the room type a name.').max(80),
+  code: z.string().trim().min(1, 'Give it a short code.').max(12),
+  maxOccupancy: z.coerce.number().int()
+    .min(1, 'Occupancy is between 1 and 20.')
+    .max(20, 'Occupancy is between 1 and 20.'),
+});
+
+export async function saveRoomType(
+  _previous: PropertyState,
+  formData: FormData,
+): Promise<PropertyState> {
+  const parsed = RoomType.safeParse({
+    propertyId: formData.get('propertyId'),
+    roomTypeId: formData.get('roomTypeId') || undefined,
+    name: formData.get('name') ?? '',
+    code: formData.get('code') ?? '',
+    maxOccupancy: formData.get('maxOccupancy') ?? '',
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check the room type.' };
+  }
+  const input = parsed.data;
+
+  return guard('save room type', async () => {
+    const session = await requirePermission(input.propertyId, 'room:manage');
+
+    const done = await withTenant(
+      { tenantId: session.tenantId, propertyId: input.propertyId },
+      async (tx) => {
+        const common = {
+          tenantId: session.tenantId,
+          propertyId: input.propertyId,
+          name: input.name,
+          code: input.code,
+          maxOccupancy: input.maxOccupancy,
+          staffUserId: session.staffUserId,
+        };
+
+        if (input.roomTypeId) {
+          await updateRoomType(tx, { ...common, roomTypeId: input.roomTypeId });
+          return `${input.name} saved.`;
+        }
+
+        await createRoomType(tx, common);
+        return `${input.name} is a room type now. Rooms can be one.`;
+      },
+    );
+
+    revalidateBoth();
+    return { done };
+  });
+}
+
+export async function setRoomTypeInUse(
+  _previous: PropertyState,
+  formData: FormData,
+): Promise<PropertyState> {
+  const propertyId = z.uuid().safeParse(formData.get('propertyId'));
+  const roomTypeId = z.uuid().safeParse(formData.get('roomTypeId'));
+  const restore = formData.get('restore') === 'true';
+  if (!propertyId.success || !roomTypeId.success) {
+    return { error: 'That did not come through. Try again.' };
+  }
+
+  return guard(restore ? 'restore room type' : 'retire room type', async () => {
+    const session = await requirePermission(propertyId.data, 'room:manage');
+
+    const done = await withTenant(
+      { tenantId: session.tenantId, propertyId: propertyId.data },
+      async (tx) => {
+        const common = {
+          tenantId: session.tenantId,
+          propertyId: propertyId.data,
+          roomTypeId: roomTypeId.data,
+          staffUserId: session.staffUserId,
+        };
+
+        if (restore) {
+          await restoreRoomType(tx, common);
+          return 'Back. Rooms can be this again.';
+        }
+
+        await archiveRoomType(tx, common);
+        // It keeps its code — `room_types_property_code_uq` has no partial
+        // predicate — and a guest's old stay still reads the right name.
+        return 'Retired. It keeps its code, and past stays still read it.';
+      },
+    );
+
+    revalidateBoth();
+    return { done };
   });
 }
 
