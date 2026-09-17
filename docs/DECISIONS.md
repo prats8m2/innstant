@@ -1338,3 +1338,111 @@ its own URL, and the middleware is the only code that sees it, so it forwards
 `x-pathname` and `requestPathname()` reads it back — rejecting anything that is
 not an internal path, the same check `safeNext()` already makes on the other
 side.
+
+### D-046 · The ops console gets a rail, panels and shared column tracks
+The console had grown eight screens on a layout built for two: one 960px column,
+a wrapping top bar of every link, and a single `.dish` row class doing duty for
+dishes, rooms, floors, room types, staff, roles and request types. It worked, and
+it did not read as a thing a hotel runs its day on.
+
+**The evidence was already in the stylesheet.** Three separate comments described
+fighting the same problem — `.typeForm`, `.checkoutDecide` and `.roomForm` each
+set `flex-basis: 100%; order: 1` to escape a flex row that squeezed them, and one
+of them says out loud that "nine fields as a flex item squeezed the name into a
+three-character column". A fourth comment records the top bar covering a page at
+412px once a sixth nav item made it wrap. Each was patched where it hurt.
+
+**The rail.** Navigation moved to a left rail with named groups (Today, Service,
+Setup, Floor screens). A console has horizontal room and no vertical room, which
+is the axis the bar was competing for; a rail also has somewhere to put group
+names, so eight destinations stop being one undifferentiated list. Below 960px it
+lies down into a strip that SCROLLS rather than wraps — wrapping is what put a
+sticky second line on top of the page.
+
+**It is filtered by permission.** The front desk could see Menu, Property and
+Staff and got a refusal from each. A console full of links that refuse is how
+staff learn not to trust the console. Presentation only: every page re-checks
+server-side and every action checks again.
+
+**Panels.** A section is a bordered card with a header strip instead of two lines
+under a hairline. Six sections on the property screen previously had no edges at
+all, so there was nothing to tell a GM where floors stopped and rooms began.
+
+**Rows are a grid with shared tracks.** `.dish` is `grid-auto-flow: column` with
+one flexible first track, so a row with four controls and a row with two do not
+wrap differently — a fixed `1fr auto` template put the third control on its own
+line, which is what made every staff row and every empty room two lines tall.
+
+The front desk goes further and uses `subgrid`: the LIST owns six tracks and each
+row borrows them. Per-row grids were not enough, because an `auto` track sizes to
+its own row's content — an occupied room (Vouch, Check out) and an empty one
+(Check someone in) produced different widths, and the header printed STICKER four
+hundred pixels from the stickers. The board went from 4,728px to ~3,100px for the
+same 34 rooms, one line each, with columns that line up.
+
+**Row forms are anchored, not inserted.** A `<details>` that belongs to a row now
+opens as a panel positioned against it. Inserting it pushed thirty rooms down the
+page and moved the row out from under the cursor, and no `grid-column` reaches a
+form nested two elements deep inside a cell — which the reprint form is. The cost
+is that `.section` gives up `overflow: hidden`; below 960px it goes back to being
+an ordinary block, because a 600px panel anchored to the right of a 380px screen
+is off it.
+
+**Three status tones, named for meaning.** `--status-positive`,
+`--status-attention`, `--status-critical`. One saffron span had been carrying
+"out of service", "you", "retired", "not signed in" and "switched off", and a
+Delete button read exactly like a late ticket. `--clay` is the new colour and
+clears AA on all three surfaces (asserted). Destructive buttons are outlined
+rather than filled: findable without dragging the eye down a column of thirty.
+
+**`data-available` was two opposite things.** It meant "dish is on tonight",
+"type is not archived", "account is not disabled" — and on the front desk "room
+is EMPTY". The CSS dimmed `[data-available='false']`, so every occupied room, the
+rows a desk actually works from, rendered its number in the faintest colour on
+the page. Visual state is now `data-muted`, which says one thing.
+
+**The overview became a dashboard.** It was ten cards, one per destination — the
+front page doing the menu's job because the menu could not do it. The rail does
+that now, so the page answers the question a GM actually opens it with: four
+numbers (rooms occupied, requests open and how many are past their promise,
+tickets up, checkouts waiting), then the things with a clock on them. Every
+number comes from the service function the screen behind it already calls, and is
+skipped entirely for an account that cannot open that screen.
+
+**Cost / when to revisit.** `subgrid` is used on one list; where it is missing the
+rows fall back to sizing themselves, which is what they did before. The room
+board still shows three sticker buttons on every row — aligned now, but 102
+buttons for something used rarely, and worth collapsing when the e2e no longer
+needs each one addressable. Floor panels are separate grids, so column widths
+differ slightly BETWEEN floors; within a floor, which is the scanning unit, they
+agree.
+
+### D-047 · A `<select>` must contain the value it is showing
+Found by looking at the property screen after the panel work: The Kesari's
+timezone read **Africa/Abidjan**.
+
+Nothing had gone wrong with the write path. `Intl.supportedValuesOf('timeZone')`
+returns whatever spelling the runtime's ICU considers canonical, and on the Node
+this is built with that is `Asia/Calcutta` — while `provisionProperty()` stores
+`Asia/Kolkata`, which is what every property in the product is on. So the list
+had 418 valid zones and not the one zone that mattered.
+
+A `<select>` whose `value` matches no `<option>` does not render empty. The
+browser selects the FIRST option. The field then looks like a considered answer,
+and the next submit posts it — so the e2e that types a new hotel NAME and presses
+Save moved the hotel's clock to Ivory Coast, and every guest-facing time with it
+(CLAUDE.md "Dates": everything a human sees is rendered in `properties.timezone`).
+
+**The fix is the list, not the stored value.** `offeredTimezones(current)` appends
+the current zone if the runtime does not offer it, sorted in. The obvious
+alternative — canonicalise on write so stored always matches offered — makes the
+database depend on the ICU build of whichever machine last saved: the same hotel
+would read `Asia/Kolkata` on one Node and `Asia/Calcutta` on another. Both are
+valid IANA identifiers and both resolve correctly. The one a property chose is the
+one it keeps.
+
+**The general rule, because this is not about timezones.** Any edit form that
+renders a stored value as a `<select>` must guarantee the value is among the
+options, or it will silently propose a different one and a save meant for another
+field will take it. Unit tests cover the invariant; the e2e now reads the zone
+before and after saving a name and asserts it did not move.

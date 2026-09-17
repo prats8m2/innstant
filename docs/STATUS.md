@@ -83,6 +83,18 @@ the property form grows them there rather than as dead fields now.
    remote and a Railway app service. Account-holder task.
 2. **Image upload** — blocked on R2 credentials.
 
+**The console's UI was rebuilt (D-046, D-047).** Verified: typecheck, lint, 282
+unit, 472 integration, 103 e2e — all green. Eight screens had grown on a
+layout built for two, and the old stylesheet carried three separate comments
+about fighting the same flex row. The front desk went from 4,728px to ~3,100px
+for the same 34 rooms. Two real bugs fell out: `data-available` meant "room is
+EMPTY" on the desk and "is switched on" everywhere else, so the CSS dimmed every
+OCCUPIED room — the rows the desk works from were the faintest thing on the page;
+and `Intl.supportedValuesOf('timeZone')` returns `Asia/Calcutta` on this Node
+while every property stores `Asia/Kolkata`, so the timezone `<select>` matched no
+option, fell back to the first, and a Save meant to rename the hotel wrote
+Africa/Abidjan over its clock.
+
 **Before the next demo:** migrations `0005_checkout_fee_tiers` and
 `0006_staff_invites` are applied locally and **not** on Railway. Nothing deploys
 automatically (D-025), so run `pnpm db:migrate` against `DATABASE_MIGRATION_URL`
@@ -107,6 +119,7 @@ floor before P4 is now six examples long.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3.5 | `52d8ae2` | The ops console's UI: a permission-filtered rail, panels, rows on shared column tracks, row forms anchored instead of inserted, three named status tones, and an Overview that is a dashboard. Found `data-available` dimming every OCCUPIED room, and a `<select>` that had silently moved the hotel's clock to Africa/Abidjan. |
 | P3.5 | `64c2d8e` | Staff and roles — invite by one-time link, deactivate, assign. Migration 0006. The phase's exit criterion, and the item a pilot needed first. Found two: a raw-SQL timestamp reaching `Intl` unwrapped, and every page throwing "Application error" at a revoked session instead of sending it to the sign-in form (D-045). |
 | P3.5 | `00dd2d4` | Room types and the hotel's own settings. The currency turned out to be write-once from the first charge — nothing converts a past bill and there is no exchange rate in this product. |
 | P3.5 | `a15054a` | Reprinting a sticker, which `version`'s own comment has claimed since migration 0000 and no code did. Kills the old code, keeps the guest signed in. Found GuestLink caching an assembled URL that a reprint would have made stale. |
@@ -194,6 +207,30 @@ re-read them from the seeder output, never cache one.
 
 Things that cost time to rediscover.
 
+- **A stray server on :3000 makes the whole e2e suite test the WRONG BUILD, and
+  it looks like a broken feature.** `playwright.config.ts` sets
+  `reuseExistingServer: !CI`, and its own header comment warns about this. Left
+  over from an earlier run, a `next-server` on :3000 is silently adopted as the
+  system under test, so the suite runs against a build from before your changes.
+  It cost a session: twenty-seven failures across the guest menu, the floor board
+  and the staff invite flow — areas with nothing in common, which is the tell,
+  because no single change breaks all three. `pgrep -fl next-server` and kill it
+  before believing a red suite, or use
+  `PORT=3200 NEXT_DIST_DIR=.next-e2e pnpm test:e2e`.
+- **Do NOT use local `psql` to decide whether the database is up.** It is version
+  14 against PG 18 and stalls after a successful TCP connect, with no error, for
+  30–90s — the note two bullets down has said so since P1. Mistaking that for a
+  wedged Docker port proxy cost a Docker Desktop restart that fixed nothing and
+  stopped the containers. `pnpm status` uses the `pg` driver and answers in
+  seconds; that is the probe.
+- **A `<select>` silently substitutes the first option** when its value matches
+  none of them, and the next submit writes it. See D-047 — it moved a hotel's
+  timezone. Any edit form rendering a stored value as a select needs the value
+  guaranteed present; `offeredTimezones()` does it for zones.
+- **Screenshotting the console:** build, run `.next/standalone/server.js`, and
+  kill the old server FIRST — `bundle:static` deletes the previous build's
+  hashed CSS, so a survivor serves HTML pointing at files that no longer exist
+  and every page renders unstyled. That looks exactly like a broken stylesheet.
 - **Node 22 is required.** The machine's default is Node 18, which pnpm 11
   refuses to run. `nvm use` reads `.nvmrc`. Node 18 is also past EOL.
 - **Local `psql` is 14 and hangs silently against the Railway PG 18 server** —

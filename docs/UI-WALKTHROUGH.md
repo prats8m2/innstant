@@ -47,6 +47,28 @@ emulator** — the guest app is mobile-only by design, 390px wide.
 
 ---
 
+## 0 · The console's frame
+
+Every staff screen below sits in the same frame, and it is worth thirty seconds
+before the tour starts.
+
+**The rail on the left** lists only what your account can open. Sign in as the
+front desk and Menu, Staff and The kitchen are simply not there — a console full
+of links that refuse is how staff learn not to trust the console. The groups are
+named: *Today* is the shift, *Service* is what the hotel sells, *Setup* changes a
+few times a year, *Floor screens* are the always-on tablets. On a phone the rail
+lies down into a strip that scrolls sideways.
+
+**Overview is a dashboard, not a menu.** Four numbers — rooms occupied, requests
+open and how many are past their promise, tickets in the kitchen, checkouts
+waiting — each a link to the screen that can act on it, and each skipped for an
+account that cannot open that screen. Under them, the things with a clock on
+them. A number turns saffron only when somebody has to do something.
+
+**Colour means one thing each.** Saffron is "look at this". Teal confirms. Clay
+is destructive or refused — Delete, Remove, "past its promise". Before P3.5's UI
+pass a Delete button and a late ticket were the same colour.
+
 ## 1 · The guest orders dinner
 
 1. Open the **room 214** link from the seeder output. No login, no verification
@@ -513,13 +535,15 @@ count was already on the row before the button was pressed. *Retire* on Courtyar
 works, and it stops being offered to rooms while keeping its code.
 
 **Open a floor.** *Add a floor* → name `Garden wing`, level `4` → it appears,
-empty. Levels are unique per property, so a second floor at level 4 is refused by
+empty. Each form opens anchored to its own row rather than pushing the rows below
+it down the page. Levels are unique per property, so a second floor at level 4 is refused by
 name rather than by a constraint error.
 
 **Put a room on it.** *Add a room to Garden wing* → number `401`, pick a room
 type → *"Room 401 is ready. Its QR link is on the Rooms screen."*
 
-Go to **Rooms** and find 401: it already has a public code, a **Copy link** and a
+Go to **Rooms** — thirty-four rooms, one line each, under a header that names the
+columns. Find 401: it already has a public code, a **Copy link** and a
 **Reprint**. That is the whole point — a room created without a QR code is
 invisible to the entire guest surface, and no screen would tell you, because
 every screen assumes it exists. Check somebody in and scan it: it opens their
