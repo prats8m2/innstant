@@ -81,11 +81,23 @@ export interface RoomListing {
   floorId: string;
   floorName: string;
   roomTypeName: string | null;
+  roomTypeId: string;
+  /** Set only when the caller asked for out-of-service rooms too. */
+  archivedAt?: Date | null;
 }
 
 export async function listRoomsAtProperty(
   tx: Tx,
-  input: { propertyId: string },
+  input: {
+    propertyId: string;
+    /**
+     * The setup screen needs them — it is the only place a room comes BACK from
+     * being out of service, and a room you cannot see is a room you cannot
+     * restore. Every operational screen wants the default: a room out of service
+     * is not one the desk can put anybody in.
+     */
+    includeArchived?: boolean;
+  },
 ): Promise<RoomListing[]> {
   return tx
     .select({
@@ -94,12 +106,38 @@ export async function listRoomsAtProperty(
       floorId: rooms.floorId,
       floorName: floors.name,
       roomTypeName: roomTypes.name,
+      roomTypeId: rooms.roomTypeId,
+      archivedAt: rooms.archivedAt,
     })
     .from(rooms)
     .innerJoin(floors, eq(floors.id, rooms.floorId))
     .leftJoin(roomTypes, eq(roomTypes.id, rooms.roomTypeId))
-    .where(and(eq(rooms.propertyId, input.propertyId), isNull(rooms.archivedAt)))
+    .where(and(
+      eq(rooms.propertyId, input.propertyId),
+      ...(input.includeArchived ? [] : [isNull(rooms.archivedAt)]),
+    ))
     .orderBy(asc(floors.sortOrder), asc(floors.level), asc(rooms.number));
+}
+
+/** The room types a room can be given. Archived ones are not offered. */
+export interface RoomTypeOption {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export async function listRoomTypes(
+  tx: Tx,
+  input: { propertyId: string },
+): Promise<RoomTypeOption[]> {
+  return tx
+    .select({ id: roomTypes.id, name: roomTypes.name, code: roomTypes.code })
+    .from(roomTypes)
+    .where(and(
+      eq(roomTypes.propertyId, input.propertyId),
+      isNull(roomTypes.archivedAt),
+    ))
+    .orderBy(asc(roomTypes.sortOrder), asc(roomTypes.name));
 }
 
 /**

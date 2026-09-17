@@ -69,6 +69,17 @@ export default async function GuestPage({
   const maySettle = can(session, propertyId, 'folio:settle');
 
   /**
+   * The bill is behind `folio:read`, not `guest:read`.
+   *
+   * This page was gated on `guest:read` alone, which CONCIERGE holds and
+   * `folio:read` deliberately is not — so a concierge could read a guest's
+   * spending. permissions.ts separates read, write and money on purpose
+   * ("`folio:read` is a support question; `payment:refund` is cash leaving the
+   * building") and the screen was quietly collapsing two of the three.
+   */
+  const maySeeFolio = can(session, propertyId, 'folio:read');
+
+  /**
    * Minted here, on the server, once per render — so a double-click posts the
    * same key twice and takes the money once (#8). The cart's send button has
    * done this since P1 for the same reason.
@@ -136,7 +147,7 @@ export default async function GuestPage({
         />
       </section>
 
-      {statement ? (
+      {statement && maySeeFolio ? (
         <section className={styles.section}>
           <header className={styles.sectionHead}>
             <h2 className={styles.sectionTitle}>On the room now</h2>

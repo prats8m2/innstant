@@ -2466,3 +2466,152 @@ test.describe('settling up', () => {
       .toHaveCount(1, { timeout: 25_000 });
   });
 });
+
+/**
+ * P3.5 — a hotel opening a floor and putting rooms on it.
+ *
+ * `provisionProperty()` did this in one transaction and was the only thing that
+ * ever did, so the claim worth an end-to-end test is the one it used to
+ * guarantee by construction: a room added from a screen is a room a guest can
+ * scan into.
+ */
+test.describe('the building', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
+
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'adding a floor to the shared demo property is one-copy state',
+  );
+
+  async function signInAsGm(page: Page): Promise<void> {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('gm@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  }
+
+  test('opens a floor, puts a room on it, and the room can be scanned into',
+    async ({ browser }) => {
+      const desk = await browser.newContext();
+      const admin = await desk.newPage();
+      await signInAsGm(admin);
+      await admin.goto('/admin/property');
+
+      // A floor.
+      await admin.getByRole('group').filter({ hasText: 'Add a floor' })
+        .locator('summary').click();
+      await admin.locator('input[name="name"]').last().fill('Garden wing');
+      await admin.locator('input[name="level"]').last().fill('4');
+      await admin.getByRole('button', { name: 'Add the floor' }).click();
+      await expect(admin.getByRole('heading', { name: 'Garden wing' }))
+        .toBeVisible({ timeout: 25_000 });
+
+      // And a room on it.
+      await admin.getByRole('group').filter({ hasText: 'Add a room to Garden wing' })
+        .locator('summary').click();
+      const form = admin.locator('details').filter({ hasText: 'Add a room to Garden wing' });
+      await form.locator('input[name="number"]').fill('401');
+      await form.getByRole('button', { name: 'Add it to Garden wing' }).click();
+      await expect(admin.getByText(/Room 401 is ready/)).toBeVisible({ timeout: 25_000 });
+
+      /**
+       * The QR code is the point. A room created without one is invisible to the
+       * entire guest surface and no screen would tell you, because every screen
+       * assumes it exists.
+       */
+      await admin.goto('/admin/rooms');
+      const row = admin.locator('li[data-room="401"]');
+      await expect(row).toBeVisible({ timeout: 25_000 });
+      const code = (await row.locator('code').first().textContent())!.trim();
+      expect(code).toBeTruthy();
+
+      // Check somebody in, because a sticker with no stay behind it correctly
+      // resolves to nothing.
+      await row.getByRole('group').filter({ hasText: 'Check someone in' })
+        .locator('summary').click();
+      await row.locator('input[name="fullName"]').fill('Garden Guest');
+      await row.locator('input[name="phone"]').fill('+919820015151');
+      await row.getByRole('button', { name: 'Check in to 401' }).click();
+      await expect(admin.locator('li[data-room="401"]')).toContainText('Garden Guest', {
+        timeout: 25_000,
+      });
+
+      // And a phone in the corridor reaches it.
+      const phone = await browser.newContext({ ...devices['Pixel 7'] });
+      const guest = await phone.newPage();
+      await guest.goto(`/r/${code}`);
+      await expect(guest).toHaveURL(new RegExp(`/r/${code}/home$`), { timeout: 25_000 });
+      await expect(guest.getByText('Room 401').first()).toBeVisible();
+
+      await desk.close();
+      await phone.close();
+    });
+
+  /**
+   * The sticker has to die with the room — otherwise a code in a corridor
+   * resolves to a real property for ever.
+   */
+  test('taking a room out of service kills its sticker', async ({ browser }) => {
+    const desk = await browser.newContext();
+    const admin = await desk.newPage();
+    await signInAsGm(admin);
+
+    await admin.goto('/admin/rooms');
+    const code = (await admin.locator('li[data-room="401"]').locator('code').first()
+      .textContent())!.trim();
+
+    // Check the guest out first — a room with somebody in it is refused.
+    await admin.locator('li[data-room="401"]').getByRole('button', { name: 'Check out' }).click();
+    await expect(admin.locator('li[data-room="401"]')).toContainText('empty', {
+      timeout: 25_000,
+    });
+
+    await admin.goto('/admin/property');
+    const room = admin.locator('li[data-room="401"]');
+    await room.getByRole('button', { name: 'Take out' }).click();
+    await expect(admin.locator('li[data-room="401"]')).toContainText('out of service', {
+      timeout: 25_000,
+    });
+
+    const phone = await browser.newContext({ ...devices['Pixel 7'] });
+    const guest = await phone.newPage();
+    await guest.goto(`/r/${code}`);
+    await expect(guest.getByText('Room 401')).toHaveCount(0, { timeout: 25_000 });
+
+    // And it is gone from the desk's screen, which is about rooms in service.
+    await admin.goto('/admin/rooms');
+    await expect(admin.locator('li[data-room="401"]')).toHaveCount(0);
+
+    await desk.close();
+    await phone.close();
+  });
+
+  test('refuses to delete a floor that still holds a room', async ({ page }) => {
+    await signInAsGm(page);
+    await page.goto('/admin/property');
+
+    const floor = page.locator('li').filter({ hasText: 'Garden wing' }).first();
+    await floor.getByRole('button', { name: 'Delete' }).click();
+    await expect(page.getByText(/still on this floor/)).toBeVisible({ timeout: 25_000 });
+  });
+
+  /**
+   * `room:manage` is PROPERTY_ADMIN's. A front desk that can check people in has
+   * no business renumbering a wing — permissions.ts has kept `room:read` and
+   * `room:manage` apart since S5 with nothing using either.
+   */
+  test('lets the front desk look and change nothing', async ({ page }) => {
+    await page.goto('/admin/login');
+    await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
+    await page.locator('input[name="password"]').fill('kesari-demo-2026');
+    await page.getByRole('button', { name: 'Sign in' }).click();
+    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    await page.goto('/admin/property');
+    await expect(page.getByRole('heading', { name: 'Floors' })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('group').filter({ hasText: 'Add a floor' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+  });
+});

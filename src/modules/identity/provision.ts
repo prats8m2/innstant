@@ -73,8 +73,10 @@ export interface ProvisionedProperty {
 }
 
 /** Public QR codes are short, unambiguous, and not sequential — a sequential
- *  code invites walking the range from a corridor. */
-function newPublicCode(): string {
+ *  code invites walking the range from a corridor. Exported so a room added
+ *  after provisioning mints one the same way (P3.5) — two generators would be
+ *  two answers to "how guessable is a sticker". */
+export function newPublicCode(): string {
   return randomBytes(9).toString('base64url');
 }
 

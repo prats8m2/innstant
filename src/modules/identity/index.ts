@@ -25,15 +25,23 @@ export { seedSystemRoles } from './seed-roles';
 
 export {
   findRoomAtProperty, findRoomByNumber, findProperty, listFloors, describeRoom,
-  listRoomsAtProperty, liveQrCodesForProperty,
+  listRoomsAtProperty, liveQrCodesForProperty, listRoomTypes,
 } from './rooms';
 export { listRolesAtProperty } from './roles';
 export type { PropertyRole } from './roles';
 export type {
   RoomRef, PropertySettings, FloorRef, RoomDescription, RoomListing, RoomQrCode,
+  RoomTypeOption,
 } from './rooms';
 
 export { provisionProperty, provisionTenant } from './provision';
+
+/** P3.5 — the building: floors and the rooms on them. */
+export {
+  createFloor, renameFloor, deleteFloor,
+  createRoom, updateRoom, archiveRoom, restoreRoom,
+} from './property-setup';
+export type { FloorInput, RoomInput, CreatedRoom } from './property-setup';
 export type {
   ProvisionPropertyInput, ProvisionedProperty, RoomSeed, RoomTypeSeed, FloorSeed,
 } from './provision';

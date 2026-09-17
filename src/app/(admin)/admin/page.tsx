@@ -34,6 +34,7 @@ export default async function AdminHome() {
   const mayEditMenu = can(session, propertyId, 'catalog:read');
   const maySeeRequests = can(session, propertyId, 'request:read');
   const maySeeStays = can(session, propertyId, 'stay:read');
+  const maySeeBuilding = can(session, propertyId, 'room:read');
 
   return (
     <AdminShell
@@ -97,6 +98,17 @@ export default async function AdminHome() {
             </span>
           </Link>
         </li>
+
+        {maySeeBuilding ? (
+          <li className={styles.card}>
+            <Link href="/admin/property" className={styles.cardLink}>
+              <span className={styles.cardTitle}>The building</span>
+              <span className={styles.cardBody}>
+                Floors and rooms. A room added here gets its own QR sticker.
+              </span>
+            </Link>
+          </li>
+        ) : null}
 
         {maySeeStays ? (
           <li className={styles.card}>
