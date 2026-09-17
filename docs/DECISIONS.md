@@ -1054,3 +1054,287 @@ than pretending. That is the next item in the phase, along with staff and roles,
 QR reprint and property settings. Client onboarding stays out entirely: creating
 a tenant is above the tenant boundary, every page runs inside `withTenant()`, and
 it changes the tenancy model.
+
+### D-041 · A reprint kills the sticker and keeps the guest, because sessions bind to the stay
+`room_qr_codes.version` has carried the comment *"reprinting a sticker
+invalidates the old one"* since migration 0000, and `qr:regenerate` has been a
+declared permission since S5. Neither was true of any code path in the product.
+A sticker peels off the nightstand, gets covered in chai, or is photographed in
+the lift by somebody who is not a guest — and the only route back was a database
+write. This is the same shape as the rest of P3.5: a rule stated in a comment and
+a permission stated in a list, describing behaviour that had never once run.
+
+**The old code dies immediately.** `regenerateQrCode()` revokes every live code
+for the room before issuing the new one, so `scanQrCode()` refuses the old one
+from that moment. That is the entire point of the feature and the reason it has
+its own permission rather than riding inside `room:manage` — killing a code that
+strangers may be holding is a different act from renumbering a wing.
+
+**It deliberately does NOT sign the current guest out.** Sessions bind to
+`stay_id`, never to the room and never to the code (#10), so the phone already on
+the nightstand keeps working; only a fresh scan needs the fresh sticker. This
+looks like a gap and is the opposite. The room whose code got photographed is
+almost always an OCCUPIED one, and a desk that believes a reprint evicts the
+guest in it will not press the button — leaving the compromised code live, which
+is the failure the feature exists to prevent. The control has to be usable at the
+moment it is needed, and the UI says so where the desk reads it.
+
+**`version` counts stickers printed, not stickers live.** It is derived from
+`max(version) + 1` rather than a row count, so a room reprinted, taken out of
+service and restored reads 1, 2, 3 — the number in `event_log` is the number on
+the plastic. A count would let a row deleted by hand produce two stickers both
+claiming to be the second, which is precisely the ambiguity an audit trail exists
+to remove. `createRoom`, `restoreRoom` and the reprint now share one issuer;
+three copies of that insert were three places for the numbering to drift.
+
+**Refused on a room that is out of service.** Its codes are already revoked, and
+minting a live one would hang a working sticker on a door the desk cannot put
+anybody behind. Restoring the room is the way, and it issues one.
+
+**The code is never logged** — not to `event_log`, which anything holding
+`audit:read` can read, and not to `logger`, which is the output most likely to be
+shipped somewhere else. The event carries the version, which says WHICH sticker
+without saying what it opens. Same rule as `room.created` in D-040.
+
+**Cost.** A reprint is not undoable: the previous code is gone and any sticker
+already printed from it is scrap. That is correct — a revocation somebody can
+reverse is not a revocation — but it means the control belongs behind a
+disclosure rather than beside Copy link, which is pressed all day and is
+harmless.
+
+### D-042 · Room types are editable; there is still nowhere to put a price
+EXTENSION-POINTS §1 calls `room_types` the single most expensive thing that could
+be deferred: rates and inventory are priced per room TYPE, so booking cannot
+exist without the table, and retro-fitting it means reconciling a varchar's typos
+across live data. The table has existed since 0000. Only `provisionProperty()`
+ever wrote to it — so a hotel that opened a new class of room could not describe
+one, and `/admin/property` said so out loud rather than pretending: *"This
+property has no room types, so a room has nothing to be."*
+
+**#11 holds with no exception.** There is no price field on this form and no
+`*_minor` column added to the table. A price belongs to a rate plan for a type on
+a DATE — `rate_plans` and `rate_calendar` are reserved names (#12) and this is
+the table they will attach to. A `nightly_rate` added "just for the setup screen"
+would commit the model to per-type flat pricing before the rate calendar exists
+to disagree with it, which is the same mistake #11 forbids one level down on
+`rooms`.
+
+**Retiring is refused while any room is that type.** `rooms.room_type_id` is NOT
+NULL, so such a type cannot be deleted — and must not be archived either:
+`listRoomTypes()` stops offering an archived type, so the rooms on it would point
+at something the edit form can no longer re-select, and the first person to touch
+an unrelated field on one of those rooms would be told to pick a room type that
+is not there. Archived ROOMS count towards the refusal too, because they still
+hold their type by FK and restoring one has to find it selectable.
+
+**The count is shown before the button, not after the refusal.** The row reads
+"14 rooms" beside Retire, the same way `listRolesAtProperty()` reports "Concierge
+— nobody" so a manager cannot silently route requests at an empty rota. A refusal
+somebody could have been shown in advance is a refusal that should have been.
+
+**Codes are normalised on the way in** — trimmed, uppercased, and restricted to
+letters, digits, `-` and `_`. "lkv", " LKV " and "Lkv" must not become three room
+types at one hotel: a code is what a rate sheet, a PMS export and a channel
+manager will key on, and the cheapest moment to make it canonical is before the
+first row exists. A retired type keeps its code, for the same reason an archived
+room keeps its number (D-040), and the screen offers Restore instead of a 23505.
+
+**`max_occupancy` is recorded and not enforced.** Nothing in the guest product
+counts heads, and the field's hint on the form says exactly that rather than
+implying a check. It is collected now because rates and inventory will be priced
+per type and backfilling occupancy across live properties later is the expensive
+version of asking for it. `description` and `total_rooms` are deliberately NOT on
+the form — nothing reads either, and a textarea nothing displays is the same kind
+of dead surface this phase exists to remove.
+
+### D-043 · The name and the clock are editable; the currency is write-once from the first charge
+`property:update` has been a declared permission since S5 with nothing calling
+it. `provisionProperty()` set the name, timezone and currency once, and nothing
+could ever change them — so a hotel that rebranded, or one provisioned into the
+wrong timezone by a typo, had a database write as its only route. The three sit
+on `/admin/property` under "This hotel", above the building it is made of.
+
+**The currency is the interesting one, and it is effectively write-once.** #5
+says every row holding an amount carries its OWN currency beside its `*_minor`
+integer. Changing `properties.currency` converts nothing and is not meant to: a
+folio line written in INR stays INR for ever, which is correct, because it is
+what the guest was actually charged. But from the moment the property switches,
+new lines land on the SAME folio in the new currency, and `buildGuestStatement()`
+would total a bill whose rows do not agree. There is no exchange rate anywhere in
+this product, and render time is the worst imaginable place to invent one.
+
+So the change is permitted only while the property has never priced anything —
+no `orders`, no `folio_lines`, no `payments`. That is during setup, before the
+first order, which is both the only moment it is safe and, realistically, the
+only moment anybody wants it.
+
+**One query, two callers.** The screen asks `currencyIsStillOpen()` to decide
+whether the field is editable and what the hint says; `updatePropertySettings()`
+asks the same function again inside the SAME transaction as the write, so a first
+order placed between the render and the save cannot slip through. Two queries
+here would be two answers to one question, and the screen's is the one people
+would trust. Same shape as the occupancy guard in D-040.
+
+**The field is `readOnly`, not `disabled`.** A disabled input posts nothing, and
+"nothing" would arrive at a Zod schema that requires three letters — turning a
+correct refusal into a validation error about a field the user could not touch.
+Read-only keeps the current value in the post, so the server sees no change and
+says nothing.
+
+**Timezones come from `Intl.supportedValuesOf('timeZone')`, and validation uses
+the same source.** A hand-kept list goes stale the first time a customer opens in
+a country nobody thought of. More importantly, a bad zone is not cosmetic: kitchen
+hours, availability windows, business-day rollovers and every time a guest reads
+are property-local (CLAUDE.md "Dates"), so `Asia/Kolkatta` stored today surfaces
+weeks later as a guest reading "by 3:26 am" rather than as an error now.
+`Asia/Calcutta` is a genuine IANA alias and is accepted, because the tz database
+says so and we are not more clever than it.
+
+**Saving revalidates the whole layout, not two routes.** The property name is in
+the admin bar on every screen and the timezone decides what "today" means on the
+kitchen's hours, the desk's due-out column and the guest's checkout day. A
+targeted `revalidatePath('/admin/property')` would leave every other screen
+rendering the old clock until something else happened to invalidate it.
+
+**`branding` is deliberately absent.** It is a WCAG-validated token set rather
+than a text field (D-016), it is the theme editor, and it belongs to P5.
+`slug` is absent too: it is in a unique index with the tenant and changing it
+would break links people have already saved.
+
+### D-044 · An invite is a link a manager hands over, and a property is never left without an admin
+`provisionProperty()` has created exactly one PROPERTY_ADMIN as INVITED with
+`password_hash` NULL since P0, and S5 never built the flow that fills it in. So
+the only account that could ever sign in was one the demo seeder wrote a password
+for directly, a hotel's second staff member was a seeder run, and `staff:invite`,
+`staff:update`, `staff:deactivate`, `role:read` and `role:assign` were five more
+declared permissions with no caller. This is the item a pilot needs before any of
+the others matter.
+
+**The invite is a LINK, not an email, because there is no mail provider.**
+Adding one is a decision rather than a session (CLAUDE.md "Ask before"), and the
+honest thing in its absence is the shape a mail provider would send anyway: a
+one-time URL the manager copies out of the screen and hands over — in person,
+over WhatsApp, however they already talk to their staff. The same shape as the
+guest link on the room list. When mail arrives it sends this link and nothing
+about `staff_invites` changes.
+
+**It is stored as SHA-256 only** (#10, the same rule as staff and guest session
+tokens), so the plaintext exists exactly once, in the response that created it,
+and travels back in the Server Action's own result rather than being fetched by
+the row that displays it. Lose it and you issue another; there is nothing to
+recover. It is never written to `event_log` — which anything holding `audit:read`
+can read — and never to the logger.
+
+**One live invite per person**, enforced by a partial unique index, the same
+shape as D-007's one-CHECKED_IN-stay-per-room. Re-inviting revokes first, so the
+newest link is always the only one that works. Without it, revoking the link a
+manager can see leaves an older one alive — the exact opposite of what they just
+did. 72 hours, because a link that sets a credential should not sit in a chat
+window for a month.
+
+**Accepting sets the password AND burns the token in one transaction**, then
+issues a session and signs them straight in. A password written without
+`accepted_at` leaves a live link that can set it again, which is a credential
+reset anybody holding the old message can perform. And signing in here rather
+than redirecting to the login form means somebody who has just typed a password
+twice does not type it a third time.
+
+**Every invite failure reads the same** — unknown, expired, revoked, already
+used. One message, like `QrNotUsableError`: somebody probing the URL learns
+nothing from which, and the person holding a real link needs the same instruction
+either way, which is to ask for a new one.
+
+**The invariant: a property is never left without an active PROPERTY_ADMIN.**
+`assertNotTheLastAdmin()` guards both deactivation and role revocation, counting
+everyone except the person being changed and excluding only DISABLED accounts —
+an INVITED admin counts, because they hold the role and a link that makes them
+able to use it, which is the same reasoning `listRolesAtProperty()` gives for
+counting them in a rota. You also cannot switch off the account you are holding.
+Without this a hotel locks itself out of its own console on a Tuesday afternoon,
+with no route back that does not involve us and a database prompt.
+
+**Deactivating revokes every session in the same transaction.** A staff session
+lives for its TTL, so flipping the status alone would leave the kitchen screen
+they are still logged into working until the cookie aged out. Their roles and
+history stay — a DISABLED account cannot sign in at all, so removing the roles
+would only lose the record of what they did and make a rehire a rebuild.
+
+**Reactivating goes to INVITED, not ACTIVE.** Handing an old password back to
+somebody who was walked out of the building is not a decision a "Switch on"
+button should make silently, so the hash is cleared and a fresh link is the way
+back.
+
+**A role cannot be taken away if it is somebody's only one here.** An account
+with no role at a property can sign in, sees a console with nothing in it, and
+gives nobody any clue why. Switching the account off is the honest way to stop
+somebody working here, and it is one button along.
+
+**One email is one account per TENANT** (`staff_users_tenant_email_uq`), which
+D-006 made deliberate: a group with six hotels is one tenant, and its F&B manager
+is one person with roles at three of them, not three logins. So "invite anita@ to
+this property" is a new row the first time and a new `staff_property_roles` grant
+every time after — one button, because the manager cannot see which case they are
+in and should not have to. An already-ACTIVE colleague gaining a second property
+gets no link at all: they have a password, and minting one would put a live
+credential-setting URL in a chat window for nothing.
+
+**The invite page is the second and last signed-out staff page**, and the
+middleware's exempt list now names both. Gating it would redirect a new staff
+member to a login form for an account they cannot yet log in to. Which tenant a
+signed-out browser belongs to is the open tenancy question `/admin/login` already
+documents; `login/tenant.ts` now holds that single stopgap answer so both pages
+change in one place when it is settled. No third unscoped query was added —
+`resolve_qr_routing()` and `sla_sweep_properties()` remain the only two, and the
+invite token is resolved under `withTenant()` like everything else.
+
+**Cost / when to revisit.** There is no self-service password reset: a staff
+member who forgets theirs asks a manager for a new link, which is the same
+mechanism and one more person. That is acceptable at a single hotel and will not
+be at fifty — and the fix is the mail provider that is already the prerequisite
+for the reset flow, so nothing here has to be undone first. Custom roles are
+assignable but not yet creatable; `roles.property_id` and
+`roles_tenant_property_key_uq` have supported them since 0000, and `role:manage`
+is still a permission with no caller.
+
+### D-045 · A page with no session redirects; only an action throws
+Found by the P3.5 staff e2e: somebody switched off mid-shift, reloading the
+screen they were already on, got **"Application error"** instead of the sign-in
+form.
+
+The mechanism was three years of correct comments pointing at each other.
+`src/middleware.ts` is explicit that it is a cookie turnstile and nothing more —
+the edge runtime cannot open a TCP connection to Postgres, so it waves through
+anybody HOLDING a cookie, including one that has been revoked or has expired, and
+says so out loud: *"treat a redirect from here as a UX affordance, never as a
+security boundary."* `guard.tsx` was equally explicit that a thrown error in a
+Server Component has no mapping to run and renders the error boundary — which is
+exactly why `adminAccess()` exists for the PERMISSION case. Between them,
+`requireStaffSession()` threw `UnauthenticatedError` from inside every page, and
+nobody had joined the two comments up.
+
+It was reachable the whole time — an ordinary session expiry did it — and went
+unnoticed because nothing could revoke a session mid-shift. `deactivateStaff()`
+(D-044) revokes every session in the same transaction as the status change, which
+made it happen on purpose, in front of a test, on the surface where it matters
+most: an always-on kitchen tablet.
+
+**The rule, stated once so it stops being rediscovered:**
+
+| Caller | No session |
+|---|---|
+| Page (Server Component) | `getStaffSession()`, then `redirect('/admin/login?next=…')` |
+| Server Action, route handler | `requireStaffSession()` / `requirePermission()` — throw, mapped to a status in one place |
+
+`adminAccess()` and all three ops surfaces now redirect. `requireStaffSession()`
+keeps exactly one caller — a Server Action — and its doc comment now says pages
+must not use it.
+
+**A missing PERMISSION still renders a sentence, not a redirect.** They are
+signed in; sending them to a login form they have already passed would be a loop,
+and "this account cannot do this" is the true and actionable thing to say.
+
+**The pathname comes from the middleware.** Next does not hand a Server Component
+its own URL, and the middleware is the only code that sees it, so it forwards
+`x-pathname` and `requestPathname()` reads it back — rejecting anything that is
+not an internal path, the same check `safeNext()` already makes on the other
+side.

@@ -484,12 +484,33 @@ const {Client}=require("pg");
 `agreedFeeMinor` and `chargedFeeMinor` are both on the approval, and
 `sessionsExtended` says how many phones in that room kept working.
 
-## 14 · The building — `/admin/property`
+## 14 · The property — `/admin/property`
 
-Sign in as **gm@thekesari.example** and open **Building**. Four floors, 34 rooms.
-This is the screen that did not exist until P3.5: every floor and room in the
-demo was created by `provisionProperty()`, and the only way to add one was to
-edit the seeder and wipe the property.
+Sign in as **gm@thekesari.example** and open **Property**. The hotel's own
+settings, three room types, four floors, 34 rooms. This is the screen that did
+not exist until P3.5: all of it was created by `provisionProperty()` and the only
+way to change any of it was to edit the seeder and wipe the property.
+
+**Rename the hotel.** *This hotel* → change the name → it changes in the bar
+above, on every screen. The timezone is a list of every zone the runtime knows,
+and it is not cosmetic: kitchen hours, availability windows, business-day
+rollovers and every time a guest reads are rendered in it.
+
+**The currency is read-only**, and says why: *"this hotel has already charged in
+it, and nothing converts a past bill."* Every row holding an amount carries its
+own currency (#5), a folio line written in INR stays INR for ever, and there is
+no exchange rate anywhere in this product. On a property that has never taken an
+order the field is editable — that is the only moment it is safe.
+
+**Add a room type.** *Add a room type* → name `Courtyard`, code `cyd` → it
+appears as **CYD**, normalised, with *"no rooms"* beside it. A code is what a rate
+sheet will key on, so "cyd", " CYD " and "Cyd" must not become three room types
+at one hotel. There is no price field, and there is nowhere to put one: a price
+belongs to a rate plan for a type on a date (#11).
+
+*Retire* on **LKV** is refused — *"14 rooms are still a Lake view"* — and the
+count was already on the row before the button was pressed. *Retire* on Courtyard
+works, and it stops being offered to rooms while keeping its code.
 
 **Open a floor.** *Add a floor* → name `Garden wing`, level `4` → it appears,
 empty. Levels are unique per property, so a second floor at level 4 is refused by
@@ -498,12 +519,20 @@ name rather than by a constraint error.
 **Put a room on it.** *Add a room to Garden wing* → number `401`, pick a room
 type → *"Room 401 is ready. Its QR link is on the Rooms screen."*
 
-Go to **Rooms** and find 401: it already has a public code and a **Copy link**.
-That is the whole point — a room created without a QR code is invisible to the
-entire guest surface, and no screen would tell you, because every screen assumes
-it exists. Check somebody in and scan it: it opens their room home.
+Go to **Rooms** and find 401: it already has a public code, a **Copy link** and a
+**Reprint**. That is the whole point — a room created without a QR code is
+invisible to the entire guest surface, and no screen would tell you, because
+every screen assumes it exists. Check somebody in and scan it: it opens their
+room home.
 
-**Take it out of service.** Back on Building, *Take out* on 401. The sticker dies
+**Reprint a sticker.** *Reprint* → *Issue a new code*. The code on the row
+changes, the old link resolves to nothing, and the new one opens the room. The
+guest already in 401 stays signed in on their phone — sessions bind to `stay_id`,
+never to the room or the code (#10) — which is why a desk can do this to an
+occupied room, and the occupied room is exactly the one whose code got
+photographed in the lift.
+
+**Take it out of service.** Back on Property, *Take out* on 401. The sticker dies
 with it — paste the link you copied and it resolves to nothing, which is what
 stops a code in a corridor working for ever. The room leaves the desk's Rooms
 screen entirely; it is still here, marked *out of service*.
@@ -523,10 +552,63 @@ an error nobody can act on:
   deleted, and still holds its number. Restore it instead."*
 
 **Signed in as the front desk**, the page reads the same and has no controls at
-all. `room:read` and `room:manage` are separate permissions and only
-PROPERTY_ADMIN holds the second.
+all — the hotel's settings are a sentence rather than a form. `room:read` and
+`room:manage` are separate permissions, `property:read` and `property:update` are
+another pair, and only PROPERTY_ADMIN holds the second of each. The desk keeps
+**Reprint** on the Rooms screen, because `qr:regenerate` is theirs: they are who
+notices a peeled sticker, and they do not renumber wings.
 
-## 15 · The front desk — `/admin/rooms`
+## 15 · Staff — `/admin/staff`
+
+Still as **gm@thekesari.example**, open **Staff**. Two people, and until P3.5 that
+number could not change: `provisionProperty()` creates one PROPERTY_ADMIN as
+INVITED with no password, S5 never built the flow that gives them one, and the
+demo's GM can only sign in because `demo:reset` writes their password directly.
+
+**Invite somebody.** *Add somebody* → a name, an email, pick **Front desk** →
+*Invite them*. A link appears, with a **Copy the link** button. That is the only
+time it is ever shown: only its SHA-256 is stored (#10), the same rule as a
+session token, so losing it means issuing another rather than recovering this one.
+There is no mail provider in this product, so the manager hands the link over the
+way they already talk to their staff — which is the shape a mail provider would
+send anyway.
+
+They appear in the list straight away, marked *not signed in*.
+
+**Open the link in a different browser.** It greets them by name, shows the email
+they will sign in with, and asks for a password twice. Set it and they land on
+the console already signed in — not back at a login form to type it a third time.
+Open the same link again: *"This link has expired."* It works once.
+
+Every failure reads the same — unknown, expired, revoked, already used — because
+somebody probing that URL should learn nothing from which, and the person holding
+a real link needs the same instruction either way.
+
+**Switch them off.** Their sessions die in the same transaction, so the screen
+they are logged into stops working immediately rather than when the cookie ages
+out — reload it and they land on the sign-in form, with a `?next=` pointing back
+at where they were (D-045). They keep their roles and their history; they simply cannot sign in.
+Switching them back on does **not** hand their old password back — it needs a
+fresh link, which is the honest thing to do to somebody who was walked out of the
+building.
+
+**Three refusals**, each protecting the same thing:
+
+- taking away the last property admin's role, or switching them off — *"This is
+  the only property admin here"*. A hotel that locks itself out of its own
+  console has no route back that does not involve us and a database prompt;
+- switching off the account you are holding — the button is not even drawn;
+- taking away somebody's only role here — an account with no role can sign in,
+  sees an empty console, and gives nobody any clue why. Switch it off instead.
+
+**The Roles list at the bottom** shows a head count per role, including *nobody*.
+That is not decoration: `request_types.route_to_role_key` routes to whoever holds
+a role here, so a role nobody holds is a queue nobody is watching.
+
+**Signed in as the front desk**, this screen is not theirs at all — `staff:read`
+is PROPERTY_ADMIN's.
+
+## 16 · The front desk — `/admin/rooms`
 
 Sign in as **frontdesk@thekesari.example** and open **Rooms**. Thirty-four rooms
 in key-rack order, four of them occupied, each showing who is in, when they are
@@ -595,7 +677,7 @@ how many phones stopped working. Checking out does **not** take the money —
 settlement is the card machine until the rest of P3 lands, and the balance stays
 on the folio until it is.
 
-## 16 · A guest, and what we know — `/admin/guests/[id]`
+## 17 · A guest, and what we know — `/admin/guests/[id]`
 
 From **Rooms**, click a guest's name. Room 214 gets you Anjali Menon: her phone,
 how many stays she has had here, what she has spent across all of them, her
@@ -643,7 +725,7 @@ const {Client}=require("pg");
  await c.end();})();'
 ```
 
-## 17 · Settling up — taking the money at the desk
+## 18 · Settling up — taking the money at the desk
 
 The last thing D-035 left open: *"checking out does not take the money —
 settlement is still the card machine."* It still is. This records it.
@@ -699,7 +781,7 @@ const {Client}=require("pg");
 and saying otherwise would make reconciliation lie the first time somebody
 compared this table to a Razorpay settlement report (D-039).
 
-## 18 · The rules that only show up when you break them
+## 19 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.

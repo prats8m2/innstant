@@ -172,18 +172,24 @@ running on this for two weeks.
       code, or it is a room no sticker reaches. Archiving is refused while a
       floor holds rooms or a room holds an active stay
       *(`room:read`, `room:manage`)*
-- [ ] **Room types** — the dropdown `rooms` already points at. Never a price
-      (#11) *(`room:manage`)*
-- [ ] **QR reprint** — bump `version`, revoke the old code, next to the Copy link
-      that already exists on the room row. The one operation that invalidates
-      something physically on a nightstand *(`qr:regenerate`)*
-- [ ] **Staff and roles** — invite, edit, deactivate, assign a role at a
-      property. `provisionProperty()` creates exactly one PROPERTY_ADMIN as
-      INVITED with no password, and S5 never built the invite flow, so a second
-      staff member is currently a seeder run
-      *(`staff:*`, `role:read`, `role:assign`)*
-- [ ] **Property settings** — name, timezone, currency, address. `branding` is
-      the theme editor and stays in P5 *(`property:update`)*
+- [x] **Room types** — the dropdown `rooms` already points at. Never a price
+      (#11). Retiring one is refused while any room is it, and the count is on
+      the row before the button is pressed *(`room:manage`)* — D-042
+- [x] **QR reprint** — bump `version`, revoke the old code, next to the Copy link
+      on the room row. The one operation that invalidates something physically on
+      a nightstand — and it deliberately does not sign the guest out, because
+      sessions bind to `stay_id` (#10) and the occupied room is exactly the one
+      whose code got photographed *(`qr:regenerate`)* — D-041
+- [x] **Staff and roles** — invite, edit, deactivate, assign a role at a
+      property. The invite is a one-time LINK a manager copies and hands over,
+      because there is no mail provider and adding one is a decision rather than
+      a session. A property is never left without an active PROPERTY_ADMIN
+      *(`staff:*`, `role:read`, `role:assign`)* — D-044, migration 0006
+- [x] **Property settings** — name, timezone, currency. The currency is
+      write-once from the first charge: nothing converts a past bill and there is
+      no exchange rate in this product. `address` is still not on the form —
+      nothing reads it, and `branding` is the theme editor and stays in P5
+      *(`property:update`)* — D-043
 
 **Deliberately NOT in this phase:**
 
@@ -199,9 +205,24 @@ running on this for two weeks.
   one real bug the sweep found: the guest 360 page showed a folio behind
   `guest:read`, which CONCIERGE holds and `folio:read` deliberately is not.
 
-**Exit criterion:** a GM who has never seen a seeder can add a floor, put three
-rooms on it, print their stickers, and give the new night manager a login — and a
-guest scans one of those stickers and orders dinner.
+**Exit criterion — met.** A GM who has never seen a seeder can add a floor, put
+three rooms on it, print their stickers, and give the new night manager a login —
+and a guest scans one of those stickers and orders dinner. Covered end to end by
+the `the building` and `staff and roles` e2e suites.
+
+**What the phase left undone, on purpose:**
+
+- **No self-service password reset.** A staff member who forgets theirs asks a
+  manager for a new link — the same mechanism, one more person. Fine at one
+  hotel, not at fifty, and the fix is the mail provider that is already the
+  prerequisite for a reset flow. Nothing here has to be undone first.
+- **Custom roles are assignable, not creatable.** `roles.property_id` and
+  `roles_tenant_property_key_uq` have supported them since 0000. `role:manage` is
+  still a permission with no caller — the one this phase leaves behind.
+- **`properties.address_line`, `city`, `latitude`, `longitude`** — nothing reads
+  them. A form for fields nothing displays is the dead surface this phase exists
+  to remove; they belong with P4's concierge, which is the first thing that needs
+  to know where the hotel is.
 
 ---
 

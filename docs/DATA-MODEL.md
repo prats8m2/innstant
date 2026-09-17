@@ -154,6 +154,71 @@ hard delete is right. `rooms_property_number_uq` has no partial predicate, so an
 archived room keeps its number and the screen offers Restore rather than letting
 two 214s exist.
 
+### Staff, roles and the invite link (D-044)
+
+`staff_users` is tenant-scoped; `staff_property_roles` is what makes somebody
+staff HERE. One email is one account per TENANT
+(`staff_users_tenant_email_uq`) — D-006's whole point: a group with six hotels is
+one tenant, and its F&B manager is one person with roles at three of them.
+
+`staff_invites` (migration 0006) turns an INVITED row with no `password_hash`
+into somebody who can sign in.
+
+| Column | Note |
+|---|---|
+| `token_hash` | SHA-256 only, like `staff_sessions.token_hash` and guest sessions (#10). The plaintext exists once, in the response that created it |
+| `expires_at` | 72 hours. A credential-setting link should not sit in a chat window for a month |
+| `accepted_at` | Set in the SAME transaction as the password — a password written without it leaves a live link that can set it again |
+| `revoked_at` | Set when re-inviting, and when the account is switched off |
+
+`staff_invites_one_live_per_staff` is a partial unique index on `staff_user_id`
+`WHERE accepted_at IS NULL AND revoked_at IS NULL` — the same shape as D-007's
+one-CHECKED_IN-stay-per-room. Re-inviting revokes first, so the newest link is
+always the only one that works.
+
+Three rules the schema does not carry:
+
+| Rule | Why |
+|---|---|
+| A property always keeps one active PROPERTY_ADMIN | A hotel that locks itself out of its own console has no route back that does not involve us and a database prompt. INVITED admins count; DISABLED ones do not |
+| Deactivating revokes every `staff_sessions` row in the same transaction | A session lives for its TTL, so flipping the status alone leaves the screen they are logged into working until the cookie ages out |
+| Reactivating clears `password_hash` and goes to INVITED | Handing an old password back to somebody who was walked out of the building is not a "Switch on" button's decision to make silently |
+
+### Reprinting a sticker (D-041)
+
+`room_qr_codes.version` counts stickers PRINTED, not stickers live. It is
+`max(version) + 1`, never a row count, so a room reprinted, taken out of service
+and restored reads 1, 2, 3 and the number in `event_log` is the number on the
+plastic. `regenerateQrCode()` revokes every live code for the room and issues
+one; `createRoom` and `restoreRoom` share the same issuer.
+
+A reprint kills the old code immediately and does NOT touch `guest_sessions` —
+those bind to `stay_id`, never to the room and never to the code (#10), so the
+guest already in the room stays signed in and only a fresh scan needs the fresh
+sticker. The public code is never written to `event_log`: it reaches the guest
+surface, and `audit:read` is a wider grant than `qr:read`.
+
+### Room types and the property's own settings (D-042, D-043)
+
+`room_types` is editable from `/admin/property` (`room:manage`). Two rules the
+schema does not carry:
+
+| Rule | Why |
+|---|---|
+| A type is retired only when NO room is it, archived rooms included | `rooms.room_type_id` is NOT NULL and `listRoomTypes()` stops offering an archived type — the rooms on it would point at something the edit form cannot re-select |
+| `code` is trimmed, uppercased and `[A-Z0-9_-]` only | It is what a rate sheet, a PMS export and a channel manager key on; "lkv", " LKV " and "Lkv" must not become three types at one hotel |
+
+`room_types_property_code_uq` has no partial predicate either, so a retired type
+keeps its code — the same shape as an archived room keeping its number, and the
+screen offers Restore for the same reason.
+
+`properties.name` and `.timezone` are editable (`property:update`).
+`properties.currency` is editable only while the property has NO `orders`, no
+`folio_lines` and no `payments` — every row holding an amount carries its own
+currency (#5), nothing converts a past bill, and there is no exchange rate
+anywhere in this product. `currencyIsStillOpen()` is asked by both the screen and
+the save guard, the second inside the write's own transaction.
+
 ---
 
 ## 3. Guest identity

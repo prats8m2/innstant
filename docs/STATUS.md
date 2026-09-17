@@ -21,40 +21,61 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P3 is complete** as far as it can go without an external service. **P3.5 ·
-running the property is new and has begun** — it was not in the original six
-phases at all, and that was a gap rather than a decision.
+**P3.5 · running the property is complete.** All five items shipped, and the
+phase's exit criterion is met end to end: a GM who has never seen a seeder can
+add a floor, put rooms on it, print their stickers, and give the new night
+manager a login — and a guest scans one of those stickers and orders dinner.
 
-**Why P3.5 exists.** The plan covered the guest-facing product and its daily
-operation and never covered a hotel setting itself up. A sweep found **21 of 55
-declared permissions had no caller anywhere**; three were P4's concierge and the
-rest were this. A GM could not add a staff member, add a room, reprint a damaged
-QR sticker, or change the hotel's name — fine for a demo, fatal for the two-week
-pilot P5's exit criterion asks for.
+**Why P3.5 existed.** The original six phases covered the guest-facing product
+and its daily operation and never covered a hotel setting itself up. A sweep
+found **21 of 55 declared permissions had no caller anywhere**; three were P4's
+concierge and the rest were this.
 
-**P3.5, item by item:**
-
-- [x] **Floors and rooms (D-040)** — `/admin/property`. Add, rename, archive,
-      restore. A room minted here gets its QR code in the same transaction, which
-      is the one thing `provisionProperty()` guaranteed by construction and a
-      screen could quietly lose. Taking a room out of service revokes its
+- [x] **Floors and rooms (D-040)** — `/admin/property`. A room minted here gets
+      its QR code in the same transaction. Taking one out of service revokes its
       sticker; restoring issues a new one.
-- [ ] **Room types** — a room can only be one of the types provisioning created.
-      The screen says so rather than pretending.
-- [ ] **QR reprint** (`qr:regenerate`) — bump the version, revoke the old code,
-      beside the Copy link already on the room row.
-- [ ] **Staff and roles** (`staff:*`, `role:read`, `role:assign`) — the biggest
-      of the four. `provisionProperty()` creates exactly one PROPERTY_ADMIN as
-      INVITED with no password and S5 never built the invite flow, so a second
-      staff member is a seeder run today.
-- [ ] **Property settings** (`property:update`) — name, timezone, currency.
-      `branding` is the theme editor and stays in P5.
+- [x] **QR reprint (D-041)** — `qr:regenerate`, on the desk's room row. Kills the
+      old code, keeps the guest signed in (#10), and numbers stickers by how many
+      have been PRINTED so the audit trail matches the plastic.
+- [x] **Room types (D-042)** — editable, retirable, still no price anywhere
+      (#11). Retiring is refused while any room is that type, and the count is on
+      the row before the button is pressed.
+- [x] **Property settings (D-043)** — name and timezone freely; currency
+      write-once from the first charge, because nothing converts a past bill.
+- [x] **Staff and roles (D-044, migration 0006)** — invite by one-time link,
+      edit, deactivate, assign roles. A property is never left without an active
+      PROPERTY_ADMIN.
 
-**Not in P3.5, deliberately:** client onboarding. Creating a tenant is above the
-tenant boundary — every page runs inside `withTenant()` and a screen that creates
-tenants cannot, by definition. It needs a decision about how a platform operator
-authenticates, which changes the tenancy model, and CLAUDE.md says ask first.
-`provisionTenant()` / `provisionProperty()` remain the way, from a script.
+**The one permission this phase leaves behind is `role:manage`** — custom roles
+are assignable but not creatable. `roles.property_id` and
+`roles_tenant_property_key_uq` have supported them since 0000.
+
+**D-045 is the one to read if you read one.** A session revoked mid-shift used to
+render "Application error" on every staff page, because the middleware is a
+cookie turnstile that cannot reach Postgres and `requireStaffSession()` threw
+from inside a Server Component. Both facts were written down, in two files, years
+apart, and nobody had joined them up. The rule now: a PAGE redirects, an ACTION
+throws.
+
+**Next: P4 · concierge.** Its one external service is `GOOGLE_PLACES_API_KEY`,
+for the nightly travel-time refresh — worth asking about before the job rather
+than after the screens. `properties.address_line`, `city`, `latitude` and
+`longitude` are still write-only and P4 is the first thing that needs them, so
+the property form grows them there rather than as dead fields now.
+
+**Decisions this phase needs somebody to make, not a session:**
+
+1. **A mail provider.** The invite is a link a manager copies and hands over,
+   which is honest with no mail and exactly what mail would send. But there is no
+   self-service password reset without it — a staff member who forgets theirs
+   asks a manager for a new link. Fine at one hotel, not at fifty.
+2. **How a signed-out browser picks a tenant.** `STAFF_TENANT_ID` is the stopgap
+   and now lives in one file (`admin/login/tenant.ts`) that both signed-out pages
+   share. Subdomain, or a SECURITY DEFINER email→tenant lookup. It changes the
+   tenancy model, so CLAUDE.md says ask.
+3. **Client onboarding stays out**, for the same reason as before: creating a
+   tenant is above the tenant boundary and every page runs inside `withTenant()`.
+   `provisionTenant()` / `provisionProperty()` remain the way, from a script.
 
 **P1's remaining two:**
 
@@ -62,41 +83,33 @@ authenticates, which changes the tenancy model, and CLAUDE.md says ask first.
    remote and a Railway app service. Account-holder task.
 2. **Image upload** — blocked on R2 credentials.
 
-**One thing to do before the next demo:** migration `0005_checkout_fee_tiers` is
-applied locally and **not** on Railway. Nothing deploys automatically (D-025), so
-run `pnpm db:migrate` against `DATABASE_MIGRATION_URL` from a laptop.
+**Before the next demo:** migrations `0005_checkout_fee_tiers` and
+`0006_staff_invites` are applied locally and **not** on Railway. Nothing deploys
+automatically (D-025), so run `pnpm db:migrate` against `DATABASE_MIGRATION_URL`
+from a laptop. The e2e health check fails loudly on drift, which is how 0006 was
+caught — that guard works.
 
-**What P3 built:** the guest folio (D-031), a cancelled request crediting the room
-(D-032), leaving later (D-033), the front desk (D-035), guest 360 (D-036),
-`ForbiddenError` saying what the thrower wrote (D-037), the PmsAdapter seam and
-outbox (D-038), settling at the desk (D-039). Plus the room list handing out
-guest links, and the lockout counting wrong answers (D-034).
-
-**After P3.5 · P4 · concierge**, whose one external service is
-`GOOGLE_PLACES_API_KEY` for the nightly travel-time refresh — worth asking about
-before the job rather than after the screens.
-
-**Still open, and needs a decision rather than a session:** express checkout with
-Razorpay plus refunds and a receipt; inbound PMS import.
-
-**Still worth doing before the next charge path.** Four now touch the folio and
-they do not agree on when: orders and requests post at placement and reverse at
-their terminal states, checkout fees post at approval and never reverse, and
-payments are a pair written together.
+**Still worth doing before the next charge path.** Four things now touch the
+folio and they do not agree on when: orders and requests post at placement and
+reverse at their terminal states, checkout fees post at approval and never
+reverse, and payments are a pair written together.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That has not happened, and the plan has now grown a phase it
-did not have. Five of the last six sessions found a rule that had never once been
-true in front of a real person — a hold covering half the charge paths, an error
+before starting P2. That has not happened, and the plan grew a phase it did not
+have. Six of the last eight sessions found a rule that had never once been true
+in front of a real person — a hold covering half the charge paths, an error
 message nobody could read, a checkout that could not happen, a bill that said
-"Paid" without saying how, and a folio a concierge could read. The argument for a
-real floor before P4 is now five examples long.
-
+"Paid" without saying how, a folio a concierge could read, and a `version` column
+whose comment described a reprint no code performed. The argument for a real
+floor before P4 is now six examples long.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3.5 | `64c2d8e` | Staff and roles — invite by one-time link, deactivate, assign. Migration 0006. The phase's exit criterion, and the item a pilot needed first. Found two: a raw-SQL timestamp reaching `Intl` unwrapped, and every page throwing "Application error" at a revoked session instead of sending it to the sign-in form (D-045). |
+| P3.5 | `00dd2d4` | Room types and the hotel's own settings. The currency turned out to be write-once from the first charge — nothing converts a past bill and there is no exchange rate in this product. |
+| P3.5 | `a15054a` | Reprinting a sticker, which `version`'s own comment has claimed since migration 0000 and no code did. Kills the old code, keeps the guest signed in. Found GuestLink caching an assembled URL that a reprint would have made stale. |
 | P3.5 | `5564454` | The building — floors and rooms from a screen, each new room minting its QR code. Phase added to the plan after a sweep found 21 of 55 permissions with no caller. Found a folio readable by CONCIERGE. |
 | P3 | `2d23757` | Settling at the desk — the pair `postFolioLine()` has refused since P1. P3's exit criterion met, bar taking a card online. Found the guest's bill saying "Paid" without saying how. |
 | P3 | `e38da4a` | The PmsAdapter seam, ManualAdapter and the outbox. The interface came out narrower than EXTENSION-POINTS sketched, for two reasons only visible once the operations existed. |
