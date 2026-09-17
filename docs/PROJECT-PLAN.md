@@ -168,7 +168,7 @@ change the hotel's name. That is fine for a demo and fatal for a pilot — it is
 the first thing a real hotel asks for, and P5's exit criterion is a real hotel
 running on this for two weeks.
 
-- [ ] **Floors and rooms** — add, rename, archive. A room added here mints its QR
+- [x] **Floors and rooms** — add, rename, archive. A room added here mints its QR
       code, or it is a room no sticker reaches. Archiving is refused while a
       floor holds rooms or a room holds an active stay
       *(`room:read`, `room:manage`)*

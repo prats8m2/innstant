@@ -991,3 +991,66 @@ approval trail. The day a desk needs one is the day to design it, and it will
 have this function's pair to copy. Nor is there a receipt: `folio.settled` is in
 the log and the guest can read their own bill, but nothing emails them a PDF —
 that needs an email service, which is the same conversation as Razorpay.
+
+### D-040 · Setting the building up is its own screen, and a room is never created without its QR code
+P3.5 exists because the plan did not. The six phases covered the guest-facing
+product and its daily operation and never covered a hotel setting itself up —
+P0's exit criterion was about ISOLATION ("two properties exist in one database"),
+never about a human creating the second one, and P1 said so out loud for outlets:
+*"a second outlet is created by `provisionProperty()`, not from a screen"*. The
+same was quietly true of floors, rooms, staff and settings.
+
+The measure of the gap, taken before the phase was written: **21 of 55 declared
+permissions had no caller anywhere.** Three were P4's concierge. The rest were
+things a hotel needs to run itself.
+
+**Why `/admin/property` and not the front desk's `/admin/rooms`.** That screen is
+about the DAY — who is in 214, what they owe, check them out — and it is open all
+morning. This is about the building, which changes a few times a year. The menu
+editor folds sections and dishes together because an F&B manager arrives asking
+"where is this dish and what does it cost"; a front desk never arrives asking
+"how many floors are there", and a delete-floor control in their way all day is
+the wrong trade.
+
+**A room mints its QR code in the same transaction, always.** This is the one
+thing `provisionProperty()` guaranteed by construction and a screen could quietly
+lose: a room with no code is invisible to the entire guest surface, and NO screen
+would tell you, because every one of them assumes the code exists. The guest
+would find out. `newPublicCode()` is exported from `provision.ts` rather than
+reimplemented — two generators are two answers to "how guessable is a sticker",
+and only one of them would get reviewed.
+
+**Archiving a room revokes its code; restoring issues a new one.** Leaving the
+code live on a room out of service means a sticker in a corridor that resolves to
+a real property for ever. And a restored room gets a fresh code rather than its
+old one back: the old sticker has been out of a guest's hands for however long
+the room was shut, and a code that was dead on Tuesday and live on Thursday is
+the wrong kind of surprise. The cost is that restoring means reprinting, which is
+the honest trade.
+
+**Floors are deleted, rooms are archived.** `floors` has no `archived_at` and an
+empty floor has no history — nothing references it and no stay ever happened on
+it — so a hard delete is right. A room is referenced by every stay it ever held
+(D-008's reasoning), so it is archived. Deleting a floor is refused while ANY
+room points at it, archived ones included: they hold the floor by FK, and their
+old stays are still the answer to "where was this guest in March".
+
+**An archived room keeps its number.** `rooms_property_number_uq` has no partial
+predicate, so 214 stays taken. Rather than add one — which would let a new 214
+exist beside an archived 214 and make "room 214" ambiguous in every conversation
+at the desk — the screen says so and offers Restore.
+
+**The occupancy guard is raw SQL inside `identity`.** Archiving a room has to
+refuse while somebody is in it, and `stays` belongs to another module. The guard
+is a read-only projection in the SAME transaction as the write, which is the
+narrow exception the floor board and the desk's checkout queue already take
+(D-001). Splitting it into the caller leaves a window where a guest checks in
+between the check and the archive, and the first anybody hears of it is a guest
+whose QR stops working.
+
+**Cost / when to revisit.** Room types are not editable here — a room can only be
+one of the types `provisionProperty()` created, and the screen says so rather
+than pretending. That is the next item in the phase, along with staff and roles,
+QR reprint and property settings. Client onboarding stays out entirely: creating
+a tenant is above the tenant boundary, every page runs inside `withTenant()`, and
+it changes the tenancy model.

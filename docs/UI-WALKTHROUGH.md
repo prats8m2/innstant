@@ -484,7 +484,49 @@ const {Client}=require("pg");
 `agreedFeeMinor` and `chargedFeeMinor` are both on the approval, and
 `sessionsExtended` says how many phones in that room kept working.
 
-## 14 · The front desk — `/admin/rooms`
+## 14 · The building — `/admin/property`
+
+Sign in as **gm@thekesari.example** and open **Building**. Four floors, 34 rooms.
+This is the screen that did not exist until P3.5: every floor and room in the
+demo was created by `provisionProperty()`, and the only way to add one was to
+edit the seeder and wipe the property.
+
+**Open a floor.** *Add a floor* → name `Garden wing`, level `4` → it appears,
+empty. Levels are unique per property, so a second floor at level 4 is refused by
+name rather than by a constraint error.
+
+**Put a room on it.** *Add a room to Garden wing* → number `401`, pick a room
+type → *"Room 401 is ready. Its QR link is on the Rooms screen."*
+
+Go to **Rooms** and find 401: it already has a public code and a **Copy link**.
+That is the whole point — a room created without a QR code is invisible to the
+entire guest surface, and no screen would tell you, because every screen assumes
+it exists. Check somebody in and scan it: it opens their room home.
+
+**Take it out of service.** Back on Building, *Take out* on 401. The sticker dies
+with it — paste the link you copied and it resolves to nothing, which is what
+stops a code in a corridor working for ever. The room leaves the desk's Rooms
+screen entirely; it is still here, marked *out of service*.
+
+**Bring it back** and it gets a **new** code. The old sticker stays dead: it has
+been out of a guest's hands for however long the room was shut, and a code that
+was dead on Tuesday and live on Thursday is the wrong kind of surprise.
+
+**Three things it refuses**, each of which the schema would otherwise reject with
+an error nobody can act on:
+
+- deleting a floor that still holds rooms — *"14 rooms are still on this floor"*
+  — including out-of-service ones, which still hold the floor by FK;
+- taking out a room somebody is in — *"Somebody is still in room 215. Check them
+  out first."*;
+- reusing the number of a removed room — *"Room 215 was removed rather than
+  deleted, and still holds its number. Restore it instead."*
+
+**Signed in as the front desk**, the page reads the same and has no controls at
+all. `room:read` and `room:manage` are separate permissions and only
+PROPERTY_ADMIN holds the second.
+
+## 15 · The front desk — `/admin/rooms`
 
 Sign in as **frontdesk@thekesari.example** and open **Rooms**. Thirty-four rooms
 in key-rack order, four of them occupied, each showing who is in, when they are
@@ -553,7 +595,7 @@ how many phones stopped working. Checking out does **not** take the money —
 settlement is the card machine until the rest of P3 lands, and the balance stays
 on the folio until it is.
 
-## 15 · A guest, and what we know — `/admin/guests/[id]`
+## 16 · A guest, and what we know — `/admin/guests/[id]`
 
 From **Rooms**, click a guest's name. Room 214 gets you Anjali Menon: her phone,
 how many stays she has had here, what she has spent across all of them, her
@@ -601,7 +643,7 @@ const {Client}=require("pg");
  await c.end();})();'
 ```
 
-## 16 · Settling up — taking the money at the desk
+## 17 · Settling up — taking the money at the desk
 
 The last thing D-035 left open: *"checking out does not take the money —
 settlement is still the card machine."* It still is. This records it.
@@ -657,7 +699,7 @@ const {Client}=require("pg");
 and saying otherwise would make reconciliation lie the first time somebody
 compared this table to a Razorpay settlement report (D-039).
 
-## 17 · The rules that only show up when you break them
+## 18 · The rules that only show up when you break them
 
 Worth seeing once, because each of these was a setting the hotel could set and
 the product ignored.

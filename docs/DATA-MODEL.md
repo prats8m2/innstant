@@ -137,6 +137,25 @@ REQUESTED → APPROVED → COMPLETED
 
 ---
 
+### Adding a floor or a room after provisioning (D-040)
+
+`provisionProperty()` creates floors, rooms and their QR codes in one
+transaction, and `/admin/property` is the only other way any of them appear
+(`room:manage`). Three rules it carries that the schema does not:
+
+| Rule | Why |
+|---|---|
+| A room is never created without a `room_qr_codes` row | A room with no code is invisible to the whole guest surface, and no screen would tell you — every one assumes it exists |
+| Archiving a room revokes its code; restoring issues a NEW one at `version + 1` | A live code on an out-of-service room is a sticker in a corridor that works for ever; a restored room's old sticker has been out of a guest's hands meanwhile |
+| A floor is deleted only when NO room points at it, archived ones included | They hold the floor by FK, and their old stays are still the answer to "where was this guest" |
+
+`floors` has no `archived_at` on purpose — an empty floor has no history, so a
+hard delete is right. `rooms_property_number_uq` has no partial predicate, so an
+archived room keeps its number and the screen offers Restore rather than letting
+two 214s exist.
+
+---
+
 ## 3. Guest identity
 
 The QR sticker is public. `room_qr_codes.public_code` grants **room context

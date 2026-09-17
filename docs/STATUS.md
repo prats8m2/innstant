@@ -21,95 +21,83 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**P0, P1 and P2 are done bar two things that are not code. P3 · stay and folio
-is complete** as far as it can go without an external service: a stay goes from
-check-in through chargeable interactions to a settled folio, and every line
-reconciles to a payment.
+**P3 is complete** as far as it can go without an external service. **P3.5 ·
+running the property is new and has begun** — it was not in the original six
+phases at all, and that was a gap rather than a decision.
 
-**P3's exit criterion, met.** "A stay goes from check-in through three chargeable
-interactions to a settled folio, and every line reconciles to a payment" — the
-e2e checks a guest into 302, charges them through a real request path, takes the
-money at the desk, and leaves with the folio SETTLED and `payments_minor` equal
-to `charges_minor`. **With one asterisk: the money is taken on a card machine and
-recorded here, not taken online.** Express checkout needs Razorpay.
+**Why P3.5 exists.** The plan covered the guest-facing product and its daily
+operation and never covered a hotel setting itself up. A sweep found **21 of 55
+declared permissions had no caller anywhere**; three were P4's concierge and the
+rest were this. A GM could not add a staff member, add a room, reprint a damaged
+QR sticker, or change the hotel's name — fine for a demo, fatal for the two-week
+pilot P5's exit criterion asks for.
+
+**P3.5, item by item:**
+
+- [x] **Floors and rooms (D-040)** — `/admin/property`. Add, rename, archive,
+      restore. A room minted here gets its QR code in the same transaction, which
+      is the one thing `provisionProperty()` guaranteed by construction and a
+      screen could quietly lose. Taking a room out of service revokes its
+      sticker; restoring issues a new one.
+- [ ] **Room types** — a room can only be one of the types provisioning created.
+      The screen says so rather than pretending.
+- [ ] **QR reprint** (`qr:regenerate`) — bump the version, revoke the old code,
+      beside the Copy link already on the room row.
+- [ ] **Staff and roles** (`staff:*`, `role:read`, `role:assign`) — the biggest
+      of the four. `provisionProperty()` creates exactly one PROPERTY_ADMIN as
+      INVITED with no password and S5 never built the invite flow, so a second
+      staff member is a seeder run today.
+- [ ] **Property settings** (`property:update`) — name, timezone, currency.
+      `branding` is the theme editor and stays in P5.
+
+**Not in P3.5, deliberately:** client onboarding. Creating a tenant is above the
+tenant boundary — every page runs inside `withTenant()` and a screen that creates
+tenants cannot, by definition. It needs a decision about how a platform operator
+authenticates, which changes the tenancy model, and CLAUDE.md says ask first.
+`provisionTenant()` / `provisionProperty()` remain the way, from a script.
 
 **P1's remaining two:**
 
-1. **Sign the exit criterion off on the deployed environment** — on Railway, on
-   hotel wifi, with a printed sticker. It needs a git remote and a Railway app
-   service first, which is P0's last item and an account-holder task.
+1. **Sign the exit criterion off on the deployed environment** — needs a git
+   remote and a Railway app service. Account-holder task.
 2. **Image upload** — blocked on R2 credentials.
 
 **One thing to do before the next demo:** migration `0005_checkout_fee_tiers` is
-applied locally and **not** on Railway — `pnpm status` reads `.env`, which points
-at the deployed database. Nothing deploys automatically (D-025), so run
-`pnpm db:migrate` against `DATABASE_MIGRATION_URL` from a laptop when the demo
-database is next wanted.
+applied locally and **not** on Railway. Nothing deploys automatically (D-025), so
+run `pnpm db:migrate` against `DATABASE_MIGRATION_URL` from a laptop.
 
-**What P3 built:**
+**What P3 built:** the guest folio (D-031), a cancelled request crediting the room
+(D-032), leaving later (D-033), the front desk (D-035), guest 360 (D-036),
+`ForbiddenError` saying what the thrower wrote (D-037), the PmsAdapter seam and
+outbox (D-038), settling at the desk (D-039). Plus the room list handing out
+guest links, and the lockout counting wrong answers (D-034).
 
-- **The guest folio** — `/r/[qrCode]/stay`, behind the one prompt.
-- **The FULL tier is reachable (D-031).** A staff vouch still grants CHARGE.
-- **A cancelled request credits the room (D-032).**
-- **Leaving later (D-033)** — tiers, the guest's options, `/admin/checkouts`.
-- **The front desk (D-035)** — `/admin/rooms`. Check-out did not exist and is
-  what makes #10 true rather than merely unreachable.
-- **Guest 360 (D-036)** — a charging hold now covers both charge paths.
-- **`ForbiddenError` says what the thrower wrote (D-037).**
-- **The PmsAdapter seam and the outbox (D-038)** — narrower than
-  EXTENSION-POINTS sketched, and that document now says so.
-- **Settling at the desk (D-039)** — `recordPayment()` writes the pair
-  `postFolioLine()` has refused since P1, `settleFolio()` closes the account, and
-  checkout closes it when the bill is square.
-- **The room list hands out guest links.** Every row carries its live public
-  code, Copy link and Open, behind `qr:read`. The codes have existed since P0 and
-  the only way to get one out was a database query.
-- **The lockout counts wrong answers (D-034)**, not every attempt.
+**After P3.5 · P4 · concierge**, whose one external service is
+`GOOGLE_PLACES_API_KEY` for the nightly travel-time refresh — worth asking about
+before the job rather than after the screens.
 
-**Next — P4 · concierge**, which is the first whole new guest surface since P1:
-
-1. **POI admin** with the editorial note, partner flag and offer. The GM writing
-   their own one-line opinion is the feature; a list of restaurants scraped from
-   anywhere is not.
-2. **Guest browse by category**, with distance and travel time primary, and
-   "open in Maps".
-3. **A day itinerary** — reorder, custom stops.
-4. **A nightly distance/travel-time refresh job.** Needs `GOOGLE_PLACES_API_KEY`,
-   which is the one external service in P4 — worth asking about before the job
-   rather than after the screens.
-
-**Exit criterion:** a GM can add a restaurant with their own one-line note in
-under a minute, and it appears correctly ordered by walk time.
-
-**Still open, and needs a decision rather than a session:**
-
-- **Express checkout with Razorpay**, plus refunds and a digital receipt.
-  `payment:refund` is a permission only PROPERTY_ADMIN holds and nothing uses;
-  taking money back wants a negative `payments` row, a reason and an approval
-  trail, and it has D-039's pair to copy.
-- **Inbound PMS import** — the other half of D-038, deliberately not designed
-  against an imaginary API.
-- **A tier editor** for `checkout_fee_tiers`. Half a session.
+**Still open, and needs a decision rather than a session:** express checkout with
+Razorpay plus refunds and a receipt; inbound PMS import.
 
 **Still worth doing before the next charge path.** Four now touch the folio and
 they do not agree on when: orders and requests post at placement and reverse at
 their terminal states, checkout fees post at approval and never reverse, and
-payments are a pair written together. Each is right for what it does, and nothing
-writes that down where a fifth would have to read it.
+payments are a pair written together.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That has not happened and P3 is a third unshipped phase.
-Four of the last five sessions found a rule that had never once been true in
-front of a real person — a hold covering half the charge paths, an error message
-nobody could read, a checkout that could not happen, and a bill that said "Paid"
-without saying how. That is the pattern to expect from P4 as well, and the
-argument for a real floor before a fourth phase is now four examples long.
+before starting P2. That has not happened, and the plan has now grown a phase it
+did not have. Five of the last six sessions found a rule that had never once been
+true in front of a real person — a hold covering half the charge paths, an error
+message nobody could read, a checkout that could not happen, a bill that said
+"Paid" without saying how, and a folio a concierge could read. The argument for a
+real floor before P4 is now five examples long.
 
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3.5 | `5564454` | The building — floors and rooms from a screen, each new room minting its QR code. Phase added to the plan after a sweep found 21 of 55 permissions with no caller. Found a folio readable by CONCIERGE. |
 | P3 | `2d23757` | Settling at the desk — the pair `postFolioLine()` has refused since P1. P3's exit criterion met, bar taking a card online. Found the guest's bill saying "Paid" without saying how. |
 | P3 | `e38da4a` | The PmsAdapter seam, ManualAdapter and the outbox. The interface came out narrower than EXTENSION-POINTS sketched, for two reasons only visible once the operations existed. |
 | P3 | `fbc56f4` | Guest 360. Found a charging hold that only covered orders, and `ForbiddenError` throwing away every specific message it was given since P1. |
@@ -578,6 +566,19 @@ Things that cost time to rediscover.
 - **`room_qr_codes` is seeded in `beforeAll` and the per-test wipe does not touch
   it.** A test that revokes or reprints a code has to put it back, or every later
   `scanQrCode(a.qrCode)` in the file fails with "revoked".
+- **A permission with no caller is a feature nobody can use.** Sweep for them —
+  grep each name in `PERMISSIONS` against `src/` and discount `permissions.ts`
+  itself. That sweep is what produced P3.5, and it has now caught `qr:read`,
+  `guest:vouch`, `stay:check_out`, `request_type:manage` and `room:manage` in
+  turn. It also catches the inverse: `folio:read` had no caller because the guest
+  360 page was showing a folio behind `guest:read`.
+- **`floors` has no `archived_at` and `rooms_property_number_uq` has no partial
+  predicate.** So a floor is hard-deleted (only when empty) and an archived room
+  keeps its number for ever. Both are deliberate; the setup screen explains each
+  rather than working around it.
+- **A room created outside `provisionProperty()` needs its QR code minting in the
+  same transaction.** Nothing would report a room without one — every screen on
+  the guest surface assumes the code exists, so the guest finds out.
 - **WebKit still segfaults locally, reconfirmed.** The API-request tests pass
   (no browser launches); anything that opens a page dies. CI on Linux is the
   only place iOS Safari is actually exercised.
@@ -589,9 +590,9 @@ Things that cost time to rediscover.
 Paste this:
 
 > Read `CLAUDE.md`, `docs/STATUS.md` and `docs/DECISIONS.md`, then run
-> `pnpm status`. **P3 · stay and folio is complete** as far as it can go without
-> an external service, and P4 · concierge is next. Pick up the first item under
-> the Now section and follow it to the
+> `pnpm status`. **P3 is complete and P3.5 · running the property has begun** —
+> a phase that was not in the original plan. Pick up the first item under the Now
+> section and follow it to the
 > definition of done in CLAUDE.md — types, lint, unit, integration and e2e all
 > green, the happy path working against the seeded demo property, and the event
 > log showing the transitions you expect. Update this file before you finish.
@@ -610,9 +611,8 @@ Two things that will save you an hour:
 
 The three that are ready to start, in the order this file argues for:
 
-1. **P4 · concierge**, the first whole new guest surface since P1. Its one
-   external service is `GOOGLE_PLACES_API_KEY`, for the nightly travel-time
-   refresh — worth asking about before the job rather than after the screens.
+1. **The rest of P3.5** — room types, QR reprint, staff and roles, property
+   settings. Staff and roles is the biggest and the one a pilot needs first.
 2. **Photo attachment**, the last P2 leftover — blocked with the rest of images
    on R2. The board reads `service_requests.photo_url`, `allows_photo` is
    editable and honoured, and nothing writes the column.
