@@ -4,6 +4,7 @@ import { guestSessions, accessPolicies } from '@/db/schema/access';
 import { NotFoundError } from '@/lib/errors';
 import { issueToken, hashToken } from '@/lib/tokens';
 import type { AccessTier } from './tiers';
+import { firstNameOf } from './guest-name';
 
 /**
  * Guest sessions. CLAUDE.md #9 and #10, D-012.
@@ -33,6 +34,19 @@ export interface GuestSession {
    *  the checkout flow both need it, and it is already on the joined stay —
    *  fetching it here saves every screen a second query. */
   scheduledCheckoutAt: Date;
+  /**
+   * What to call them — the FIRST name only, and null when the stay has no
+   * usable one.
+   *
+   * The session stays anonymous in every sense that matters (#9): this is read
+   * from the stay the sticker is bound to, it grants nothing, and it changes no
+   * tier. It exists because a hotel greeting somebody by name is the difference
+   * between a screen and a welcome, and the export asks for it.
+   *
+   * First name only, deliberately. "Good evening, Anjali" is a greeting;
+   * "Good evening, Anjali Menon" is a boarding pass.
+   */
+  guestFirstName: string | null;
 }
 
 export interface ScanResult {
@@ -82,12 +96,15 @@ export async function scanQrCode(
     const found = await tx.execute<{
       stay_id: string; room_number: string; scheduled_checkout_at: Date;
       property_name: string; timezone: string; currency: string;
+      guest_name: string | null;
     }>(sql`
       SELECT s.id AS stay_id, r.number AS room_number, s.scheduled_checkout_at,
-             p.name AS property_name, p.timezone, p.currency
+             p.name AS property_name, p.timezone, p.currency,
+             g.full_name AS guest_name
       FROM stays s
       JOIN rooms r      ON r.id = s.room_id
       JOIN properties p ON p.id = s.property_id
+      JOIN guests g     ON g.id = s.guest_id
       WHERE s.room_id = ${routing.roomId}
         AND s.status = 'CHECKED_IN'
       LIMIT 1
@@ -112,6 +129,24 @@ export async function scanQrCode(
     const expiresAt = new Date(
       new Date(row.scheduled_checkout_at).getTime() + graceMinutes * 60_000,
     );
+
+    /**
+     * A stay that is past its checkout plus the grace window is over, whatever
+     * `stays.status` still says.
+     *
+     * Without this the scan SUCCEEDS and mints a session whose cookie is
+     * already expired. The browser discards it on arrival, `/home` finds no
+     * session and redirects back to `/r/{code}`, which scans again — an
+     * infinite redirect loop behind a blank white screen, on the one screen a
+     * guest reaches by pointing their phone at a sticker.
+     *
+     * It is the same refusal as "no active stay" above, and deliberately the
+     * same error: a scanner in a corridor learns nothing from which of the two
+     * it was. It is reached whenever a checkout has not been processed — a
+     * front desk that went home without closing the day, a PMS import that
+     * stalled — which is a normal Tuesday, not an edge case.
+     */
+    if (expiresAt <= new Date()) throw new QrNotUsableError('stay is past checkout');
 
     const [session] = await tx.insert(guestSessions).values({
       tenantId: routing.tenantId,
@@ -149,6 +184,7 @@ export async function scanQrCode(
         isAnonymous: true,
         expiresAt,
         scheduledCheckoutAt: new Date(row.scheduled_checkout_at),
+        guestFirstName: firstNameOf(row.guest_name),
       },
       cookieValue: `${routing.tenantId}.${token}`,
       property: {
@@ -184,13 +220,15 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
       id: string; property_id: string; stay_id: string; room_id: string;
       room_number: string; access_tier: AccessTier; is_anonymous: boolean;
       expires_at: Date; stay_status: string; scheduled_checkout_at: Date;
+      guest_name: string | null;
     }>(sql`
       SELECT gs.id, gs.property_id, gs.stay_id, s.room_id, r.number AS room_number,
              gs.access_tier, gs.is_anonymous, gs.expires_at, s.status AS stay_status,
-             s.scheduled_checkout_at
+             s.scheduled_checkout_at, g.full_name AS guest_name
       FROM guest_sessions gs
       JOIN stays s ON s.id = gs.stay_id
       JOIN rooms r ON r.id = s.room_id
+      JOIN guests g ON g.id = s.guest_id
       WHERE gs.token_hash = ${parsed.tokenHash}
         AND gs.revoked_at IS NULL
         AND gs.expires_at > now()
@@ -214,6 +252,7 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
       isAnonymous: row.is_anonymous,
       expiresAt: new Date(row.expires_at),
       scheduledCheckoutAt: new Date(row.scheduled_checkout_at),
+      guestFirstName: firstNameOf(row.guest_name),
     };
   });
 }

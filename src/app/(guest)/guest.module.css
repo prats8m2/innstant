@@ -1,0 +1,14 @@
+/*
+ * The ground every guest screen stands on.
+ *
+ * `min-height: 100dvh` rather than `100vh`: on iOS Safari the toolbar collapses
+ * as you scroll and `vh` is the TALLER of the two measurements, which leaves a
+ * strip of the console's paper below a short page at exactly the moment the
+ * address bar gets out of the way.
+ */
+.ground {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}

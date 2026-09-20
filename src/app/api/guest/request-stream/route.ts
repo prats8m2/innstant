@@ -24,7 +24,20 @@ export const runtime = 'nodejs';
 
 const HEARTBEAT_MS = 25_000;
 
-const Query = z.object({ requestId: z.uuid() });
+/**
+ * `requestId` is OPTIONAL — a narrowing, not a permission.
+ *
+ * The request's own screen watches one request and passes it. The activity
+ * list watches the whole stay and does not: it needs to hear when any of this
+ * room's requests moves, and one stream per open request would be N
+ * connections from a phone to say the same thing.
+ *
+ * `stayId` was always the boundary (#10). It comes from the session rather
+ * than the query and is checked on every notification either way, so dropping
+ * `requestId` widens what a guest hears about their OWN stay and nothing else.
+ * The order stream is optional for the same reason.
+ */
+const Query = z.object({ requestId: z.uuid().optional() });
 
 export async function GET(request: NextRequest): Promise<Response> {
   const reqId = request.headers.get(REQUEST_ID_HEADER) ?? newRequestId();
@@ -73,13 +86,15 @@ export async function GET(request: NextRequest): Promise<Response> {
       subscription = subscribeToChannel(REQUEST_CHANNEL, (payload) => {
         const change = payload as RequestChangedPayload;
         // These two lines are what make it this guest's one request.
+        // The boundary, and it is not optional.
         if (change?.stayId !== session.stayId) return;
-        if (change.requestId !== requestId) return;
+        // The caller's narrowing: one request, or the whole stay.
+        if (requestId && change.requestId !== requestId) return;
         send('request', { requestId: change.requestId, status: change.status });
       });
 
       subscription.ready.then(() => {
-        send('ready', { requestId, at: new Date().toISOString() });
+        send('ready', { requestId: requestId ?? null, at: new Date().toISOString() });
       });
 
       heartbeat = setInterval(() => {

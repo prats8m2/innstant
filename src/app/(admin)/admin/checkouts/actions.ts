@@ -92,6 +92,8 @@ export async function decideCheckout(
     );
 
     revalidatePath('/admin/checkouts');
+    // The desk shows the same decision in its panel (D-048).
+    revalidatePath('/admin/desk');
     // The guest's own screen reads the stay and the request.
     revalidatePath('/r/[qrCode]/stay', 'page');
 

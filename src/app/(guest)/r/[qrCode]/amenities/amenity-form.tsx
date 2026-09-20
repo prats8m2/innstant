@@ -93,12 +93,10 @@ export function AmenityForm({
         {inGroup.map((card) => {
           const quantity = quantities[card.id] ?? 0;
           return (
-            <li key={card.id} className={styles.row}>
+            <li key={card.id} className={styles.row} data-chosen={quantity > 0}>
+              {/* Line one: what it is, and what it costs. */}
               <span className={styles.rowHead}>
-                <span className={styles.rowBody}>
-                  <span className={styles.name}>{card.name}</span>
-                  <span className={styles.eta}>Usually {card.slaMinutes} minutes</span>
-                </span>
+                <span className={styles.name}>{card.name}</span>
                 <span className={card.isChargeable ? styles.price : styles.free}>
                   {card.isChargeable
                     ? formatMoney(money(card.priceMinor, card.currency))
@@ -109,7 +107,15 @@ export function AmenityForm({
               {/* Posted whatever happens, so the screen works with no JS. */}
               <input type="hidden" name={`qty-${card.id}`} value={quantity} />
 
-              <span className={styles.controls}>
+              {/*
+                Line two: how long it takes, and the control. The wait sits
+                BESIDE the stepper rather than under the name, which is what the
+                export does — it is the answer to "should I bother", and it also
+                keeps this line from being a strip of empty space with one
+                button floated into the corner of it.
+              */}
+              <span className={styles.rowFoot}>
+                <span className={styles.eta}>Usually {card.slaMinutes} minutes</span>
                 {card.allowsQuantity ? (
                   <span className={styles.stepper}>
                     <button

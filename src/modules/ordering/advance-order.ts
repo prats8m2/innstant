@@ -8,6 +8,12 @@ import {
   canTransition, isTerminal, reasonRequiredFor, STATUS_TIMESTAMP,
   KITCHEN_OPEN_STATUSES, RUNNER_OPEN_STATUSES, type OrderStatus,
 } from './transitions';
+import {
+  toKitchenTicket, byRunnerPriority, type KitchenTicket, type Timestamp,
+} from './kitchen-ticket';
+
+export type { KitchenTicket };
+export { toKitchenTicket, byRunnerPriority };
 
 /**
  * Moving an order through the machine.
@@ -253,31 +259,6 @@ export async function notifyOrderChanged(
 
 /* ── Reads for the kitchen and the floor ─────────────────────────────────── */
 
-export interface KitchenTicket {
-  id: string;
-  orderNumber: string;
-  status: OrderStatus;
-  roomNumber: string;
-  placedAt: Date | null;
-  promisedByAt: Date | null;
-  /** When it came off the pan. What a runner is actually racing — food goes
-   *  cold from `ready_at`, not from when the guest ordered. */
-  readyAt: Date | null;
-  /** Who is carrying it, once someone has picked it up. */
-  assignedRunnerId: string | null;
-  guestNotes: string | null;
-  dietaryFlags: string[];
-  lines: Array<{
-    /** Null once the dish has been archived (the FK is ON DELETE SET NULL, and
-     *  the snapshot is what the ticket actually shows). Without it the kitchen
-     *  cannot 86 the dish from here. */
-    menuItemId: string | null;
-    name: string;
-    quantity: number;
-    modifiers: string[];
-    notes: string | null;
-  }>;
-}
 
 /**
  * The KDS rail: open tickets for an outlet, oldest first.
@@ -297,7 +278,13 @@ export async function kitchenTickets(
 
   const rows = await tx.execute<{
     id: string; order_number: string; status: OrderStatus; room_number: string;
-    placed_at: Date | null; promised_by_at: Date | null; ready_at: Date | null;
+    /**
+     * `Timestamp` — NOT `Date`. The generic on `tx.execute()` is an assertion,
+     * not a parse: nothing checks it, and what the driver actually hands back
+     * for a `timestamptz` depends on the connection. Typing these as `Date` was
+     * how `.getTime() is not a function` reached production.
+     */
+    placed_at: Timestamp; promised_by_at: Timestamp; ready_at: Timestamp;
     assigned_runner_id: string | null;
     guest_notes: string | null; dietary_flags: unknown; lines: unknown;
   }>(sql`
@@ -329,20 +316,9 @@ export async function kitchenTickets(
     ORDER BY o.placed_at ASC NULLS LAST
   `);
 
-  return rows.rows.map((row) => ({
-    id: row.id,
-    orderNumber: row.order_number,
-    status: row.status,
-    roomNumber: row.room_number,
-    placedAt: row.placed_at,
-    promisedByAt: row.promised_by_at,
-    readyAt: row.ready_at,
-    assignedRunnerId: row.assigned_runner_id,
-    guestNotes: row.guest_notes,
-    dietaryFlags: Array.isArray(row.dietary_flags) ? (row.dietary_flags as string[]) : [],
-    lines: (row.lines as KitchenTicket['lines']) ?? [],
-  }));
+  return rows.rows.map(toKitchenTicket);
 }
+
 
 /**
  * The runner queue: cooked and waiting to move.
@@ -363,15 +339,9 @@ export async function runnerTickets(
     statuses: RUNNER_OPEN_STATUSES,
   });
 
-  const waitingFirst = (ticket: KitchenTicket) => (ticket.status === 'READY' ? 0 : 1);
-  const onThePassSince = (ticket: KitchenTicket) =>
-    // `ready_at` is what a runner is racing. Falling back to `placed_at` keeps
-    // the order stable for a seeded or repaired row that never stamped one.
-    (ticket.readyAt ?? ticket.placedAt ?? new Date(0)).getTime();
-
-  return tickets.sort((a, b) =>
-    waitingFirst(a) - waitingFirst(b) || onThePassSince(a) - onThePassSince(b));
+  return tickets.sort(byRunnerPriority);
 }
+
 
 /** Open ticket count per outlet, for the unacknowledged badge. */
 export async function openTicketCount(tx: Tx, outletId: string): Promise<number> {

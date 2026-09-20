@@ -260,3 +260,28 @@ export function formatHour(hour: number): string {
     .replace(/\s?([ap])m/i, (_, meridiem: string) => `${meridiem.toLowerCase()}m`)
     .replace(/:00(?=[ap]m)/i, '');
 }
+
+/**
+ * A span of minutes, in a unit somebody can read at a glance.
+ *
+ * Every screen in the product that counts — a ticket's age, a request's
+ * promise, a tray at the pass — was printing raw minutes, which is right for
+ * the two hours a real service ever reaches and unreadable past that. "25343m"
+ * is what the kitchen display rendered the first time it met a demo database,
+ * and a number that long is not a number a cook reads, it is a glyph that says
+ * the screen is broken.
+ *
+ * The hours and days arms therefore only fire on data that is ALREADY wrong —
+ * seeded rows, or a ticket nobody closed over a weekend. They exist so that
+ * wrongness reads as "this is stale" rather than as garbage.
+ *
+ * Takes a count, not two dates: the caller owns the clock, and on the kitchen
+ * display that clock is one shared ticker rather than one per ticket.
+ */
+export function formatMinutes(minutes: number): string {
+  const whole = Math.max(0, Math.round(minutes));
+  if (whole < 90) return `${whole}m`;
+  const hours = Math.round(whole / 60);
+  if (hours < 48) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}

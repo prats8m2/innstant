@@ -37,7 +37,7 @@ import styles from './admin.module.css';
  * every action checks again (`adminAccess`, `requirePermission`).
  */
 export type AdminSection =
-  | 'home' | 'rooms' | 'checkouts'
+  | 'home' | 'desk' | 'rooms' | 'checkouts'
   | 'menu' | 'requests' | 'outlet'
   | 'property' | 'staff';
 
@@ -61,6 +61,10 @@ const GROUPS: NavGroup[] = [
     title: 'Today',
     items: [
       { href: '/admin', label: 'Overview', section: 'home' },
+      /* The desk's one-room view. Above the key rack because it is where
+         somebody answering a phone starts, and the rack is where somebody
+         walking a floor starts. */
+      { href: '/admin/desk', label: 'Front desk', section: 'desk', needs: 'stay:read' },
       { href: '/admin/rooms', label: 'Rooms', section: 'rooms', needs: 'stay:read' },
       { href: '/admin/checkouts', label: 'Leaving', section: 'checkouts', needs: 'stay:read' },
     ],

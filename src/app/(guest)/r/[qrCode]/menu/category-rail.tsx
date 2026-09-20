@@ -77,7 +77,7 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
 
   return (
     <div ref={railRef} className={styles.rail} role="tablist" aria-label="Menu sections">
-      <span ref={pillRef} className={styles.pill} aria-hidden="true" />
+      <span ref={pillRef} className={styles.railPill} aria-hidden="true" />
       {sections.map((section) => (
         <button
           key={section.id}

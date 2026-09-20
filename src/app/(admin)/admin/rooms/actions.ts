@@ -91,6 +91,7 @@ export async function checkInGuest(
     );
 
     revalidatePath('/admin/rooms');
+    revalidatePath('/admin/desk');
     return { done };
   } catch (error) {
     return handle(error, 'check in');
@@ -131,6 +132,7 @@ export async function checkOutGuest(
     );
 
     revalidatePath('/admin/rooms');
+    revalidatePath('/admin/desk');
     revalidatePath('/admin/checkouts');
 
     return {
@@ -188,6 +190,7 @@ export async function vouchForRoom(
     );
 
     revalidatePath('/admin/rooms');
+    revalidatePath('/admin/desk');
     return { done: 'Vouched. They can charge to the room without being asked.' };
   } catch (error) {
     return handle(error, 'vouch');
@@ -239,6 +242,7 @@ export async function reprintQrCode(
     );
 
     revalidatePath('/admin/rooms');
+    revalidatePath('/admin/desk');
     revalidatePath('/admin/property');
 
     return {

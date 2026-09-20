@@ -8,6 +8,7 @@
   "packageManager": "pnpm@11.5.2",
   "scripts": {
     "dev": "next dev",
+    "dev:lan": "tsx scripts/dev-lan.ts",
     "build": "next build && pnpm bundle:static",
     "start": "node ${NEXT_DIST_DIR:-.next}/standalone/server.js",
     "typecheck": "tsc --noEmit",

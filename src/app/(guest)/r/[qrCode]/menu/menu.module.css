@@ -72,9 +72,19 @@
 }
 .rail::-webkit-scrollbar { display: none; }
 
-/* One translating element rather than a background per chip: a single
-   transform animates and the chips only change colour. */
-.pill {
+/*
+ * One translating element rather than a background per chip: a single
+ * transform animates and the chips only change colour.
+ *
+ * Named `railPill`, NOT `pill`. This file already has a `.pill` — the floating
+ * cart button 200 lines down — and for as long as both were called that, the
+ * cart's rule won every property they shared: the category indicator inherited
+ * `position: fixed`, `height: 58px`, a 29px radius and a plaster background,
+ * and painted a large pale blob across the top of the menu. Two components in
+ * one stylesheet cannot share a name, and a CSS module gives no warning when
+ * they do.
+ */
+.railPill {
   position: absolute;
   top: 0;
   left: var(--space-3);

@@ -33,7 +33,20 @@ export const runtime = 'nodejs';
 /** Same as the kitchen's: enough to keep a phone radio and a proxy interested. */
 const HEARTBEAT_MS = 25_000;
 
-const Query = z.object({ orderId: z.uuid() });
+/**
+ * `orderId` is OPTIONAL, and that is a narrowing rather than a permission.
+ *
+ * The tracking screen watches one order and passes it. The orders LIST watches
+ * the whole stay and does not — it needs to hear when any of this room's orders
+ * moves, and opening one stream per live order would be N connections from a
+ * phone to say the same thing.
+ *
+ * What makes that safe is that `orderId` was never the security boundary:
+ * `stayId` is (#10), it is taken from the session and not from the query, and
+ * it is checked on every notification either way. Dropping `orderId` widens
+ * what a guest hears about their OWN stay and nothing else.
+ */
+const Query = z.object({ orderId: z.uuid().optional() });
 
 export async function GET(request: NextRequest): Promise<Response> {
   const reqId = request.headers.get(REQUEST_ID_HEADER) ?? newRequestId();
@@ -91,9 +104,12 @@ export async function GET(request: NextRequest): Promise<Response> {
       subscription = subscribeToChannel(ORDER_CHANNEL, (payload) => {
         const change = payload as OrderChangedPayload;
         // Every process listening on this database hears every order in every
-        // hotel. These three lines are what make it this guest's one order.
+        // hotel. This line is what makes it this guest's stay, and it is not
+        // optional.
         if (change?.stayId !== session.stayId) return;
-        if (change.orderId !== orderId) return;
+        // This one is the caller's narrowing: one order for the tracking
+        // screen, the whole stay for the list.
+        if (orderId && change.orderId !== orderId) return;
         send('order', { orderId: change.orderId, status: change.status });
       });
 
@@ -103,7 +119,7 @@ export async function GET(request: NextRequest): Promise<Response> {
        * stream was opening is covered by the read rather than lost.
        */
       subscription.ready.then(() => {
-        send('ready', { orderId, at: new Date().toISOString() });
+        send('ready', { orderId: orderId ?? null, at: new Date().toISOString() });
       });
 
       heartbeat = setInterval(() => {

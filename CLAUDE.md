@@ -81,6 +81,8 @@ service function.
 ```bash
 pnpm status           # where the work is + verified env state — run first
 pnpm dev              # next dev
+pnpm dev:lan          # next dev + APP_URL set to this machine's wifi address,
+                      #   so a QR link opened on a phone reaches this laptop
 pnpm build            # next build (standalone)
 pnpm typecheck        # tsc --noEmit
 pnpm lint

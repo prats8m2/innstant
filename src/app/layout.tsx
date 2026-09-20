@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { marcellus, mukta, dmMono } from './fonts';
+import { publicSans, redHatMono, marcellus, mukta, dmMono } from './fonts';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -12,14 +12,21 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  // Matches the export's ground colour so the browser chrome does not flash
-  // white before first paint on a phone.
-  themeColor: '#0A1220',
+  /**
+   * The STAFF theme's ground. The guest routes export their own `viewport`
+   * (see `(guest)/layout.tsx`) because their theme is the other one and a
+   * guest's phone must not flash paper-white before an indigo page paints —
+   * that flash is the first thing they see at 9:40pm.
+   */
+  themeColor: '#F3F4F2',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${marcellus.variable} ${mukta.variable} ${dmMono.variable}`}>
+    <html lang="en" className={[
+        publicSans.variable, redHatMono.variable,
+        marcellus.variable, mukta.variable, dmMono.variable,
+      ].join(' ')}>
       <body>{children}</body>
     </html>
   );

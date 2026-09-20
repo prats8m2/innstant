@@ -81,7 +81,9 @@ export default async function RequestScreen({
   return (
     <main className={styles.shell}>
       <header className={styles.bar}>
-        <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
+        {/* To the LIST, not the room home — back from one request is "my
+            requests" (D-058). The room home is one tap on from there. */}
+        <Link href={`${base}/activity`} className={styles.back} aria-label="Back to your requests">
           ←
         </Link>
         <h1 className={styles.barTitle}>Room {session.roomNumber}</h1>
@@ -158,6 +160,7 @@ export default async function RequestScreen({
 
       <nav className={styles.actions}>
         <Link href={`${base}/amenities`} className={styles.secondary}>Ask for something else</Link>
+        <Link href={`${base}/activity`} className={styles.secondary}>Your requests</Link>
         <Link href={`${base}/home`} className={styles.secondary}>Back to the room</Link>
       </nav>
     </main>

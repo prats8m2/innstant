@@ -1,0 +1,241 @@
+/*
+ * Your orders. Mobile only, 44px targets, values from theme.css.
+ *
+ * One hairline-separated column, the same shape the amenities list uses — a
+ * guest who has scanned through that screen should not have to learn a second
+ * way of reading a list.
+ */
+.shell {
+  min-height: 100dvh;
+  background: var(--bg);
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 0 var(--space-4) var(--space-10);
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-2);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+
+.barTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 400;
+  color: var(--text);
+}
+
+/* ── The live indicator ─────────────────────────────────────────────────── */
+
+.live {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-critical);
+}
+.live[data-connected='true'] .liveDot {
+  background: var(--status-positive);
+  animation: glow 2.8s ease-in-out infinite;
+}
+
+/* ── The groups ─────────────────────────────────────────────────────────── */
+
+.group { margin-top: var(--space-6); }
+
+.groupHeading {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── One order ──────────────────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text);
+}
+
+/* Still moving. A left edge rather than a fill — the same mark a chosen
+   amenity carries, so "this one is live" reads the same everywhere. */
+.row[data-live='true'] {
+  box-shadow: inset 2px 0 0 var(--accent);
+  padding-left: var(--space-3);
+}
+
+.row:hover { background: color-mix(in srgb, var(--plaster) 4%, transparent); }
+
+.rowHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.state {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Done is quiet; stopped is the only one that needs a tone of its own. */
+.state[data-tone='done'] { color: var(--text-muted); font-weight: 500; }
+.state[data-tone='stopped'] { color: var(--status-critical); }
+
+.pulse {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: glow 2.4s ease-in-out infinite;
+}
+
+.total {
+  flex: none;
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+.summary {
+  font-size: var(--text-md);
+  line-height: 1.4;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+.when { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.number { flex: none; }
+
+/*
+ * The promise, on an amenity that is still coming. It replaces the reference
+ * number rather than sitting beside it: while a housekeeper is walking, "12
+ * min left" is the only thing on that line anybody reads, and SR-2201 is what
+ * you quote at the desk afterwards.
+ */
+.promise {
+  flex: none;
+  font-weight: 600;
+  color: var(--status-positive);
+}
+.promise[data-late='true'] { color: var(--status-critical); }
+
+/* The kitchen's own words, verbatim. */
+.reason {
+  margin-top: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-tint);
+  color: var(--status-critical);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* ── Nothing yet ────────────────────────────────────────────────────────── */
+
+.empty {
+  margin: var(--space-10) 0;
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-xl);
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.emptyBody {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+.emptyCta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  margin-top: var(--space-5);
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+.emptyCta:hover { background: var(--accent-hover); color: var(--accent-ink); }

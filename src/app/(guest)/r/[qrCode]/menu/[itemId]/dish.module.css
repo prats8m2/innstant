@@ -8,8 +8,9 @@
   max-width: 430px;
   margin-inline: auto;
   /* Clearance for the pinned order bar. Without it the bar sits on top of the
-     note field, which is exactly where a thumb goes next. */
-  padding-bottom: 124px;
+     note field, which is exactly where a thumb goes next. The extra 52px is
+     the review row, which is present whenever the order is not empty. */
+  padding-bottom: 176px;
 }
 
 /* ── The arch hero ──────────────────────────────────────────────────────── */
@@ -266,6 +267,74 @@
   width: min(430px, 100%);
   padding: var(--space-6) var(--space-4) var(--space-6);
   background: linear-gradient(to top, var(--surface) 62%, transparent);
+  /* Two rows now: the way into the cart, then the way to add to it. */
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/*
+ * "Review order · 2 · ₹1,150 →"
+ *
+ * Deliberately quieter than the saffron Add button beneath it. On a dish screen
+ * the primary action is adding the dish; this is the escape hatch for the
+ * guest who has stopped browsing and wants to look at what they have built.
+ * Same count/label/total/arrow order as the menu's pill, because it is the
+ * same control in a different place and should not have to be re-learned.
+ */
+.review {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+
+.review:hover {
+  background: var(--surface-raised);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--text);
+}
+
+.reviewCount {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 0 var(--space-1);
+  border-radius: 13px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+}
+
+.reviewLabel {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.reviewTotal {
+  flex: none;
+  font-size: var(--text-md);
+  color: var(--text-muted);
+}
+
+.reviewArrow {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--accent);
 }
 
 .add {

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import type { CurrencyCode } from '@/lib/money';
@@ -133,4 +133,93 @@ export async function getOrderForStay(
         .map(({ name, priceDeltaMinor }) => ({ name, priceDeltaMinor })),
     })),
   };
+}
+
+/**
+ * A guest's own orders, newest first — the summary a list needs and no more.
+ *
+ * ─── Why this is not `getOrderForStay` in a loop ───────────────────────────
+ *
+ * That one assembles a receipt: every line, every modifier, three queries per
+ * order. A list wants one line of prose per order ("2× Laal maas, Masala chai")
+ * and its total, so this reads the items in a single pass across all of them
+ * and never touches `order_item_modifiers` at all. A stay with fifteen orders
+ * is two queries instead of forty-five.
+ *
+ * Still from the SNAPSHOT columns (#6): what the guest sees here is what they
+ * were charged, not what the dish is called today.
+ *
+ * ─── Why DRAFT is excluded ─────────────────────────────────────────────────
+ *
+ * A DRAFT is the cart — it exists only inside `placeOrder()` and is not
+ * something the guest has asked for. Listing it would put a half-built order in
+ * somebody's history.
+ */
+export interface OrderSummary {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  currency: CurrencyCode;
+  totalMinor: number;
+  placedAt: Date | null;
+  promisedByAt: Date | null;
+  deliveredAt: Date | null;
+  /** Whichever of the two the status calls for — shown verbatim, so the words
+   *  a kitchen typed reach the guest unedited. */
+  haltReason: string | null;
+  /** "2× Laal maas with bajra roti · Masala chai" — the order, at a glance. */
+  summary: string;
+  itemCount: number;
+}
+
+export async function listOrdersForStay(
+  tx: Tx,
+  input: { stayId: string },
+): Promise<OrderSummary[]> {
+  const rows = await tx.select({
+    id: orders.id,
+    orderNumber: orders.orderNumber,
+    status: orders.status,
+    currency: orders.currency,
+    totalMinor: orders.totalMinor,
+    placedAt: orders.placedAt,
+    promisedByAt: orders.promisedByAt,
+    deliveredAt: orders.deliveredAt,
+    rejectionReason: orders.rejectionReason,
+    cancellationReason: orders.cancellationReason,
+  }).from(orders)
+    .where(and(
+      eq(orders.stayId, input.stayId),
+      ne(orders.status, 'DRAFT'),
+    ))
+    // Newest first. `placed_at` is null only for a row that never left DRAFT,
+    // which the filter above already excludes — `created_at` is the tiebreaker
+    // for two orders placed in the same millisecond.
+    .orderBy(desc(orders.placedAt), desc(orders.createdAt));
+
+  if (!rows.length) return [];
+
+  const items = await tx.select({
+    orderId: orderItems.orderId,
+    name: orderItems.nameSnapshot,
+    quantity: orderItems.quantity,
+  }).from(orderItems)
+    .where(inArray(orderItems.orderId, rows.map((r) => r.id)))
+    .orderBy(asc(orderItems.createdAt));
+
+  return rows.map(({ rejectionReason, cancellationReason, ...order }) => {
+    const mine = items.filter((item) => item.orderId === order.id);
+    return {
+      ...order,
+      status: order.status as OrderStatus,
+      currency: order.currency as CurrencyCode,
+      haltReason: rejectionReason ?? cancellationReason ?? null,
+      itemCount: mine.reduce((n, item) => n + item.quantity, 0),
+      // The quantity is only worth saying when there is more than one — "1×
+      // Masala chai" is how a receipt talks, not how a person does.
+      summary: mine
+        .map((item) => (item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name))
+        .join(' · '),
+    };
+  });
 }

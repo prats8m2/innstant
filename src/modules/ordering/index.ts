@@ -13,10 +13,13 @@ export {
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
 export { placeOrder } from './place-order';
-export { getOrderForStay } from './read-order';
+export { getOrderForStay, listOrdersForStay } from './read-order';
 
 export {
   advanceOrder, kitchenTickets, runnerTickets, openTicketCount, ORDER_CHANNEL,
+  // Pure, and exported for the unit tests that guard the raw-row mapping and
+  // the runner's sort order — see tests/unit/kitchen-ticket.test.ts.
+  toKitchenTicket, byRunnerPriority,
 } from './advance-order';
 export type { AdvanceOrderInput, AdvancedOrder, KitchenTicket, OrderChangedPayload }
   from './advance-order';
@@ -26,9 +29,13 @@ export {
   ORDER_STATUSES, KITCHEN_OPEN_STATUSES, RUNNER_OPEN_STATUSES,
 } from './transitions';
 export type { OrderStatus } from './transitions';
-export type { PlacedOrderDetail, PlacedOrderLine } from './read-order';
+export type { PlacedOrderDetail, PlacedOrderLine, OrderSummary } from './read-order';
 
-export { trackView, trackEta, TRACK_STEPS, ETA_WINDOW_MINUTES } from './track';
+export {
+  trackView, trackEta, TRACK_STEPS, ETA_WINDOW_MINUTES,
+  orderStateFor, OPEN_TO_A_GUEST,
+} from './track';
+export type { OrderState, OrderStateTone } from './track';
 export type { TrackView, TrackStep, TrackStepKey, TrackStepState, TrackHalt, TrackEta, OrderStamps }
   from './track';
 export type { PlaceOrderInput, PlacedOrder } from './place-order';

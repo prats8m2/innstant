@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { DishModifierGroup } from '@/modules/catalog';
@@ -26,12 +27,15 @@ export function DishForm({
   groups,
   currency,
   isOrderable,
+  cart,
 }: {
   qrCode: string;
   dish: { id: string; priceMinor: number };
   groups: DishModifierGroup[];
   currency: CurrencyCode;
   isOrderable: boolean;
+  /** Null when the order is empty — then there is nothing to review. */
+  cart: { itemCount: number; total: string } | null;
 }) {
   const [state, formAction] = useActionState<AddToOrderState, FormData>(addToOrder, {});
 
@@ -151,6 +155,32 @@ export function DishForm({
       ) : null}
 
       <div className={styles.addBar}>
+        {/*
+          The way into the cart, from the screen where things go INTO it.
+
+          Adding a dish used to leave a guest on this screen with a line of
+          text saying it had worked and no way to see what they had built —
+          the only route to the cart was back to the menu and then the pill at
+          the bottom of it. Two navigations to answer "what have I ordered so
+          far", on the screen where the question occurs to you.
+
+          It lives inside the pinned bar rather than as a second floating pill,
+          because this screen already pins one thing and two bars stacked at a
+          thumb is how the wrong one gets tapped. Secondary styling on purpose:
+          the primary action on a dish screen is still adding the dish.
+
+          A link, not a button — the cart is a real route, and it must work
+          with no JavaScript, which is also why it sits outside the submit.
+        */}
+        {cart ? (
+          <Link href={`/r/${encodeURIComponent(qrCode)}/cart`} className={styles.review}>
+            <span className={`${styles.reviewCount} tabular`}>{cart.itemCount}</span>
+            <span className={styles.reviewLabel}>Review order</span>
+            <span className={`${styles.reviewTotal} tabular`}>{cart.total}</span>
+            <span className={styles.reviewArrow} aria-hidden="true">→</span>
+          </Link>
+        ) : null}
+
         <SubmitButton total={formatMoney(total)} disabled={!isOrderable} />
       </div>
     </form>

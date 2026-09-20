@@ -96,7 +96,7 @@ export async function bumpOrder(
 }
 
 /**
- * 86 a dish from the kitchen display.
+ * 86 a dish from the kitchen display, and put it back again.
  *
  * `catalog:availability` and nothing more — the KITCHEN role holds exactly that
  * (permissions.ts), which is the whole reason the permission was split out from
@@ -107,26 +107,41 @@ export async function bumpOrder(
  * Its own action rather than a branch in `bumpOrder`: that one moves an ORDER
  * through the state machine, and this changes the CATALOG. Same screen, two
  * different things, two different permissions.
+ *
+ * ─── Why one action takes both directions ─────────────────────────────────
+ *
+ * The 86 tray puts a dish back, and putting it back is the same write with the
+ * boolean flipped — same permission, same table, same event_log entity, and
+ * `setMenuItemAvailability()` already took the flag. Two actions would have
+ * been two copies of the identical guard, and the pair that must agree about
+ * which permission governs "what the guest can order tonight" is exactly the
+ * pair to keep in one function.
  */
-const EightySix = z.object({
+const Availability = z.object({
   propertyId: z.uuid(),
   menuItemId: z.uuid(),
+  // A checkbox-shaped string, because it arrives through FormData. Absent is
+  // false, which is the direction a cook taps twenty times a service.
+  available: z.enum(['true', 'false']).default('false'),
 });
 
-export async function markItemUnavailable(
+export async function setDishAvailability(
   _previous: BumpState,
   formData: FormData,
 ): Promise<BumpState> {
-  const parsed = EightySix.safeParse({
+  const parsed = Availability.safeParse({
     propertyId: formData.get('propertyId'),
     menuItemId: formData.get('menuItemId'),
+    available: formData.get('available') ?? 'false',
   });
   if (!parsed.success) return { error: 'That did not come through. Try the ticket again.' };
+
+  const isAvailable = parsed.data.available === 'true';
 
   try {
     const session = await requirePermission(parsed.data.propertyId, 'catalog:availability');
 
-    const outletAndItem = await withTenant(
+    const item = await withTenant(
       { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
       async (tx) => {
         const outlet = await getInRoomDiningOutletConfig(tx, parsed.data.propertyId);
@@ -136,13 +151,13 @@ export async function markItemUnavailable(
           propertyId: parsed.data.propertyId,
           outletId: outlet.id,
           itemId: parsed.data.menuItemId,
-          isAvailable: false,
+          isAvailable,
           actorStaffId: session.staffUserId,
         });
       },
     );
 
-    logger.info({ name: outletAndItem.name }, 'dish 86d from the kds');
+    logger.info({ name: item.name, isAvailable }, isAvailable ? 'dish put back' : 'dish 86d from the kds');
 
     // The guest menu is rendered per request, so there is nothing to invalidate
     // there — the next guest to look simply does not see it.

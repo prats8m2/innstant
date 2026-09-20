@@ -73,6 +73,13 @@ export async function addToOrder(
 
     // The cart pill on the menu has to be right the moment they land back on it.
     revalidatePath(`/r/${parsed.data.qrCode}/menu`);
+    /**
+     * And this screen, so the review row's count and total move the moment the
+     * dish is added. The route pattern rather than a built path: `itemId` is
+     * not in this action's input, and `'page'` is the same form the checkout
+     * action already uses for `/r/[qrCode]/stay`.
+     */
+    revalidatePath('/r/[qrCode]/menu/[itemId]', 'page');
     return { addedAt: Date.now() };
   } catch (error) {
     if (error instanceof AppError) {

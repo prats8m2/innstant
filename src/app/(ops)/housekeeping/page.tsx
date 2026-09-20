@@ -5,10 +5,12 @@ import { requestPathname } from '@/lib/request-path';
 import { can, findProperty, listFloors } from '@/modules/identity';
 import { getOpenRequests, OPEN_REQUEST_STATUSES } from '@/modules/requests';
 import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
+import { getInRoomDiningOutletConfig } from '@/modules/catalog';
+import { runnerTickets } from '@/modules/ordering';
 import { Alerts } from '@/components/alerts';
+import { FloorHeader, OffShiftNotice } from '../floor-header';
 import { RequestBoard } from './request-board';
 import { LiveBoard } from './live-board';
-import { ShiftBar } from './shift-bar';
 import styles from './housekeeping.module.css';
 
 /**
@@ -55,7 +57,9 @@ export default async function HousekeepingBoard() {
     );
   }
 
-  const { property, all, floors, shift, onDuty } = await withTenant(
+  const maySeePickups = can(session, propertyId, 'order:read');
+
+  const { property, all, floors, shift, onDuty, pickups } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
       property: await findProperty(tx, propertyId),
@@ -78,6 +82,12 @@ export default async function HousekeepingBoard() {
         propertyId,
         statuses: [...OPEN_REQUEST_STATUSES, 'COMPLETED'],
       }),
+      /**
+       * Only to put a number on the other tab — the trays waiting at the pass
+       * while somebody is looking at this board. A tab that only counts itself
+       * is a tab nobody switches to.
+       */
+      pickups: maySeePickups ? await countPickups(tx, propertyId) : null,
     }),
   );
 
@@ -92,9 +102,27 @@ export default async function HousekeepingBoard() {
   const breached = requests.filter((r) => r.breached).length;
   const unclaimed = requests.filter((r) => r.status === 'OPEN').length;
 
+  const timeZone = property?.timezone ?? 'Asia/Kolkata';
+
   return (
     <main className={styles.shell}>
-      <header className={styles.bar}>
+      <FloorHeader
+        propertyId={propertyId}
+        fullName={session.fullName}
+        shift={shift}
+        floors={floors}
+        timeZone={timeZone}
+        mayClock={can(session, propertyId, 'shift:clock')}
+        current="/housekeeping"
+        tabs={[
+          ...(maySeePickups
+            ? [{ href: '/runner', label: 'Pickups', count: pickups }]
+            : []),
+          { href: '/housekeeping', label: 'Requests', count: requests.length },
+        ]}
+      />
+
+      <div className={styles.bar}>
         <h1 className={styles.title}>{property?.name ?? 'The floors'}</h1>
         <span className={`${styles.count} tabular`}>
           {requests.length} open
@@ -109,11 +137,11 @@ export default async function HousekeepingBoard() {
             bell only on `/admin` would deliver two thirds of what the sweep
             writes. */}
         <Alerts session={session} propertyId={propertyId} />
-      </header>
+      </div>
 
-      {can(session, propertyId, 'shift:clock') ? (
-        <ShiftBar propertyId={propertyId} floors={floors} shift={shift} />
-      ) : null}
+      {/* Routing only reaches somebody who is clocked in and covering the floor
+          (`onDutyCovering`), so an off-shift board is empty for a reason. */}
+      {shift ? null : <OffShiftNotice />}
 
       <RequestBoard
         propertyId={propertyId}
@@ -137,4 +165,20 @@ export default async function HousekeepingBoard() {
       ) : null}
     </main>
   );
+}
+
+/**
+ * How many trays are at the pass or already moving.
+ *
+ * Its own helper because it needs the outlet first and the answer is a single
+ * number on a tab — `runnerTickets()` is the same query `/runner` runs, so the
+ * two tabs cannot disagree about what "3" means.
+ */
+async function countPickups(
+  tx: Parameters<typeof getInRoomDiningOutletConfig>[0],
+  propertyId: string,
+): Promise<number> {
+  const outlet = await getInRoomDiningOutletConfig(tx, propertyId);
+  if (!outlet) return 0;
+  return (await runnerTickets(tx, { outletId: outlet.id })).length;
 }

@@ -25,7 +25,8 @@ export type { MenuItemSeed, ModifierGroupSeed, ModifierOptionSeed } from './kesa
 export {
   getAdminMenu, getAdminMenuItem, listModifierGroups,
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
-  createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
+  createMenuItem, updateMenuItem, setMenuItemAvailability, listUnavailableItems,
+  archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours,
   setMenuItemAvailabilityWindows,

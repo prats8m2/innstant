@@ -39,7 +39,9 @@ export type { AdvanceRequestInput, AdvancedRequest, RequestDetail, RequestLine }
 export {
   canTransition, nextStatuses, isTerminal, reasonRequiredFor, slaState,
   REQUEST_STATUSES, OPEN_REQUEST_STATUSES, SLA_ACTIVE_STATUSES,
+  requestStateFor, REQUEST_OPEN_TO_A_GUEST,
 } from './transitions';
+export type { RequestState, RequestStateTone } from './transitions';
 export type { RequestStatus } from './transitions';
 
 /** Auto-routing — role ∩ on-shift ∩ covers-floor, ranked by open count (§7). */

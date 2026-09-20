@@ -44,6 +44,13 @@ pnpm demo:reset           # seeds The Kesari, prints QR codes + staff logins
 pnpm dev
 ```
 
+**To try it on a real phone**, run `pnpm dev:lan` instead. Every guest QR link is
+built from `APP_URL` and never from the request, and `.env` ships
+`http://localhost:3000` — on a phone, `localhost` is the phone. `dev:lan`
+resolves this machine's wifi address, hands it to the dev server for the life of
+the process, and prints it. Nothing is written to `.env`, because the address
+changes the moment you join a different network.
+
 **Two database roles, on purpose.** `DATABASE_URL` connects as `app_user`, which
 owns no tables and lacks `BYPASSRLS` — this is what makes row-level security real
 rather than decorative. `DATABASE_MIGRATION_URL` connects as the owner and is
@@ -55,11 +62,15 @@ CLAUDE.md #2.
 
 ```bash
 pnpm status       # verified state: gates, database, current session
-pnpm dev          pnpm build        pnpm typecheck    pnpm lint
-pnpm test         pnpm test:e2e
+pnpm dev          pnpm dev:lan      pnpm build        pnpm typecheck
+pnpm lint         pnpm test         pnpm test:e2e
 pnpm db:generate  pnpm db:migrate   pnpm db:studio
-pnpm tokens:build pnpm demo:reset
+pnpm demo:reset
 ```
+
+There is no `tokens:build`. `src/styles/theme.css` is hand-maintained and there
+is no token pipeline — D-023 removed it, and this list claimed otherwise for
+long enough to send a session looking.
 
 ## Status
 

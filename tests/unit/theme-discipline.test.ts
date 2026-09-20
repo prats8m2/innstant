@@ -7,8 +7,11 @@ import { join } from 'node:path';
  * and motion values. A hardcoded hex in a component is a review failure.
  *
  * This is the check that makes that real. Without it the rule is a comment,
- * and the first hurried screen puts `#E9A227` in a component — at which point
+ * and the first hurried screen puts `#0F766E` in a component — at which point
  * `properties.branding` can never restyle it and D-016 quietly dies.
+ *
+ * It earned its keep at D-048: the palette was replaced wholesale, and the
+ * only place the old ground survived was the one literal this file allows.
  */
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -22,17 +25,23 @@ function walk(dir: string, out: string[] = []): string[] {
 const FILES = walk('src').filter((f) => !f.endsWith('theme.css'));
 
 /**
- * The one allowed literal, and why.
+ * The only allowed literals, and why.
  *
  * `viewport.themeColor` becomes a <meta> tag that the browser reads to paint
  * its own chrome BEFORE any stylesheet loads — so it cannot be a CSS variable.
- * Without it the phone's address bar flashes white before first paint, which
- * is the first thing a guest sees at 9:40pm.
+ * Without it the phone's address bar flashes a different shade before first
+ * paint, which is the first thing a guest sees at 9:40pm.
  *
- * It must stay in step with --ink-850 in theme.css by hand; the assertion
- * below enforces that.
+ * There are two because there are two themes (D-050): the root layout carries
+ * the staff console's ground, and the guest route group overrides it with the
+ * Kesari's. Each must stay in step with `--paper` in ITS OWN palette block, by
+ * hand — the assertions below enforce that, and they are the reason a palette
+ * swap cannot silently leave one browser chrome behind.
  */
-const ALLOWED = new Map([['src/app/layout.tsx', '#0A1220']]);
+const ALLOWED = new Map([
+  ['src/app/layout.tsx', '#F3F4F2'],
+  ['src/app/(guest)/layout.tsx', '#0A1220'],
+]);
 
 describe('theme discipline', () => {
   it('no component or module stylesheet contains a raw hex colour', () => {
@@ -65,24 +74,83 @@ describe('theme discipline', () => {
     expect(offenders, `use var(--dur-…):\n${offenders.join('\n')}`).toEqual([]);
   });
 
-  it('the themeColor meta tag matches --ink-850, which nothing else enforces', () => {
-    // These two are duplicated by necessity (see ALLOWED). If --ink-850 changes
-    // and this does not, the browser chrome no longer matches the page.
+  /**
+   * Each theme's chrome colour against each theme's own ground.
+   *
+   * The guest one is NOT `--paper` inside `[data-theme='kesari']` — that is
+   * #101E33, the app's ground. It is `--paper-deep`, the deeper indigo the body
+   * sits on, because the browser paints its chrome around the whole document
+   * and a guest page that scrolls past its content shows that, not the app.
+   */
+  it('each themeColor meta tag matches its own palette, which nothing else enforces', () => {
     const theme = readFileSync('src/styles/theme.css', 'utf8');
-    const inkMatch = /--ink-850:\s*(#[0-9A-Fa-f]{6})/.exec(theme);
-    expect(inkMatch?.[1]?.toUpperCase()).toBe(ALLOWED.get('src/app/layout.tsx')?.toUpperCase());
+
+    const blockFor = (selector: string) => {
+      const at = theme.indexOf(`${selector} {`);
+      expect(at, `theme.css has no ${selector} block`).toBeGreaterThan(-1);
+      return theme.slice(at, theme.indexOf('\n}', at));
+    };
+
+    const consoleGround = /--paper:\s*(#[0-9A-Fa-f]{6})/.exec(blockFor(':root'));
+    expect(consoleGround?.[1]?.toUpperCase())
+      .toBe(ALLOWED.get('src/app/layout.tsx')?.toUpperCase());
+
+    const guestGround = /--paper-deep:\s*(#[0-9A-Fa-f]{6})/
+      .exec(blockFor("[data-theme='kesari']"));
+    expect(guestGround?.[1]?.toUpperCase())
+      .toBe(ALLOWED.get('src/app/(guest)/layout.tsx')?.toUpperCase());
   });
 
-  it('theme.css declares everything DESIGN-SPEC.md names', () => {
+  /**
+   * The guest route group must actually wear the theme. Without the attribute
+   * the whole `[data-theme='kesari']` block is dead CSS and every guest screen
+   * silently renders in the staff console's paper — which is precisely what
+   * happened for the length of one session.
+   */
+  it('the guest route group applies the Kesari theme', () => {
+    const layout = readFileSync('src/app/(guest)/layout.tsx', 'utf8');
+    expect(layout).toMatch(/data-theme="kesari"/);
+  });
+
+  it('theme.css declares the whole vocabulary the design names', () => {
     const theme = readFileSync('src/styles/theme.css', 'utf8');
     for (const v of [
-      '--ink-850', '--ink-800', '--saffron', '--saffron-lit', '--plaster', '--teal',
-      '--radius-sm', '--radius-pill',
+      '--paper', '--paper-deep', '--paper-raised', '--white', '--line',
+      '--ink', '--ink-secondary',
+      '--teal-600', '--teal-700', '--teal-tint',
+      '--accent', '--accent-hover', '--accent-ink', '--accent-tint',
+      '--status-positive', '--status-attention', '--status-attention-mark',
+      '--status-critical', '--note-bg', '--note-ink',
+      '--text-2xs', '--text-xs', '--text-base',
+      '--radius-sm', '--radius-lg', '--radius-pill',
       '--font-display', '--font-body', '--font-mono',
       '--dur-fast', '--dur-base', '--dur-slow', '--dur-slower',
-      '--touch-min',
+      '--nav-w', '--panel-w', '--touch-min',
     ]) {
       expect(theme, `theme.css must declare ${v}`).toContain(`${v}:`);
+    }
+  });
+
+  /**
+   * The indigo theme's names are still referenced ~250 times across the module
+   * stylesheets. D-048 remapped them by role rather than rewriting every call
+   * site, so deleting one silently un-styles whatever still uses it. When the
+   * modules have been migrated, delete the legacy block and this test together.
+   */
+  it('keeps the legacy aliases alive while anything still uses them', () => {
+    const theme = readFileSync('src/styles/theme.css', 'utf8');
+    const legacy = [
+      '--ink-900', '--ink-850', '--ink-800', '--ink-700', '--ink-600',
+      '--ink-500', '--ink-450', '--ink-400', '--ink-300',
+      '--plaster', '--plaster-dim', '--plaster-faint',
+      '--saffron', '--saffron-lit', '--teal', '--clay',
+    ];
+    const used = new Set(
+      FILES.flatMap((f) => readFileSync(f, 'utf8').match(/--[a-z0-9-]+/g) ?? []),
+    );
+    for (const v of legacy.filter((v) => used.has(v))) {
+      expect(theme, `${v} is still used by a component and must stay defined`)
+        .toContain(`${v}:`);
     }
   });
 

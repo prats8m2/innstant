@@ -529,6 +529,36 @@ export async function updateMenuItem(
 }
 
 /**
+ * What is 86'd right now, and nothing else.
+ *
+ * The kitchen display needs this to draw its 86 tray — the row of "we are out
+ * of this" chips a cook taps to put a dish back. It is deliberately NOT
+ * `getAdminMenu()`: that returns every category, every price and every modifier
+ * group, and the KITCHEN role holds `catalog:availability` and no `catalog:read`
+ * at all. A screen that shows the menu's prices to reveal two chips is both a
+ * bigger query and a wider blast radius than the question deserves.
+ *
+ * Archived dishes are excluded. They are unavailable by definition (see
+ * `archiveMenuItem`) and putting one "back" would not return it to the guest
+ * menu, so offering the chip would be a lie.
+ *
+ * Served by `menu_items_outlet_available_idx`.
+ */
+export async function listUnavailableItems(
+  tx: Tx,
+  input: { outletId: string },
+): Promise<Array<{ id: string; name: string }>> {
+  return tx.select({ id: menuItems.id, name: menuItems.name })
+    .from(menuItems)
+    .where(and(
+      eq(menuItems.outletId, input.outletId),
+      eq(menuItems.isAvailable, false),
+      isNull(menuItems.archivedAt),
+    ))
+    .orderBy(asc(menuItems.name));
+}
+
+/**
  * The 86 switch.
  *
  * Its own function and its own permission (`catalog:availability`), because a

@@ -70,7 +70,10 @@ export default async function OrderScreen({
   return (
     <main className={styles.shell}>
       <header className={styles.bar}>
-        <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
+        {/* To the LIST, not the room home. Back from one order is "my orders";
+            the room home is two taps away from there and was, until this
+            screen had a list to return to, the place an order went to die. */}
+        <Link href={`${base}/activity`} className={styles.back} aria-label="Back to your requests">
           ←
         </Link>
         <h1 className={styles.barTitle}>Order to room {session.roomNumber}</h1>
@@ -205,6 +208,7 @@ export default async function OrderScreen({
 
       <nav className={styles.actions}>
         <Link href={`${base}/menu`} className={styles.secondary}>Order something else</Link>
+        <Link href={`${base}/activity`} className={styles.secondary}>Your requests</Link>
         <Link href={`${base}/home`} className={styles.secondary}>Back to the room</Link>
       </nav>
     </main>

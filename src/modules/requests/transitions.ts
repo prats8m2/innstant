@@ -126,3 +126,55 @@ export function slaState(
   const seconds = Math.round((request.slaTargetAt.getTime() - now.getTime()) / 1000);
   return { breached: seconds < 0, secondsRemaining: seconds };
 }
+
+/**
+ * One line of state per request, for a LIST.
+ *
+ * The mirror of `orderStateFor()` in the ordering module, and here for the same
+ * reason: the guest's activity screen shows food and amenities side by side,
+ * and a status added to `REQUEST_STATUSES` without a line here would render as
+ * nothing at somebody waiting for towels.
+ *
+ * Coarser than the request's own screen, which can say "Kishan is on the way"
+ * because it has the assignee loaded. A list has room for a state, not a name.
+ *
+ * ─── Why COMPLETED is "done" and VERIFIED is too ───────────────────────────
+ *
+ * VERIFIED is a SECOND signature — the person who checks the work is not the
+ * person who did it (see the note on the machine above). That distinction is
+ * real and it is staff-facing: from the guest's side the towels arrived, and a
+ * screen that kept saying "in progress" until a supervisor signed off would be
+ * lying about the towels in their hand.
+ */
+export type RequestStateTone = 'open' | 'done' | 'stopped';
+
+export interface RequestState {
+  label: string;
+  tone: RequestStateTone;
+}
+
+const REQUEST_STATE: Record<RequestStatus, RequestState> = {
+  OPEN: { label: 'Asked for', tone: 'open' },
+  ASSIGNED: { label: 'Someone is coming', tone: 'open' },
+  IN_PROGRESS: { label: 'On the way up', tone: 'open' },
+  COMPLETED: { label: 'Done', tone: 'done' },
+  VERIFIED: { label: 'Done', tone: 'done' },
+  REJECTED: { label: 'We could not do this', tone: 'stopped' },
+  CANCELLED: { label: 'Cancelled', tone: 'stopped' },
+};
+
+export function requestStateFor(status: RequestStatus): RequestState {
+  return REQUEST_STATE[status];
+}
+
+/**
+ * Still moving, as a GUEST sees it.
+ *
+ * Deliberately not `OPEN_REQUEST_STATUSES`, even though the two currently hold
+ * the same three. That one answers "what is still on a staff board", and
+ * COMPLETED belongs on the board until somebody verifies it. This answers "is
+ * my towel still coming", and the answer the moment it arrives is no.
+ */
+export const REQUEST_OPEN_TO_A_GUEST: readonly RequestStatus[] = [
+  'OPEN', 'ASSIGNED', 'IN_PROGRESS',
+];

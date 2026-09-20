@@ -3,11 +3,42 @@ import localFont from 'next/font/local';
 /**
  * Self-hosted, per design/README.md. No Google Fonts CDN call: hotel wifi is
  * the target network, and a render-blocking request to fonts.gstatic.com is
- * exactly the thing that makes a menu feel slow at 9:40pm.
+ * exactly the thing that makes a menu feel slow at 9:40pm. Both design exports
+ * link the CDN; those are design documents, not a deployment.
  *
- * All three are SIL OFL 1.1 — see design/fonts/LICENSE.md. Extracted from the
- * design export by `pnpm design:decode`.
+ * All five are SIL OFL 1.1 — see src/app/fonts/LICENSE.md.
+ *
+ * ─── Two families, because there are two design systems ────────────────────
+ *
+ * The product runs two themes on purpose (D-050). The STAFF console is Public
+ * Sans and Red Hat Mono on paper; the GUEST app is Marcellus, Mukta and DM Mono
+ * on indigo. They are not variants of one another — a guest is being hosted and
+ * a cook is being informed, and the type is most of the difference.
+ *
+ * All five variables are declared on `<html>` so either theme can reach either
+ * family; `theme.css` decides which is `--font-display`, `--font-body` and
+ * `--font-mono` in each scope. Nothing downloads a face the page does not use:
+ * `next/font` emits a preload only for the families actually rendered.
  */
+
+/* ── The staff console. Two variable faces, one file each. ───────────────── */
+
+export const publicSans = localFont({
+  src: [{ path: './fonts/public-sans-var.woff2', weight: '100 900', style: 'normal' }],
+  variable: '--font-public-sans',
+  display: 'swap',
+  fallback: ['system-ui', 'sans-serif'],
+});
+
+export const redHatMono = localFont({
+  src: [{ path: './fonts/red-hat-mono-var.woff2', weight: '300 700', style: 'normal' }],
+  variable: '--font-red-hat-mono',
+  display: 'swap',
+  fallback: ['ui-monospace', 'monospace'],
+});
+
+/* ── The guest app. Static weights, as the export ships them. ─────────────── */
+
 export const marcellus = localFont({
   src: [{ path: './fonts/marcellus-400.woff2', weight: '400', style: 'normal' }],
   variable: '--font-marcellus',

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { trackView, TRACK_STEPS } from './track';
+import { trackView, TRACK_STEPS, orderStateFor, OPEN_TO_A_GUEST } from './track';
 import { ORDER_STATUSES, type OrderStatus } from './transitions';
 
 /**
@@ -124,5 +124,94 @@ describe('trackView', () => {
       'On the way up',
       'At your door',
     ]);
+  });
+});
+
+/**
+ * The guest-facing vocabulary, held to the machine.
+ *
+ * track.ts's own header names the risk this file exists for: "this is the one
+ * place a status the machine can reach might have no step to stand on, and the
+ * failure mode is a guest staring at a screen that says nothing is happening."
+ *
+ * The orders LIST added a second place with that shape, and the tests above
+ * already hold `trackView()` to it. `ORDER_STATUSES` is
+ * eleven long and will grow; a status added there and not here does not fail to
+ * compile in a screen that reads it through a lookup, it just renders something
+ * vague at somebody who is waiting for dinner.
+ */
+describe('orderStateFor', () => {
+  it('has a line for every status the machine can reach', () => {
+    for (const status of ORDER_STATUSES) {
+      const state = orderStateFor(status);
+      expect(state, `no state for ${status}`).toBeDefined();
+      expect(state.label.length, `${status} has an empty label`).toBeGreaterThan(0);
+      expect(state.short.length, `${status} has an empty short form`).toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * The tone is what the screen colours by, and `stopped` is the one that turns
+   * a row critical. It must mean "what you asked for is not coming" and nothing
+   * else — a delivered dinner tinted like a refusal would be alarming, and a
+   * refusal tinted like a delivery would be worse.
+   */
+  it('reserves the stopped tone for orders that are not coming', () => {
+    const stopped = ORDER_STATUSES.filter((s) => orderStateFor(s).tone === 'stopped');
+    expect([...stopped].sort()).toEqual(['CANCELLED', 'REJECTED']);
+  });
+
+  it('calls only the terminal happy states done', () => {
+    const done = ORDER_STATUSES.filter((s) => orderStateFor(s).tone === 'done');
+    expect([...done].sort()).toEqual(['CLOSED', 'DELIVERED']);
+  });
+
+  /**
+   * `OPEN_TO_A_GUEST` is what the list puts under "Happening now", and the
+   * history is its complement — so the two groups partition every status by
+   * construction and there is nothing to assert about that. What IS worth
+   * pinning is the membership itself, because it is a product decision that
+   * looks like a detail.
+   *
+   * DISPUTED is the one that has to be argued for. Its tone is `open` — the
+   * hotel is still doing something about it — but it is NOT "happening now":
+   * the dinner arrived, possibly days ago, and what is open is the money. It
+   * belongs in the history beside the order it is about, not above it with the
+   * food that is still coming.
+   */
+  it('counts only the statuses where food is still moving as happening now', () => {
+    expect([...OPEN_TO_A_GUEST].sort()).toEqual([
+      'ACCEPTED', 'OUT_FOR_DELIVERY', 'PLACED', 'PREPARING', 'READY',
+    ]);
+  });
+
+  it('keeps the cart out of the list entirely', () => {
+    // DRAFT is the cart. `listOrdersForStay` filters it out, and it must not
+    // sneak back in through the happening-now group either.
+    expect(OPEN_TO_A_GUEST).not.toContain('DRAFT' as OrderStatus);
+  });
+
+  it('never shows a raw status name to a guest', () => {
+    for (const status of ORDER_STATUSES) {
+      const { label, short } = orderStateFor(status);
+      for (const text of [label, short]) {
+        expect(text, `${status} leaks the enum`).not.toMatch(/[A-Z]{3,}|_/);
+      }
+    }
+  });
+});
+
+describe('the list and the timeline agree', () => {
+  /**
+   * Every status the five-step timeline can render must also have a list line,
+   * because the list is how a guest reaches the timeline. If one knows about a
+   * status the other does not, the row is unreachable or the screen is blank.
+   */
+  it('covers every status the timeline knows about', () => {
+    for (const step of TRACK_STEPS) {
+      for (const status of step.statuses) {
+        expect(orderStateFor(status).label.length).toBeGreaterThan(0);
+      }
+    }
   });
 });

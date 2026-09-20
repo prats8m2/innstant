@@ -1,0 +1,483 @@
+/*
+ * The front desk: a list on the left, one room on the right.
+ *
+ * Desktop furniture. It assumes a real screen and says so — below 1100px the
+ * panel stops being a column and becomes the top of the page, because a 440px
+ * panel beside a six-column table on a laptop is two unreadable halves.
+ */
+
+.desk {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-4);
+}
+
+/* ── The head ─────────────────────────────────────────────────────────── */
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* Rooms · Requests · Orders. The design's left-rail sections, which the
+   console's own rail already occupies — so they are a switch inside the
+   screen rather than a second navigation beside the first. */
+.views {
+  margin-left: auto;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+}
+
+.view {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.view:hover { color: var(--text); }
+
+.view[aria-current='page'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── The two columns ──────────────────────────────────────────────────── */
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.list { min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+
+.filters { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.filter {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.filter[aria-current='page'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--surface);
+}
+
+/* ── The table ────────────────────────────────────────────────────────── */
+
+.table {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+/*
+ * One grid template, declared once and borrowed by the header and every row.
+ * The desk reads DOWN this list: thirty-four rooms whose guest name starts at
+ * a different x each line is thirty-four separate searches.
+ */
+.row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1.4fr) 120px 1fr minmax(0, 1.6fr) 120px;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--row-line);
+  color: var(--text);
+  font-size: var(--text-md);
+}
+
+.requestRow { grid-template-columns: 72px minmax(0, 1.4fr) 1fr 1fr 140px; }
+.orderRow { grid-template-columns: 110px 72px minmax(0, 1.6fr) 1fr; }
+
+.tableHead {
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.roomRow, a.row { min-height: 52px; }
+a.row:hover { background: var(--row-hover); }
+
+/* The selected room. An inset edge rather than a border, so the row does not
+   move by a pixel when it is picked. */
+a.row[aria-current='true'] {
+  background: var(--accent-tint);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.right { text-align: right; justify-self: end; }
+
+.roomNumber { font-size: var(--text-base); font-weight: 600; }
+
+.guest {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  /* "Leaving today" wrapped to two lines and made that row taller than the
+     rest, which is the one thing a list read top-to-bottom cannot afford. */
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* A vacant room is the absence of news, and should not draw the eye. */
+[data-state='vacant'] .dot { background: var(--line-faint); }
+[data-state='leaving'] .dot { background: var(--status-attention-mark); }
+
+.when { font-size: var(--text-sm); color: var(--text-secondary); }
+
+.open {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Something is waiting on a person. The only thing in the table that is. */
+.open[data-decision='true'] { color: var(--status-attention); font-weight: 600; }
+
+.folio { text-align: right; font-size: var(--text-sm); }
+
+.promise { text-align: right; font-size: var(--text-xs); font-weight: 600; color: var(--accent); }
+.promise[data-late='true'] { color: var(--status-critical); }
+
+.tableEmpty {
+  margin: 0;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* ── The panel ────────────────────────────────────────────────────────── */
+
+.panel {
+  position: sticky;
+  top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.panelHead { padding: var(--space-5); border-bottom: 1px solid var(--border); }
+
+.panelWho { display: flex; align-items: baseline; gap: var(--space-3); }
+
+.panelRoom { font-size: var(--text-2xl); font-weight: 600; line-height: 1; }
+
+.panelGuest {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.panelStay {
+  margin: 2px 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.checkOutForm { display: contents; }
+
+.panelButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panelButton:hover { border-color: var(--accent); color: var(--accent); }
+.panelButton:disabled { opacity: 0.6; cursor: progress; }
+
+.panelSection { padding: var(--space-4) var(--space-5); }
+
+.panelHeading {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.panelEmpty,
+.quiet {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* ── Needs a decision ─────────────────────────────────────────────────── */
+
+.decision {
+  margin: var(--space-4) var(--space-5) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--status-attention-mark);
+  border-radius: var(--radius-lg);
+  background: var(--status-attention-tint);
+}
+
+.decision[data-done='true'] {
+  border-color: var(--border);
+  background: var(--bg);
+}
+
+.decisionHead { display: flex; align-items: baseline; justify-content: space-between; }
+
+.decisionAsked { font-size: var(--text-xs); color: var(--text-muted); }
+
+.decisionTitle {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.decisionDetail {
+  margin: 3px 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.decisionDone {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.decisionForm { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+
+.feeRow { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+.feeLabel { font-size: var(--text-sm); color: var(--text-muted); }
+
+.feeAmount { font-size: var(--text-lg); font-weight: 600; }
+
+.feeInput {
+  width: 120px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.feeWaive {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.decisionButtons { display: flex; gap: var(--space-2); }
+
+.approve {
+  flex: 1;
+  min-height: var(--touch-min);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.approve:hover { background: var(--accent-hover); }
+
+.decline {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.decline:hover { border-color: var(--status-critical); color: var(--status-critical); }
+.approve:disabled, .decline:disabled { opacity: 0.6; cursor: progress; }
+
+/* ── Live, and the folio ──────────────────────────────────────────────── */
+
+.liveList { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.liveItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  font-size: var(--text-sm);
+}
+
+.liveDot { width: 8px; height: 8px; flex: none; border-radius: 50%; background: var(--accent); }
+.liveItem[data-tone='attention'] .liveDot { background: var(--status-attention-mark); }
+.liveItem[data-tone='critical'] .liveDot { background: var(--status-critical); }
+
+.liveTitle { flex: 1; font-weight: 500; min-width: 0; }
+.liveMeta { font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; }
+
+.folioHead { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+
+.folioNote {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.folioList {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.folioLine {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--row-line);
+}
+
+.folioDate { font-size: var(--text-xs); color: var(--text-muted); }
+.folioWhat { font-size: var(--text-sm); }
+.folioAmount { font-size: var(--text-sm); text-align: right; }
+
+.folioTotal {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: var(--space-4) 0 0;
+}
+
+.folioSum { font-size: var(--text-xl); font-weight: 600; }
+
+.error {
+  margin: 0;
+  color: var(--status-critical);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/*
+ * A laptop, or a desk browser that is not maximised. The panel goes above the
+ * list rather than beside it — the selected room is the thing being worked on,
+ * and a 440px column squeezed next to six table columns is two unusable halves.
+ */
+@media (max-width: 1100px) {
+  .body { grid-template-columns: minmax(0, 1fr); }
+  .panel { position: static; order: -1; }
+  .row { grid-template-columns: 64px minmax(0, 1.2fr) 1fr 110px; }
+  /* Checkout and the folio balance are the two the desk can live without at
+     this width — both are in the panel directly above. */
+  .row > :nth-child(4),
+  .row > :nth-child(6) { display: none; }
+  .requestRow, .orderRow { grid-template-columns: 64px minmax(0, 1.4fr) 1fr 110px; }
+  .requestRow > :nth-child(4), .orderRow > :nth-child(4) { display: revert; }
+}
+
+/* An unclaimed request is the one row in these tables that wants a person. */
+[data-state='unclaimed'] .dot { background: var(--status-critical); }

@@ -1446,3 +1446,368 @@ renders a stored value as a `<select>` must guarantee the value is among the
 options, or it will silently propose a different one and a save meant for another
 field will take it. Unit tests cover the invariant; the e2e now reads the zone
 before and after saving a name and asserts it did not move.
+
+### D-048 · The palette was replaced wholesale, and the aliases had to move
+The "Staff Console" design export is a different design system from the one the
+product shipped on: paper ground, teal accent, ink text, Public Sans and Red Hat
+Mono, 8–12px radii. The Kesari theme was deep indigo, saffron, lime plaster,
+Marcellus/Mukta/DM Mono and a deliberate 2–4px radius.
+
+`src/styles/theme.css` is shared by every surface, so adopting it moved the guest
+PWA as well. That was the explicit call, taken with the alternatives on the table
+(a staff-only token layer, or re-skinning the design's layout onto the Kesari
+tokens). It is recorded here because the consequence is not obvious from the
+diff: the guest app's visual identity changed without a line of guest code being
+touched.
+
+**The old names survived, remapped by role.** `--plaster` is now near-black,
+`--ink-800` is now white, `--saffron` is teal. ~250 usages across the module
+stylesheets reference the indigo ramp directly, and rewriting them all was a far
+larger and riskier change than defining them as aliases of the new palette. The
+legacy block is documented as deprecated and `theme-discipline.test.ts` keeps
+every alias that something still uses from being deleted out from under it.
+
+**The thing that actually cost time.** A custom property whose value contains
+`var()` is resolved on the element it is DECLARED on; what inherits is the
+finished colour. `--bg: var(--paper)` on `:root` therefore computes to the light
+paper and keeps it, no matter how many descendants redefine `--paper`.
+
+The kitchen display's night mode shipped looking correct and painted itself
+white: `data-scheme="dark"` was on the element, every primitive under it was
+right, and nothing changed because `--bg`, `--surface` and `--text` had all been
+resolved on `:root` before the attribute was reached. The build was clean, the
+types were clean, and only opening the page showed it.
+
+**The rule: every alias whose value mentions `var()` is declared under BOTH
+`:root` and `[data-scheme='dark']`, in a block after both palettes.** That
+includes the alpha tones — `--ink-dim` and `--ink-faint` reference `--ink`, which
+the dark palette changes — and the whole legacy block. theme.css says so at the
+block; this is the same class of bug as a `<select>` whose value is not among its
+options (D-047): correct-looking, silent, and invisible to every gate.
+
+**Two contrast values are not the design's.** `--status-positive` is one step
+darker than the export's `#1F7A4D`, which is 4.43:1 on the card ground and
+carries the words "Done" and "Delivered" there. And `--ink-faint` is 48%, not the
+45% the dark theme used: the same alpha inverted lands at 2.96:1 on white, below
+even the 3:1 bar for UI text. Both are asserted, and the test now reads the
+percentages out of theme.css rather than restating them.
+
+### D-049 · The state machine did not bend to the design
+Three things the export draws do not exist behind it, and none of them were
+added, because CLAUDE.md says to ask before changing a state machine.
+
+**The kitchen's "Accept · start cooking" is one button in the design and two
+here.** ACCEPTED and PREPARING are distinct states in `transitions.ts` and the
+guest's tracking screen renders them differently — "we have your order" is not "a
+pan is on". They share a COLUMN instead, which gets the design's three-column
+board without collapsing the machine.
+
+**There is no "Recall" from the pass.** `FLOW.READY` is `['OUT_FOR_DELIVERY',
+'DELIVERED']`; READY → PREPARING is not a transition. The button would have been
+a lie in the one direction that matters.
+
+**There is no "Undo" on a decided late checkout.** Approving posts a folio line
+and moves `scheduled_checkout_at`, and both are `event_log` events (#7), not
+fields to put back. The decided state says what happened and stops.
+
+**One thing was made better rather than copied.** The design's reject reasons end
+in a chip labelled "Other", and the reason string is shown to the GUEST verbatim.
+"Other" tells somebody nothing about their dinner. The chips are whole sentences
+and "Something else" opens a free-text field.
+
+**And one thing is deliberately absent.** The kitchen ticket shows the room
+number, not the guest's name. `KitchenTicket` has never carried it, and the KDS
+is the thinnest role in the product on a screen left signed in overnight in a hot
+kitchen — adding names there is a data-minimisation regression, not a feature.
+
+### D-050 · Two themes, because there are two audiences
+D-048 replaced the palette product-wide and the guest PWA moved with it. That
+was the call at the time and it was wrong for the guest side: the customer app
+is the hotel's face, and the hotel's face is the Kesari — deep indigo, saffron,
+lime plaster, Marcellus over Mukta, radii sharp enough that nobody mistakes it
+for a template. The "The Kesari" design document is unambiguous about every one
+of those values.
+
+So the product carries both, and neither is a variant of the other:
+
+| | Staff console (`:root`) | Guest app (`[data-theme='kesari']`) |
+|---|---|---|
+| Ground | `#F3F4F2` paper | `#101E33` indigo |
+| Card | `#FFFFFF` | `#1B2B45` |
+| Accent | `#0F766E` teal | `#E9A227` saffron |
+| Hover | darker | lighter |
+| Type | Public Sans / Red Hat Mono | Marcellus / Mukta / DM Mono |
+| Radii | 6–12px | 2–4px |
+
+A guest is being HOSTED — the screen is the hotel talking, at night, on their
+own phone. A cook is being INFORMED — their screen is a tool in a bright room,
+read at arm's length. They are not the same design problem and one palette
+cannot be right for both.
+
+**The scope is applied once**, by `(guest)/layout.tsx`, which also exports its
+own `viewport` so the phone's browser chrome is indigo rather than paper. That
+route group is the whole customer surface, so nothing else has to know.
+
+**This is what the D-048 derived block bought.** Adding a third palette was one
+block of primitives: every alias that mentions `var()` already recomputed per
+scope, the legacy indigo names included. Had the aliases still been resolved on
+`:root`, every one of them would have needed restating a third time.
+
+**Two values are not the export's**, both for contrast, both asserted. The guest
+`--status-positive` is `#7FA9A2` rather than `#6E9C95`, which is 4.05:1 on a
+raised card and carries the teal eyebrow on most screens; and `--ink-faint` is
+45% here against 48% on paper, because the same alpha inverted is not the same
+perceptual step. `theme-contrast.test.ts` now runs its whole suite over BOTH
+palettes rather than only the default — the guest theme is the one somebody
+reads at 9:40pm in a dim room, and it was the uncovered one.
+
+### D-051 · The room home is a grid with one button
+The post-scan landing was a column of full-width cards: a hero card for dining,
+then four rows with chevrons. The export is a different shape — a masthead, an
+arch-topped hero that says what the kitchen is doing, a greeting, a 2×2 grid of
+tiles, and one button pinned to the bottom.
+
+The pinned button is the point. Ordering food is what this product is for, and
+in the layout it replaced it was a card that scrolled away. It now says which
+meal the clock is on and what the kitchen can actually do, and it stays a LINK
+when the kitchen is shut — the menu, the prices and the hours are readable with
+the kitchen closed (#9, never gate browsing), so it goes quiet rather than
+refusing.
+
+**The arch is drawn in CSS**, not shipped as an image: it has to work before R2
+exists, and a gradient costs no request on hotel wifi. The same curve is the
+dish thumbnail, the service screen's rings and the tile icons — it is the one
+piece of ornament in the guest app and it is what the export is built around.
+
+**The greeting has no name.** The export says "Good evening, Anjali" and the
+stay behind the session does know who that is, but nothing on the guest side has
+ever shown the occupant's name, and a sticker photographed from a corridor would
+be greeted by it. The hour is the part that makes the greeting read as the hotel
+talking. Adding the name is a one-line change the day somebody decides that
+trade is fine.
+
+### D-052 · A stay past checkout must refuse the sticker, not loop
+Scanning a QR for a stay whose checkout had passed SUCCEEDED, and minted a guest
+session whose expiry is `scheduled_checkout_at + grace` — a cookie already in
+the past. The browser discarded it on arrival, `/home` found no session and
+redirected back to `/r/{code}`, which scanned again. An infinite redirect loop
+behind a blank white screen, on the one screen a guest reaches by pointing their
+phone at a sticker.
+
+`scanQrCode()` now refuses, with the same `QrNotUsableError` as "no active
+stay" — deliberately the same error, because a scanner in a corridor must not
+learn which of the two it was.
+
+It is not an edge case. It is reached whenever a checkout has not been processed:
+a front desk that went home without closing the day, a PMS import that stalled.
+The local demo database sat in exactly that state for two weeks and every guest
+screen was unreachable the whole time, which is how it was found — and why the
+guest PWA could not be looked at during D-048.
+
+### D-053 · `tx.execute<T>()` asserts its generic, it does not parse it
+`/runner` threw in production:
+
+```
+TypeError: (a.readyAt ?? a.placedAt ?? (intermediate value)).getTime is not a function
+  at Array.sort  →  runnerTickets
+```
+
+`kitchenTickets()` selects through raw SQL and typed the row as
+`{ placed_at: Date | null; ready_at: Date | null; … }`, then passed those values
+straight into `KitchenTicket` without wrapping them. The generic on
+`tx.execute<T>()` is an ASSERTION — nothing validates it — so the compiler
+believed the promise, every consumer was written against it, and the value was
+in fact whatever the driver felt like returning for a `timestamptz`.
+
+**Every other raw-SQL mapper in the codebase already wrapped.** `readRequests`,
+`listCheckoutRequests`, `guest-profile`, `shifts`, the folio — all of them do
+`row.x ? new Date(row.x) : null`. This one function was the outlier, and it had
+been since the commit that introduced it.
+
+**Why nothing caught it for that long.** `Array.sort` does not call its
+comparator on a list of fewer than two. A property with one tray moving worked
+perfectly — in dev, in every screenshot taken while the floor screens were being
+rebuilt, and in the e2e suite, which walks a single order end to end. It needed
+two trays on the pass at the same time, which is a normal Friday and never a
+test fixture.
+
+**The fix is the wrap, and the guard is that the pieces are now pure.**
+`toKitchenTicket()` and `byRunnerPriority()` moved to `ordering/kitchen-ticket.ts`
+— no database, no clock, the same reasoning as `transitions.ts` — so
+`tests/unit/kitchen-ticket.test.ts` can feed the mapper the STRING shape a driver
+really returns and hand the comparator two tickets rather than one. Reverting the
+wrap makes those tests fail with the production error verbatim.
+
+**The general rule, because this is not about dates.** A raw query's generic
+describes what you HOPE the driver returns. Anything crossing that boundary is
+`unknown` in every sense that matters, and the mapper is the only place it can be
+made true. If a field needs to be a `Date`, a `number` or an array on the other
+side, the mapper converts it — it does not re-declare it.
+
+### D-054 · The amenities pill is pinned, and the screen stopped shouting
+Three things were wrong with the amenities screen, and the first one made the
+other two matter.
+
+**The send button was in normal flow, at the end of the form.** The export draws
+eight amenities and pins the pill to the bottom of the phone frame; we render
+whatever the property has configured, which for the demo is TWENTY-TWO. So the
+button sat 3,400px down a 3,451px page. A guest tapped "+" on a towel and then
+had to scroll past every amenity in the hotel to find the thing that sends it,
+which is the same as the button not existing. It is `position: fixed` now —
+not `sticky`, because the form is the scrolling child and a sticky footer inside
+it pins only within the form's own box, which ends where the content does. The
+shell gained 104px of bottom padding so the note field clears it.
+
+**The row wasted a line.** Line one was name + eta + price; line two was an
+empty strip with a stepper floated into the right-hand corner. The export puts
+a hint on the left of that second line, so it reads as a line rather than as a
+gap. The eta moved there — it is the answer to "should I bother", it belongs
+beside the control, and the row went from 134px to 112px, the page from 3,451
+to 2,963.
+
+**And it was yellow.** Every paid row drew its price as a saffron box: saffron
+border, saffron tint, saffron text. Four group headings were saffron. Choosing
+something filled its chip with saffron. Errors were saffron. On a list this
+long the accent stopped meaning "look at this" and started meaning "background".
+
+So: the price is plain saffron text, as the menu already draws it. The group
+headings are `--plaster-faint`, because they are signposts through twenty-two
+rows and not the point of the screen. "Asked for" is `--status-positive` — it
+is a CONFIRMATION, and a saffron fill made an answered request look like a
+caution. Errors are `--status-critical`. The only saffron left on a chosen row
+is a 2px left edge, which is the one thing that actually needs finding again.
+
+**The rule this leaves.** An accent used on every row of a long list is not an
+accent. If a screen needs to mark many things at once, the marks go on the
+quiet end of the palette and the accent is kept for the one element the guest
+has to act on — here, the arrow on the pill.
+
+### D-055 · The arch is SVG, and the guest app gets a 10.5px step
+Two things were wrong with the room home's header, and they had the same cause:
+values were being approximated from the nearest token rather than taken from
+the export.
+
+**The arch was four stacked radial-gradients**, struck from `50% 106%` — just
+below the box — with a 45° hatch over the top. At the export's 358×180 that is
+meant to read as nested arches rising from the foot of a doorway. At the card's
+real width it produced four enormous flat circles, and with the hatch on top the
+whole header looked like a record sleeve.
+
+It is three SVG paths now: a leg, an elliptical head, a leg, on a common
+springline, in three weights so the eye reads depth rather than three identical
+rings. Only the innermost carries the accent — it is the doorway you are looking
+through — over a radial glow at the base. Still drawn rather than photographed,
+because image upload is blocked on R2 credentials and a path costs no request on
+hotel wifi.
+
+`preserveAspectRatio="none"`, deliberately. `slice` kept the aspect and cropped
+the outer arch's crown clean off, because the card is wider than the viewBox.
+These are abstract ellipses; letting them stretch with the card keeps the
+composition whole at every width, which is what actually matters, and an 11%
+horizontal stretch on a curve nobody measures is invisible.
+
+**The card was also lighter than the page.** `--surface-raised` made the domed
+top read as a lid sitting ON the screen rather than a recess cut INTO it. It is
+a half-step now — `color-mix(--surface 55%, --bg)` — which is where the export's
+own value sits.
+
+**And the type had no 10.5px.** The guest app sets its mono metadata at 10.5px
+in nine places — the room chip, the arch eyebrow, every tile subtitle, the
+"charged to room" line, the line under the order button. The smallest token was
+`--text-xs` at 12px, so all nine were rendering a size and a half too large. The
+visible cost was the tiles: a two-word subtitle wrapped inside 108px and pushed
+the title off its baseline, so no two tiles in the grid were the same height.
+
+`--text-2xs: 0.65625rem` exists now, and all four tiles measure exactly 108px at
+360, 390 and 430 — which is the export's number.
+
+**The lesson is the one D-048 already taught in a different key.** A scale is
+not a suggestion: when a design sets a size the token set does not have, adding
+the step is the fix. Rounding to the nearest token is how a layout ends up with
+four cards of three different heights and nobody able to say why.
+
+### D-056 · A guest can reach an order after they stop looking at it
+`placeOrder()` redirected to the tracking screen. That screen's back button went
+to the room home. Nothing on the room home led to an order. So the moment a
+guest pressed back — or locked their phone, or scanned the sticker again an hour
+later — the thing they had just paid for became unreachable, and everything they
+had ordered earlier in the stay had never been reachable at all.
+
+The folio on `/stay` lists the charges, but that is a bill, not an order: it
+cannot tell you the kitchen has your dinner, and it is behind the verification
+prompt.
+
+**Three pieces.**
+
+`listOrdersForStay()` is a summary read, not `getOrderForStay()` in a loop. That
+one assembles a receipt — every line, every modifier, three queries per order. A
+list wants one line of prose and a total, so this reads the items in a single
+pass and never touches `order_item_modifiers`: a stay with fifteen orders is two
+queries rather than forty-five. DRAFT is excluded, because a DRAFT is the cart.
+
+`/r/[qrCode]/orders` is the screen. "Happening now" over "Earlier in this stay",
+every row a link to the timeline it already had — including refused ones, since
+a guest whose dinner was refused is the person most likely to want to read the
+kitchen's words again.
+
+The room home grew a strip between the greeting and the tiles, and only when
+there is something to reach. With exactly one order moving it goes straight to
+that order's timeline — one tap to the thing they want; with several, or with
+none moving and some history, it goes to the list. Above the tiles rather than
+among them, because the tiles are four doors and this is news — and because a
+fifth tile would have made the export's 2×2 a 2×3 with a hole in it.
+
+**The stream's `orderId` became optional.** The tracking screen watches one
+order; the list watches the stay. What makes that safe is that `orderId` was
+never the boundary — `stayId` is (#10), it comes from the session rather than
+the query, and it is checked on every notification either way. Dropping the
+narrowing widens what a guest hears about their OWN stay and nothing else.
+
+**And the vocabulary moved into `track.ts`.** That file's header already said it
+is "the one place a status the machine can reach might have no step to stand
+on". The list added a second place with exactly that shape, so `orderStateFor()`
+lives beside `trackView()` and `track.test.ts` holds both to the same standard:
+every member of `ORDER_STATUSES` has a line, no line leaks the enum's own
+spelling at a guest, and `stopped` is reserved for the two statuses where
+something asked for is not coming.
+
+**Why `/orders` is not gated.** #9 puts the one prompt at the first attempt to
+CHARGE, which already happened when these orders were placed. Asking again to
+look at them would be asking twice for the same thing.
+
+**DISPUTED is history, not "happening now".** Its tone is open — the hotel is
+still doing something — but the dinner arrived, possibly days ago, and what is
+open is the money. It belongs beside the order it is about.
+
+### D-057 · The cart is reachable from the screen that fills it
+Adding a dish left a guest on the dish screen with a line of text saying it had
+worked and no way to see what they had built. The only route to the cart was the
+pill at the foot of the MENU — so the answer to "what have I ordered so far",
+asked on the screen where it occurs to you, was two navigations away.
+
+The dish screen now carries the same control: count, "Review order", total,
+arrow — the menu pill's own order, because it is the same control in a different
+place and should not have to be re-learned.
+
+**It goes INSIDE the pinned bar, above the Add button**, not floating beside it.
+That bar is already fixed to the bottom 40% where a thumb reaches, and two
+pinned bars at a thumb is how the wrong one gets tapped. It is styled quietly on
+purpose: on a dish screen the primary action is still adding the dish, and the
+review row is the escape hatch for somebody who has stopped browsing.
+
+**The cart is read in the same transaction as the dish**, priced at the same
+property-local time. The menu already did this for its pill, and for the same
+reason: a dish outside its schedule has to total as unavailable in both places,
+or the bar disagrees with the price printed above it.
+
+**`addToOrder` revalidates the dish route as well as the menu.** It only
+revalidated `/menu` before, which was right when the dish screen showed nothing
+about the cart and is wrong now — the count and total move the moment the dish
+is added. The route PATTERN is revalidated rather than a built path, because
+`itemId` is not in the action's input; `revalidatePath('/r/[qrCode]/menu/[itemId]',
+'page')` is the same form the checkout action already uses for
+`/r/[qrCode]/stay`.
+
+**The export does not draw this.** Its dish screen has "How many" and "Add to
+order" and nothing else — a static mock never has to answer the question. This
+is a product decision on top of the design, in the design's own language.

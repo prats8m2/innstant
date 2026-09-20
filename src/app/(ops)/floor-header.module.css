@@ -1,0 +1,250 @@
+/*
+ * The header both floor screens wear.
+ *
+ * A 390px phone, held one-handed, in a corridor. Everything tappable clears
+ * --touch-min and nothing depends on hover — a thumb has no hover state and a
+ * runner has no second hand.
+ */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.who { display: flex; align-items: center; gap: var(--space-3); }
+
+.avatar {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.whoBody { flex: 1; min-width: 0; }
+
+.name {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text);
+  /* A shared phone shows whose shift this is; the name is the part that must
+     not truncate to "Kish…". */
+  overflow-wrap: anywhere;
+}
+
+.shiftLine {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Clocking in and out ──────────────────────────────────────────────── */
+
+.clockForm { flex: 0 0 auto; }
+
+.clockOut {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.clockPrimary {
+  width: 100%;
+  min-height: var(--touch-min);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clockPrimary:disabled,
+.clockOut:disabled { opacity: 0.6; cursor: default; }
+
+.clockIn { flex: 0 0 auto; position: relative; }
+
+/* The closed state is a button in every way except the element. */
+.clockInSummary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.clockInSummary::-webkit-details-marker { display: none; }
+
+.clockInForm {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 3;
+  width: 268px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+}
+
+.clockInLead {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.floorPicker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+.floorCheck {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.floorCheck:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.floorCheck input { accent-color: var(--accent); width: 18px; height: 18px; }
+
+/* ── The two screens ──────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-3);
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.tab:hover { color: var(--text); }
+
+.tab[aria-current='page'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.tabCount { font-size: var(--text-xs); opacity: 0.8; }
+
+/* ── Off shift ────────────────────────────────────────────────────────── */
+
+.offShift {
+  margin: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  text-align: center;
+}
+
+.offShiftTitle {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.offShiftBody {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.error {
+  margin: 0;
+  color: var(--status-critical);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+/* ── Changing floors mid-shift ────────────────────────────────────────── */
+
+.changeFloors { min-width: 0; }
+
+/* The summary IS the shift line — it looks like text until it is tapped, which
+   is right: most shifts never change floors, and a control that announces
+   itself here would compete with the name above it. */
+.changeFloors > summary {
+  cursor: pointer;
+  list-style: none;
+  /* The line is 12px mono; on its own that is under the tap target, so the
+     padding rather than the text carries the 44px. */
+  padding: var(--space-2) 0;
+  margin: -6px 0;
+}
+
+.changeFloors > summary::-webkit-details-marker { display: none; }
+.changeFloors > summary::after {
+  content: ' ▾';
+  color: var(--accent);
+}
+
+.changeForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+}

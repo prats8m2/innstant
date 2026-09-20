@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   canTransition, nextStatuses, isTerminal, reasonRequiredFor, slaState,
-  REQUEST_STATUSES, OPEN_REQUEST_STATUSES, type RequestStatus,
+  REQUEST_STATUSES, OPEN_REQUEST_STATUSES, requestStateFor,
+  REQUEST_OPEN_TO_A_GUEST, type RequestStatus,
 } from './transitions';
 
 describe('the request state machine', () => {
@@ -106,5 +107,66 @@ describe('slaState', () => {
   it('says nothing when there is no target', () => {
     expect(slaState({ status: 'OPEN', slaTargetAt: null, completedAt: null }, new Date()))
       .toEqual({ breached: false, secondsRemaining: null });
+  });
+});
+
+/**
+ * The guest-facing vocabulary, held to the machine.
+ *
+ * The activity list shows food and amenities side by side, so a status added to
+ * REQUEST_STATUSES without a line here renders as nothing at somebody waiting
+ * for towels. The ordering module's `track.test.ts` holds `orderStateFor` to
+ * exactly the same standard, and for the same reason.
+ */
+describe('requestStateFor', () => {
+  it('has a line for every status the machine can reach', () => {
+    for (const status of REQUEST_STATUSES) {
+      const state = requestStateFor(status);
+      expect(state, `no state for ${status}`).toBeDefined();
+      expect(state.label.length, `${status} has an empty label`).toBeGreaterThan(0);
+    }
+  });
+
+  it('never shows a raw status name to a guest', () => {
+    for (const status of REQUEST_STATUSES) {
+      expect(requestStateFor(status).label, `${status} leaks the enum`)
+        .not.toMatch(/[A-Z]{3,}|_/);
+    }
+  });
+
+  it('reserves the stopped tone for requests that are not coming', () => {
+    const stopped = REQUEST_STATUSES.filter((s) => requestStateFor(s).tone === 'stopped');
+    expect([...stopped].sort()).toEqual(['CANCELLED', 'REJECTED']);
+  });
+
+  /**
+   * The guest's "still coming" and the staff board's "not finished with" are
+   * DIFFERENT questions that happen to share three statuses today.
+   *
+   * COMPLETED is the one that separates them: it stays on a staff board until
+   * somebody verifies the work, because VERIFIED is a second signature from a
+   * second person. From the guest's side the towels are in their hand, and a
+   * screen still saying "on the way up" would be contradicting the towels.
+   *
+   * They are asserted apart so that a future change to the board's set cannot
+   * silently drag the guest's with it.
+   */
+  it('separates what a guest is still waiting for from what a board is still holding', () => {
+    expect([...REQUEST_OPEN_TO_A_GUEST].sort())
+      .toEqual(['ASSIGNED', 'IN_PROGRESS', 'OPEN']);
+
+    expect(requestStateFor('COMPLETED').tone, 'the towels arrived').toBe('done');
+    expect(REQUEST_OPEN_TO_A_GUEST).not.toContain('COMPLETED' as RequestStatus);
+    expect(OPEN_REQUEST_STATUSES).not.toContain('COMPLETED' as RequestStatus);
+  });
+
+  it('agrees with the machine about what is over', () => {
+    for (const status of REQUEST_STATUSES) {
+      // Anything terminal must not read as still coming.
+      if (isTerminal(status)) {
+        expect(requestStateFor(status).tone, `${status} is terminal`).not.toBe('open');
+        expect(REQUEST_OPEN_TO_A_GUEST).not.toContain(status);
+      }
+    }
   });
 });

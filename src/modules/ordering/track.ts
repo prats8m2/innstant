@@ -277,3 +277,54 @@ export function trackEta(
     to: new Date(promisedByAt.getTime() + ETA_WINDOW_MINUTES * 60_000),
   };
 }
+
+/**
+ * One line of state per order, for a LIST.
+ *
+ * Deliberately coarser than the five steps above: a timeline is read, a list is
+ * scanned. "Plated and covered" versus "On the way up" is a distinction worth a
+ * whole screen and not worth a row — tapping through gets the timeline.
+ *
+ * It lives here rather than in the screen for the reason the file header
+ * already gives: this is where a status the machine can reach might end up with
+ * nothing to stand on. `trackView()` has that risk for the timeline; this has
+ * it for the list, and `track.test.ts` holds both to the same standard —
+ * EVERY member of ORDER_STATUSES must have a line of its own.
+ *
+ * `tone` is what the screen colours by, not a colour: `stopped` is the only one
+ * that earns the critical tone, because it is the only one where something the
+ * guest asked for is not coming.
+ */
+export type OrderStateTone = 'open' | 'done' | 'stopped';
+
+export interface OrderState {
+  label: string;
+  tone: OrderStateTone;
+  /** Short enough for a one-line strip on the room home. */
+  short: string;
+}
+
+const ORDER_STATE: Record<OrderStatus, OrderState> = {
+  // Never shown: a DRAFT is the cart, and `listOrdersForStay` filters it out.
+  // It is here so the record is exhaustive and the test can say so.
+  DRAFT: { label: 'Not sent yet', tone: 'open', short: 'Not sent yet' },
+  PLACED: { label: 'With the kitchen', tone: 'open', short: 'Order with the kitchen' },
+  ACCEPTED: { label: 'Being cooked', tone: 'open', short: 'Your order is being cooked' },
+  PREPARING: { label: 'Being cooked', tone: 'open', short: 'Your order is being cooked' },
+  READY: { label: 'Ready for the runner', tone: 'open', short: 'Your order is on its way up' },
+  OUT_FOR_DELIVERY: { label: 'On its way up', tone: 'open', short: 'Your order is on its way up' },
+  DELIVERED: { label: 'Delivered', tone: 'done', short: 'Delivered' },
+  CLOSED: { label: 'Delivered', tone: 'done', short: 'Delivered' },
+  REJECTED: { label: 'Could not be made', tone: 'stopped', short: 'The kitchen could not make it' },
+  CANCELLED: { label: 'Cancelled', tone: 'stopped', short: 'Cancelled' },
+  DISPUTED: { label: 'Being looked into', tone: 'open', short: 'Being looked into' },
+};
+
+export function orderStateFor(status: OrderStatus): OrderState {
+  return ORDER_STATE[status];
+}
+
+/** Still moving — what belongs under "Happening now" rather than in the history. */
+export const OPEN_TO_A_GUEST: readonly OrderStatus[] = [
+  'PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY',
+];

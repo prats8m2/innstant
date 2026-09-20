@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getDish } from '@/modules/catalog';
+import { getCart } from '@/modules/ordering';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -34,18 +35,44 @@ export default async function DishScreen({
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
-  const detail = await withTenant(
+  const { detail, cart } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       // The property's clock decides whether this dish is on right now — a
       // breakfast dish opened at dinner reads as unavailable rather than
       // taking an order the kitchen will refuse.
       const property = await findProperty(tx, session.propertyId);
-      return getDish(tx, {
-        propertyId: session.propertyId,
-        itemId,
-        at: localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata'),
-      });
+      const at = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata');
+      const found = await getDish(tx, { propertyId: session.propertyId, itemId, at });
+
+      /**
+       * The cart, in the SAME transaction as the dish.
+       *
+       * This screen used to load the dish and nothing else, which is why a
+       * guest who added something here had no way to look at what they had
+       * built without going back to the menu first. The review row in the
+       * pinned bar is part of this screen now, so its numbers are read with
+       * the dish rather than after it — two queries, one transaction, and no
+       * chance of the bar disagreeing with the price above it.
+       *
+       * Priced `at` the same local time for the same reason the menu does it:
+       * a dish outside its schedule must total as unavailable in both places.
+       */
+      return {
+        detail: found,
+        cart: found ? await getCart(tx, {
+          propertyId: session.propertyId,
+          stayId: session.stayId,
+          at,
+          outlet: {
+            outletId: found.outlet.id,
+            currency: found.outlet.currency as CurrencyCode,
+            taxRateBps: found.outlet.taxRateBps,
+            serviceChargeBps: found.outlet.serviceChargeBps,
+            deliveryFeeMinor: found.outlet.deliveryFeeMinor,
+          },
+        }) : null,
+      };
     },
   );
 
@@ -88,6 +115,12 @@ export default async function DishScreen({
           groups={modifierGroups}
           currency={currency}
           isOrderable={isOrderable}
+          /* Formatted here: a client component importing from a `modules/*`
+             index drags `pg` into the browser bundle, and money formatting
+             belongs in one place (#5). */
+          cart={cart && cart.itemCount > 0
+            ? { itemCount: cart.itemCount, total: formatMoney(cart.totals.total) }
+            : null}
         />
 
         <p className={styles.foot}>

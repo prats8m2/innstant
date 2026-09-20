@@ -7,38 +7,46 @@ import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
 } from '@/modules/catalog';
+import { listOrdersForStay, orderStateFor, OPEN_TO_A_GUEST } from '@/modules/ordering';
+import { getRequestsForStay, REQUEST_OPEN_TO_A_GUEST } from '@/modules/requests';
 import { localTimeAt, formatClock, formatCheckoutDay } from '@/lib/clock';
 import styles from './room-home.module.css';
 
 /**
- * The room home — the post-scan landing.
+ * The room home — the post-scan landing, and the only screen most guests see.
  *
- * Rebuilt from `design/reference/` as real components; the export is a picture
- * to match, not markup to copy (design/README.md). Every value comes from
- * `src/styles/theme.css` — there is no hex, radius or duration in this file.
+ * Rebuilt from the "The Kesari" design document as real components; the export
+ * is a picture to match, not markup to copy (design/README.md). Every value
+ * comes from `src/styles/theme.css` — there is no hex, radius or duration in
+ * this file.
  *
- * Copy is taken verbatim from the export. "Seven places we vouch for" is the
- * design; a paraphrase is a different product.
+ * CLAUDE.md #9: this renders for an anonymous REQUEST-tier session with nothing
+ * in the way. No login, no verification, no onboarding.
  *
- * CLAUDE.md #9: this renders for an anonymous REQUEST-tier session with
- * nothing in the way. No login, no verification, no onboarding.
+ * ─── D-051: the stack became a grid ────────────────────────────────────────
+ *
+ * It was a column of full-width cards — a hero card for dining, then four rows
+ * with chevrons. The design is a different shape and a better one for a thumb:
+ * a masthead, an arch-topped hero that says what the kitchen is doing, a
+ * greeting, a 2×2 grid of tiles, and ONE fixed button at the bottom.
+ *
+ * The fixed button is the point. Ordering food is what this product is for, and
+ * in the old layout it was a card that scrolled away. Now it is always under
+ * the thumb and it always says what the kitchen can actually do right now.
  */
 export const dynamic = 'force-dynamic';
 
 /**
- * The four rows, verbatim from the reference (design/README.md — the copy is
- * part of the design, not filler).
+ * The four tiles, verbatim from the export (design/README.md — the copy is part
+ * of the design, not filler).
  *
- * `built` says whether the row goes anywhere yet. Amenities and service are
- * real screens as of P2; the stay and nearby rows are P3 and P4, and they read
- * as coming rather than as links that do nothing. The subtitles that stated
- * facts we could not back — "Out Thursday, 11am" — say what the row IS instead,
- * because the real checkout time is printed at the top of this screen.
+ * `built` says whether the tile goes anywhere yet. Nearby is P4 and reads as
+ * coming rather than as a tile that does nothing.
  */
-const ROWS = [
+const TILES = [
   { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · a charger', built: true },
   { key: 'service', title: 'Call for service', sub: 'Someone comes up', built: true },
-  { key: 'stay', title: 'Your stay', sub: 'When you leave, and what is on the room', built: true },
+  { key: 'stay', title: 'Your stay', sub: 'When you leave, what is owed', built: true },
   { key: 'nearby', title: 'Nearby', sub: 'Places we vouch for', built: false },
 ] as const;
 
@@ -63,29 +71,47 @@ export default async function RoomHome({
    * Both were literals — "The Kesari" and "Kitchen open until 11:30pm" — from
    * S2, when there was no data to read. A second hotel would have been greeted
    * by the first one's name, and the closing time never matched the seeded rows
-   * (07:00–01:00) it was supposedly describing.
+   * it was supposedly describing.
    */
-  const { property, kitchen } = await withTenant(
+  const { property, outletName, kitchen, isOpen, orders, requests } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       const found = await findProperty(tx, session.propertyId);
       const outlet = await getInRoomDiningOutlet(tx, session.propertyId);
       const timeZone = found?.timezone ?? 'Asia/Kolkata';
+      // Everything this room has asked for — food AND amenities. The answer
+      // decides whether this screen has a way back to something in progress.
+      const placed = await listOrdersForStay(tx, { stayId: session.stayId });
+      const asked = await getRequestsForStay(tx, { stayId: session.stayId });
 
+      if (!outlet) {
+        return {
+          property: found,
+          outletName: null,
+          kitchen: null,
+          isOpen: false,
+          orders: placed,
+          requests: asked,
+        };
+      }
+
+      const state = outletOpenState(
+        await getOutletHours(tx, outlet.id),
+        localTimeAt(new Date(), timeZone),
+      );
       return {
         property: found,
-        kitchen: outlet
-          ? describeOpenState(
-              outletOpenState(
-                await getOutletHours(tx, outlet.id),
-                localTimeAt(new Date(), timeZone),
-              ),
-              formatClock,
-            )
-          : null,
+        outletName: outlet.name,
+        kitchen: describeOpenState(state, formatClock),
+        isOpen: state.isOpen,
+        orders: placed,
+        requests: asked,
       };
     },
   );
+
+  const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const hour = localTimeAt(new Date(), timeZone).minutes / 60;
 
   /**
    * "until Thursday, 11am" — the reference's own words, from the stay rather
@@ -95,62 +121,243 @@ export default async function RoomHome({
    * prints the same sentence, and two copies of a date format is how one of them
    * quietly starts saying 11:00am.
    */
-  const checkout = formatCheckoutDay(
-    session.scheduledCheckoutAt,
-    property?.timezone ?? 'Asia/Kolkata',
-  );
+  const checkout = formatCheckoutDay(session.scheduledCheckoutAt, timeZone);
+
+  /**
+   * The way back to something already asked for.
+   *
+   * This screen is where both tracking screens' back buttons land, and until
+   * there was a list it was the end of the road: nothing on the room home led
+   * to an order or a request, so pressing back lost the thing you had just
+   * asked for.
+   *
+   * It counts FOOD AND AMENITIES together (D-058). A guest with a dinner
+   * coming and towels coming has two things happening, not one, and a strip
+   * that only knew about dinner sent them to a list where the towels were a
+   * surprise.
+   *
+   * With exactly one thing moving it goes straight to that thing's own screen —
+   * one tap, which is what somebody wants. With several, or with none moving
+   * and some history, it goes to the list.
+   */
+  const movingOrders = orders.filter((order) => OPEN_TO_A_GUEST.includes(order.status));
+  const movingRequests = requests
+    .filter((request) => REQUEST_OPEN_TO_A_GUEST.includes(request.status));
+  const moving = movingOrders.length + movingRequests.length;
+  const everything = orders.length + requests.length;
+
+  const only = moving === 1
+    ? movingOrders[0]
+      ? {
+        href: `${base}/order/${movingOrders[0].id}`,
+        label: orderStateFor(movingOrders[0].status).short,
+        detail: movingOrders[0].summary,
+      }
+      : movingRequests[0]
+        ? {
+          href: `${base}/service/${movingRequests[0].id}`,
+          label: 'Someone is on the way',
+          detail: movingRequests[0].lines.map((line) => line.label).join(' · '),
+        }
+        : null
+    : null;
+
+  const trail = only
+    ? { ...only, live: true }
+    : moving > 1
+      ? {
+        href: `${base}/activity`,
+        label: `${moving} things happening`,
+        detail: 'Tap to see where each one is',
+        live: true,
+      }
+      : everything
+        ? {
+          href: `${base}/activity`,
+          label: 'Your requests',
+          detail: `${everything} this stay`,
+          live: false,
+        }
+        : null;
 
   return (
     <main className={styles.shell}>
-      <header className={styles.header}>
-        <p className={styles.eyebrow}>Room {session.roomNumber}</p>
-        <h1 className={styles.property}>{property?.name ?? 'Your stay'}</h1>
+      <header className={styles.masthead}>
+        {/* The property's own name, not a literal. */}
+        <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
+        <p className={`${styles.roomChip} tabular`}>Room {session.roomNumber}</p>
+      </header>
+
+      {/*
+        The arch. It is the one piece of ornament in the guest app and it is
+        load-bearing: it is the shape of a haveli doorway, it is what makes this
+        not a template, and the same curve returns on every dish thumbnail and
+        on the tracking screen.
+
+        Drawn rather than photographed because it must work before R2 exists
+        (image upload is still blocked) and because it costs no request on hotel
+        wifi — but drawn in SVG, not in stacked radial-gradients. The gradient
+        version produced four enormous circles struck from below the box, which
+        at this aspect ratio read as a vinyl record rather than as a doorway,
+        and the diagonal hatch over the top of them turned the whole header into
+        noise.
+
+        These are three nested arches on a common springline: a leg, an
+        elliptical head, a leg. `preserveAspectRatio="none"` on purpose: the
+        card is wider than the 358 the viewBox is drawn at, and `slice` cropped
+        the outer arch's crown clean off. They are abstract ellipses, so letting
+        them stretch with the card keeps the composition whole at every width —
+        which is the thing that matters — and an 11% horizontal stretch on a
+        curve nobody is measuring is invisible.
+      */}
+      <section className={styles.arch} aria-labelledby="kitchen-state">
+        <svg
+          className={styles.archArt}
+          viewBox="0 0 358 180"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <defs>
+            {/* Lamplight at the foot of the doorway. */}
+            <radialGradient id="kesari-arch-glow" cx="50%" cy="100%" r="66%">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.22" />
+              <stop offset="55%" stopColor="var(--accent)" stopOpacity="0.05" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <rect width="358" height="180" fill="url(#kesari-arch-glow)" />
+          <g fill="none" strokeLinecap="round">
+            <path className={styles.archOuter} d="M26 180 V172 A153 112 0 0 1 332 172 V180" />
+            <path className={styles.archMid} d="M66 180 V172 A113 86 0 0 1 292 172 V180" />
+            <path className={styles.archInner} d="M106 180 V174 A73 60 0 0 1 252 174 V180" />
+          </g>
+        </svg>
+        <div className={styles.archWash} aria-hidden="true" />
+        <div className={styles.archBody}>
+          {outletName ? <p className={styles.archEyebrow}>{outletName}</p> : null}
+          <p className={styles.archTitle} id="kitchen-state">
+            {kitchen ?? 'In-room dining is not set up here yet'}
+          </p>
+        </div>
+      </section>
+
+      <div className={styles.greeting}>
+        {/*
+          By name, when the stay has one.
+
+          This screen shipped without it and listed the trade as an open
+          question: the export greets "Good evening, Anjali", the stay behind
+          the session does know who that is, and nothing guest-facing had ever
+          shown the occupant's name — so a sticker photographed from a corridor
+          would be greeted by it. That was decided in favour of the greeting
+          (D-059): the sticker is inside the room, the same scan already opens
+          the menu and the folio prompt, and a hotel that cannot say your name
+          is not hosting you.
+
+          Falls back to the bare greeting when the stay has no usable name —
+          a walk-in entered as "Guest", a blank field. "Good evening," with a
+          dangling comma is worse than "Good evening".
+        */}
+        <h1 className={styles.greetingText}>
+          {session.guestFirstName
+            ? `${greetingFor(hour)}, ${session.guestFirstName}`
+            : greetingFor(hour)}
+        </h1>
         <p className={styles.stayLine}>
           Room {session.roomNumber} until {checkout}.
         </p>
-        {kitchen ? (
-          <span className={styles.kitchen}>
-            <span className={styles.pulse} aria-hidden="true" />
-            {kitchen}
-          </span>
-        ) : null}
-      </header>
+      </div>
 
-      <Link href={`${base}/menu`} className={styles.dining}>
-        <span className={styles.diningLabel}>In-room dining</span>
-        <p className={styles.diningTitle}>Order to the room</p>
-        <p className={styles.diningSub}>
-          Rajasthani plates and the rooftop grill, brought up.
-        </p>
-      </Link>
-
-      <nav className={styles.rows} aria-label="Services">
-        {ROWS.map((row) => (row.built ? (
-          <Link key={row.key} href={`${base}/${row.key}`} className={styles.row}>
-            <span>
-              <p className={styles.rowTitle}>{row.title}</p>
-              <p className={styles.rowSub}>{row.sub}</p>
+      {/*
+        Above the tiles rather than among them: the tiles are four doors, and
+        this is news. It also keeps the export's 2×2 intact — a fifth tile would
+        have made it a 2×3 with a hole in it.
+      */}
+      {trail ? (
+        <Link href={trail.href} className={styles.trail} data-live={trail.live}>
+          <span className={styles.trailBody}>
+            <span className={styles.trailLabel}>
+              {trail.live ? <span className={styles.trailPulse} aria-hidden="true" /> : null}
+              {trail.label}
             </span>
-            <span className={styles.chevron} aria-hidden="true">→</span>
-          </Link>
-        ) : (
-          /* Not a link. A row that looks tappable and does nothing is worse
-             than a row that says it is coming. */
-          <span key={row.key} className={styles.row} data-soon="true">
-            <span>
-              <p className={styles.rowTitle}>{row.title}</p>
-              <p className={styles.rowSub}>{row.sub} · soon</p>
-            </span>
+            <span className={styles.trailDetail}>{trail.detail}</span>
           </span>
-        )))}
+          <span className={styles.trailChevron} aria-hidden="true">→</span>
+        </Link>
+      ) : null}
+
+      <nav className={styles.tiles} aria-label="Services">
+        {TILES.map((tile) => {
+          const body = (
+            <>
+              <span className={styles.tileArch} aria-hidden="true" />
+              <span className={styles.tileBody}>
+                <span className={styles.tileTitle}>{tile.title}</span>
+                <span className={styles.tileSub}>
+                  {tile.built ? tile.sub : `${tile.sub} · soon`}
+                </span>
+              </span>
+            </>
+          );
+
+          return tile.built ? (
+            <Link key={tile.key} href={`${base}/${tile.key}`} className={styles.tile}>
+              {body}
+            </Link>
+          ) : (
+            /* Not a link. A tile that looks tappable and does nothing is worse
+               than a tile that says it is coming. */
+            <span key={tile.key} className={styles.tile} data-soon="true">{body}</span>
+          );
+        })}
       </nav>
 
-      <footer className={styles.footer}>
-        {/* The property's own name, not a literal — a second hotel was greeted
-            by the first one's until this screen started reading its property. */}
-        <span>{property?.name ?? 'Your stay'}</span>
-        <span className="tabular">Room {session.roomNumber}</span>
-      </footer>
+      <p className={styles.charged}>Charged to room {session.roomNumber}</p>
+
+      {/*
+        The one button, pinned. Ordering is what this product is for, and in the
+        layout this replaced it was a card that scrolled off the screen.
+
+        It stays a link when the kitchen is shut: the menu, the prices and the
+        hours are all readable with the kitchen closed (#9 — never gate
+        browsing), and the second line says so rather than the button refusing.
+      */}
+      <div className={styles.cta}>
+        <Link href={`${base}/menu`} className={styles.ctaButton} data-open={isOpen}>
+          <span className={styles.ctaTitle}>
+            Order {mealFor(hour)} to room {session.roomNumber}
+          </span>
+          {kitchen ? <span className={styles.ctaSub}>{kitchen}</span> : null}
+        </Link>
+      </div>
     </main>
   );
+}
+
+/**
+ * The greeting, on the PROPERTY's clock.
+ *
+ * Bands rather than a single cutoff because "Good evening" at 4pm is wrong in
+ * the same way "Good afternoon" at 9pm is. The export shows the evening case,
+ * which is when most people scan the sticker.
+ */
+function greetingFor(hour: number): string {
+  if (hour < 5) return 'Good night';
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/**
+ * Which meal the button offers.
+ *
+ * The export says "Order dinner to room 214", which is right at 9pm and wrong
+ * at 8am — and this screen is open at both. The menu behind it is the same one
+ * either way; only the word changes.
+ */
+function mealFor(hour: number): string {
+  if (hour < 11) return 'breakfast';
+  if (hour < 16) return 'lunch';
+  return 'dinner';
 }

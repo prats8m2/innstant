@@ -2,9 +2,12 @@ import { withTenant } from '@/db';
 import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
-import { can } from '@/modules/identity';
+import { can, findProperty, listFloors } from '@/modules/identity';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets } from '@/modules/ordering';
+import { getOpenRequests } from '@/modules/requests';
+import { getCurrentShift } from '@/modules/housekeeping';
+import { FloorHeader, OffShiftNotice } from '../floor-header';
 import { PickupQueue } from './pickup-queue';
 import { LiveQueue } from './live-queue';
 import styles from './runner.module.css';
@@ -19,6 +22,14 @@ import styles from './runner.module.css';
  * Deliberately not the KDS at a smaller width. The kitchen's question is "what
  * do I cook next"; a runner's is "which door, and how long has this been
  * sitting". Same data, different sort key, and only two buttons.
+ *
+ * ─── D-048: the shift moved to the top ─────────────────────────────────────
+ *
+ * Clocking in used to live only on `/housekeeping`, which meant a runner whose
+ * shift had lapsed saw an empty queue with nothing explaining it. The header is
+ * shared by both floor screens now, and an off-shift runner is told so rather
+ * than shown a blank page — the requests board has always said this and the
+ * pickup queue never did.
  */
 export const dynamic = 'force-dynamic';
 
@@ -55,12 +66,29 @@ export default async function RunnerApp() {
     );
   }
 
-  const { outlet, tickets } = await withTenant(
+  const maySeeRequests = can(session, propertyId, 'request:read');
+
+  const { property, outlet, tickets, floors, shift, myRequests } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutletConfig(tx, propertyId);
-      if (!found) return { outlet: null, tickets: [] };
-      return { outlet: found, tickets: await runnerTickets(tx, { outletId: found.id }) };
+      return {
+        property: await findProperty(tx, propertyId),
+        floors: await listFloors(tx, propertyId),
+        shift: await getCurrentShift(tx, { propertyId, staffUserId: session.staffUserId }),
+        outlet: found,
+        tickets: found ? await runnerTickets(tx, { outletId: found.id }) : [],
+        /**
+         * Only to put a number on the other tab. The design shows both counts
+         * because the point of the pair is knowing there are three requests
+         * waiting while you are looking at trays — a tab that only counts
+         * itself is a tab nobody switches to.
+         */
+        myRequests: maySeeRequests
+          ? (await getOpenRequests(tx, { propertyId }))
+            .filter((r) => r.assignedStaffId === session.staffUserId).length
+          : null,
+      };
     },
   );
 
@@ -73,17 +101,39 @@ export default async function RunnerApp() {
   }
 
   const carrying = tickets.filter((t) => t.status === 'OUT_FOR_DELIVERY').length;
+  const timeZone = property?.timezone ?? 'Asia/Kolkata';
 
   return (
     <main className={styles.shell}>
-      <header className={styles.bar}>
+      <FloorHeader
+        propertyId={propertyId}
+        fullName={session.fullName}
+        shift={shift}
+        floors={floors}
+        timeZone={timeZone}
+        mayClock={can(session, propertyId, 'shift:clock')}
+        current="/runner"
+        tabs={[
+          { href: '/runner', label: 'Pickups', count: tickets.length },
+          ...(maySeeRequests
+            ? [{ href: '/housekeeping', label: 'Requests', count: myRequests }]
+            : []),
+        ]}
+      />
+
+      <div className={styles.bar}>
         <h1 className={styles.title}>Trays</h1>
         <span className={`${styles.count} tabular`}>
           {tickets.length - carrying} waiting
           {carrying ? ` · ${carrying} out` : ''}
         </span>
         <LiveQueue propertyId={propertyId} />
-      </header>
+      </div>
+
+      {/* A tray is handed to whoever is standing at the pass, so the queue is
+          still shown off shift — what changes is that nothing is ROUTED to
+          them, and the notice says so rather than leaving a quiet screen. */}
+      {shift ? null : <OffShiftNotice />}
 
       <PickupQueue
         propertyId={propertyId}

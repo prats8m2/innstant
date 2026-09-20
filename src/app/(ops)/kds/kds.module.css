@@ -1,303 +1,643 @@
 /*
- * Kitchen display. An always-on shared screen in a hot kitchen: big type, high
- * contrast, no hover-only affordances, nothing that needs a precise tap.
- * Every value from theme.css.
+ * The kitchen display.
+ *
+ * Read at arm's length, in a hot room, by somebody holding a pan. Every size
+ * here is larger than the console's equivalent and every target clears
+ * --touch-min, because the finger pressing them is not always clean and never
+ * has time to aim.
+ *
+ * The board carries `data-scheme` — light by day, dark from 19:00 — and that
+ * attribute swaps the semantic tokens underneath everything below (theme.css).
+ * NOTHING in this file may reach past a semantic alias to --paper or --ink
+ * directly, or half the screen will stay bright at midnight.
  */
+
 .shell {
-  min-height: 100dvh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
-  padding: var(--space-4);
+  color: var(--text);
+  /* The one transition on the screen. A kitchen going dark at 19:00 should
+     read as the lights coming down, not as a page reload. */
+  transition: background-color var(--dur-slow) var(--ease-out);
 }
 
+/* ── The bar ──────────────────────────────────────────────────────────── */
+
 .bar {
+  flex: 0 0 auto;
+  min-height: 64px;
   display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding-bottom: var(--space-4);
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
+
+.identity { display: flex; flex-direction: column; gap: 2px; }
 
 .title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 400;
+  font-size: var(--text-base);
+  font-weight: 700;
   color: var(--text);
 }
 
-.count {
-  font-size: var(--text-base);
+.subtitle {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.live {
+/*
+ * The alert, and the tap that silences it.
+ *
+ * Critical rather than accent: this is the one thing on the board that is
+ * asking for a decision, and it has to win against three columns of teal.
+ */
+.ack {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--status-critical);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ackHint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.ping { position: relative; width: 10px; height: 10px; flex: 0 0 10px; }
+.pingRipple,
+.pingDot {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--accent-ink);
+}
+.pingRipple { animation: ping 1.4s var(--ease-out) infinite; }
+
+.allSeen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.seenDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-positive);
+}
+
+.barRight {
   margin-left: auto;
-  display: inline-flex;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.trayToggle {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Something is off the menu right now. The button becomes the notice. */
+.trayToggle[data-on='true'] {
+  background: var(--status-critical);
+  border-color: var(--status-critical);
+  color: var(--accent-ink);
+}
+
+.clockStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.clock {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+
+.summary {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── The 86 tray ──────────────────────────────────────────────────────── */
+
+.tray {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.trayLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: var(--space-1);
+}
+
+.trayEmpty { font-size: var(--text-sm); color: var(--text-muted); }
+
+.trayForm { display: contents; }
+
+.trayChip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trayChip:hover { border-color: var(--accent); }
+.trayChip:disabled { opacity: 0.6; cursor: default; }
+
+.trayChipHint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--accent);
+}
+
+/* ── The three columns ────────────────────────────────────────────────── */
+
+.columns {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--space-3);
+}
+
+.columnHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0 2px;
+}
+
+.columnTitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.columnCount { font-size: var(--text-sm); color: var(--text-muted); }
+
+.columnHint {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/*
+ * Each column scrolls on its own. A single page scroll would mean a cook
+ * scrolling past "Cooking" to reach "At the pass", and the three answers are
+ * wanted at the same time.
+ */
+.columnList {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  scrollbar-width: thin;
+}
+
+.columnEmpty {
+  flex: 1;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-5);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+/* ── One ticket ───────────────────────────────────────────────────────── */
+
+.ticket {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* The left edge is the age. It is the only thing readable from the pass. */
+  border-left: 4px solid var(--status-positive);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: archIn var(--dur-mid) var(--ease-out) both;
+}
+
+.ticket[data-heat='soon'] { border-left-color: var(--status-attention-mark); }
+.ticket[data-heat='late'] { border-left-color: var(--status-critical); }
+
+/*
+ * Nobody has looked at this one yet. A ring, not a colour change — the colour
+ * is already carrying the age, and the two must not fight.
+ */
+.ticket[data-fresh='true'] {
+  border-color: var(--status-critical);
+  box-shadow: 0 0 0 3px var(--status-critical-tint);
+}
+
+.ticketHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.room {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+}
+
+.ticketMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.number { font-size: var(--text-xs); color: var(--text-muted); }
+.placed { font-size: var(--text-xs); color: var(--text-muted); }
+
+.age {
+  margin-left: auto;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--status-positive);
+  color: var(--accent-ink);
+  font-size: var(--text-md);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.age[data-heat='soon'] {
+  background: var(--status-attention-tint);
+  /* The text tone, not the mark: this one has words in it. */
+  color: var(--status-attention);
+}
+.age[data-heat='late'] { background: var(--status-critical); color: var(--accent-ink); }
+
+/* An allergy line. The only thing on the card that may not be skimmed. */
+.allergy {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--status-critical-tint);
+  color: var(--status-critical);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.lines {
+  margin: 0;
+  padding: var(--space-2) 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+/* 86'd since the ticket landed. Still has to be cooked or refused — struck
+   through so the cook knows the guest menu no longer offers it. */
+.line[data-pulled='true'] .lineName {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.quantity {
+  flex: 0 0 30px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.lineBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.lineName {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.lineMods { font-size: var(--text-sm); color: var(--text-muted); line-height: 1.4; }
+
+.lineNote {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.eightySixForm { display: flex; align-items: center; gap: var(--space-2); }
+
+.eightySix {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.eightySix:hover { border-color: var(--status-critical); color: var(--status-critical); }
+.eightySix:disabled { opacity: 0.5; cursor: default; }
+
+.guestNote {
+  margin: var(--space-1) var(--space-4) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--note-bg);
+  color: var(--note-ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+}
+
+.actionForm { flex: 1; display: flex; }
+
+.primary {
+  flex: 1;
+  min-height: 48px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.primary:hover { background: var(--accent-hover); }
+.primary:disabled { opacity: 0.6; cursor: default; }
+
+.refuse {
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.refuse:hover { border-color: var(--status-critical); color: var(--status-critical); }
+
+.waiting {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: 48px;
+  padding: 0 var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.waitDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-attention-mark);
+  animation: blink 1.6s ease-in-out infinite;
+}
+
+/* ── Refusing, with a reason the guest reads ──────────────────────────── */
+
+.reject {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.rejectLead {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.reasons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1);
+}
+
+.reason {
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reason[aria-pressed='true'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--surface);
+}
+
+.otherReason {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+}
+
+.rejectActions { display: flex; gap: var(--space-2); margin-top: 2px; }
+
+.keep {
+  flex: 1;
+  min-height: var(--touch-min);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmReject {
+  flex: 1;
+  min-height: var(--touch-min);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--status-critical);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* No reason picked yet. Dimmed rather than hidden, so the shape of the step
+   is visible before it is possible — a button that appears is a surprise. */
+.confirmReject:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Live, and the states nothing else covers ─────────────────────────── */
+
+.live {
+  display: flex;
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
+  color: var(--text-muted);
 }
 
 .liveDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--plaster-faint);
+  background: var(--status-critical);
 }
-.live[data-connected='true'] { color: var(--teal); }
+
 .live[data-connected='true'] .liveDot {
-  background: var(--teal);
-  animation: glow 2s var(--ease-out) infinite;
-}
-
-.empty {
-  margin: var(--space-10) auto;
-  max-width: 40ch;
-  text-align: center;
-  font-size: var(--text-lg);
-  color: var(--text-muted);
-}
-
-/* Columns, not rows: a cook scans left to right and the oldest is always
-   leftmost. Auto-fill so a 10" tablet and a 27" panel both fill. */
-.rail {
-  list-style: none;
-  margin: var(--space-5) 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-4);
-}
-
-.ticket {
-  display: flex;
-  flex-direction: column;
-  padding: var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--border);
-  border-radius: var(--radius-sm);
-  animation: riseIn var(--dur-base) var(--ease-out) both;
-}
-
-/* Status is carried by the left edge — colour a cook reads from across a pass,
-   without needing to read the word. */
-.ticket[data-status='PLACED'] { border-left-color: var(--saffron); }
-.ticket[data-status='ACCEPTED'] { border-left-color: var(--plaster-faint); }
-.ticket[data-status='PREPARING'] { border-left-color: var(--teal); }
-.ticket[data-status='READY'] { border-left-color: var(--saffron-lit); }
-
-.ticketHead {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.room {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-}
-
-.number {
-  font-size: var(--text-sm);
-  color: var(--plaster-faint);
-}
-
-.age {
-  margin-left: auto;
-  font-size: var(--text-base);
-  color: var(--text-muted);
-}
-/*
- * Ageing, against the ticket's own promise rather than a flat number of minutes
- * — a 40-minute dish and a 10-minute chai are not late at the same age.
- * `soon` is the last quarter of the promise; `late` is past it.
- */
-.age[data-heat='soon'] { color: var(--accent); font-weight: 600; }
-
-/* Late is the one thing on this screen that shouts. */
-.age[data-late='true'] {
-  color: var(--surface);
-  background: var(--accent);
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-xs);
-  font-weight: 700;
-}
-
-.allergy {
-  margin: 0 0 var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: color-mix(in srgb, var(--saffron) 18%, transparent);
-  border-left: 2px solid var(--accent);
-  border-radius: var(--radius-xs);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.lines {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.line { display: flex; gap: var(--space-3); align-items: baseline; }
-
-.quantity {
-  flex: none;
-  min-width: 24px;
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--accent);
-}
-
-.lineBody { display: block; }
-
-.lineName {
-  display: block;
-  font-size: var(--text-lg);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text);
-}
-
-.lineMods {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.lineNote {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--text-sm);
-  font-style: italic;
-  color: var(--saffron-lit);
-}
-
-.guestNote {
-  margin: var(--space-3) 0 0;
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-soft);
-  font-size: var(--text-sm);
-  font-style: italic;
-  color: var(--saffron-lit);
+  background: var(--status-positive);
+  animation: glow 2.4s ease-in-out infinite;
 }
 
 .error {
-  margin: var(--space-3) 0 0;
+  margin: 0 var(--space-4) var(--space-2);
+  color: var(--status-critical);
   font-size: var(--text-sm);
-  color: var(--accent);
-}
-
-.actions {
-  margin-top: auto;
-  padding-top: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.actionForm { display: flex; gap: var(--space-2); }
-
-/* 56px, not 44px. This is tapped with a knuckle, a gloved hand, or the side of
-   a thumb, by someone holding a pan. */
-.primary,
-.secondary {
-  flex: 1;
-  min-height: 56px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.primary {
-  background: var(--accent);
-  color: var(--surface);
-  border: 0;
-}
-.primary:hover:not(:disabled) { background: var(--accent-hover); }
-
-.secondary {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
   font-weight: 600;
-  font-size: var(--text-base);
-}
-.secondary:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
-
-.primary:disabled,
-.secondary:disabled { opacity: 0.6; cursor: progress; }
-
-.reason {
-  flex: 2;
-  min-height: 56px;
-  padding: 0 var(--space-3);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-}
-.reason::placeholder { color: var(--plaster-faint); }
-
-/* ── The unacknowledged count ─────────────────────────────────────────────── */
-/*
- * Tickets nobody has accepted. It sits next to the total and it is deliberately
- * loud: the audible alert can be blocked by the browser, so this is the channel
- * that always works.
- */
-.unacked {
-  padding: 2px var(--space-3);
-  border-radius: var(--radius-xs);
-  background: var(--accent);
-  color: var(--surface);
-  font-size: var(--text-base);
-  font-weight: 700;
 }
 
-/* ── 86 ───────────────────────────────────────────────────────────────────── */
-.eightySixForm {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
+.empty {
+  margin: auto;
+  padding: var(--space-10);
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  text-align: center;
 }
 
 /*
- * Small and quiet. It is next to every line on the board and it takes a dish off
- * the guest menu — a cook should have to mean it, and nobody should hit it while
- * reaching for a bump button.
+ * A 1194px counter tablet in portrait, or a phone somebody has opened this on
+ * by mistake. Three columns become one scrolling list rather than three
+ * unreadable ones — the same content, in the order it was already sorted.
  */
-.eightySix {
-  min-width: var(--touch-min);
-  min-height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--plaster-faint);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  cursor: pointer;
+@media (max-width: 900px) {
+  .columns { grid-template-columns: 1fr; overflow-y: auto; }
+  .column { min-height: 0; }
+  .columnList { overflow: visible; }
 }
-.eightySix:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-.eightySix:disabled { opacity: 0.6; cursor: progress; }

@@ -1,159 +1,391 @@
 /*
- * Room home. Rebuilt from design/reference/ — matched, not pasted.
- * Every value is a custom property from theme.css. No hex, no raw duration.
+ * The room home.
+ *
+ * 390×844 is the design viewport. Mobile only — it centres rather than
+ * stretching on a larger screen, because a guest app stretched to a desktop is
+ * a guest app nobody designed.
+ *
+ * The ground, the type and the radii all come from `[data-theme='kesari']` in
+ * theme.css, applied by `(guest)/layout.tsx`. Nothing here is a hex.
  */
 .shell {
+  position: relative;
   min-height: 100dvh;
-  background: var(--bg);
-  /* 390×844 is the design viewport; the app is mobile-only (no desktop
-     breakpoint), so it centres rather than stretching on a larger screen. */
   max-width: 430px;
   margin-inline: auto;
-  padding: var(--space-6) var(--space-5) var(--space-10);
+  /* The bottom padding clears the pinned button. */
+  padding: 0 var(--space-4) 148px;
+}
+
+/* ── The masthead ─────────────────────────────────────────────────────── */
+
+.masthead {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-.header { animation: riseIn var(--dur-slow) var(--ease-out) both; }
-
-.eyebrow {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--saffron);
-  margin: 0 0 var(--space-3);
-}
-
-.property {
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: 400;
-  line-height: 1.1;
-  color: var(--text);
-  margin: 0;
-}
-
-.stayLine {
-  margin: var(--space-3) 0 0;
-  color: var(--plaster-dim);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-}
-
-/* The one status affordance: the kitchen being open is the single most useful
-   fact on this screen at 9:40pm. */
-.kitchen {
-  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill-sm);
-  font-size: var(--text-xs);
-  color: var(--plaster-dim);
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 60px;
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
 }
 
-.pulse {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--teal);
-  position: relative;
-}
-.pulse::after {
-  content: ''; position: absolute; inset: 0;
-  border-radius: 50%; background: var(--teal);
-  animation: breathe 2.4s var(--ease-out) infinite;
-}
-
-.dining {
-  display: block;
-  position: relative;
+.wordmark {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--text);
+  /* A long hotel name must not push the room chip off the screen — the chip is
+     the half that tells a guest the sticker they scanned was theirs. */
+  min-width: 0;
   overflow: hidden;
-  padding: var(--space-6) var(--space-5);
-  background: linear-gradient(160deg, var(--ink-700), var(--ink-800));
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roomChip {
+  flex: none;
+  margin: 0;
+  padding: 5px var(--space-3);
+  border-radius: var(--radius-xs);
+  background: var(--text);
+  color: var(--bg);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ── The arch ─────────────────────────────────────────────────────────────
+   A haveli doorway. The same curve returns on every dish thumbnail and on the
+   tracking screen; it is the product's one ornament and the strongest signal
+   that this is not a template.
+
+   The CARD carries the dome — a tall ellipse on the top corners, square at the
+   foot. What is inside it is an SVG (see the page), not the four stacked
+   radial-gradients this used to be: those were struck from below the box, so
+   at 398×180 they came out as huge flat circles that read as a record sleeve,
+   and a 45° hatch on top of them made it worse. */
+.arch {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+  border-radius: 44% 44% var(--radius-md) var(--radius-md) / 30% 30% 0 0;
+  /* A half-step above the page, not a full one. At --surface-raised the card
+     was lighter than everything around it and the domed top read as a lid
+     sitting on the screen rather than as a recess cut into it. */
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
   animation: archIn var(--dur-slower) var(--ease-out) both;
   animation-delay: 60ms;
-  transition: border-color var(--dur-base) var(--ease-out),
-              transform var(--dur-base) var(--ease-out);
 }
-.dining:hover, .dining:active { border-color: var(--saffron); transform: translateY(-1px); }
 
-.diningLabel {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--saffron);
+.archArt {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
-.diningTitle {
+
+/* Three weights, so the eye reads depth rather than three identical rings.
+   The innermost is the only one that carries the accent — it is the doorway
+   you are looking through. */
+.archOuter {
+  stroke: var(--text);
+  stroke-opacity: 0.1;
+  stroke-width: 1;
+}
+
+.archMid {
+  stroke: var(--text);
+  stroke-opacity: 0.16;
+  stroke-width: 1;
+}
+
+.archInner {
+  stroke: var(--accent);
+  stroke-opacity: 0.55;
+  stroke-width: 1.25;
+}
+
+/* Darkens the foot of the arch so the two lines sitting on it stay legible
+   whatever is drawn behind them. */
+.archWash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    var(--paper-deep) 0%,
+    color-mix(in srgb, var(--paper-deep) 62%, transparent) 34%,
+    transparent 72%
+  );
+}
+
+.archBody {
+  position: absolute;
+  left: var(--space-5);
+  right: var(--space-5);
+  bottom: var(--space-4);
+}
+
+.archEyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--status-positive);
+}
+
+.archTitle {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  line-height: 1.25;
+  color: var(--text);
+  text-wrap: pretty;
+}
+
+/* ── The greeting ─────────────────────────────────────────────────────── */
+
+.greeting {
+  margin-top: var(--space-6);
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 120ms;
+}
+
+.greetingText {
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 400;
+  line-height: 1.15;
   color: var(--text);
-  margin: var(--space-2) 0 var(--space-1);
 }
-.diningSub { color: var(--plaster-dim); font-size: var(--text-sm); margin: 0; }
 
-.rows { display: flex; flex-direction: column; gap: var(--space-2); }
+.stayLine {
+  margin: 6px 0 0;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
 
-.row {
+/* ── The way back to an order ─────────────────────────────────────────────
+   Between the greeting and the tiles. The tiles are four doors; this is news,
+   and it only exists when there is some. */
+
+.trail {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  /* 44px minimum touch target — a hard requirement. */
-  min-height: var(--touch-min);
-  padding: var(--space-4) var(--space-4);
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-3) var(--space-4);
   background: var(--surface);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  text-align: left;
-  animation: riseIn var(--dur-slow) var(--ease-out) both;
-  transition: background var(--dur-fast) var(--ease-out),
-              border-color var(--dur-fast) var(--ease-out);
-}
-.row:hover, .row:active { background: var(--surface-hover); border-color: var(--border); }
-
-/* The staggered page-load sequence the brief asked for: one orchestrated
-   moment, not five scattered fades. */
-.row:nth-child(1) { animation-delay: 120ms; }
-.row:nth-child(2) { animation-delay: 170ms; }
-.row:nth-child(3) { animation-delay: 220ms; }
-.row:nth-child(4) { animation-delay: 270ms; }
-
-.rowTitle {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
+  border-radius: var(--radius-md);
   color: var(--text);
-  margin: 0 0 2px;
-  font-weight: 400;
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 150ms;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
-.rowSub { color: var(--text-muted); font-size: var(--text-xs); margin: 0; }
-.chevron { color: var(--saffron); font-size: var(--text-lg); flex: none; }
 
-.footer {
-  margin-top: auto;
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border-soft);
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
+.trail:hover {
+  background: var(--surface-raised);
+  color: var(--text);
 }
+
+/* Something is actually moving. The same saffron left edge a chosen amenity
+   and a live order row carry, so "this is in progress" reads the same in all
+   three places. */
+.trail[data-live='true'] {
+  box-shadow: inset 2px 0 0 var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.trailBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+
+.trailLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.trailPulse {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: glow 2.4s ease-in-out infinite;
+}
+
+.trailDetail {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+  /* One line. A three-dish order must not make this strip taller than the
+     tiles under it. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trailChevron {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--accent);
+}
+
+/* ── The tiles ────────────────────────────────────────────────────────── */
+
+.tiles {
+  margin-top: var(--space-5);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 180ms;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  /* Taller than --touch-min by a long way: these are the four things a guest
+     reaches for and they are tapped one-handed, in the dark. */
+  min-height: 108px;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+
+.tile:hover,
+.tile:active {
+  background: var(--surface-raised);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+/* A miniature of the arch above — the same doorway, 18px wide. */
+.tileArch {
+  width: 18px;
+  height: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+}
+
+.tileBody { display: flex; flex-direction: column; }
+
+.tileTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.tileSub {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+  line-height: 1.4;
+}
+
+/* Not built yet. Visibly quieter, and not a link. */
+.tile[data-soon='true'] {
+  background: transparent;
+  border-style: dashed;
+}
+.tile[data-soon='true']:hover {
+  background: transparent;
+  border-color: var(--border-soft);
+}
+.tile[data-soon='true'] .tileArch {
+  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.charged {
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 240ms;
+}
+
+/* ── The one button ───────────────────────────────────────────────────── */
+
+.cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 430px;
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-4);
+  /* Fades the scrolling content out underneath rather than cutting it off. */
+  background: linear-gradient(to top, var(--bg) 58%, transparent);
+  animation: riseIn var(--dur-slower) var(--ease-out) both;
+  animation-delay: 300ms;
+}
+
+.ctaButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  width: 100%;
+  min-height: 58px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  transition: background var(--dur-base) var(--ease-out);
+}
+
+.ctaButton:hover { background: var(--accent-hover); color: var(--accent-ink); }
 
 /*
- * A row for a screen that does not exist yet. Visibly not tappable — the P3 and
- * P4 rows are in the reference's design and pretending they work is worse than
- * saying they are coming.
+ * Shut kitchen. Still a link — the menu, the prices and the hours are all
+ * readable with the kitchen closed (#9), and the sub-line says so. Quieter,
+ * because promising dinner at 2am is the lie this is avoiding.
  */
-.row[data-soon='true'] {
-  cursor: default;
-  opacity: 0.55;
+.ctaButton[data-open='false'] {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
 }
-.row[data-soon='true']:hover { background: transparent; }
+.ctaButton[data-open='false']:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ctaTitle { line-height: 1.2; }
+
+.ctaSub {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  opacity: 0.72;
+}
