@@ -1512,3 +1512,32 @@ details[open] > .disclosureHead {
   .hoursForm { overflow-x: auto; }
   .hoursTable { min-width: 460px; }
 }
+
+/* ── The live indicator ───────────────────────────────────────────────────
+   The console streams now (D-060). It sits in a page head beside the title,
+   and says what it is actually hearing rather than claiming a feed the
+   account has no permission for. */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-critical);
+}
+
+.liveDot[data-connected='true'] {
+  background: var(--status-positive);
+  animation: glow 2.4s ease-in-out infinite;
+}

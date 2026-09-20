@@ -12,6 +12,7 @@ import {
   formatCheckoutShort, formatFolioDate, formatMinutes, nightsUntil, spellCount,
 } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
+import { LiveConsole } from '../live-console';
 import { DeskPanel } from './desk-panel';
 import type { FolioLineView, LateCheckoutView, PanelPermissions } from './desk-panel';
 import styles from './desk.module.css';
@@ -53,11 +54,24 @@ const VIEWS = [
   { key: 'orders', label: 'Orders' },
 ] as const;
 
+/**
+ * `needs` is FIRST and it is the default.
+ *
+ * The desk opened on All, which at this property means thirty vacant rooms
+ * before the four that have anything happening in them. A front desk does not
+ * come to this screen to read 001–104; they come because a phone rang, and the
+ * rooms with an open order, an open request or a decision waiting are the only
+ * rows that can answer it.
+ *
+ * The others stay one tap away, and the empty state says so — a filter that can
+ * legitimately be empty has to offer the way out of itself.
+ */
 const FILTERS = [
-  { key: 'all', label: 'All' },
+  { key: 'needs', label: 'Needs you' },
   { key: 'occupied', label: 'In house' },
   { key: 'leaving', label: 'Leaving today' },
   { key: 'vacant', label: 'Vacant' },
+  { key: 'all', label: 'All' },
 ] as const;
 
 export default async function FrontDesk({ searchParams }: { searchParams: Search }) {
@@ -67,7 +81,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
 
   const params = await searchParams;
   const view = VIEWS.find((v) => v.key === params.view)?.key ?? 'rooms';
-  const filter = FILTERS.find((f) => f.key === params.filter)?.key ?? 'all';
+  const filter = FILTERS.find((f) => f.key === params.filter)?.key ?? 'needs';
 
   const maySeeRequests = can(session, propertyId, 'request:read');
   const maySeeOrders = can(session, propertyId, 'order:read');
@@ -138,6 +152,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
     : null;
 
   const visibleRooms = rooms.filter((room) => {
+    if (filter === 'needs') return openBy.has(room.number);
     if (filter === 'occupied') return !!room.stay;
     if (filter === 'vacant') return !room.stay;
     if (filter === 'leaving') {
@@ -152,7 +167,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
     const query = new URLSearchParams();
     const merged = { view, room: selected?.id ?? '', filter, ...next };
     if (merged.view !== 'rooms') query.set('view', merged.view);
-    if (merged.filter !== 'all') query.set('filter', merged.filter);
+    if (merged.filter !== 'needs') query.set('filter', merged.filter);
     if (merged.room) query.set('room', merged.room);
     const search = query.toString();
     return search ? `/admin/desk?${search}` : '/admin/desk';
@@ -178,6 +193,13 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
           <p className={styles.subtitle}>
             {spellCount(rooms.length)} {rooms.length === 1 ? 'room' : 'rooms'} · {inHouse} in house
           </p>
+          {/* The desk leaves this open all shift. Without it the screen is only
+              right at the moment somebody reloads it. */}
+          <LiveConsole
+            propertyId={propertyId}
+            orders={maySeeOrders}
+            requests={maySeeRequests}
+          />
           <nav className={styles.views} aria-label="What to list">
             {VIEWS.map((option) => {
               const off = (option.key === 'requests' && !maySeeRequests)
@@ -264,7 +286,14 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
                       </Link>
                     );
                   }) : (
-                    <p className={styles.tableEmpty}>No rooms match that filter.</p>
+                    <p className={styles.tableEmpty}>
+                      {filter === 'needs' ? (
+                        <>
+                          Nothing open. The floor is quiet.{' '}
+                          <Link href={href({ filter: 'all' })}>Show every room</Link>
+                        </>
+                      ) : 'No rooms match that filter.'}
+                    </p>
                   )}
                 </div>
               </>
@@ -373,7 +402,17 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
             ] : []}
             lateCheckout={lateCheckout ? toLateCheckout(lateCheckout, timeZone) : null}
             folio={folio ? {
-              lines: folio.lines.map((line): FolioLineView => ({
+              /**
+               * The most recent dozen, newest first.
+               *
+               * A four-night stay that has ordered dinner every night runs to
+               * twenty lines, and the panel rendered all of them — which pushed
+               * "Total so far" below the fold of a 900px screen. The number a
+               * desk is asked for on the phone was the one thing they had to
+               * scroll for. The rest stay on the guest profile, where reading a
+               * whole bill is the point.
+               */
+              lines: folio.lines.slice(-12).reverse().map((line): FolioLineView => ({
                 id: line.id,
                 date: formatFolioDate(line.createdAt, timeZone),
                 description: line.description,
@@ -386,6 +425,9 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
                 amountMinor: folio.balanceMinor,
                 currency: folio.currency as 'INR',
               }),
+              /** How many older lines are not shown, so the panel never implies
+               *  the total is the sum of what is on screen. */
+              hidden: Math.max(0, folio.lines.length - 12),
               settled: folio.status !== 'OPEN',
             } : null}
             permissions={panelPermissions}

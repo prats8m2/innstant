@@ -68,7 +68,7 @@ export function DeskPanel({
   } | null;
   live: LiveItem[];
   lateCheckout: LateCheckoutView | null;
-  folio: { lines: FolioLineView[]; total: string; settled: boolean } | null;
+  folio: { lines: FolioLineView[]; total: string; hidden: number; settled: boolean } | null;
   permissions: PanelPermissions;
 }) {
   if (!room) {
@@ -157,6 +157,18 @@ export function DeskPanel({
                   </li>
                 ))}
               </ul>
+              {folio.hidden > 0 ? (
+                <p className={styles.folioMore}>
+                  {folio.hidden} earlier {folio.hidden === 1 ? 'line' : 'lines'} not shown
+                  {stay && permissions.seeGuest ? (
+                    <>
+                      {' · '}
+                      <Link href={`/admin/guests/${stay.guestId}`}>see the whole bill</Link>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+
               <p className={styles.folioTotal}>
                 <span className={styles.panelHeading}>Total so far</span>
                 <span className={`${styles.folioSum} tabular`}>{folio.total}</span>

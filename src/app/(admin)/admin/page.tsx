@@ -8,6 +8,7 @@ import { getOpenRequests } from '@/modules/requests';
 import { kitchenTickets } from '@/modules/ordering';
 import { nightsUntil } from '@/lib/clock';
 import { AdminShell } from './admin-shell';
+import { LiveConsole } from './live-console';
 import styles from './admin.module.css';
 
 /**
@@ -92,6 +93,14 @@ export default async function AdminHome() {
               : 'No in-room dining outlet is configured here.'}
           </p>
         </div>
+        {/* A GM opens this at 8am and leaves it open. Every number below comes
+            from the same service functions the floor screens use, and until now
+            they froze at the moment the page loaded. */}
+        <LiveConsole
+          propertyId={propertyId}
+          orders={maySeeOrders}
+          requests={maySeeRequests}
+        />
       </header>
 
       <ul className={styles.stats}>

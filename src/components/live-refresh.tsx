@@ -39,7 +39,13 @@ export function useLiveRefresh({
    *  re-render, and 250ms is well under what reads as a delay. */
   coalesceMs = 250,
 }: {
-  streamUrl: string;
+  /**
+   * Null when this caller has nothing to subscribe to — a console screen whose
+   * account holds `request:read` but not `order:read` wants one feed, not two,
+   * and a hook cannot be called conditionally. The effect then opens nothing
+   * and `connected` stays false, which is the truth.
+   */
+  streamUrl: string | null;
   eventName: string;
   coalesceMs?: number;
 }): { connected: boolean } {
@@ -49,6 +55,11 @@ export function useLiveRefresh({
   const pending = useRef<number | null>(null);
 
   useEffect(() => {
+    if (!streamUrl) {
+      setConnected(false);
+      return;
+    }
+
     const source = new EventSource(streamUrl);
 
     source.addEventListener('ready', () => {

@@ -38,7 +38,10 @@
 
 /* Rooms · Requests · Orders. The design's left-rail sections, which the
    console's own rail already occupies — so they are a switch inside the
-   screen rather than a second navigation beside the first. */
+   screen rather than a second navigation beside the first.
+
+   The look now lives in admin.module.css, shared with the property screen's
+   own switch; this only positions it. */
 .views {
   margin-left: auto;
   display: flex;
@@ -445,6 +448,13 @@ a.row[aria-current='true'] {
 .folioDate { font-size: var(--text-xs); color: var(--text-muted); }
 .folioWhat { font-size: var(--text-sm); }
 .folioAmount { font-size: var(--text-sm); text-align: right; }
+
+/* Said out loud, so the total can never read as the sum of what is on screen. */
+.folioMore {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
 
 .folioTotal {
   display: flex;
