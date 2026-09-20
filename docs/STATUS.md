@@ -43,13 +43,26 @@ two arcs and two gold dots — so it is sharp at 26px in a nav and at 220px behi
 the closing panel.
 
 **The whole product is deployed and running**, against a seeded Railway
-Postgres:
+Postgres, on a custom domain:
 
-    https://kesari-production.up.railway.app
+    https://innstant.in                          the site, and /demo beside it
+    https://kesari-production.up.railway.app     the same service, still live
+
+`APP_URL` on the service still says the railway subdomain. Both hostnames serve
+everything, so nothing is broken — but `APP_URL` is what a printed QR sticker's
+URL is built from, and which of the two a sticker should carry is a decision
+about the brand rather than a detail. Left alone deliberately; change it and
+`pnpm demo:reset` before the next print run if the answer is `innstant.in`.
 
 Migration **0007 is applied to the deployment** (`demo_visitors`), taking it to
-54 tables with RLS enabled and forced. Gates at this commit: typecheck, lint,
-337 unit — all green.
+54 tables with RLS enabled and forced — `/api/health` reports 8/8 with none
+pending. Gates at this commit: typecheck, lint, 337 unit — all green.
+
+Verified on the deployment itself, not only locally: "See how it works" opens
+room 210 greeted by the visitor's own name, that session sees the folio with no
+digits prompt, a plain scan of THE SAME ROOM still gets the prompt, a returning
+visitor is not asked again, and the name is in `demo_visitors` — readable as the
+owner role, and zero rows to `app_user`.
 
 **Both design documents plus the website are implemented**, and the product
 carries THREE themes on purpose (D-050, D-062): the staff console is paper and
@@ -197,10 +210,10 @@ The occupied rooms at the time of writing, on the deployment:
 
 | Room | Link |
 |---|---|
-| 214 | https://kesari-production.up.railway.app/r/-6qh-CdR-8Cu |
-| 105 | https://kesari-production.up.railway.app/r/rtwrb0aptNNT |
-| 210 | https://kesari-production.up.railway.app/r/WaloZEkBetPo |
-| 301 | https://kesari-production.up.railway.app/r/EFzcdMPfcbDl |
+| 214 | https://innstant.in/r/-6qh-CdR-8Cu |
+| 105 | https://innstant.in/r/rtwrb0aptNNT |
+| 210 | https://innstant.in/r/WaloZEkBetPo |
+| 301 | https://innstant.in/r/EFzcdMPfcbDl |
 
 All 34 are in `.demo-seed.json`, and the desk copies any of them from
 `/admin/rooms`. Verification digits, where a charge prompts for them: `1111`.
