@@ -156,6 +156,35 @@ export async function withoutTenantForProvisioning<T>(
 }
 
 /**
+ * Platform data — `demo_visitors`, and nothing else (0007).
+ *
+ * ─── Why this is not a hole in CLAUDE.md #1 ────────────────────────────────
+ *
+ * #1 exists so that a forgotten tenant check returns nothing instead of another
+ * hotel's rows. `demo_visitors` has no tenant to forget: a stranger pressing
+ * "See how it works" on the marketing site is not a hotel. Routing the write
+ * through `withTenant()` would mean inventing a tenant to satisfy the
+ * signature, which buys the letter of the rule and loses its point.
+ *
+ * What the table needs instead is an asymmetry the tenant rule cannot express —
+ * the app may INSERT and must never SELECT — and that is enforced in Postgres,
+ * in 0007, not here. Forced RLS with a single INSERT policy means a SELECT from
+ * this scope returns zero rows even if somebody writes one.
+ *
+ * WRITE is in the name because that is the only thing it is for. If you find
+ * yourself reaching for this to read something, the answer is no: the demo
+ * guest book is read with psql by whoever owns the database.
+ */
+export async function withPlatformWrite<T>(
+  reason: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  if (!reason.trim()) throw new Error('A reason is required — it is written to the log.');
+  logger.info({ reason }, 'platform write');
+  return db.transaction(fn);
+}
+
+/**
  * The one pre-tenant lookup in the request path (0003_qr_routing.sql).
  *
  * A guest at /r/{publicCode} has no cookie and no tenant, so this cannot run

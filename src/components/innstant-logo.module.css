@@ -1,0 +1,44 @@
+/*
+ * The mark takes its letter colour from `currentColor` so that a header can
+ * simply set `color` — the gold is the only thing held here, because it is the
+ * brand rather than the context.
+ */
+.dot {
+  fill: var(--brand-gold);
+}
+
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  color: inherit;
+}
+
+.word {
+  font-family: var(--font-body);
+  font-weight: 700;
+  /* Wide, the way the printed mark is. The tracking is most of what makes it
+     read as a wordmark rather than as a word. */
+  letter-spacing: 0.16em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* The A carries its roof, so the roof moves when the type size does. */
+.roofed {
+  position: relative;
+  display: inline-block;
+}
+
+.roof {
+  position: absolute;
+  left: 50%;
+  /* Above the cap height, not above the box — the box includes descender space
+     the A does not use, and centring on it sits the roof too high. */
+  bottom: 0.82em;
+  width: 0.78em;
+  height: 0.39em;
+  transform: translateX(-52%);
+  color: var(--brand-gold);
+  overflow: visible;
+}

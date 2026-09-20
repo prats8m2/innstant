@@ -32,15 +32,17 @@ const FILES = walk('src').filter((f) => !f.endsWith('theme.css'));
  * Without it the phone's address bar flashes a different shade before first
  * paint, which is the first thing a guest sees at 9:40pm.
  *
- * There are two because there are two themes (D-050): the root layout carries
- * the staff console's ground, and the guest route group overrides it with the
- * Kesari's. Each must stay in step with `--paper` in ITS OWN palette block, by
- * hand — the assertions below enforce that, and they are the reason a palette
- * swap cannot silently leave one browser chrome behind.
+ * There are three because there are three themes (D-050, and the marketing
+ * site after it): the root layout carries the staff console's ground, the guest
+ * route group overrides it with the Kesari's, and the site group with its own.
+ * Each must stay in step with `--paper` in ITS OWN palette block, by hand — the
+ * assertions below enforce that, and they are the reason a palette swap cannot
+ * silently leave one browser chrome behind.
  */
 const ALLOWED = new Map([
   ['src/app/layout.tsx', '#F3F4F2'],
   ['src/app/(guest)/layout.tsx', '#0A1220'],
+  ['src/app/(site)/layout.tsx', '#F3F4F1'],
 ]);
 
 describe('theme discipline', () => {
@@ -99,6 +101,13 @@ describe('theme discipline', () => {
       .exec(blockFor("[data-theme='kesari']"));
     expect(guestGround?.[1]?.toUpperCase())
       .toBe(ALLOWED.get('src/app/(guest)/layout.tsx')?.toUpperCase());
+
+    // The site's is its plain `--paper`: unlike the guest app it has no deeper
+    // backdrop behind the content, so the chrome and the page are one colour.
+    const siteGround = /--paper:\s*(#[0-9A-Fa-f]{6})/
+      .exec(blockFor("[data-theme='innstant']"));
+    expect(siteGround?.[1]?.toUpperCase())
+      .toBe(ALLOWED.get('src/app/(site)/layout.tsx')?.toUpperCase());
   });
 
   /**
@@ -110,6 +119,12 @@ describe('theme discipline', () => {
   it('the guest route group applies the Kesari theme', () => {
     const layout = readFileSync('src/app/(guest)/layout.tsx', 'utf8');
     expect(layout).toMatch(/data-theme="kesari"/);
+  });
+
+  /** Same failure, same cost, one route group over. */
+  it('the site route group applies the Innstant theme', () => {
+    const layout = readFileSync('src/app/(site)/layout.tsx', 'utf8');
+    expect(layout).toMatch(/data-theme="innstant"/);
   });
 
   it('theme.css declares the whole vocabulary the design names', () => {

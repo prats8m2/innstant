@@ -1868,3 +1868,83 @@ the choice survives a reload and can be sent to somebody, which client state
 cannot; and the styling moved out of `desk.module.css` into the shared console
 stylesheet, because a console with two different-looking ways to switch between
 views of one screen is a console you have to learn twice.
+
+### D-062 · The website is the front door, and `/demo` is its threshold
+`/` was a placeholder that read "Hotel guest services platform". It is the
+marketing site now — one page, four anchors, built from `Innstant Website.dc.html`.
+
+**Nothing moved.** Guests still enter at `/r/[qrCode]`, staff at `/admin`, the
+floor at `/kds` and `/runner`. The site was added beside them, in a `(site)`
+route group with its own theme scope and its own layout. That was a choice
+between two readings of "the website is the home page"; the other one — moving
+the app under `/app` or `/admin` — would have rewritten every QR sticker that
+has ever been printed.
+
+**One page, not five.** The export is a five-screen app switched by `setState`,
+because a design tool has no router. We have one, and using it would have meant
+five routes and four more chances for the nav to disagree with the page. It is
+one document with `#product`, `#themes`, `#security` and `#contact` — which is
+what the content is: a single argument read top to bottom. It ships as a static
+render with no client JavaScript except the form.
+
+**A third theme, `[data-theme='innstant']`.** Warm off-white, brand navy,
+Instrument Serif over Figtree, DM Mono shared with the guest app. It is held to
+the same AA bar as the other two in `theme-contrast.test.ts`, and that test
+earned its place immediately: the identity's gold (`#C99A4B`) and the design
+file's amber (`#C97F12`) are 3.22:1 and 2.91:1 on white. Both fail as text. The
+accent token holds a darker amber; the brand gold survives as a graphic — the
+dots in the monogram, the roof over the A — which is where it was always
+legible.
+
+**The logo is drawn, not linked.** Two arcs and two circles, in
+`components/innstant-logo.tsx`. A PNG would need three sizes and would still be
+soft on a retina front desk; an SVG is one file and one `currentColor` away from
+a navy header, a white page or a favicon.
+
+**The form does not submit, and it says so.** There is no CRM and no
+`demo_requests` table. The honest options were to delete the form or to be plain
+about it; deleting it loses the page's closing argument, and a form that says
+"thanks, we'll be in touch" and drops it on the floor is a lie told to somebody
+who was about to become a customer. The button opens a `mailto:` with everything
+typed, and the note under it says why.
+
+### D-063 · The demo visitor: a name, a vouch, and one untenanted table
+"See how it works" opens the seeded property as a guest. Three things had to be
+true that were not.
+
+**A name to greet them by.** A visitor has no stay, so `session.guestFirstName`
+is Anjali Menon's — a strange thing to call a stranger. `/demo` asks once, keeps
+the answer in a cookie for 90 days, and the room home prefers it. It is asked
+only on this path; `/r/{code}` from a sticker is untouched, and CLAUDE.md #9
+stands. The screen is not a gate in #9's sense: #9 protects somebody who has
+already paid for the room they are standing in, and the question here IS the
+demo — the product's whole claim is that the hotel knows who is in the room.
+
+**`demo_visitors` (migration 0007), the only table in the product with no
+tenant.** A stranger on a marketing site belongs to no hotel, so `withTenant()`
+would mean inventing a tenant to satisfy a signature. What the table needs
+instead is an asymmetry the tenant rule cannot express — the app may INSERT and
+must never SELECT — and that is enforced in Postgres: forced RLS, one INSERT
+policy, no SELECT policy. Verified against the live database: the row is
+written, and `app_user` counting the table it just wrote to gets zero. The guest
+book is read with `psql`, by whoever owns it. `withPlatformWrite()` is the named,
+logged, WRITE-only path; it is not a second escape hatch from #1.
+
+**The four-digit prompt, skipped — by vouch, not by bypass.** A visitor has no
+phone number in anybody's PMS, so the escalation at the first charge asks a
+question with no answer and the demo dead-ends on the screen it exists to show.
+`openDemoSession()` opens the session at FULL and writes
+`guest_session.demo_opened` to `event_log` with the tier it granted. That is
+D-012's own second mechanism — a vouch — and the vouch here is the demo itself.
+What makes it safe is where it can be reached from: only `/demo`, only against
+`DEMO_TENANT_ID`, with no parameter a visitor could point at a real hotel.
+Proven on the deployment: the demo session sees the folio; a plain scan of the
+same room still gets the prompt.
+
+**The action does the whole job.** The first version ended with
+`redirect('/demo/enter')` and the form silently did nothing — a Server Action's
+redirect is followed by the CLIENT router, and the App Router cannot navigate to
+a Route Handler. Server Actions can set cookies, which was the only reason the
+handler existed; it now opens the session itself and redirects to a page.
+`/demo/enter` survives for the returning visitor, reached by a server-side 307
+that the browser follows before any router is involved.

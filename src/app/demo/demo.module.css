@@ -1,0 +1,170 @@
+/*
+ * The handoff screen. Navy, because it is the last thing on the site's side of
+ * the door and the site's dark sections are navy — and because the guest app
+ * behind it is dark too, so nothing flashes white between the two.
+ */
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--paper-deep);
+  color: var(--white);
+  font-family: var(--font-body);
+}
+
+/* The gold dots of the mark, at a size that reads as light rather than as
+   decoration. Two of them, echoing the two in the monogram. */
+.shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(42rem 42rem at 82% -10%, rgb(201 154 75 / 0.16), transparent 62%),
+    radial-gradient(34rem 34rem at 4% 108%, rgb(201 154 75 / 0.10), transparent 60%);
+}
+
+.card {
+  position: relative;
+  width: min(30rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.brand {
+  display: inline-flex;
+  align-self: flex-start;
+  color: var(--white);
+  text-decoration: none;
+  margin-bottom: var(--space-4);
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brand-gold);
+  margin: 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.9rem, 5vw, 2.6rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.body {
+  font-size: var(--text-md);
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.74);
+  margin: 0;
+  max-width: 34ch;
+}
+
+.hint {
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: rgb(255 255 255 / 0.5);
+  margin: 0;
+  max-width: 42ch;
+}
+
+.hint code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--brand-gold);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: rgb(255 255 255 / 0.82);
+}
+
+.input {
+  /* 52px, comfortably over the 44px minimum, because this is the one field on
+     the visitor's path and it is likely to be tapped on a phone. */
+  min-height: 52px;
+  padding: 0 var(--space-3);
+  font-family: inherit;
+  font-size: var(--text-lg);
+  color: var(--white);
+  background: rgb(255 255 255 / 0.06);
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+
+.input::placeholder { color: rgb(255 255 255 / 0.32); }
+
+.input:hover { border-color: rgb(255 255 255 / 0.3); }
+
+.input:focus-visible {
+  outline: 2px solid var(--brand-gold);
+  outline-offset: 2px;
+  border-color: transparent;
+  background: rgb(255 255 255 / 0.1);
+}
+
+.submit {
+  min-height: var(--touch-min);
+  padding: 0 var(--space-5);
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 650;
+  color: var(--brand-navy);
+  background: var(--brand-gold);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+
+.submit:hover:not(:disabled) { background: var(--brand-gold-lit); }
+.submit:active:not(:disabled) { transform: translateY(1px); }
+.submit:disabled { opacity: 0.6; cursor: default; }
+
+.submit:focus-visible {
+  outline: 2px solid var(--white);
+  outline-offset: 2px;
+}
+
+.secondary {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  min-height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--white);
+  text-decoration: none;
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: var(--radius-sm);
+}
+
+.secondary:hover { border-color: rgb(255 255 255 / 0.5); }
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--critical-on-navy);
+  margin: 0;
+}
+

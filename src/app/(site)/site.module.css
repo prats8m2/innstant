@@ -1,0 +1,1264 @@
+/*
+ * The marketing site.
+ *
+ * Every colour, radius and duration comes from `[data-theme='innstant']` in
+ * theme.css — no hex in this file except inside the phone mock, where the
+ * values ARE the guest app's and borrowing the site's would make the picture
+ * a lie. See the note in theme.css for why the site gets its own palette.
+ *
+ * Layout: one 1200px column, generous vertical rhythm, and a warm ground the
+ * white cards sit on. Two dark bands (How it works, Security) cut the page
+ * into thirds so it does not read as one long scroll.
+ */
+
+.root {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  /* The anchors in the nav land under a sticky header without this. */
+  scroll-behavior: smooth;
+}
+
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+/* ── Nav ─────────────────────────────────────────────────────────────────── */
+
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+
+.navInner {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 68px;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.navBrand {
+  color: var(--text);
+  text-decoration: none;
+  display: inline-flex;
+}
+
+.navLinks {
+  display: flex;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+
+.navLink:hover { background: var(--white); color: var(--text); box-shadow: var(--shadow-sm); }
+
+.navActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navSignIn {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+}
+
+.navSignIn:hover { color: var(--text); }
+
+.navCta {
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-navy);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.navCta:hover { background: var(--brand-navy-lit); }
+
+/* Every interactive thing on the page shares one focus ring. */
+.navLink:focus-visible,
+.navSignIn:focus-visible,
+.navCta:focus-visible,
+.navBrand:focus-visible,
+.primaryCta:focus-visible,
+.secondaryCta:focus-visible,
+.ghostCta:focus-visible,
+.closingPrimary:focus-visible,
+.closingSecondary:focus-visible,
+.chip:focus-visible,
+.input:focus-visible,
+.textarea:focus-visible,
+.formSubmit:focus-visible,
+.footerCol a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ── Hero ────────────────────────────────────────────────────────────────── */
+
+.hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 88px 28px 40px;
+  display: grid;
+  /*
+    The art column is the WIDER one, against the design file's 1.05/.95.
+    The picture is three overlapping cards in a fixed 300px frame, and at .95fr
+    the kitchen ticket landed across the phone's greeting and the folio clipped
+    its order button. Some overlap is the composition; covering the two lines
+    the picture exists to show is not.
+  */
+  grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+  gap: 40px;
+  align-items: center;
+}
+
+.heroCopy { animation: fadeUp 500ms var(--ease-out) both; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 14px 0 8px;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.badgeNew {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-navy);
+  color: var(--brand-gold);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.heroTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.6rem, 6vw, 4.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 22px 0 0;
+  text-wrap: balance;
+}
+
+.heroTitle em { font-style: italic; color: var(--accent); }
+
+.heroBody {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 20px 0 0;
+  max-width: 54ch;
+  text-wrap: pretty;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 34px;
+  flex-wrap: wrap;
+}
+
+.primaryCta,
+.secondaryCta {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.primaryCta { background: var(--brand-navy); color: var(--paper); }
+.primaryCta:hover { background: var(--brand-navy-lit); }
+
+.secondaryCta {
+  background: var(--white);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.secondaryCta:hover { border-color: var(--accent); color: var(--accent); }
+
+.heroStats {
+  display: flex;
+  gap: 28px;
+  margin: 40px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.stat { display: block; }
+
+.statValue {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+/* ── The hero's picture ──────────────────────────────────────────────────── */
+
+.heroArt {
+  position: relative;
+  height: 640px;
+  min-width: 0;
+  animation: fadeUp 600ms var(--ease-out) both;
+  animation-delay: 120ms;
+}
+
+/* The navy slab the phone leans on. */
+.heroArtSlab {
+  position: absolute;
+  inset: 40px 0 0 40px;
+  border-radius: 32px;
+  background: var(--brand-navy);
+}
+
+.phone {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 300px;
+  height: 620px;
+  border-radius: 40px;
+  /* The guest app's own ground, not the site's — this is a picture of it. */
+  background: var(--mock-app-bg);
+  border: 6px solid var(--mock-app-edge);
+  box-shadow: 0 40px 80px rgb(16 30 51 / 0.35);
+  overflow: hidden;
+}
+
+.phoneBody { padding: 22px 18px 0; color: var(--mock-app-ink); }
+
+.phoneTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.phoneHotel { font-family: var(--font-display); font-size: 15px; }
+
+.phoneRoom {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgb(227 229 219 / 0.6);
+}
+
+/* The jharokha arch — the shape the real guest home uses for its hero. */
+.phoneArch {
+  position: relative;
+  margin-top: 16px;
+  height: 130px;
+  overflow: hidden;
+  border-radius: 44% 44% 4px 4px / 34% 34% 0 0;
+  background-color: var(--mock-app-arch);
+  background-image:
+    radial-gradient(circle at 50% 108%, rgb(233 162 39 / 0.22) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 50% 108%, transparent 0 36%, rgb(227 229 219 / 0.14) 36% 36.7%, transparent 37.2%),
+    radial-gradient(circle at 50% 108%, transparent 0 52%, rgb(227 229 219 / 0.09) 52% 52.7%, transparent 53.2%);
+}
+
+.phoneArchWash {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgb(8 15 26 / 0.9), transparent 70%);
+}
+
+.phoneArchLine {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.phoneGreeting {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.1;
+  margin: 16px 0 0;
+}
+
+.phoneStay {
+  font-size: 12px;
+  color: rgb(227 229 219 / 0.6);
+  margin: 4px 0 0;
+}
+
+.phoneTiles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  background: rgb(227 229 219 / 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.phoneTile {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--mock-app-tile);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.phoneCta {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 18px;
+  height: 48px;
+  border-radius: 3px;
+  background: var(--mock-app-accent);
+  color: var(--mock-app-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* The kitchen ticket, drifting. */
+.ticket {
+  position: absolute;
+  right: 0;
+  top: 96px;
+  width: 300px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--white);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgb(16 30 51 / 0.25);
+  animation: drift 3.2s ease-in-out infinite alternate;
+}
+
+.ticketHead { display: flex; align-items: center; gap: 10px; }
+
+.ticketRoom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--brand-navy);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ticketWho { flex: 1; display: flex; flex-direction: column; }
+.ticketName { font-size: 13px; font-weight: 600; }
+.ticketRef { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-secondary); }
+
+.ticketAge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--status-positive);
+}
+
+.ticketLines {
+  margin: 12px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ticketQty { font-family: var(--font-mono); color: var(--text-secondary); margin-right: 6px; }
+
+.ticketAction {
+  margin-top: 12px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--brand-navy);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.folio {
+  position: absolute;
+  right: 30px;
+  bottom: 30px;
+  width: 270px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 60px rgb(16 30 51 / 0.25);
+}
+
+.folioHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.folioDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-positive);
+}
+
+.folioLine {
+  display: flex;
+  justify-content: space-between;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.folioTotal {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+
+/* ── Section furniture ───────────────────────────────────────────────────── */
+
+.trusted {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-top: 24px;
+  padding: 22px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.trustedLabel { font-size: 13px; color: var(--text-secondary); }
+
+.trustedList {
+  display: flex;
+  gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+.trustedName {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  opacity: 0.7;
+}
+
+.sectionHead { max-width: 660px; }
+
+.kicker,
+.kickerOnDark {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.kicker { color: var(--accent); }
+.kickerOnDark { color: var(--brand-gold); }
+
+.sectionTitle,
+.sectionTitleOnDark {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2rem, 3.6vw, 2.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  margin: 12px 0 0;
+  text-wrap: balance;
+}
+
+.sectionLede {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 16px 0 0;
+  max-width: 58ch;
+  text-wrap: pretty;
+}
+
+/*
+  Every top-level section keeps the same distance from the one above it — and
+  ONLY the section, not its heading block as well. An earlier version listed
+  `.wrap > .sectionHead` here too and every section opened with 220px of empty
+  page, because both selectors matched the same run of markup.
+*/
+section.wrap { padding-top: 110px; }
+
+/* The nav is sticky and 68px tall, so an anchor lands under it without this.
+   Scoped through `.root` because a CSS module rejects a selector with no local
+   class in it — which is the right rule, and this is the one place on the site
+   that wants to reach every element rather than a named one. */
+.root :global([id]) { scroll-margin-top: 88px; }
+
+/* ── Pillars ─────────────────────────────────────────────────────────────── */
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 54px;
+}
+
+.pillar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 300px;
+  padding: 30px 28px;
+  border-radius: var(--radius-xl);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.pillarHead { display: flex; align-items: center; justify-content: space-between; }
+
+.pillarKicker {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+/* A door, a tile and a ring — the guest, the team and the owner. */
+.pillarShape { width: 36px; height: 36px; }
+.pillarShape[data-shape='arch']   { border-radius: 18px 18px 4px 4px; background: var(--brand-navy); }
+.pillarShape[data-shape='square'] { border-radius: 4px; background: var(--brand-gold); }
+.pillarShape[data-shape='ring']   { border-radius: 50%; border: 6px solid var(--brand-navy); }
+
+.pillarTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.pillarBody {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.pillarFoot {
+  margin: auto 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+/* ── Dark bands ──────────────────────────────────────────────────────────── */
+
+.dark {
+  margin-top: 120px;
+  padding: 110px 0;
+  background: var(--brand-navy);
+  color: var(--paper);
+}
+
+.dark .sectionHead { max-width: 720px; }
+.dark .sectionTitleOnDark { color: var(--paper); }
+
+.howGrid {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 64px;
+  align-items: start;
+}
+
+.howAside { position: sticky; top: 110px; }
+
+.howLede {
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgb(243 244 241 / 0.7);
+  margin: 16px 0 0;
+  max-width: 48ch;
+  text-wrap: pretty;
+}
+
+.ghostCta {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  margin-top: 26px;
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgb(243 244 241 / 0.3);
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+
+.ghostCta:hover { border-color: var(--paper); }
+
+.steps { margin: 0; padding: 0; list-style: none; }
+
+.step {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 22px;
+  padding: 26px 0;
+  border-top: 1px solid rgb(243 244 241 / 0.14);
+}
+
+.stepWho { display: flex; flex-direction: column; gap: 4px; }
+
+.stepRole {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand-gold);
+}
+
+.stepTime {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgb(243 244 241 / 0.5);
+}
+
+.stepTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.stepBody {
+  color: rgb(243 244 241 / 0.7);
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 8px 0 0;
+  text-wrap: pretty;
+}
+
+/* ── Revenue ─────────────────────────────────────────────────────────────── */
+
+.revenueHead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 64px;
+  align-items: end;
+}
+
+.revenueLede {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.revenueGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 54px;
+}
+
+.revenueCard {
+  padding: 26px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.revenueStat {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  margin: 0;
+  color: var(--accent);
+}
+
+.revenueStatLabel {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+}
+
+.revenueTitle {
+  font-size: 15px;
+  font-weight: 650;
+  margin: 20px 0 0;
+}
+
+.revenueBody {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 8px 0 0;
+  text-wrap: pretty;
+}
+
+/* ── Quotes ──────────────────────────────────────────────────────────────── */
+
+.quotes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0;
+  padding: 30px 28px;
+  border-radius: var(--radius-xl);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.quoteText {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 0;
+  text-wrap: pretty;
+}
+
+.quoteWho { margin-top: auto; display: flex; align-items: center; gap: 12px; }
+
+.quoteAvatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* The avatar colours are set inline from `content.ts`, beside the theme
+   swatches — they are other properties' palettes, and a token here would show
+   the reader this site's instead. */
+
+.quoteName { display: block; font-size: 14px; font-weight: 600; }
+.quoteRole { display: block; font-size: 13px; color: var(--text-secondary); }
+
+/* ── Themes ──────────────────────────────────────────────────────────────── */
+
+.themeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 54px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.themeTile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 2px;
+  height: 220px;
+  padding: 18px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.themeAccent {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+}
+
+.themeName { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
+.themeSub { font-size: 12px; opacity: 0.7; }
+.themePlace { font-family: var(--font-mono); font-size: 10.5px; opacity: 0.55; margin-top: 4px; }
+
+.themeNote {
+  margin: 26px 0 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 60ch;
+}
+
+/* ── Security ────────────────────────────────────────────────────────────── */
+
+.securityGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 54px;
+}
+
+.securityCard {
+  padding: 26px 24px;
+  border-radius: var(--radius-lg);
+  background: rgb(243 244 241 / 0.05);
+  border: 1px solid rgb(243 244 241 / 0.14);
+}
+
+.securityHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.securityKicker {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(243 244 241 / 0.6);
+}
+
+.securityBadge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.securityBadge[data-tone='strong'] { background: var(--paper); color: var(--brand-navy); }
+.securityBadge[data-tone='gold']   { background: var(--brand-gold); color: var(--brand-navy); }
+.securityBadge[data-tone='quiet']  {
+  background: transparent;
+  color: rgb(243 244 241 / 0.8);
+  border: 1px solid rgb(243 244 241 / 0.24);
+}
+
+.securityTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.15;
+  margin: 18px 0 0;
+}
+
+.securityBody {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: rgb(243 244 241 / 0.7);
+  margin: 10px 0 0;
+  text-wrap: pretty;
+}
+
+.securityNotes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.securityNote {
+  padding: 30px 28px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgb(243 244 241 / 0.14);
+}
+
+.securityNoteTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.12;
+  margin: 12px 0 0;
+}
+
+/* ── Contact ─────────────────────────────────────────────────────────────── */
+
+.contactGrid {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 64px;
+  align-items: start;
+}
+
+.contactFacts {
+  margin: 34px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 18px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.factTerm {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+.factDetail { margin: 0; font-size: 15px; }
+
+/* ── The form ────────────────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 34px 32px;
+  border-radius: var(--radius-xl);
+  background: var(--white);
+  border: 1px solid var(--border);
+}
+
+.formRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+
+.input,
+.textarea {
+  min-height: var(--touch-min);
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.textarea { resize: vertical; line-height: 1.5; }
+
+.fieldset { border: 0; padding: 0; margin: 0; }
+
+.legend { font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 0 0 8px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.chip:hover { border-color: var(--accent); }
+
+.chip[aria-pressed='true'] {
+  background: var(--brand-navy);
+  border-color: var(--brand-navy);
+  color: var(--paper);
+}
+
+.formSubmit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-navy);
+  color: var(--paper);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.formSubmit:hover { background: var(--brand-navy-lit); }
+
+.formNote {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ── The closing panel ───────────────────────────────────────────────────── */
+
+.closing {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+  gap: 40px;
+  align-items: center;
+  margin: 120px 0;
+  padding: 72px 64px;
+  border-radius: 28px;
+  background: var(--brand-navy);
+  color: var(--paper);
+  overflow: hidden;
+}
+
+/* The monogram, oversized and half off the edge — the only decoration on the
+   page that is purely the mark. */
+.closingMark {
+  position: absolute;
+  right: -30px;
+  bottom: -60px;
+  color: rgb(243 244 241 / 0.06);
+  pointer-events: none;
+}
+
+.closingCopy { position: relative; }
+
+.closingTitle {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+  margin: 0;
+  text-wrap: balance;
+}
+
+.closingBody {
+  font-size: 16px;
+  line-height: 1.6;
+  color: rgb(243 244 241 / 0.7);
+  margin: 14px 0 0;
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+.closingActions { position: relative; display: flex; flex-direction: column; gap: 12px; }
+
+.closingPrimary,
+.closingSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: 0 24px;
+  border-radius: var(--radius-pill);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+
+.closingPrimary { background: var(--brand-gold); color: var(--brand-navy); }
+.closingPrimary:hover { background: var(--brand-gold-lit); }
+
+.closingSecondary { border: 1px solid rgb(243 244 241 / 0.3); color: var(--paper); }
+.closingSecondary:hover { border-color: var(--paper); }
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.footer {
+  padding: 64px 0 40px;
+  border-top: 1px solid var(--border);
+}
+
+.footerGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr));
+  gap: 40px;
+}
+
+.footerBrand { display: flex; flex-direction: column; gap: 14px; }
+
+.footerBlurb {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+  max-width: 34ch;
+}
+
+.footerCol { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+
+.footerHeading {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.footerCol a {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.footerCol a:hover { color: var(--accent); }
+
+.footerPending { font-size: 14.5px; color: var(--text-muted); }
+
+.footerRule {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+/* ── Motion ──────────────────────────────────────────────────────────────── */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes drift {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-10px); }
+}
+
+/* No reduced-motion query here, deliberately. theme.css answers that
+   preference once for every element in the product, `scroll-behavior`
+   included — and a per-component copy is how one animation gets missed by the
+   person who needs the setting most. There is a test that says so, and it
+   matches on the media query's own name, so this note cannot spell it. */
+
+/* ── Narrower than a laptop ──────────────────────────────────────────────── */
+
+@media (max-width: 1080px) {
+  .hero { grid-template-columns: minmax(0, 1fr); padding-top: 56px; }
+  /* The picture is three absolutely-positioned cards in a fixed frame; below
+     this width it is scaled as one object rather than re-laid-out, which would
+     mean a second set of positions to keep in step with the first. */
+  .heroArt { height: 560px; transform: scale(0.86); transform-origin: top left; }
+  .howGrid, .revenueHead, .contactGrid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .howAside { position: static; }
+  .pillars, .quotes, .themeGrid, .securityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .revenueGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .footerGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .closing { grid-template-columns: minmax(0, 1fr); padding: 48px 36px; }
+}
+
+@media (max-width: 720px) {
+  .wrap { padding: 0 18px; }
+  .navInner { padding: 0 18px; gap: 14px; }
+  /* The four anchors do not fit beside the brand and two buttons. The page is
+     one document and the footer repeats every one of them, so they are dropped
+     rather than folded into a hamburger nothing else on the site needs. */
+  .navLinks { display: none; }
+  .navSignIn { display: none; }
+  .hero { padding: 40px 18px 24px; }
+  .heroArt { height: 420px; transform: scale(0.62); }
+  section.wrap { padding-top: 72px; }
+  .dark { margin-top: 72px; padding: 72px 0; }
+  .pillars, .quotes, .themeGrid, .securityGrid,
+  .revenueGrid, .securityNotes, .formRow, .footerGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .step { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .stepWho { flex-direction: row; gap: 12px; align-items: baseline; }
+  .fact { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .form { padding: 24px 20px; }
+  .closing { margin: 72px 0; padding: 36px 24px; }
+  .closingMark { display: none; }
+  .trustedList { gap: 18px; }
+}

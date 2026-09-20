@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE } from '@/modules/demo';
 import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
@@ -58,6 +59,23 @@ export default async function RoomHome({
   const { qrCode } = await params;
   const store = await cookies();
   const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+
+  /**
+   * Who is actually holding the phone.
+   *
+   * On a real stay this is nobody — neither cookie exists — and the greeting
+   * uses the name on the stay, which is the whole of D-059. A visitor who came
+   * through the website has no stay of their own to be named by, so they are
+   * greeted by the name they typed at `/demo` instead of by Anjali Menon's,
+   * which would be a strange thing to call a stranger.
+   *
+   * Both cookies are cosmetic by construction: the tier that lets this session
+   * order without the phone-digits prompt is on the `guest_sessions` row, set
+   * server-side in /demo/enter. Forging these two changes a heading. See the
+   * note on the cookie names in `modules/demo`.
+   */
+  const isDemo = store.get(DEMO_FLAG_COOKIE)?.value === '1';
+  const demoName = isDemo ? (store.get(DEMO_NAME_COOKIE)?.value ?? null) : null;
 
   // Cookie missing or stale — checked out, expired, revoked. Send them back
   // through the link, which issues a fresh session or 404s (#10).
@@ -123,6 +141,9 @@ export default async function RoomHome({
    */
   const checkout = formatCheckoutDay(session.scheduledCheckoutAt, timeZone);
 
+  /** The visitor's own name wins over the stay's — see the note at the top. */
+  const callThem = demoName ?? session.guestFirstName;
+
   /**
    * The way back to something already asked for.
    *
@@ -182,6 +203,25 @@ export default async function RoomHome({
 
   return (
     <main className={styles.shell}>
+      {/*
+        The way back out, for somebody who arrived from the website.
+
+        A real guest never sees this: they got here from a sticker in a room
+        they are standing in, and there is nowhere for them to go back to. A
+        visitor has a site they were reading a moment ago, and the alternative
+        to a line like this is trapping them in a hotel app with no exit and no
+        explanation of whose hotel it is.
+
+        One line, above the property's own name rather than inside it — The
+        Kesari does not have a demo ribbon; this session does.
+      */}
+      {isDemo ? (
+        <p className={styles.demoRibbon}>
+          <span>Demo · seeded data</span>
+          <Link href="/">Back to Innstant</Link>
+        </p>
+      ) : null}
+
       <header className={styles.masthead}>
         {/* The property's own name, not a literal. */}
         <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
@@ -260,9 +300,7 @@ export default async function RoomHome({
           dangling comma is worse than "Good evening".
         */}
         <h1 className={styles.greetingText}>
-          {session.guestFirstName
-            ? `${greetingFor(hour)}, ${session.guestFirstName}`
-            : greetingFor(hour)}
+          {callThem ? `${greetingFor(hour)}, ${callThem}` : greetingFor(hour)}
         </h1>
         <p className={styles.stayLine}>
           Room {session.roomNumber} until {checkout}.

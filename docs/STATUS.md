@@ -21,35 +21,41 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**The whole product is deployed and running.** Guest app, ops console, kitchen
-display, runner and floor board, against a seeded Railway Postgres:
+**The website is the front door.** `/` is the Innstant marketing site — one
+page, four anchors, built from the `Innstant Website.dc.html` export. Nothing
+moved to make room for it: guests still enter at `/r/[qrCode]`, staff at
+`/admin`, the floor at `/kds` and `/runner`. The site sits beside them in a
+`(site)` route group (D-062).
+
+**"See how it works" opens the real product.** `/demo` asks a visitor what to
+call them, once, keeps it in a cookie for 90 days, records the name in
+`demo_visitors`, opens a guest session on the seeded property at FULL and drops
+them in the room greeted by their own name. The four-digit prompt never fires
+for them — by a recorded vouch, not a bypass — and a plain sticker scan of the
+same room still gets it. Verified both ways against the deployment's database
+(D-063).
+
+**A third theme, `[data-theme='innstant']`**, and two more self-hosted faces
+(Instrument Serif, Figtree). It is held to the same AA bar as the console and
+the Kesari; `theme-contrast.test.ts` now runs 29 assertions over three
+palettes. The Innstant logo is drawn as SVG in `components/innstant-logo.tsx` —
+two arcs and two gold dots — so it is sharp at 26px in a nav and at 220px behind
+the closing panel.
+
+**The whole product is deployed and running**, against a seeded Railway
+Postgres:
 
     https://kesari-production.up.railway.app
 
-Verified on the deployment, not only locally: `status: ok`, migrations 7/7 with
-none pending, DB latency 1–4ms over the private network, the front desk loading
-in ~500ms. Gates at the last commit: typecheck, lint, 322 unit — all green.
+Migration **0007 is applied to the deployment** (`demo_visitors`), taking it to
+54 tables with RLS enabled and forced. Gates at this commit: typecheck, lint,
+337 unit — all green.
 
-**Both design documents are implemented**, and the product carries TWO themes on
-purpose (D-050): the staff console is paper and teal in Public Sans, the guest
-app is the Kesari — indigo, saffron, Marcellus over Mukta, sharp radii. A guest
-is being hosted and a cook is being informed; one palette cannot be right for
-both. The guest scope is applied once, by `(guest)/layout.tsx`.
-
-**The console is live now (D-060).** It was the last surface without
-`useLiveRefresh` — the one screen a desk leaves open all shift was the one that
-had to be reloaded to be right. It subscribes to the order and request staff
-streams that already existed, opt-in per permission. The desk also defaults to
-`Needs you` rather than to thirty vacant rooms, and the folio panel stopped
-pushing its own total below the fold.
-
-**Marketing was discarded at the account holder's request.** A `marketing_leads`
-schema and a `withPlatformData()` helper had been added on top of this work, plus
-a 1.2MB `think-web-app/` directory of design exports whose `support.js` was
-failing `pnpm lint`. All of it is out; backups are in the session scratchpad.
-Two things worth knowing if it comes back: it referenced RLS policies in a
-migration `0007` that was never written, so it could not have run; and it cited
-"D-054", which is already the amenities entry. D-062 is the next free number.
+**Both design documents plus the website are implemented**, and the product
+carries THREE themes on purpose (D-050, D-062): the staff console is paper and
+teal in Public Sans, the guest app is the Kesari — indigo, saffron, Marcellus
+over Mukta, sharp radii — and the site is warm off-white and navy in Instrument
+Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
 **Next: P4 · concierge.** Its one external service is `GOOGLE_PLACES_API_KEY`,
 for the nightly travel-time refresh — worth asking about before the job rather
@@ -63,12 +69,16 @@ guest home's "Nearby" tile is already drawn and marked `soon`.
    hotel, not at fifty.
 2. **How a signed-out browser picks a tenant.** `STAFF_TENANT_ID` is the stopgap,
    in `admin/login/tenant.ts`. It changes the tenancy model, so CLAUDE.md says
-   ask.
+   ask. `DEMO_TENANT_ID` falls back to it, which is correct at one tenant and
+   will not be at two.
 3. **Client onboarding stays out** — creating a tenant is above the tenant
    boundary. `provisionTenant()` / `provisionProperty()` remain the way.
 4. **`role:manage`** — custom roles are assignable but not creatable.
 5. **Image upload and payments** are still absent on the deployment: no R2 or
    Razorpay keys. Everything else works.
+6. **Where the demo form goes.** The book-a-demo form on `/` renders, collects
+   and then hands the visitor a `mailto:` — it says so on the page. A real
+   endpoint needs somewhere to put a lead, which is decision 1 wearing a hat.
 
 **P1's last open item** is signing the exit criterion off on the deployed
 environment, which is now possible for the first time — there is a deployment.
@@ -76,18 +86,21 @@ What is still missing is a git remote: `railway up` ships the working tree, so
 nothing here is on GitHub and CI has never run.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That still has not happened, but the gap narrowed: there is
-now a URL a real floor could be pointed at. Nine of the last eleven sessions
-found a rule that had never once been true in front of a real person — a night
-mode nobody had looked at after dark, a category rail nobody had looked at at
-all, a QR that returned an infinite blank loop for two weeks, a runner queue
-that crashed the moment a second tray moved, and a console that needed reloading
-to tell the truth.
+before starting P2. That still has not happened, but the gap narrowed twice:
+there is a URL a real floor could be pointed at, and now a URL anyone can be
+sent that walks them into it. Ten of the last twelve sessions found a rule that
+had never once been true in front of a real person — a night mode nobody had
+looked at after dark, a category rail nobody had looked at at all, a QR that
+returned an infinite blank loop for two weeks, a runner queue that crashed the
+moment a second tray moved, a console that needed reloading to tell the truth,
+and a form whose submit button did nothing at all because a Server Action
+redirect cannot reach a Route Handler.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P3.5 | `PENDING` | The marketing site at `/`, and the demo door beside it. Three themes now, two more self-hosted faces, and an SVG logo. `/demo` asks a visitor's name once, writes it to `demo_visitors` — the one untenanted table, INSERT-only under forced RLS — and opens the seeded room at FULL by a recorded vouch, so the four-digit prompt never fires for a stranger while a sticker scan still gets it (D-062, D-063). Found the form doing nothing: a Server Action redirect is followed by the client router, which cannot navigate to a Route Handler. |
 | P3.5 | `41cf78d` | `/admin/property` split into three tabs — This hotel, Room types, Floors & rooms. The two settings jobs went from a shared 4,400px page to 900px each, and the view switch moved into the shared console stylesheet so the desk and the property screen use one control (D-061). |
 | P3.5 | `2a2c3e9` | The console streams. It was the last surface without `useLiveRefresh`; it now subscribes to the order and request staff streams, opt-in per permission. The desk opens on `Needs you` instead of thirty vacant rooms, and the folio stopped pushing its own total below the fold (D-060). |
 | P3.5 | `c2902bc` | Deployed to Railway, and the 72 files behind it: the staff console and guest app designs, the Kesari theme restored to the guest side, the activity history, the cart review row, the guest's name on the home screen, and the four bugs found by looking at screens rather than tests (D-048 to D-059). |

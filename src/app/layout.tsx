@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { publicSans, redHatMono, marcellus, mukta, dmMono } from './fonts';
+import {
+  publicSans, redHatMono, marcellus, mukta, dmMono, instrumentSerif, figtree,
+} from './fonts';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
-  title: 'Hotel guest services',
-  description: 'Guest services platform',
+  title: 'Innstant — guest services for hotels',
+  description:
+    'One QR code on the nightstand. Room service, amenities, checkout and the ' +
+    'neighbourhood — with a console, a kitchen screen and a runner app behind it.',
 };
 
 // Guest routes are mobile-only and must not be zoom-locked — an accessibility
@@ -26,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={[
         publicSans.variable, redHatMono.variable,
         marcellus.variable, mukta.variable, dmMono.variable,
+        instrumentSerif.variable, figtree.variable,
       ].join(' ')}>
       <body>{children}</body>
     </html>

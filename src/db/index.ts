@@ -8,6 +8,8 @@
  */
 export {
   withTenant,
+  /** Untenanted platform data — the demo guest book only. See client.ts. */
+  withPlatformWrite,
   pingDatabase,
   readMigrationState,
   closePool,

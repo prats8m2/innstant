@@ -114,6 +114,18 @@
 
   /* ── Shape ───────────────────────────────────────────────────────────────
      Softer than the 2–4px the indigo theme used. The design's own steps. */
+
+  /* ── Brand constants ─────────────────────────────────────────────────────
+     Not theme values. The mark is these two colours in a navy header, on a
+     white page and in a favicon, which is what makes it a mark. Declared here
+     and nowhere else; every scope inherits them because neither is a var(). */
+  --brand-navy: #101E33;
+  --brand-gold: #C99A4B;
+  /* Hover. The navy lifts and the gold warms — the two are used on opposite
+     grounds, so they move in opposite directions. */
+  --brand-navy-lit: #1C2E4B;
+  --brand-gold-lit: #D8AC63;
+
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -413,9 +425,135 @@ a:hover { color: var(--accent-hover); }
  * its OWN primitives. If you add a token whose value mentions `var()`, it goes
  * here — not above.
  */
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE MARKETING SITE — [data-theme='innstant']
+   ═══════════════════════════════════════════════════════════════════════════
+
+   The third palette, and the only one nobody staying in a hotel ever sees.
+
+   ─── Why it is not the console's ─────────────────────────────────────────
+
+   Both are light, and the temptation is to let `/` inherit `:root` and save a
+   block. The two are doing opposite jobs, though. The console is a tool: teal
+   is a wayfinding colour, the grounds are flat so that density reads, and
+   nothing on the screen is trying to be liked. The site is an argument, made
+   once, to somebody deciding whether to spend an afternoon on a trial — it
+   wants warmth, a serif with an opinion, and an accent that belongs to the
+   brand rather than to a control.
+
+   So: the same neutrals, because a light ground that works is a light ground
+   that works, and a different accent, a different ink and different type.
+
+   ─── The accent is darker than the brand's ───────────────────────────────
+
+   The identity's gold is #C99A4B and the design file's hover amber is #C97F12.
+   Neither is legible as text — 3.22:1 and 2.91:1 on white, both under AA. So
+   `--teal-600` (the accent slot; the name is the console's and is wrong
+   everywhere, see the legacy note below) holds #9A5E0B, which is the same hue
+   taken down until it reads.
+
+   The brand gold survives where it belongs — as a GRAPHIC. The dots in the
+   monogram, the roof over the A, a rule under a heading. It is declared at
+   :root as `--brand-gold` rather than here, because a logo is the same colour
+   whatever theme it is standing in.
+   ═════════════════════════════════════════════════════════════════════════ */
+[data-theme='innstant'] {
+  /* Ground. Warm off-white — the design file's #F3F4F1, which is a hair
+     warmer than the console's #F3F4F2 and reads as paper rather than as UI. */
+  --paper-deep: #101E33;   /* the navy the dark sections are cut from */
+  --paper: #F3F4F1;
+  /* A card. Lighter than the console's #E9EBE8, because the ink here is navy
+     rather than near-black and dim text on a card lost AA at that value. */
+  --paper-raised: #EEEFEA;
+  --paper-hover: #E7E9E2;
+  --white: #FFFFFF;
+
+  --line: #DFE1DB;
+  --line-soft: #E9EBE5;
+  /* Borders and dividers ONLY — 1.5:1 on the surface. Never a text colour,
+     asserted in theme-contrast.test.ts like the other two palettes. */
+  --line-faint: #C9CED3;
+  --row-line: #EDEFE9;
+  --row-hover: #F7F8F5;
+
+  /* The accent. Amber, taken down to 4.78:1 on the page — see the note above
+     for why it is not the brand's #C99A4B. */
+  --teal-600: #9A5E0B;
+  --teal-700: #7E4C08;     /* hover goes darker, as it does on any light ground */
+  --teal-tint: #FBF1DF;
+
+  /* Ink is the brand navy, not the console's near-black. It is the single
+     strongest signal that this page and the product belong together. */
+  --ink: #101E33;
+  --ink-secondary: #3A465D;
+  --ink-dim: color-mix(in srgb, var(--ink) 62%, transparent);
+  /* 50% here against the console's 48%: navy at the same alpha sits lighter
+     than near-black, and 48% fell to 2.96:1 on a card. The percentage is read
+     out of this block by the contrast test rather than assumed. */
+  --ink-faint: color-mix(in srgb, var(--ink) 50%, transparent);
+
+  --accent-ink: #FFFFFF;   /* text ON an accent fill — 5.28:1 */
+
+  /* The status tones are the console's. They are solved problems on a light
+     ground, and a marketing page has one use for them: the little "live" dot
+     in the product shots. Inventing a second green would be a liability with
+     no upside. */
+  --status-positive: #1E764A;
+  --status-attention: #7A5200;
+  --status-attention-mark: #B7791F;
+  --status-critical: #B42318;
+  --status-attention-tint: #FEF6E4;
+  --status-critical-tint: #FCE8E6;
+  --note-bg: #FEF6E4;
+  --note-ink: #5A4300;
+
+  /* Softer and wider than the console's. Nothing here is a dense table; the
+     shadows are lifting marketing cards off a warm ground. */
+  --shadow-sm: 0 1px 2px rgb(16 30 51 / 0.06);
+  --shadow-md: 0 18px 40px -20px rgb(16 30 51 / 0.22);
+
+  /* Rounder than the console, squarer than the guest app. */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+
+  /* ── The guest app, as the marketing site draws it ───────────────────────
+     The hero's phone is a picture of the Kesari theme, so these are ITS
+     values — #101E33, #1B2B45, #E9A227 — and not the site's. Borrowing the
+     site's tokens would make the illustration recolour with the page and stop
+     being a picture of the product.
+
+     They live here rather than as literals in the stylesheet because the rule
+     is that theme.css is the only file allowed to hold a colour, and an
+     illustration is not an exemption from it. If the Kesari palette is ever
+     retuned, this is the block that has to follow it — which is the whole
+     reason the value is written down in the same file as the original. */
+  --mock-app-bg: #101E33;
+  --mock-app-edge: #0A1220;
+  --mock-app-ink: #E3E5DB;
+  --mock-app-arch: #16253E;
+  --mock-app-tile: #1B2B45;
+  --mock-app-accent: #E9A227;
+
+  /* Error text on the navy ground of /demo. The palette's --status-critical is
+     #B42318, which is 1.9:1 on navy — unreadable exactly where an error has to
+     be read. This is the same red lifted until it clears AA on #101E33. */
+  --critical-on-navy: #FFB4A6;
+
+  /* Type. Instrument Serif for display, Figtree for everything read, DM Mono
+     shared with the guest app — the one family all three themes have in
+     common, and the right one for a number. */
+  --font-display: var(--font-instrument-serif), Georgia, serif;
+  --font-body: var(--font-figtree), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+}
+
 :root,
 [data-scheme='dark'],
-[data-theme='kesari'] {
+[data-theme='kesari'],
+[data-theme='innstant'] {
   --bg: var(--paper);
   --surface: var(--white);
   --surface-raised: var(--paper-raised);

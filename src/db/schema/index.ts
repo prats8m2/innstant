@@ -17,3 +17,5 @@ export * from './housekeeping';
 export * from './billing';
 export * from './concierge';
 export * from './notifications';
+/** Not a hotel's data — visitors who tried the demo. See demo.ts. */
+export * from './demo';

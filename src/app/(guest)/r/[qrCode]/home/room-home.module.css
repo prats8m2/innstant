@@ -389,3 +389,45 @@
   letter-spacing: 0.06em;
   opacity: 0.72;
 }
+
+/*
+ * The demo ribbon. Only rendered for a session that came from the marketing
+ * site, so a real guest's screen is untouched by it.
+ *
+ * Quiet on purpose: it is an orientation aid, not a banner. The saffron is
+ * reserved for the one thing on this screen a guest is meant to press, and a
+ * ribbon competing with it would be the most prominent element on a page whose
+ * whole job is the room.
+ */
+.demoRibbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--paper-raised);
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.demoRibbon a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+  /* 44px of tappable height without 44px of ribbon — the padding grows the
+     hit area, the line stays thin. */
+  padding: var(--space-3) 0;
+  margin: calc(var(--space-3) * -1) 0;
+}
+
+.demoRibbon a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}

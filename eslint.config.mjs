@@ -21,6 +21,12 @@ import nextPlugin from '@next/eslint-plugin-next';
 const MODULES = [
   'identity', 'stay', 'catalog', 'ordering', 'requests',
   'housekeeping', 'concierge', 'billing', 'notifications', 'access',
+  // `demo` owns exactly one table, `demo_visitors`, and it is the only one in
+  // the product with no tenant column — a name typed by a stranger on the
+  // marketing site belongs to no hotel. It is listed here for the same reason
+  // as the other ten: so that `modules/demo` may import its own table and
+  // nothing else may.
+  'demo',
 ];
 
 const NO_SECOND_POOL =

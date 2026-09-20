@@ -17,7 +17,8 @@ import { readFileSync } from 'node:fs';
  * ─── Why it runs twice ─────────────────────────────────────────────────────
  *
  * D-050 gave the product two themes: the staff console on `:root`, and the
- * guest app's Kesari under `[data-theme='kesari']`. The guest one is the theme
+ * guest app's Kesari under `[data-theme='kesari']`; the marketing site added a
+ * third, `[data-theme='innstant']`. The guest one is the theme
  * somebody reads at 9:40pm on their own phone, which is the harder case and the
  * one this file was originally written for. Testing only the default would
  * leave it uncovered, so the same suite runs over each palette's own grounds.
@@ -48,6 +49,19 @@ interface Palette {
 const PALETTES: Palette[] = [
   { name: 'console', css: blockFor(':root'), splitsAttention: true },
   { name: 'kesari', css: blockFor("[data-theme='kesari']"), splitsAttention: false },
+  /**
+   * The marketing site. Held to the same bar as the two product themes and for
+   * a blunter reason: it is the only surface in this repo a stranger reaches
+   * without being handed a link, which means it is the one most likely to be
+   * read on a phone in daylight by somebody who is not looking hard.
+   *
+   * Its accent is the palette's own hazard. The brand gold is #C99A4B and the
+   * design file's amber is #C97F12; both are beautiful and both fail AA as text
+   * (3.22:1 and 2.91:1 on white). `--teal-600` therefore holds a darker amber,
+   * and this is the test that stops somebody "fixing" it back to the brand
+   * value because the button looked nicer.
+   */
+  { name: 'innstant', css: blockFor("[data-theme='innstant']"), splitsAttention: false },
 ];
 
 function hexOf(palette: Palette, variable: string): string {
