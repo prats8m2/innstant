@@ -1541,3 +1541,42 @@ details[open] > .disclosureHead {
   background: var(--status-positive);
   animation: glow 2.4s ease-in-out infinite;
 }
+
+/* ── The in-screen switch ─────────────────────────────────────────────────
+   Rooms/Requests/Orders on the front desk, This hotel/Room types/Floors on
+   the property screen. Promoted here from desk.module.css when the property
+   screen needed the same control (D-060): a console with two different-looking
+   ways to switch between views of one screen is a console you have to learn
+   twice.
+
+   Rendered as LINKS with `?tab=` or `?view=`, never as client state — the
+   choice survives a reload and can be sent to somebody. */
+.views {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-raised);
+  border-radius: var(--radius-lg);
+  /* Sits on its own line under the page head rather than stretching. */
+  align-self: flex-start;
+}
+
+.view {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.view:hover { color: var(--text); }
+
+.view[aria-current='page'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}

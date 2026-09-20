@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import {
@@ -32,7 +33,22 @@ import styles from '../admin.module.css';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function PropertyAdmin() {
+/** The three jobs this screen does, in the order a hotel sets them up. */
+const PROPERTY_TABS = [
+  { key: 'hotel', label: 'This hotel' },
+  { key: 'types', label: 'Room types' },
+  { key: 'rooms', label: 'Floors & rooms' },
+] as const;
+
+type Tab = (typeof PROPERTY_TABS)[number]['key'];
+
+export default async function PropertyAdmin({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const requested = (await searchParams).tab;
+  const tab: Tab = PROPERTY_TABS.find((t) => t.key === requested)?.key ?? 'hotel';
   // `room:read` to look; every control below needs `room:manage`, which the
   // front desk does not hold.
   const access = await adminAccess('room:read');
@@ -122,10 +138,37 @@ export default async function PropertyAdmin() {
         </div>
       </header>
 
+      {/*
+        Three jobs, three screenfuls.
+        ───────────────────────────────────────────────────────────────────
+        This was one 4,400px page holding the hotel's own settings, its room
+        types, its floors and all 34 of its rooms. Adding a room meant scrolling
+        past every one of them, and the currency field — which is write-once and
+        the single most consequential control on the screen — sat at the top of
+        a page nobody scrolled back up.
+
+        The switch is `?tab=`, rendered as links, exactly as the front desk
+        switches Rooms/Requests/Orders. It survives a reload and it can be sent
+        to somebody, which a piece of client state could not.
+      */}
+      <nav className={styles.views} aria-label="What to manage">
+        {PROPERTY_TABS.map((option) => (
+          <Link
+            key={option.key}
+            href={option.key === 'hotel' ? '/admin/property' : `/admin/property?tab=${option.key}`}
+            className={styles.view}
+            aria-current={option.key === tab ? 'page' : undefined}
+          >
+            {option.label}
+          </Link>
+        ))}
+      </nav>
+
       <PropertyEditor
         propertyId={propertyId}
         settings={settings}
         timezones={timezones}
+        tab={tab}
         mayEditSettings={can(session, propertyId, 'property:update')}
         floors={floorViews}
         rooms={roomViews}

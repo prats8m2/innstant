@@ -64,6 +64,7 @@ export function PropertyEditor({
   mayManage,
   mayEditSettings,
   timezones,
+  tab,
 }: {
   propertyId: string;
   settings: SettingsView;
@@ -74,6 +75,8 @@ export function PropertyEditor({
   /** `property:update`, which is PROPERTY_ADMIN's alone. */
   mayEditSettings: boolean;
   timezones: string[];
+  /** Which job this screen is doing right now. See PROPERTY_TABS in page.tsx. */
+  tab: 'hotel' | 'types' | 'rooms';
 }) {
   // Only the ones a room can still BE. A retired type keeps its rows and its
   // code; it just stops being offered.
@@ -81,13 +84,16 @@ export function PropertyEditor({
 
   return (
     <>
-      <Settings
-        propertyId={propertyId}
-        settings={settings}
-        timezones={timezones}
-        mayEdit={mayEditSettings}
-      />
+      {tab === 'hotel' ? (
+        <Settings
+          propertyId={propertyId}
+          settings={settings}
+          timezones={timezones}
+          mayEdit={mayEditSettings}
+        />
+      ) : null}
 
+      {tab === 'types' ? (
       <section className={styles.section}>
         <header className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Room types</h2>
@@ -116,7 +122,10 @@ export function PropertyEditor({
 
         {mayManage ? <NewRoomType propertyId={propertyId} /> : null}
       </section>
+      ) : null}
 
+      {tab === 'rooms' ? (
+      <>
       <section className={styles.section}>
         <header className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Floors</h2>
@@ -191,6 +200,8 @@ export function PropertyEditor({
           Every room type here is retired, so a room has nothing to be. Bring one
           back, or add another, before adding a room.
         </p>
+      ) : null}
+      </>
       ) : null}
     </>
   );
