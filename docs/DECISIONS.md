@@ -1811,3 +1811,60 @@ is added. The route PATTERN is revalidated rather than a built path, because
 **The export does not draw this.** Its dish screen has "How many" and "Add to
 order" and nothing else — a static mock never has to answer the question. This
 is a product decision on top of the design, in the design's own language.
+
+### D-060 · The console streams, and opens on work
+Three things were wrong with the ops console, and they had one cause: it was
+built as a set of pages to be read, not as a screen to be left open.
+
+**It did not stream.** The kitchen display, the runner queue and the floor board
+have all had `useLiveRefresh` since P1. The console never did — so the one
+screen a front desk leaves open all shift was the one screen that lied. A guest
+orders dinner, the kitchen accepts it, a housekeeper picks up a towel request,
+and the desk showed none of it until somebody pressed reload. A desk that has to
+reload to be right is a desk that stops trusting the numbers.
+
+Both staff streams already existed and already authorised on the right
+permission, so this needed no new API: `LiveConsole` subscribes to
+`/api/kds/stream` and `/api/requests/stream` and lets whichever fires first call
+`router.refresh()`. The screen never learns WHICH kind of thing moved — it
+re-reads the server-rendered page, which is the same discipline every other live
+surface follows.
+
+Both feeds are opt-in per permission, and the indicator reports what it is
+actually hearing. A desk without `order:read` subscribes to requests alone and
+says so, rather than claiming a feed it does not have. `useLiveRefresh` now
+takes `streamUrl: string | null` for exactly this: a hook cannot be called
+conditionally, so the decision has to be expressible as a value.
+
+**It opened on thirty empty rooms.** The desk defaulted to All, which at this
+property is 001–104 before the four rooms with anything happening in them. A
+front desk does not come to this screen to read the vacant list; they come
+because a phone rang. The default is `Needs you` — rooms with an open order, an
+open request, or a decision waiting — and because a filter that can legitimately
+be empty has to offer the way out of itself, its empty state says "the floor is
+quiet" and links to every room.
+
+**The folio pushed its own total off the screen.** The panel rendered every line
+a stay had accrued; four nights of dinners ran past the fold, and the number a
+desk is asked for on the phone was the one thing they had to scroll for. Twelve
+most recent, newest first, with the count of what is hidden said out loud so the
+total can never read as the sum of what is on screen, and a link to the guest
+profile where reading a whole bill is the point.
+
+### D-061 · One screen, one job — the property switch
+`/admin/property` was a single 4,400px page holding four unrelated jobs: the
+hotel's name and clock, its room types, its floors, and all thirty-four of its
+rooms. Adding a room meant scrolling past every existing one, and the currency
+field — write-once, and the most consequential control on the screen — sat at
+the top of a page nobody scrolled back up.
+
+It is three tabs now: This hotel, Room types, Floors & rooms. The first two are
+900px; the third is long because thirty-four rooms are long, but it is at least
+only that.
+
+The switch is `?tab=`, rendered as LINKS, which is the same control the front
+desk already uses for Rooms/Requests/Orders. Two consequences, both deliberate:
+the choice survives a reload and can be sent to somebody, which client state
+cannot; and the styling moved out of `desk.module.css` into the shared console
+stylesheet, because a console with two different-looking ways to switch between
+views of one screen is a console you have to learn twice.

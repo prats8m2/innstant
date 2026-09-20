@@ -21,121 +21,43 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Both design documents are implemented.** The staff console (D-048, D-049) and
-the guest app (D-050 to D-052), plus the runner crash D-053. Verified: typecheck, lint, 304 unit — all green,
-`next build` clean, and every screen opened in a browser against the seeded
-property at its own viewport.
+**The whole product is deployed and running.** Guest app, ops console, kitchen
+display, runner and floor board, against a seeded Railway Postgres:
 
-**The product now carries TWO themes, on purpose (D-050).** The staff console is
-paper and teal in Public Sans; the guest app is the Kesari — indigo, saffron,
-Marcellus over Mukta, sharp radii. A guest is being hosted and a cook is being
-informed, and one palette cannot be right for both. The guest scope is applied
-once, by `(guest)/layout.tsx`, which also gives the route group its own
-`viewport` so the phone's chrome is indigo rather than paper.
+    https://kesari-production.up.railway.app
 
-- [x] **Kitchen display** — three columns (New / Cooking / At the pass), which
-      is `KITCHEN_OPEN_STATUSES` partitioned. Ack-all, an 86 tray, reject reasons
-      as whole sentences, auto day/night on the property's clock.
-- [x] **Runner and housekeeping** — a shared `FloorHeader` with clock in/out and
-      the design's segmented control as two links. An off-shift runner is told
-      why the queue is empty.
-- [x] **`/admin/desk`** — the reception screen, new beside the key rack. Rooms /
-      Requests / Orders over a 440px panel with the late-checkout decision, the
-      room's live work and the folio. Selection is `?room=` in the URL.
-- [x] **The guest app** — Kesari restored and the room home rebuilt to the
-      export (D-051): masthead, CSS-drawn arch, greeting, 2×2 tile grid, and one
-      pinned button that names the meal the clock is on. Menu, service,
-      amenities and stay were already close and needed the theme, not surgery.
+Verified on the deployment, not only locally: `status: ok`, migrations 7/7 with
+none pending, DB latency 1–4ms over the private network, the front desk loading
+in ~500ms. Gates at the last commit: typecheck, lint, 322 unit — all green.
 
-**D-052 is the one to read if you read one.** A stay past its checkout still
-minted a guest session — with a cookie already expired. The browser threw it
-away, `/home` bounced back to the scan, and the scan minted another: an infinite
-loop behind a blank white screen, on the screen a guest reaches by pointing a
-phone at a sticker. The local demo sat in that state for two weeks, which is why
-the guest app could not be looked at while the palette was being changed.
-`scanQrCode()` now refuses with the same error as "no active stay".
+**Both design documents are implemented**, and the product carries TWO themes on
+purpose (D-050): the staff console is paper and teal in Public Sans, the guest
+app is the Kesari — indigo, saffron, Marcellus over Mukta, sharp radii. A guest
+is being hosted and a cook is being informed; one palette cannot be right for
+both. The guest scope is applied once, by `(guest)/layout.tsx`.
 
-**`/runner` crashed in production, and it was nobody's redesign** (D-053).
-`TypeError: (a.readyAt ?? a.placedAt ?? …).getTime is not a function`, from the
-queue's sort. `kitchenTickets()` typed its raw-SQL timestamps as `Date` and
-passed the driver's value straight through — `tx.execute<T>()` asserts its
-generic rather than parsing it, so nothing could see the lie. Every other raw-SQL
-mapper in the repo already wrapped; this one was the outlier, since the commit
-that introduced it.
+**The console is live now (D-060).** It was the last surface without
+`useLiveRefresh` — the one screen a desk leaves open all shift was the one that
+had to be reloaded to be right. It subscribes to the order and request staff
+streams that already existed, opt-in per permission. The desk also defaults to
+`Needs you` rather than to thirty vacant rooms, and the folio panel stopped
+pushing its own total below the fold.
 
-It hid because `Array.sort` skips the comparator on a list shorter than two: one
-tray moving worked everywhere, including the e2e suite, which walks one order at
-a time. The mapper and the comparator are pure and unit-tested now
-(`tests/unit/kitchen-ticket.test.ts`, 7 tests) — reverting the wrap fails them
-with the production error verbatim.
+**Marketing was discarded at the account holder's request.** A `marketing_leads`
+schema and a `withPlatformData()` helper had been added on top of this work, plus
+a 1.2MB `think-web-app/` directory of design exports whose `support.js` was
+failing `pnpm lint`. All of it is out; backups are in the session scratchpad.
+Two things worth knowing if it comes back: it referenced RLS policies in a
+migration `0007` that was never written, so it could not have run; and it cited
+"D-054", which is already the amenities entry. D-062 is the next free number.
 
-**The cart is reachable from the dish screen (D-057).** Adding a dish used to
-leave a guest with a confirmation line and no way to see what they had built —
-the only route in was the pill at the foot of the menu, two navigations from
-where the question occurs. The dish screen's pinned bar now carries the same
-count/label/total/arrow control above the Add button, quiet so that adding stays
-primary, and `addToOrder` revalidates the dish route so it moves as you add.
+**Next: P4 · concierge.** Its one external service is `GOOGLE_PLACES_API_KEY`,
+for the nightly travel-time refresh — worth asking about before the job rather
+than after the screens. `properties.address_line`, `city`, `latitude` and
+`longitude` are still write-only and P4 is the first thing that needs them. The
+guest home's "Nearby" tile is already drawn and marked `soon`.
 
-**A guest can now reach an order after they look away (D-056).** Placing an
-order redirected to the tracking screen; its back button went to the room home;
-nothing on the room home led to an order. Pressing back lost the thing they had
-just paid for, and earlier orders had never been reachable at all. There is a
-`/r/[qrCode]/orders` screen now — happening now over earlier in this stay — a
-strip on the room home that appears only when there is something to reach, and
-a back button on the tracking screen that lands on the list. The guest-facing
-status vocabulary moved into `track.ts` beside `trackView()`, where the test
-holds every `ORDER_STATUS` to having a line of its own.
-
-**The room home's header was redrawn and its type scale fixed (D-055).** The
-arch was four stacked radial-gradients that came out as flat circles at the
-card's real width — it is three SVG paths now, nested arches on a springline
-over a glow, with the card recessed a half-step instead of sitting a full step
-above the page. And the guest app's mono metadata had been rendering at 12px
-where the export sets 10.5px, in nine places; the missing `--text-2xs` step is
-why no two tiles in the 2×2 grid were the same height. All four measure 108px
-now, at 360, 390 and 430.
-
-**The amenities screen was reworked (D-054).** Its send button was in normal
-flow at the end of a 3,451px form — the export pins it, and draws eight rows
-where this property has twenty-two, so the button was effectively unreachable
-once anything was chosen. It is pinned now. The row also gave a whole line to a
-stepper floated into an empty strip; the wait moved beside the control, as the
-export has it, and the page lost 500px. And the accent was on every paid row's
-price, all four group headings, every chosen chip and every error — an accent
-used that often is not an accent. Saffron is now the price text and a 2px edge
-on a chosen row, and nothing else.
-
-**Two more bugs fell out of looking at the screens rather than the tests.**
-
-1. **The kitchen's night mode painted itself white** (D-048). `data-scheme` was
-   on the element, every primitive under it correct, and nothing changed — a
-   `var()` inside a custom property resolves where it is DECLARED. Typecheck,
-   lint, 297 tests and `next build` were all green.
-2. **The menu's category rail wore a large pale blob.** `menu.module.css`
-   defined `.pill` twice — the rail indicator and the floating cart button — so
-   the cart's `position: fixed; height: 58px; background: plaster` won every
-   property they shared. Pre-existing, and invisible to every gate. The rail's
-   is `.railPill` now.
-
-**Three things the staff export draws were NOT built** (D-049), because CLAUDE.md
-says to ask before changing a state machine: the kitchen's one-tap "Accept ·
-start cooking", "Recall" from the pass, and "Undo" on a decided late checkout. A
-property that wants any of them is asking for a machine change.
-
-**The local database needed a nudge to be usable.** The three demo stays were
-15 days past checkout, so every QR was dead. They were moved forward 21 days —
-a reversible change to demo data, far short of `pnpm demo:reset`, which wipes and
-reseeds and is the account-holder's call. `.demo-seed.json` is still stale: its
-`propertyId` is not the one in the database and its QR codes 404. Query the
-database for a code instead (Environment notes).
-
-**Next: P4 · concierge**, unchanged. Its one external service is
-`GOOGLE_PLACES_API_KEY`, for the nightly travel-time refresh — worth asking about
-before the job rather than after the screens. `properties.address_line`, `city`,
-`latitude` and `longitude` are still write-only and P4 is the first thing that
-needs them. The home's "Nearby" tile is already drawn and marked `soon`.
-
-**Decisions this phase still needs somebody to make, not a session:**
+**Decisions that need somebody, not a session:**
 
 1. **A mail provider.** No self-service password reset without one. Fine at one
    hotel, not at fifty.
@@ -145,41 +67,32 @@ needs them. The home's "Nearby" tile is already drawn and marked `soon`.
 3. **Client onboarding stays out** — creating a tenant is above the tenant
    boundary. `provisionTenant()` / `provisionProperty()` remain the way.
 4. **`role:manage`** — custom roles are assignable but not creatable.
-5. **Does the guest greeting get the guest's name?** The export says "Good
-   evening, Anjali" and the stay knows. Nothing guest-facing has ever shown the
-   occupant's name, and a sticker photographed from a corridor would be greeted
-   by it. One line either way (D-051).
+5. **Image upload and payments** are still absent on the deployment: no R2 or
+   Razorpay keys. Everything else works.
 
-**P1's remaining two:**
-
-1. **Sign the exit criterion off on the deployed environment** — needs a git
-   remote and a Railway app service. Account-holder task.
-2. **Image upload** — blocked on R2 credentials. The arch that stands in for
-   every dish photograph is CSS, so nothing is waiting on it to look finished.
-
-**Before the next demo:** migrations `0005_checkout_fee_tiers` and
-`0006_staff_invites` are applied locally and **not** on Railway. Nothing deploys
-automatically (D-025), so run `pnpm db:migrate` against `DATABASE_MIGRATION_URL`
-from a laptop.
-
-**Still worth doing before the next charge path.** Four things now touch the
-folio and they do not agree on when: orders and requests post at placement and
-reverse at their terminal states, checkout fees post at approval and never
-reverse, and payments are a pair written together.
+**P1's last open item** is signing the exit criterion off on the deployed
+environment, which is now possible for the first time — there is a deployment.
+What is still missing is a git remote: `railway up` ships the working tree, so
+nothing here is on GitHub and CI has never run.
 
 **A note on sequencing.** `docs/PROJECT-PLAN.md` says ship P1 to one real floor
-before starting P2. That has not happened. Eight of the last ten sessions found a
-rule that had never once been true in front of a real person — and this pair
-found a night mode nobody had looked at after dark, a category rail nobody had
-looked at at all, and a QR that had been returning an infinite blank loop for two
-weeks. The argument for a real floor before P4 is now eight examples long.
+before starting P2. That still has not happened, but the gap narrowed: there is
+now a URL a real floor could be pointed at. Nine of the last eleven sessions
+found a rule that had never once been true in front of a real person — a night
+mode nobody had looked at after dark, a category rail nobody had looked at at
+all, a QR that returned an infinite blank loop for two weeks, a runner queue
+that crashed the moment a second tray moved, and a console that needed reloading
+to tell the truth.
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
-| P3.5 | _uncommitted_ | The guest app returns to the Kesari theme and the room home is rebuilt to the export — masthead, CSS arch, tile grid, one pinned button (D-050, D-051). Found a QR that minted an already-expired session and looped forever (D-052), and a `.pill` declared twice in one stylesheet painting a blob over the menu's category rail. |
-| P3.5 | _uncommitted_ | The staff console design: three-column KDS with an 86 tray and day/night, a shared floor-phone header with clock in/out, and `/admin/desk`. The palette was replaced product-wide (D-048) and three state-machine changes the design implied were refused (D-049). Found the night mode painting itself white — `var()` in a custom property resolves where it is declared, not where it is used. |
+| P3.5 | `41cf78d` | `/admin/property` split into three tabs — This hotel, Room types, Floors & rooms. The two settings jobs went from a shared 4,400px page to 900px each, and the view switch moved into the shared console stylesheet so the desk and the property screen use one control (D-061). |
+| P3.5 | `2a2c3e9` | The console streams. It was the last surface without `useLiveRefresh`; it now subscribes to the order and request staff streams, opt-in per permission. The desk opens on `Needs you` instead of thirty vacant rooms, and the folio stopped pushing its own total below the fold (D-060). |
+| P3.5 | `c2902bc` | Deployed to Railway, and the 72 files behind it: the staff console and guest app designs, the Kesari theme restored to the guest side, the activity history, the cart review row, the guest's name on the home screen, and the four bugs found by looking at screens rather than tests (D-048 to D-059). |
+| P3.5 | `c2902bc` | The guest app returns to the Kesari theme and the room home is rebuilt to the export — masthead, CSS arch, tile grid, one pinned button (D-050, D-051). Found a QR that minted an already-expired session and looped forever (D-052), and a `.pill` declared twice in one stylesheet painting a blob over the menu's category rail. |
+| P3.5 | `c2902bc` | The staff console design: three-column KDS with an 86 tray and day/night, a shared floor-phone header with clock in/out, and `/admin/desk`. The palette was replaced product-wide (D-048) and three state-machine changes the design implied were refused (D-049). Found the night mode painting itself white — `var()` in a custom property resolves where it is declared, not where it is used. |
 | P3.5 | `52d8ae2` | The ops console's UI: a permission-filtered rail, panels, rows on shared column tracks, row forms anchored instead of inserted, three named status tones, and an Overview that is a dashboard. Found `data-available` dimming every OCCUPIED room, and a `<select>` that had silently moved the hotel's clock to Africa/Abidjan. |
 | P3.5 | `64c2d8e` | Staff and roles — invite by one-time link, deactivate, assign. Migration 0006. The phase's exit criterion, and the item a pilot needed first. Found two: a raw-SQL timestamp reaching `Intl` unwrapped, and every page throwing "Application error" at a revoked session instead of sending it to the sign-in form (D-045). |
 | P3.5 | `00dd2d4` | Room types and the hotel's own settings. The currency turned out to be write-once from the first charge — nothing converts a past bill and there is no exchange rate in this product. |
@@ -259,14 +172,49 @@ every staff account is `kesari-demo-2026`.
 | HOUSEKEEPING | housekeeping@thekesari.example |
 
 Demo tenant id is fixed at `deadbeef-0000-4000-8000-000000000001` so it is
-identifiable in a shared database. QR codes are regenerated on every reset —
-re-read them from the seeder output, never cache one.
+identifiable in a shared database.
+
+**QR codes are regenerated on every reset — re-read them from the seeder
+output, never cache one.** This note is here because it was ignored: a link
+copied before the last `demo:reset` 404'd, and the 404 was correct. An unknown
+code, a revoked sticker and an empty room all return the same 404 on purpose, so
+somebody scanning from a corridor learns nothing from which it was.
+
+The occupied rooms at the time of writing, on the deployment:
+
+| Room | Link |
+|---|---|
+| 214 | https://kesari-production.up.railway.app/r/-6qh-CdR-8Cu |
+| 105 | https://kesari-production.up.railway.app/r/rtwrb0aptNNT |
+| 210 | https://kesari-production.up.railway.app/r/WaloZEkBetPo |
+| 301 | https://kesari-production.up.railway.app/r/EFzcdMPfcbDl |
+
+All 34 are in `.demo-seed.json`, and the desk copies any of them from
+`/admin/rooms`. Verification digits, where a charge prompts for them: `1111`.
 
 ---
 
 ## Environment notes
 
 Things that cost time to rediscover.
+
+- **A running server can be pointed at a different database than `.env` says,
+  and nothing on screen tells you.** Every room link 404'd on a local `:3000`
+  while the identical link worked elsewhere. The server held three connections
+  to `localhost:55432` — a local Postgres with the full schema and ZERO rows —
+  and none to Railway, because it had been started from a shell whose
+  `DATABASE_URL` was set. Shell env beats `.env`; Next's `loadEnvConfig` does not
+  overwrite what is already in `process.env`.
+
+  `lsof -nP -a -p <pid> -iTCP -sTCP:ESTABLISHED` answers it in one line, and is
+  faster than any amount of reading. macOS will not let you read another
+  process's environment, so the sockets are the evidence.
+
+- **`pnpm start` reads `.next/standalone/.env`, not the root one.** The
+  standalone server runs with its cwd inside the build output, and the build
+  copies `.env` in. Edit the root `.env`, restart with `pnpm start`, and you
+  silently get the values from whenever you last built. `pnpm dev` reads the
+  root file and does not have this problem.
 
 - **`pnpm dev:lan` is how you demo on a phone.** `next dev` already binds every
   interface and prints the LAN address, so reaching the server was never the
