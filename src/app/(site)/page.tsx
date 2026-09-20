@@ -41,7 +41,6 @@ export default function SitePage() {
         <HowItWorks />
         <Revenue />
         <Quotes />
-        <Themes />
         <Security />
         <Contact />
       </main>
@@ -85,11 +84,6 @@ function Hero() {
   return (
     <section className={styles.hero}>
       <div className={styles.heroCopy}>
-        <p className={styles.badge}>
-          <span className={styles.badgeNew}>New</span>
-          Late checkout approvals now in the front-desk console
-        </p>
-
         <h1 className={styles.heroTitle}>
           Digitise your <em>guest experience.</em>
         </h1>
@@ -294,52 +288,6 @@ function Quotes() {
   );
 }
 
-/* ── Themes ───────────────────────────────────────────────────────────────── */
-
-function Themes() {
-  return (
-    <section className={styles.wrap} id="themes">
-      <div className={styles.sectionHead}>
-        <p className={styles.kicker}>Themes</p>
-        <h2 className={styles.sectionTitle}>
-          The app looks like your hotel, not like ours.
-        </h2>
-        <p className={styles.sectionLede}>
-          Colour, type, shape and motion are one layer of custom properties.
-          A second property is a palette, not a fork of the layout — which is
-          why these six are a week of work each rather than a rebuild.
-        </p>
-      </div>
-
-      <ul className={styles.themeGrid}>
-        {THEMES.map((theme) => (
-          <li
-            key={theme.key}
-            className={styles.themeTile}
-            /**
-             * The one place on the site that sets colour inline, and it earns
-             * it: these ARE the values. A swatch that read its colour from a
-             * token would be showing the reader the site's palette while
-             * claiming to show them somebody else's.
-             */
-            style={{ background: theme.bg, color: theme.ink }}
-          >
-            <span className={styles.themeAccent} style={{ background: theme.accent }} aria-hidden="true" />
-            <span className={styles.themeName}>{theme.name}</span>
-            <span className={styles.themeSub}>{theme.sub}</span>
-            <span className={styles.themePlace}>{theme.place}</span>
-          </li>
-        ))}
-      </ul>
-
-      <p className={styles.themeNote}>
-        Don’t see yours? We build a theme from your brand guide in about a week,
-        and you can preview it before signing anything.
-      </p>
-    </section>
-  );
-}
-
 /* ── Security ─────────────────────────────────────────────────────────────── */
 
 function Security() {
@@ -475,7 +423,6 @@ function SiteFooter() {
           <nav className={styles.footerCol} aria-label="Product">
             <h2 className={styles.footerHeading}>Product</h2>
             <a href="#product">How it works</a>
-            <a href="#themes">Themes</a>
             <a href="#security">Security</a>
             <Link href="/demo">See the demo room</Link>
           </nav>

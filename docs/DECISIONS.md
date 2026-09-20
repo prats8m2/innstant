@@ -1887,6 +1887,16 @@ one document with `#product`, `#themes`, `#security` and `#contact` — which is
 what the content is: a single argument read top to bottom. It ships as a static
 render with no client JavaScript except the form.
 
+**Two things from the export are not on the page.** The hero's release badge
+("NEW · Late checkout approvals now in the front-desk console") is gone: it
+announces a feature to an audience that has never seen the product, and it was
+the first line of the page. The Themes section is gone too — six palette
+swatches are a claim about flexibility the site cannot back up until there is a
+second live property, and a nav item pointing at six coloured rectangles
+promises a page that is not there. `THEMES` stays in `content.ts`, because the
+six names are still the logo strip, and the section can come back when there is
+a hotel behind one of them.
+
 **A third theme, `[data-theme='innstant']`.** Warm off-white, brand navy,
 Instrument Serif over Figtree, DM Mono shared with the guest app. It is held to
 the same AA bar as the other two in `theme-contrast.test.ts`, and that test
@@ -1896,10 +1906,23 @@ accent token holds a darker amber; the brand gold survives as a graphic — the
 dots in the monogram, the roof over the A — which is where it was always
 legible.
 
-**The logo is drawn, not linked.** Two arcs and two circles, in
-`components/innstant-logo.tsx`. A PNG would need three sizes and would still be
-soft on a retina front desk; an SVG is one file and one `currentColor` away from
-a navy header, a white page or a favicon.
+**The logo is drawn, not linked.** `components/innstant-logo.tsx`. A raster
+would need three sizes and would still be soft on a retina front desk; an SVG is
+one file and one `currentColor` away from a navy header, a white page or a
+favicon.
+
+Two constructions were wrong before one was right, and the reasoning is in the
+file because it is not obvious. Two tangent CIRCLES read as an S but lock the
+proportion at 1.7 tall-to-wide against the artwork's ~1.4 — no stroke width
+fixes it, the geometry forbids it. Unequal bowls on an offset axis widen it and
+turn it into a lowercase g, because the diagonal closes the upper counter; four
+variants, all g. Two tangent ELLIPSES, `rx` 33 and `ry` 27, stack twice inside a
+1.4 box and still reverse curvature cleanly at the waist. The terminals are cut
+at 35° and 145°, which is what keeps the counters open — wrap them further and
+the g comes back.
+
+It is a recreation traced by eye from the supplied artwork, not the artwork.
+Drop the original files into `public/` and it becomes an `<img>`.
 
 **The form does not submit, and it says so.** There is no CRM and no
 `demo_requests` table. The honest options were to delete the form or to be plain

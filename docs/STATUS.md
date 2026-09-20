@@ -35,12 +35,16 @@ for them — by a recorded vouch, not a bypass — and a plain sticker scan of t
 same room still gets it. Verified both ways against the deployment's database
 (D-063).
 
+The hero's release badge and the Themes section are deliberately **not** on the
+page — see D-062. The nav is Product / Security / Contact.
+
 **A third theme, `[data-theme='innstant']`**, and two more self-hosted faces
 (Instrument Serif, Figtree). It is held to the same AA bar as the console and
 the Kesari; `theme-contrast.test.ts` now runs 29 assertions over three
 palettes. The Innstant logo is drawn as SVG in `components/innstant-logo.tsx` —
-two arcs and two gold dots — so it is sharp at 26px in a nav and at 220px behind
-the closing panel.
+two tangent ellipses and two gold dots — so it is sharp at 26px in a nav and at
+220px behind the closing panel. It is traced by eye, not the original artwork;
+drop the real files into `public/` and it becomes an `<img>` in one edit.
 
 **The whole product is deployed and running**, against a seeded Railway
 Postgres, on a custom domain:

@@ -16,10 +16,13 @@
 
 .word {
   font-family: var(--font-body);
-  font-weight: 700;
+  /* 600, not 700. The printed wordmark is medium — at bold the letters close
+     up and the wide tracking stops reading as tracking and starts reading as a
+     heavy word with gaps in it. */
+  font-weight: 600;
   /* Wide, the way the printed mark is. The tracking is most of what makes it
      read as a wordmark rather than as a word. */
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   line-height: 1;
   white-space: nowrap;
 }

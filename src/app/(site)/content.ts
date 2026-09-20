@@ -243,10 +243,18 @@ export const QUOTES: Quote[] = [
   },
 ];
 
-/** The nav, and the anchors it points at. */
+/**
+ * The nav, and the anchors it points at.
+ *
+ * Themes is not here. The section existed and was pulled: six palette swatches
+ * are a claim about the product's flexibility that the site cannot yet back up
+ * with a second live property, and a nav item pointing at six coloured
+ * rectangles promises a page that is not there. `THEMES` stays — the six names
+ * are still the logo strip — and the section can come back when there is a
+ * hotel behind one of them.
+ */
 export const NAV = [
   { href: '#product', label: 'Product' },
-  { href: '#themes', label: 'Themes' },
   { href: '#security', label: 'Security' },
   { href: '#contact', label: 'Contact' },
 ] as const;

@@ -153,42 +153,15 @@
 
 .heroCopy { animation: fadeUp 500ms var(--ease-out) both; }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  height: 34px;
-  padding: 0 14px 0 8px;
-  margin: 0;
-  border-radius: var(--radius-pill);
-  background: var(--white);
-  border: 1px solid var(--border);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.badgeNew {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  background: var(--brand-navy);
-  color: var(--brand-gold);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .heroTitle {
   font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(2.6rem, 6vw, 4.4rem);
   line-height: 1.02;
   letter-spacing: -0.02em;
-  margin: 22px 0 0;
+  /* No top margin: the release badge that used to sit above this is gone, and
+     the headline is now the first thing in the column. */
+  margin: 0;
   text-wrap: balance;
 }
 
@@ -832,51 +805,6 @@ section.wrap { padding-top: 110px; }
 .quoteName { display: block; font-size: 14px; font-weight: 600; }
 .quoteRole { display: block; font-size: 13px; color: var(--text-secondary); }
 
-/* ── Themes ──────────────────────────────────────────────────────────────── */
-
-.themeGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  margin: 54px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.themeTile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 2px;
-  height: 220px;
-  padding: 18px 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
-.themeAccent {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-}
-
-.themeName { font-family: var(--font-display); font-size: 22px; line-height: 1.1; }
-.themeSub { font-size: 12px; opacity: 0.7; }
-.themePlace { font-family: var(--font-mono); font-size: 10.5px; opacity: 0.55; margin-top: 4px; }
-
-.themeNote {
-  margin: 26px 0 0;
-  font-size: 15px;
-  color: var(--text-secondary);
-  max-width: 60ch;
-}
-
 /* ── Security ────────────────────────────────────────────────────────────── */
 
 .securityGrid {
@@ -1232,7 +1160,7 @@ section.wrap { padding-top: 110px; }
   .heroArt { height: 560px; transform: scale(0.86); transform-origin: top left; }
   .howGrid, .revenueHead, .contactGrid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .howAside { position: static; }
-  .pillars, .quotes, .themeGrid, .securityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pillars, .quotes, .securityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .revenueGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .footerGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .closing { grid-template-columns: minmax(0, 1fr); padding: 48px 36px; }
@@ -1250,7 +1178,7 @@ section.wrap { padding-top: 110px; }
   .heroArt { height: 420px; transform: scale(0.62); }
   section.wrap { padding-top: 72px; }
   .dark { margin-top: 72px; padding: 72px 0; }
-  .pillars, .quotes, .themeGrid, .securityGrid,
+  .pillars, .quotes, .securityGrid,
   .revenueGrid, .securityNotes, .formRow, .footerGrid {
     grid-template-columns: minmax(0, 1fr);
   }

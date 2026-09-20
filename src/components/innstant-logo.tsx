@@ -4,33 +4,55 @@ import styles from './innstant-logo.module.css';
  * The mark.
  *
  * Drawn rather than linked, so that it is one colour token away from a dark
- * header, a light header, or a favicon, and so that it stays sharp on the
- * screens this product is mostly read on — a phone held in a hotel room and a
- * 4K monitor at a front desk. A PNG would need three of it.
+ * header, a light header or a favicon, and so that it stays sharp on the
+ * screens this product is read on — a phone held in a hotel room and a 4K
+ * monitor at a front desk. A raster would need three of it.
  *
- * ─── How the S is constructed ──────────────────────────────────────────────
+ * ─── How the S is constructed, and what two earlier attempts got wrong ────
  *
- * Two circles of equal radius stacked so that the bottom of the upper one is
- * the top of the lower one, with a ~300° arc taken from the first and ~240°
- * from the second. That is the geometric S the mark is built from, and drawing
- * it as arcs rather than as a traced outline means the weight is one number —
- * `strokeWidth` — instead of forty coordinates.
+ * Two ELLIPSES stacked tangentially — a ~310° arc from the upper, ~250° from
+ * the lower, meeting at the waist. `rx` is larger than `ry`, and that is the
+ * whole trick.
  *
- * The two gold dots sit in the notches the arcs leave: upper-right where the
- * top bowl opens, lower-left where the bottom one does. They are what makes the
- * mark read as a monogram rather than as a letter.
+ * The first version used two tangent CIRCLES. It reads as an S, but the
+ * proportion is locked: equal tangent circles of radius R give a mark
+ * (4R+stroke) tall and (2R+stroke) wide, which is 1.7 however the numbers are
+ * chosen, against the ~1.4 of the mark it is copying. There is no stroke width
+ * that fixes it.
+ *
+ * The second version tried unequal bowls on an offset axis to widen it. That
+ * produced a lowercase g: the diagonal closes the upper counter into a loop,
+ * and the letter stops being an S at all. Four variants, all g.
+ *
+ * Ellipses solve it directly. A bowl 33 wide and 27 high is short enough to
+ * stack twice inside a 1.4 box, and the curvature still reverses cleanly at the
+ * waist because the two are tangent there. The terminals are cut at 35° and
+ * 145° rather than nearer the horizontal, which is what keeps the counters open
+ * — a terminal that wraps further round closes them and the g comes back.
+ *
+ * The dots are the other half of the monogram and they have to READ: a quarter
+ * of the mark's width, tucked into the notches the arcs leave, with real
+ * daylight against the stroke. Both clearances are checked against the terminal
+ * points, not just the bowls — the terminal is the part that reaches furthest
+ * into each notch.
+ *
+ * Still a recreation, traced by eye from the supplied artwork. If the original
+ * files are dropped into `public/`, this becomes an <img> and the comment above
+ * becomes history.
  */
-const S_PATH = 'M 106 60 A 30 30 0 1 0 80 75 A 30 30 0 1 1 54 120';
 
 /**
- * Cropped to the drawing, not to a round number.
- *
- * The arcs and the dots between them occupy x 4→156 and y 2→148; anything
- * wider is padding, and padding inside an SVG is indistinguishable from a
- * smaller logo. The first version used a tidy `0 0 160 170` and the mark sat
- * visibly small beside the wordmark for exactly that reason.
+ * Upper bowl centred at (70, 40), lower at (70, 94), both rx 33 / ry 27, so
+ * they are tangent at the waist (70, 67).
  */
-const VIEW_BOX = { x: 4, y: 2, w: 152, h: 146 };
+const S_PATH = 'M 97 55.5 A 33 27 0 1 0 70 67 A 33 27 0 1 1 43 109.5';
+
+const DOTS = [
+  { cx: 117, cy: 15, r: 15 },   // upper right, clear of the top terminal at (97, 55.5)
+  { cx: 16, cy: 124, r: 15 },   // lower left, clear of the bottom one at (43, 109.5)
+];
+
+const VIEW_BOX = { x: 1, y: 0, w: 131, h: 139 };
 
 export function InnstantMark({
   size = 32,
@@ -54,10 +76,14 @@ export function InnstantMark({
         fill="none"
         stroke="currentColor"
         strokeWidth={26}
+        // Butt, not round: the cap is cut square to the path, which at these
+        // terminal angles reads as the angled shear the original has. A round
+        // cap would turn both ends into lollipops.
         strokeLinecap="butt"
       />
-      <circle cx={140} cy={38} r={16} className={styles.dot} />
-      <circle cx={20} cy={124} r={16} className={styles.dot} />
+      {DOTS.map((dot) => (
+        <circle key={dot.cx} cx={dot.cx} cy={dot.cy} r={dot.r} className={styles.dot} />
+      ))}
     </svg>
   );
 }
@@ -82,7 +108,7 @@ export function InnstantLogo({
   return (
     <span className={`${styles.lockup} ${className ?? ''}`}>
       {withMark ? <InnstantMark size={size} /> : null}
-      <span className={styles.word} style={{ fontSize: `${size * 0.62}px` }}>
+      <span className={styles.word} style={{ fontSize: `${size * 0.6}px` }}>
         INNST
         <span className={styles.roofed}>
           A
