@@ -2052,3 +2052,32 @@ the footer lockup three times its intended size and left the nav one looking
 correct only because a flex row happened to squeeze it back down. `height: auto`
 alone is right: it keeps the aspect if a narrow parent forces the width below
 the attribute, and otherwise defers to the attributes.
+
+### D-066 · The public demo has to survive the weekend
+`/demo` went dark an hour after a deploy. The graceful message fired correctly
+— "the demo room isn't open right now" — but the demo room being shut is not a
+state a marketing site's main call to action should reach on its own.
+
+Two causes, both mine.
+
+**The seeded stays ran two nights.** That is what a plausible stay looks like,
+and it was right while the seed only ever served a laptop. It stopped being
+right the moment `/demo` pointed the public at the same data: a two-night stay
+means the link dies every second day, silently, with nobody watching.
+`DEMO_STAY_NIGHTS` is 14 now — long enough that reseeding is a fortnightly
+chore rather than a daily outage, short enough that the guest screen still
+reads as a stay. The real fix is a scheduled reseed, and this buys the time to
+build one.
+
+**`resolveDemoRoomCode()` picked the wrong room.** It ordered by room number,
+so it opened 105 — a real, valid, completely empty stay: no orders, no bill, no
+history. Meanwhile the seed spends all its effort on 214, which is also the
+room the marketing page's own hero mock shows. It orders by most orders, then
+most folio lines, then room number now. A visitor who clicks "See how it works"
+and lands on an empty room has been shown the product not working.
+
+Worth naming the near miss: the flow was verified on the deployment three times
+and passed each time, because each run happened inside the two-day window. The
+check that caught it was a fourth run made for an unrelated reason. Anything
+whose correctness depends on how recently somebody ran a seed script needs a
+clock in the test, not a spot check.

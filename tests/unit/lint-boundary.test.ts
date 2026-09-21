@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { ESLint } from 'eslint';
 
 /**
@@ -16,6 +16,22 @@ async function errorsFor(filePath: string, code: string): Promise<string[]> {
     .filter((m) => m.ruleId === 'no-restricted-imports')
     .map((m) => m.message);
 }
+
+/**
+ * Pay ESLint's cold start once, outside a test.
+ *
+ * `lintText` loads and resolves the whole flat config on its first call, which
+ * on a loaded machine takes longer than vitest's 5s default — so the FIRST
+ * test in this file would fail on timing alone, at random, while the rule it
+ * checks was perfectly fine. That is the worst kind of red: it points at the
+ * module boundary and means nothing of the sort.
+ *
+ * Warming here moves the cost to a hook with its own generous budget, and
+ * every test below then runs in milliseconds.
+ */
+beforeAll(async () => {
+  await errorsFor('src/modules/ordering/warmup.ts', 'export const warm = 1;\n');
+}, 60_000);
 
 describe('module boundary lint rule', () => {
   it('lets a module import its OWN tables', async () => {

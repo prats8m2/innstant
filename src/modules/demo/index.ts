@@ -52,11 +52,18 @@ export async function recordDemoVisitor(visitor: DemoVisitor): Promise<void> {
  * until the first reseed and then 404s until somebody notices. Anything that
  * points at demo data has to be able to survive the demo data being rebuilt.
  *
- * Picks the lowest-numbered room that a scan would actually succeed on, which
- * is the same set of conditions `scanQrCode()` checks: a live sticker, a stay
- * that is checked in, and a checkout that has not already passed. Getting that
- * wrong lands a visitor on a 404 one click after "See how it works", which is
- * the worst place in the product to have one.
+ * Picks the room a scan would actually succeed on — the same conditions
+ * `scanQrCode()` checks: a live sticker, a stay that is checked in, and a
+ * checkout that has not already passed. Getting that wrong lands a visitor on a
+ * 404 one click after "See how it works", which is the worst place in the
+ * product to have one.
+ *
+ * Of those, it picks the BUSIEST: most orders, then most folio lines, then the
+ * lowest room number. An earlier version ordered by room number alone and
+ * opened room 105 — a real stay with nothing in it, no orders, no bill, no
+ * history — while the seed spends its effort on 214, which is also the room
+ * the marketing page's own hero mock shows. A visitor who clicks "See how it
+ * works" and lands on an empty room has been shown the product not working.
  *
  * The raw projection crosses into identity's and stay's tables, which D-001
  * forbids importing. It is the same narrow exception `scanQrCode()` takes for
@@ -75,7 +82,12 @@ export async function resolveDemoRoomCode(): Promise<string | null> {
       JOIN stays s ON s.room_id = r.id AND s.status = 'CHECKED_IN'
       WHERE q.revoked_at IS NULL
         AND s.scheduled_checkout_at > now()
-      ORDER BY r.number
+      ORDER BY
+        (SELECT count(*) FROM orders o WHERE o.stay_id = s.id) DESC,
+        (SELECT count(*) FROM folio_lines f
+           JOIN folios fo ON fo.id = f.folio_id
+          WHERE fo.stay_id = s.id) DESC,
+        r.number
       LIMIT 1
     `);
     return found.rows[0]?.public_code ?? null;

@@ -202,6 +202,15 @@ redirect cannot reach a Route Handler.
 `pnpm demo:reset` wipes and reseeds The Kesari and prints these. Password for
 every staff account is `kesari-demo-2026`.
 
+**The room links below change on every reseed** — `demo:reset` reissues all 34
+QR codes — so treat them as a snapshot, not as addresses. `/demo` resolves the
+room at request time and never goes stale.
+
+**The seeded stays run 14 nights** (`DEMO_STAY_NIGHTS`), so this table and the
+public demo both need a reseed roughly fortnightly. Last reseed: 21 September
+2026, stays out 5 October. It was two nights until the demo link went dark an
+hour after a deploy; a scheduled reseed is still the real fix.
+
 | Role | Email |
 |---|---|
 | PROPERTY_ADMIN | gm@thekesari.example |
@@ -224,10 +233,10 @@ The occupied rooms at the time of writing, on the deployment:
 
 | Room | Link |
 |---|---|
-| 214 | https://innstant.in/r/-6qh-CdR-8Cu |
-| 105 | https://innstant.in/r/rtwrb0aptNNT |
-| 210 | https://innstant.in/r/WaloZEkBetPo |
-| 301 | https://innstant.in/r/EFzcdMPfcbDl |
+| 214 | https://innstant.in/r/w8QDfS-fqUWM |
+| 105 | https://innstant.in/r/VtzMM2dej0P8 |
+| 210 | https://innstant.in/r/3lMhB7mJ_fjH |
+| 301 | https://innstant.in/r/ThaZk-tszEpB |
 
 All 34 are in `.demo-seed.json`, and the desk copies any of them from
 `/admin/rooms`. Verification digits, where a charge prompts for them: `1111`.

@@ -30,6 +30,12 @@ import { and, eq } from 'drizzle-orm';
 /** Fixed so the demo tenant is identifiable in a shared database. All hex —
  *  an earlier value used 'm', which is not a hex digit and is not a uuid. */
 const TENANT_ID = 'deadbeef-0000-4000-8000-000000000001';
+
+/**
+ * How long the seeded guests stay. See the note where `checkout` is computed:
+ * this is the number that decides how often the public `/demo` link goes dark.
+ */
+const DEMO_STAY_NIGHTS = 14;
 const TENANT_SLUG = 'kesari-demo';
 const PROPERTY_SLUG = 'the-kesari';
 const DEMO_PASSWORD = 'kesari-demo-2026';
@@ -226,10 +232,25 @@ async function main(): Promise<void> {
           `Demo references room ${g.room}, which KESARI_ROOMS does not create. ` +
           `Available: ${[...provisioned.roomIds.keys()].join(', ')}`);
       }
-      // Thursday 11am, property-local. Rendered in properties.timezone, never
-      // the server's — CLAUDE.md "Dates".
+      /*
+        11am, property-local, DEMO_STAY_NIGHTS from now. Rendered in
+        properties.timezone, never the server's — CLAUDE.md "Dates".
+
+        This used to be two nights, which is what a plausible stay looks like
+        and was right while the seed only ever served a laptop. It is not right
+        any more: `/demo` on the marketing site opens this property, and a
+        two-night stay means the public demo link dies every second day with no
+        warning to anybody. It died once, an hour after the last deploy, and the
+        only reason it was noticed is that a verification run happened to be
+        pointed at it.
+
+        Fourteen nights is the compromise. Long enough that reseeding is a
+        fortnightly chore rather than a daily outage, short enough that the
+        guest screen still reads as a stay rather than a tenancy. The real fix
+        is a scheduled reseed; this buys the time to do it properly.
+      */
       const checkout = new Date();
-      checkout.setDate(checkout.getDate() + 2);
+      checkout.setDate(checkout.getDate() + DEMO_STAY_NIGHTS);
       checkout.setHours(11, 0, 0, 0);
 
       // Through createStay(), like the front desk and the PMS import — #4.
