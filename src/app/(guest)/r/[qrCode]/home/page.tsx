@@ -41,14 +41,19 @@ export const dynamic = 'force-dynamic';
  * The four tiles, verbatim from the export (design/README.md — the copy is part
  * of the design, not filler).
  *
- * `built` says whether the tile goes anywhere yet. Nearby is P4 and reads as
- * coming rather than as a tile that does nothing.
+ * `built` says whether the tile goes anywhere yet — a tile that looks tappable
+ * and does nothing is worse than one that says it is coming.
+ *
+ * All four are built now. The fourth was "Nearby · soon" until the concierge
+ * list got a read path (D-069); it is "Plan my day" because that is what the
+ * screen does with the list, and because "nearby" is a distance while a day is
+ * a plan.
  */
 const TILES = [
   { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · a charger', built: true },
   { key: 'service', title: 'Call for service', sub: 'Someone comes up', built: true },
   { key: 'stay', title: 'Your stay', sub: 'When you leave, what is owed', built: true },
-  { key: 'nearby', title: 'Nearby', sub: 'Places we vouch for', built: false },
+  { key: 'nearby', title: 'Plan my day', sub: 'Where we send our friends', built: true },
 ] as const;
 
 export default async function RoomHome({

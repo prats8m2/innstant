@@ -2142,3 +2142,44 @@ hover)`, because on touch `:hover` sticks after a tap and leaves one card
 raised until something else is pressed. And the button sheen animates `left`
 rather than `transform`, so it cannot interact with the reveal's own transform
 on the same element.
+
+### D-069 · Plan my day — P4's read half, and nothing it cannot back up
+The guest home's fourth tile said "Nearby · soon" and went nowhere. It is
+"Plan my day" now and opens a real screen: the hotel's own list of the city,
+ordered into a day and opened at the part of it the guest is standing in.
+
+**Real data, not a mock.** `pois` has existed since migration 0000. The screen
+reads it through a tenant-scoped query like anything else, and `demo:reset`
+seeds twelve Udaipur places with the GM's own one-line note on each — which
+is the product, per that table's own header: a curated list beats a maps embed
+precisely because somebody who knows the city wrote it. A property that has
+curated nothing gets an empty state pointing at the desk, not a blank page.
+
+**What is missing is said out loud.** There is no admin screen for adding a
+place, the walking times are the GM's estimate rather than a nightly refresh
+from a maps API, and a guest cannot keep a day of their own — which is what
+`itineraries` and `itinerary_stops` are for. The screen's last paragraph says
+all three, for the same reason the marketing form says it is not wired: a
+visitor finding out by tapping something that does nothing is worse.
+
+**The part of day is derived, not stored.** The obvious move is a
+`part_of_day` column on `pois`, and it was not taken. A place is not a time:
+Jagdish Temple is a morning thing because it is quiet at seven and heaving at
+eleven, which follows from WHAT IT IS — already recorded as `category`. A
+second column would let the two disagree, and nobody would notice for months.
+More importantly P4 has not been designed; adding a column to one of its
+tables to make a demo screen work is exactly what EXTENSION-POINTS exists to
+prevent. When a GM wants to say "this one is a morning place whatever its
+category", that is the moment to add it — with the screen that edits it.
+
+**The day rotates rather than truncating.** At ten at night the screen leads
+with dinner and the morning still follows: "what did I miss" and "what about
+tomorrow" are the same list, and a guest checking in at 11pm would otherwise
+be shown one restaurant and nothing else.
+
+A test caught a real bug on the way. `partAtHour()` put 2am in `morning`,
+because the first band was `hour < 12`. The room home greets "Good night"
+before five — so a guest reading at two would have been shown temples that
+opened five hours later, under a heading contradicting the greeting they had
+just been given. The two bands are computed in different files and nothing but
+that test holds them together.

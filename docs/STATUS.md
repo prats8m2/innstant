@@ -96,11 +96,19 @@ teal in Public Sans, the guest app is the Kesari — indigo, saffron, Marcellus
 over Mukta, sharp radii — and the site is warm off-white and navy in Instrument
 Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
-**Next: P4 · concierge.** Its one external service is `GOOGLE_PLACES_API_KEY`,
+**P4 has a read half already (D-069).** The guest home's fourth tile went from
+"Nearby · soon" to **Plan my day**, which opens the hotel's curated list of the
+city, ordered into a day and rotated to the part the guest is standing in.
+Real rows out of `pois`; `demo:reset` seeds twelve Udaipur places in the GM's
+voice. What is missing — admin CRUD, the nightly travel-time refresh, and a
+guest keeping a day of their own — the screen says out loud rather than hiding.
+
+**Next: the rest of P4 · concierge.** Its one external service is `GOOGLE_PLACES_API_KEY`,
 for the nightly travel-time refresh — worth asking about before the job rather
 than after the screens. `properties.address_line`, `city`, `latitude` and
 `longitude` are still write-only and P4 is the first thing that needs them. The
-guest home's "Nearby" tile is already drawn and marked `soon`.
+guest home's fourth tile is live and reading `pois` (D-069); what it still
+lacks is the write half.
 
 **Decisions that need somebody, not a session:**
 

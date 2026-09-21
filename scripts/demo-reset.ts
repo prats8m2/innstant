@@ -21,6 +21,7 @@ import { createStay } from '@/modules/stay';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
 import { serviceRequests, serviceRequestItems, requestTypes } from '@/db/schema/requests';
+import { pois } from '@/db/schema/concierge';
 import { checkoutFeeTiers } from '@/db/schema/stay';
 import { escalateBreachesFor } from '@/modules/requests';
 import { folios, folioLines } from '@/db/schema/billing';
@@ -36,6 +37,51 @@ const TENANT_ID = 'deadbeef-0000-4000-8000-000000000001';
  * this is the number that decides how often the public `/demo` link goes dark.
  */
 const DEMO_STAY_NIGHTS = 14;
+
+/**
+ * Udaipur, in the GM's voice.
+ *
+ * The editorial note is the product here (see the header of
+ * `db/schema/concierge.ts`): a curated list beats a Google Maps embed
+ * precisely because somebody who knows the city wrote it. These read like a
+ * person who has walked the distance, because that is the bar a real property
+ * has to clear when it fills this in.
+ *
+ * Walking times are from the haveli, and plausible rather than measured —
+ * nothing computes them yet. P4's nightly job is what makes them true, and
+ * until it exists the guest screen says so.
+ *
+ * `category` drives which part of the day a place lands in, via
+ * `partForCategory()` in modules/concierge. It is not a second time-of-day
+ * field; see that file for why there isn't one.
+ */
+const KESARI_POIS = [
+  { name: 'Jagdish Temple', category: 'TEMPLE', walk: 6,
+    note: 'Go at seven, before the steps fill. The bells start at quarter past and the marble is still cold.' },
+  { name: 'Gangaur Ghat', category: 'GHAT', walk: 4,
+    note: 'Where the city washes and gossips. Third step down, facing out — the light comes off the lake at about eight.' },
+  { name: 'Jheel’s Ginger Coffee Bar', category: 'CAFE', walk: 5,
+    note: 'Two floors up, four tables, the best coffee within walking distance. They open at eight and they do not hurry.' },
+  { name: 'City Palace', category: 'PALACE', walk: 9,
+    note: 'Two hours if you read the labels, forty minutes if you don’t. Buy the ticket for the museum as well; you will want it.' },
+  { name: 'Bagore Ki Haveli', category: 'MUSEUM', walk: 5,
+    note: 'Smaller than the palace and better for it. The glass and mirror room on the first floor is the one people photograph.' },
+  { name: 'Hathi Pol Bazaar', category: 'SHOPPING', walk: 11,
+    note: 'Miniature painting and puppets. Ask for Kamal at the third shop on the left and say the hotel sent you.' },
+  { name: 'Ambrai Ghat', category: 'VIEWPOINT', walk: 12,
+    note: 'The view of the palace everyone has seen. Be there forty minutes before sunset or you will be standing behind somebody.' },
+  { name: 'Dharohar at Bagore Ki Haveli', category: 'EXPERIENCE', walk: 5,
+    note: 'Folk dance at seven, one hour, no interval. The bhavai — the woman with the pots on her head — is worth the ticket alone.' },
+  { name: 'Upre by 1559 AD', category: 'DINING', walk: 8, partner: true,
+    offer: 'A table on the roof held until 9pm for our guests',
+    note: 'Rooftop, lake on three sides. Tell them you are staying with us and they will find you a table at the edge.' },
+  { name: 'Millets of Mewar', category: 'DINING', walk: 14,
+    note: 'Unfashionable, entirely vegetarian, and the best thali in the old city. Cash is easier than card.' },
+  { name: 'Sunset Terrace', category: 'BAR', walk: 10,
+    note: 'One drink, at the hour it is named for. Overpriced and worth it exactly once per stay.' },
+  { name: 'Sajjangarh Monsoon Palace', category: 'VIEWPOINT', walk: null, drive: 25,
+    note: 'Twenty-five minutes up the hill and the whole lake laid out below. The desk can arrange a car; go for sunset, not for the building.' },
+] as const;
 const TENANT_SLUG = 'kesari-demo';
 const PROPERTY_SLUG = 'the-kesari';
 const DEMO_PASSWORD = 'kesari-demo-2026';
@@ -445,6 +491,24 @@ async function main(): Promise<void> {
     const totals = await tx.select({ balanceMinor: folios.balanceMinor })
       .from(folios).where(eq(folios.id, folio!.id)).limit(1);
 
+    /*
+      The concierge list. Read-only in the product so far — there is no screen
+      that adds one of these yet — but it is real data in the real table, which
+      is what lets the guest screen be a screen rather than a mock.
+    */
+    await tx.insert(pois).values(KESARI_POIS.map((poi, i) => ({
+      tenantId: TENANT_ID,
+      propertyId: provisioned.propertyId,
+      name: poi.name,
+      category: poi.category,
+      editorialNote: poi.note,
+      walkMinutes: poi.walk ?? null,
+      driveMinutes: 'drive' in poi ? poi.drive : null,
+      isPartner: 'partner' in poi ? poi.partner : false,
+      partnerOffer: 'offer' in poi ? poi.offer : null,
+      sortOrder: i,
+    })));
+
     const outletRow = await tx.select({ id: outlets.id }).from(outlets)
       .where(eq(outlets.id, provisioned.outletId)).limit(1);
 
@@ -466,6 +530,7 @@ async function main(): Promise<void> {
   console.log(`    late request  SR-4468, 14 minutes past — ${escalated} escalated, the GM's bell is lit`);
   console.log('    folio 210     ₹13,180 across 2 lines');
   console.log('    late checkout 2pm ₹2,500 · 6pm ₹5,000 — the desk decides at /admin/checkouts');
+  console.log(`    nearby        ${KESARI_POIS.length} places, in the GM's voice — the guest's "Plan my day"`);
   console.log('\n  Staff logins  (password for all: ' + DEMO_PASSWORD + ')');
   for (const s of DEMO_STAFF) console.log(`    ${s.role.padEnd(16)} ${s.email}`);
 
