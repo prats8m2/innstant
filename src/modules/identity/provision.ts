@@ -56,6 +56,29 @@ export interface ProvisionPropertyInput {
   rooms: readonly RoomSeed[];
 
   outletName?: string;
+
+  /**
+   * Override the public QR code for a room. Return null to mint a random one.
+   *
+   * ─── This exists for the demo property and nothing else ──────────────────
+   *
+   * A real sticker's code MUST be random. It is a capability URL printed on
+   * paper in a room: anyone who can guess it can order dinner to that room,
+   * and a guessable scheme turns one photograph in a corridor into the whole
+   * floor. `newPublicCode()` is the only correct answer there, and it is the
+   * default precisely so that forgetting this option is safe.
+   *
+   * The demo property is the opposite problem. `pnpm demo:reset` wipes and
+   * rebuilds it, which reissues all 34 codes, which breaks every link anyone
+   * has ever been sent or written down — repeatedly, in this project, to the
+   * point of being the reported bug. Its data is invented and reachable from
+   * a public button on the marketing site, so there is nothing to guess and
+   * a stable, readable code is strictly better.
+   *
+   * Only `scripts/demo-reset.ts` passes this. If you find yourself reaching
+   * for it anywhere else, the answer is no.
+   */
+  publicCodeFor?: (roomNumber: string) => string | null;
   /** Email for the first PROPERTY_ADMIN. Created as INVITED with no password —
    *  S5 has no invite flow yet, so the seeder sets a password directly. */
   adminEmail: string;
@@ -75,7 +98,10 @@ export interface ProvisionedProperty {
 /** Public QR codes are short, unambiguous, and not sequential — a sequential
  *  code invites walking the range from a corridor. Exported so a room added
  *  after provisioning mints one the same way (P3.5) — two generators would be
- *  two answers to "how guessable is a sticker". */
+ *  two answers to "how guessable is a sticker".
+ *
+ *  This is the DEFAULT and the only one a real property ever uses. See
+ *  `publicCodeFor` above for the single, deliberate exception. */
 export function newPublicCode(): string {
   return randomBytes(9).toString('base64url');
 }
@@ -187,7 +213,7 @@ export async function provisionProperty(
   const qrToCreate = input.rooms
     .map((r) => ({ number: r.number, roomId: roomIds.get(r.number)! }))
     .filter((r) => !qrByRoomId.has(r.roomId))
-    .map((r) => ({ ...r, publicCode: newPublicCode() }));
+    .map((r) => ({ ...r, publicCode: input.publicCodeFor?.(r.number) || newPublicCode() }));
   if (qrToCreate.length) {
     await tx.insert(roomQrCodes).values(qrToCreate.map((q) => ({
       tenantId: input.tenantId, propertyId, roomId: q.roomId,

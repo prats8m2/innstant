@@ -22,6 +22,69 @@ function redirectTo(path: string): NextResponse {
   return new NextResponse(null, { status: 307, headers: { Location: path } });
 }
 
+/**
+ * The dead end, made readable.
+ *
+ * This used to be `new NextResponse(null, { status: 404 })` — a blank browser
+ * error page for somebody who had just pointed their phone at a sticker, or
+ * opened a link they were sent last week. It is the most likely screen in the
+ * product to be seen by a person with no idea what went wrong, and it said
+ * nothing at all.
+ *
+ * ─── It still reveals nothing ──────────────────────────────────────────────
+ *
+ * The security property is unchanged and worth restating: unknown code,
+ * revoked sticker, wrong version and no-active-stay all land HERE, with the
+ * same status and the same words. Somebody scanning from a corridor cannot
+ * tell which, and in particular cannot learn whether a room is occupied.
+ *
+ * ─── Why the styles are inline ─────────────────────────────────────────────
+ *
+ * A Route Handler returns bytes, not a React tree, so it cannot reach the
+ * stylesheet — the bundle's filename is hashed at build time and is not
+ * knowable from here. Rather than link a file that may not exist, the page
+ * carries the four values it needs. They are the brand constants from
+ * `theme.css`, and this is the one file in the product allowed to repeat them.
+ */
+function linkNotActive(): NextResponse {
+  const html = `<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0A1220">
+<meta name="robots" content="noindex">
+<title>This link isn’t active</title>
+<style>
+  :root { color-scheme: dark }
+  body {
+    margin: 0; min-height: 100dvh; display: grid; place-items: center;
+    padding: 32px; background: #0A1220; color: #FFFFFF;
+    font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 26rem }
+  h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 12px; font-weight: 600 }
+  p { margin: 0 0 20px; color: rgba(255,255,255,.72) }
+  a {
+    display: inline-flex; align-items: center; min-height: 48px;
+    padding: 0 22px; border-radius: 8px; background: #C99A4B;
+    color: #101E33; font-weight: 700; text-decoration: none;
+  }
+</style>
+</head><body><main>
+<h1>This link isn’t active</h1>
+<p>It may be an old code, or the stay it belonged to has ended. If you are in
+the room, scan the code on the nightstand again. If somebody sent you this to
+show you how it works, the demo is always at the link below.</p>
+<a href="/demo">Open the demo room</a>
+</main></body></html>`;
+
+  return new NextResponse(html, {
+    status: 404,
+    headers: { 'content-type': 'text/html; charset=utf-8' },
+  });
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ qrCode: string }> },
@@ -61,11 +124,9 @@ export async function GET(
     return response;
   } catch (error) {
     // Unknown code, revoked sticker, wrong version, or nobody checked in — all
-    // 404. Someone scanning from a corridor learns nothing from which it was,
-    // including whether the room is occupied.
-    if (error instanceof QrNotUsableError) {
-      return new NextResponse(null, { status: 404 });
-    }
+    // the same 404 page. Someone scanning from a corridor learns nothing from
+    // which it was, including whether the room is occupied.
+    if (error instanceof QrNotUsableError) return linkNotActive();
     throw error;
   }
 }

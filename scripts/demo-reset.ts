@@ -39,6 +39,24 @@ const TENANT_ID = 'deadbeef-0000-4000-8000-000000000001';
 const DEMO_STAY_NIGHTS = 14;
 
 /**
+ * The demo property's QR codes, and why they are not random.
+ *
+ * A real sticker's code must be unguessable — see `publicCodeFor` in
+ * `modules/identity/provision.ts`. This property is the one exception, and it
+ * earns it: the data is invented, the marketing site has a public button that
+ * walks anyone straight into it, and there is nothing to guess.
+ *
+ * What a random code costs here is real. Every `demo:reset` reissued all 34,
+ * which broke every link previously written down or sent to somebody —
+ * including the four printed in `docs/STATUS.md`, twice in one week, and
+ * eventually as a reported bug. `kesari-214` survives a reseed, survives a
+ * rebuild of the database, and can be typed from memory.
+ */
+function demoPublicCode(roomNumber: string): string {
+  return `${PROPERTY_SLUG}-${roomNumber}`;
+}
+
+/**
  * Udaipur, in the GM's voice.
  *
  * The editorial note is the product here (see the header of
@@ -211,6 +229,7 @@ async function main(): Promise<void> {
       rooms: KESARI_ROOMS,
       adminEmail: 'gm@thekesari.example',
       adminName: 'Vikram Rathore',
+      publicCodeFor: demoPublicCode,
     });
 
     const menu = await seedMenu(tx, {

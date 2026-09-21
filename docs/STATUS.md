@@ -222,14 +222,20 @@ redirect cannot reach a Route Handler.
 `pnpm demo:reset` wipes and reseeds The Kesari and prints these. Password for
 every staff account is `kesari-demo-2026`.
 
-**The room links below change on every reseed** — `demo:reset` reissues all 34
-QR codes — so treat them as a snapshot, not as addresses. `/demo` resolves the
-room at request time and never goes stale.
+**The room links below are now stable** (D-070). They used to be random and
+therefore reissued by every `demo:reset`, which broke every link anyone had
+written down — including this table, twice in a week. The demo property's
+codes are `the-kesari-<room>` and survive a reseed, a wipe, and a rebuild of
+the database. Real properties still get random codes and always will; a
+sticker is a capability URL.
 
-**The seeded stays run 14 nights** (`DEMO_STAY_NIGHTS`), so this table and the
-public demo both need a reseed roughly fortnightly. Last reseed: 21 September
-2026, stays out 5 October. It was two nights until the demo link went dark an
-hour after a deploy; a scheduled reseed is still the real fix.
+**The seeded stays run 14 nights** (`DEMO_STAY_NIGHTS`), so the demo still
+needs a reseed roughly fortnightly — the LINK no longer breaks, but the stay
+behind it expires. Last reseed: 21 September 2026, stays out 5 October. A
+scheduled reseed is still the real fix.
+
+A room link whose stay has ended now renders a page saying so, with a way back
+to `/demo`, instead of a blank browser 404.
 
 | Role | Email |
 |---|---|
@@ -253,10 +259,10 @@ The occupied rooms at the time of writing, on the deployment:
 
 | Room | Link |
 |---|---|
-| 214 | https://innstant.in/r/w8QDfS-fqUWM |
-| 105 | https://innstant.in/r/VtzMM2dej0P8 |
-| 210 | https://innstant.in/r/3lMhB7mJ_fjH |
-| 301 | https://innstant.in/r/ThaZk-tszEpB |
+| 214 | https://innstant.in/r/the-kesari-214 |
+| 105 | https://innstant.in/r/the-kesari-105 |
+| 210 | https://innstant.in/r/the-kesari-210 |
+| 301 | https://innstant.in/r/the-kesari-301 |
 
 All 34 are in `.demo-seed.json`, and the desk copies any of them from
 `/admin/rooms`. Verification digits, where a charge prompts for them: `1111`.

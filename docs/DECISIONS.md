@@ -2183,3 +2183,36 @@ before five — so a guest reading at two would have been shown temples that
 opened five hours later, under a heading contradicting the greeting they had
 just been given. The two bands are computed in different files and nothing but
 that test holds them together.
+
+### D-070 · The demo's QR codes stop moving
+`pnpm demo:reset` wipes the tenant and reprovisions it, which mints a fresh
+random `public_code` for all 34 rooms. Every link anyone had written down or
+sent then 404s. It happened to `docs/STATUS.md` twice in one week and was
+eventually reported as a bug — "every reseeding is making this issue".
+
+`provisionProperty()` takes an optional `publicCodeFor(roomNumber)`, and
+`demo-reset.ts` is the only caller that passes one. The demo property's codes
+are now `the-kesari-214` and friends: stable across a reseed, across a wipe,
+across a rebuild of the database, and typeable from memory.
+
+**Real stickers stay random, and the default is what protects that.** A public
+code is a capability URL printed on paper in a room — anyone who can guess it
+can order dinner to that room, and a guessable scheme turns one photograph in
+a corridor into the whole floor. `newPublicCode()` remains the default
+precisely so that forgetting the option is the safe outcome. The demo property
+is the one place where there is nothing to guess: its data is invented and the
+marketing site has a public button that walks anybody into it.
+
+**The dead link now says something.** `/r/{code}` answered an unknown or
+expired code with `new NextResponse(null, { status: 404 })` — a blank browser
+error for the person most likely to have no idea what went wrong, having just
+pointed their phone at a sticker. It renders a page now: what probably
+happened, and a button to `/demo`. The security property is untouched —
+unknown, revoked, wrong-version and no-active-stay still land on the same
+status with the same words, so a corridor scanner still cannot learn whether a
+room is occupied.
+
+Its styles are inline, which is the one place in the product that is allowed.
+A Route Handler returns bytes rather than a React tree, so it cannot reach a
+stylesheet whose filename is hashed at build time; linking a file that may not
+exist is worse than repeating four brand values.
