@@ -42,3 +42,7 @@ export type { PlaceOrderInput, PlacedOrder } from './place-order';
 
 export { calculateTotals, lineTotal } from './totals';
 export type { OrderTotals, TotalsConfig, TotalsLine } from './totals';
+
+/** The menu list's own add and remove — see quick-add.ts for why defaults. */
+export { quickAddDish, quickRemoveDish } from './quick-add';
+export { canQuickAdd, defaultOptionIds } from './quick-add-rules';

@@ -175,50 +175,169 @@
 }
 
 /*
- * One card per dish.
+ * One card per dish, and the card is the <li> rather than the link.
  *
  * They were flat rows on the page ground, separated by nothing but space —
  * which on a list of ten reads as one long column of text, and gives the eye
- * no edge to stop at. A card per dish is the pattern the brief asked for, and
- * it does three things a gap cannot: it draws a boundary around what is one
- * tappable thing, it lifts the dish off the ground so the thumbnail stops
- * floating, and it gives the press state somewhere to happen.
+ * no edge to stop at. A card per dish draws a boundary around what is one
+ * tappable thing, lifts the dish off the ground so the thumbnail stops
+ * floating, and gives the press state somewhere to happen.
+ *
+ * The card is the list item and not the anchor because the stepper lives
+ * inside it: a button nested in an <a> is invalid, and browsers resolve it by
+ * breaking one or the other. So the link covers the content, the stepper sits
+ * beside it, and `position: relative` is what lets the stepper be placed over
+ * the corner the link would otherwise own.
  */
-.dish {
-  display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
-  width: 100%;
-  padding: var(--space-3);
+.dishCard {
+  position: relative;
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 1px solid var(--border-soft);
-  color: var(--text);
-  animation: archIn var(--dur-slow) var(--ease-out) both;
   transition:
     background var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
 }
 
 /*
- * Pressed. No lift and no shadow — this is a list a thumb runs down at 9:40pm,
- * and ten cards that each rise under the finger is a trampoline.
+ * Pressed. No lift and no shadow — this is a list a thumb runs down at
+ * 9:40pm, and ten cards that each rise under the finger is a trampoline.
  */
-.dish:active {
+.dishCard:active {
   background: var(--surface-raised);
   border-color: color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
+/* Sold out: the card recedes rather than the text greying, so the whole thing
+   reads as unavailable before a word of it is read. */
+.dishCard[data-available='false'] {
+  background: transparent;
+  border-style: dashed;
+}
+
+.dish {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--space-3);
+  color: var(--text);
+  animation: archIn var(--dur-slow) var(--ease-out) both;
+}
+
 .dish:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
+
+/* ── Add and remove, without opening the dish ───────────────────────────── */
+
+/*
+ * Bottom-right of the card, over the link.
+ *
+ * Absolute rather than in the flow so the link keeps the whole card: a guest
+ * reaching for the description, the price or the picture gets the dish, and
+ * only the two small controls do something else.
+ */
+.stepper {
+  position: absolute;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+/* Nothing chosen yet: one button saying what it does, rather than a stepper
+   sitting at zero, which asks the guest to read a control to learn it is
+   empty. */
+.stepper[data-on='false'] {
+  background: transparent;
+  border-color: transparent;
+  padding: 0;
+}
+
+.step,
+.stepAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    opacity var(--dur-fast) var(--ease-out);
+}
+
+/* − and + once something is in the order. */
+.step {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+}
+
+.step:active { background: color-mix(in srgb, var(--plaster) 10%, transparent); }
+
+/* The first tap. Wider, filled, and labelled "Add" — the only control on the
+   card, so it can afford to say what it is. */
+.stepAdd {
+  padding: 0 var(--space-4);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* Once the stepper is open, + is a sibling of − and stops being the loud one. */
+.stepper[data-on='true'] .stepAdd {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  font-weight: 400;
+}
+
+.step:disabled,
+.stepAdd:disabled { opacity: 0.55; cursor: default; }
+
+.step:focus-visible,
+.stepAdd:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Sold out: the card recedes rather than the text greying, so the whole thing
-   reads as unavailable before a word of it is read. */
-.dish[data-available='false'] {
-  background: transparent;
-  border-style: dashed;
+.stepCount {
+  min-width: 18px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text);
+}
+
+/* The dish that failed, said next to the dish that failed. */
+.stepError {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  width: max-content;
+  max-width: 60vw;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-critical-tint);
+  color: var(--status-critical);
+  font-size: var(--text-xs);
+  line-height: 1.4;
 }
 
 /* The arch. The single strongest shape signal in the design — a jharokha
@@ -267,6 +386,9 @@
   align-items: center;
   gap: var(--space-3);
   margin-top: 7px;
+  /* Clear of the stepper in the corner — 34px of control plus its padding. */
+  padding-right: 96px;
+  min-height: 34px;
 }
 
 .price {

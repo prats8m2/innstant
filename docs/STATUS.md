@@ -108,7 +108,9 @@ overlapping their edges. And the four home tiles have one icon each (towels,
 bell, key, compass) instead of four copies of the same arch.
 
 **The menu is cards** (D-075) — each dish boxed rather than a flat row in a
-column, per the supplied reference.
+column, per the supplied reference — **and each card adds and removes**
+(D-076). `Add` becomes `− n +`; the quick path accepts the kitchen's own
+defaults, and a dish whose required choice has no default still opens.
 
 **Amenities leads with what people actually ask for (D-071).** It was 22
 identical rows over three and a half phone screens, twenty of them captioned

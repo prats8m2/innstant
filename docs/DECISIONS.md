@@ -2421,3 +2421,52 @@ of the boundaries and worth it.
 mockup that panel holds one block of key detail; repeated once per dish it
 would put ten cream slabs on a dark screen and wreck the hierarchy the card
 just created. The price stays saffron, as it is everywhere else in the app.
+
+### D-076 · Add and remove from the menu list
+The menu card only opened the dish. Ordering two of something the kitchen
+makes its own way meant a page load, a scroll past three modifier groups the
+guest was going to accept anyway, a tap, and a page load back.
+
+The card has a stepper now — `Add` when the dish is not in the order, `− n +`
+when it is.
+
+**The obstacle was that a plus cannot simply add.** Every dish on this menu
+has a REQUIRED modifier group: chilli on the savoury dishes, warm-or-cold on
+the sweet. `addToCart()` rightly refuses a selection that leaves a required
+question unanswered, so a naive quick-add would fail on every dish there is.
+
+What makes the shortcut legitimate is that the groups have DEFAULTS, and the
+defaults are not a guess. The seed says it best in its own comment: *"the
+default is what the kitchen actually cooks. A guest who wants it milder says
+so; nobody is asked to opt in to the chef's own recipe."* Quick-adding is
+accepting the recipe. A dish whose required group has no default — a property
+that asks "rare, medium or well done" and takes no view — keeps sending the
+guest inside, because there is no honest answer to pick for them. That is
+`canQuickAdd`, decided per dish in the menu read by one grouped query rather
+than by loading every dish's modifiers.
+
+**The selection has to match the long way round exactly** — every `isDefault`
+option across ALL groups, including the no-op "Nothing" under the optional
+extras. `findIdenticalLine()` compares option sets, so a set differing by one
+inert id makes the same dish ordered the same way into two cart lines. There
+is a test for precisely this.
+
+**Minus picks the line a plus would have made**, and falls back to the newest
+line for that dish when the guest has only ever ordered it with choices of
+their own. A minus that does nothing because somebody used the long way round
+is worse than one that removes what they most recently added.
+
+**The count on the card sums every variant.** A guest who asked for one gentle
+and one fiery has two of that dish, and a card saying 1 would be arguing with
+them. The cart screen is where the variants are spelled out.
+
+**The card is the `<li>`, not the link.** A button nested in an `<a>` is
+invalid and browsers resolve it by breaking one or the other, so the link
+covers the content and the stepper sits over the corner. Everything except
+the two small buttons still opens the dish — a guest who wants the chilli
+mild, or just to read the description, has lost nothing.
+
+Found on the way: a hand-written join used `mo.modifier_group_id`, which does
+not exist — the column is `group_id` — and nothing caught it until the menu
+returned 500 in a browser. Rewritten with the query builder, which knows the
+column names. Raw SQL buys nothing here that is worth that.

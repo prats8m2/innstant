@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, inArray } from 'drizzle-orm';
+import { and, asc, eq, isNull, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import {
   outlets, outletHours, menuCategories, menuItems, collections, collectionItems,
@@ -41,6 +41,17 @@ export interface MenuDish {
   prepTimeMinutes: number | null;
   imageUrl: string | null;
   blurhash: string | null;
+  /**
+   * Whether the menu LIST can add this straight to the cart, or has to send
+   * the guest into the dish to answer something first.
+   *
+   * False when a required modifier group cannot be satisfied from its own
+   * defaults — a property that asks "rare, medium or well done" and takes no
+   * view. True for everything the kitchen has an opinion about, which on this
+   * menu is all of it: see `quickAddDish()` in modules/ordering for why
+   * accepting the chef's default is a legitimate shortcut and not a guess.
+   */
+  canQuickAdd: boolean;
 }
 
 export interface MenuSection {
@@ -235,6 +246,17 @@ async function buildMenu(
    */
   const schedules = await windowsByItem(tx, dishes.map((d) => d.id));
 
+  /**
+   * Which dishes the list can add without opening them.
+   *
+   * One query for the whole menu rather than the alternative — loading every
+   * dish's modifier groups on a screen that does not otherwise need them.
+   * It asks the narrow question directly: has any REQUIRED group got fewer
+   * available defaults than it demands, or more than it allows? A dish with
+   * no required groups at all never appears here and stays quick-addable.
+   */
+  const needsAChoice = await dishesNeedingAChoice(tx, dishes.map((d) => d.id));
+
   const byId = new Map<string, MenuDish>(
     dishes.map((d) => [d.id, {
       id: d.id,
@@ -250,6 +272,7 @@ async function buildMenu(
       prepTimeMinutes: d.prepTimeMinutes,
       imageUrl: d.imageUrl,
       blurhash: d.blurhash,
+      canQuickAdd: !needsAChoice.has(d.id),
     }]),
   );
 
@@ -592,6 +615,11 @@ export async function getDish(
       prepTimeMinutes: row.prepTimeMinutes,
       imageUrl: row.imageUrl,
       blurhash: row.blurhash,
+      /* Reaching the dish page means the choosing already happened here, so
+         the shortcut flag has nothing left to say. `canQuickAdd()` in
+         modules/ordering answers it properly from the groups below when the
+         quick path needs to re-check. */
+      canQuickAdd: true,
     },
     outlet: row.outlet,
     modifierGroups: [...groups.values()],
@@ -707,4 +735,57 @@ export async function getCartPricing(
   }
 
   return { items, options };
+}
+
+/**
+ * Dish ids whose required modifier groups cannot be answered from defaults.
+ *
+ * Grouped in SQL rather than pulled into memory: a menu has as many
+ * modifier-group rows as dishes times groups, and the list screen needs one
+ * boolean per dish out of all of it.
+ *
+ * "Cannot be answered" means the count of AVAILABLE default options in a
+ * required group is outside what the group demands — fewer than
+ * `min_selections` (nothing to pick) or more than `max_selections` (the
+ * defaults contradict each other). Either way there is no honest selection to
+ * make on the guest's behalf, so the card sends them into the dish.
+ *
+ * Written with the query builder rather than as raw SQL, deliberately. The
+ * first version hand-wrote the join and used `mo.modifier_group_id`, which
+ * does not exist — the column is `group_id` — and nothing caught it until the
+ * menu returned 500 in a browser. The builder knows the column names.
+ */
+async function dishesNeedingAChoice(
+  tx: Tx,
+  itemIds: readonly string[],
+): Promise<Set<string>> {
+  if (!itemIds.length) return new Set();
+
+  const defaultsAvailable = sql<number>`
+    count(${modifierOptions.id}) FILTER (
+      WHERE ${modifierOptions.isDefault} AND ${modifierOptions.isAvailable}
+    )`;
+
+  const rows = await tx
+    .select({ menuItemId: menuItemModifierGroups.menuItemId })
+    .from(menuItemModifierGroups)
+    .innerJoin(
+      modifierGroups,
+      eq(modifierGroups.id, menuItemModifierGroups.modifierGroupId),
+    )
+    .leftJoin(modifierOptions, eq(modifierOptions.groupId, modifierGroups.id))
+    .where(and(
+      inArray(menuItemModifierGroups.menuItemId, [...itemIds]),
+      eq(modifierGroups.isRequired, true),
+    ))
+    .groupBy(
+      menuItemModifierGroups.menuItemId,
+      modifierGroups.id,
+      modifierGroups.minSelections,
+      modifierGroups.maxSelections,
+    )
+    .having(sql`${defaultsAvailable} < greatest(1, ${modifierGroups.minSelections})
+             OR ${defaultsAvailable} > ${modifierGroups.maxSelections}`);
+
+  return new Set(rows.map((r) => r.menuItemId));
 }

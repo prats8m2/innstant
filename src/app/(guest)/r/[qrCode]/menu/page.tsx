@@ -12,6 +12,7 @@ import { getCart } from '@/modules/ordering';
 import { formatMoney, money } from '@/lib/money';
 import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from './category-rail';
+import { DishStepper } from './dish-stepper';
 import styles from './menu.module.css';
 
 /**
@@ -40,6 +41,7 @@ export default async function MenuScreen({
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
+
 
   // Menu and cart in one transaction — the pill is part of this screen, not a
   // second render, and a guest who has already chosen must not see it appear
@@ -87,6 +89,21 @@ export default async function MenuScreen({
   if (!menu) notFound();
 
   const { outlet, sections } = menu;
+
+  /**
+   * How many of each dish are already in the order, for the steppers.
+   *
+   * Summed ACROSS variants: a guest who asked for one gentle and one fiery
+   * has two of that dish, and a card saying 1 would be arguing with them. The
+   * minus knows which line to take from — see `quickRemoveDish()` — and the
+   * cart screen is where the variants are spelled out.
+   *
+   * No extra query: the cart is already loaded on this screen for the pill.
+   */
+  const inCart = new Map<string, number>();
+  for (const line of cart?.lines ?? []) {
+    inCart.set(line.menuItemId, (inCart.get(line.menuItemId) ?? 0) + line.quantity);
+  }
 
   /**
    * What the pill says when the cart is empty.
@@ -140,15 +157,22 @@ export default async function MenuScreen({
 
             <ul className={styles.dishes}>
               {section.items.map((dish) => (
-                <li key={`${section.id}-${dish.id}`}>
-                  {/* `data-available` styles the whole card, not just the
-                      label — a dashed, unfilled card reads as unavailable
-                      before any of its text is read. */}
-                  <Link
-                    href={`${base}/menu/${dish.id}`}
-                    className={styles.dish}
-                    data-available={dish.isAvailable}
-                  >
+                /*
+                  The CARD is the <li>, not the link.
+
+                  A stepper cannot live inside an <a> — nesting a button in an
+                  anchor is invalid, and browsers resolve it by making the
+                  whole thing unclickable in one way or another. So the link
+                  covers the card's content and the stepper sits beside it,
+                  lifted above it. Everything except the two small buttons
+                  still opens the dish.
+                */
+                <li
+                  key={`${section.id}-${dish.id}`}
+                  className={styles.dishCard}
+                  data-available={dish.isAvailable}
+                >
+                  <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
                     <span className={styles.thumb} aria-hidden="true" />
                     <span className={styles.dishBody}>
                       <span className={styles.dishName}>{dish.name}</span>
@@ -173,6 +197,21 @@ export default async function MenuScreen({
                       </span>
                     </span>
                   </Link>
+
+                  {/*
+                    Only where there is nothing to ask. A dish whose required
+                    choice has no default sends the guest inside instead —
+                    `canQuickAdd` on the dish, decided in the menu read — and
+                    one that is off the menu tonight offers nothing at all.
+                  */}
+                  {dish.isAvailable && dish.canQuickAdd ? (
+                    <DishStepper
+                      qrCode={qrCode}
+                      menuItemId={dish.id}
+                      dishName={dish.name}
+                      quantity={inCart.get(dish.id) ?? 0}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
