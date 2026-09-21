@@ -22,6 +22,21 @@ export const viewport: Viewport = {
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div data-theme="innstant" className={styles.root}>
+      {/*
+        The safety net under the scroll reveals.
+
+        Every revealed element renders at `opacity: 0` and is cleared by an
+        IntersectionObserver (see `motion.tsx`). If that script never runs, the
+        page is blank — which is the worst failure a marketing site can have,
+        and not a hypothetical one: extensions block scripts and hydration
+        fails. This forces all of them visible when there is no JavaScript to
+        clear them.
+      */}
+      <noscript>
+        <style>
+          {`[data-reveal='out'] { opacity: 1 !important; transform: none !important; }`}
+        </style>
+      </noscript>
       {children}
     </div>
   );

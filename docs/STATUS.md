@@ -35,6 +35,18 @@ for them — by a recorded vouch, not a bypass — and a plain sticker scan of t
 same room still gets it. Verified both ways against the deployment's database
 (D-063).
 
+**The copy is written for an owner, not an engineer** (D-067). The site used to
+say "row-level security in Postgres" and "orders are idempotent"; it says "one
+hotel can never see another" and "a guest cannot be charged twice". The claims
+still have to be true — each maps to a CLAUDE.md non-negotiable — and
+`content.ts` says so at the top, because the temptation on a sales page runs
+one way only.
+
+**It moves** (D-068): scroll reveals, a header that gains an edge once the page
+scrolls, cards that lift under a pointer, a slow gold wash over the dark bands.
+The hidden state is an attribute with a `<noscript>` override, so a blocked
+script cannot leave the page blank — the one failure mode that matters here.
+
 The hero's release badge and the Themes section are deliberately **not** on the
 page — see D-062. The nav is Product / Security / Contact.
 

@@ -2,14 +2,22 @@
  * The site's copy, in one place.
  *
  * Separated from the markup for the ordinary reason — a marketing page is 80%
- * words, and mixing them into JSX makes both harder to change — and for one
- * specific to this file: several of these claims are about how the PRODUCT
- * works, and they have to stay true. The security section in particular says
- * things a reader could check: that the app connects as a role without
- * BYPASSRLS, that guest tokens are hashed, that the event log is append-only.
- * All three are CLAUDE.md non-negotiables (#2, #10, #7) rather than
- * aspirations, which is the only reason they are allowed on a sales page.
+ * words, and mixing them into JSX makes both harder to change.
  *
+ * ─── Who this is written for ───────────────────────────────────────────────
+ *
+ * An owner or a general manager, reading on a laptop, deciding whether to give
+ * us twenty minutes. Not an engineer. An earlier version of this file said
+ * "row-level security in Postgres", "resource-action permissions", "orders are
+ * idempotent" and "append-only event log" — all true, all meaningless to the
+ * person who signs. Every one of those is now a sentence about what it means
+ * for their hotel, and the mechanism is left for the call.
+ *
+ * The claims still have to BE true, which is the constraint that makes this
+ * harder than it looks. "One hotel cannot see another" is the guarantee
+ * CLAUDE.md #1 and #2 enforce; "a guest never makes an account" is #9 and #10;
+ * "an order cannot be charged twice" is #8; "nothing can be quietly edited
+ * afterwards" is #7. Say it plainly, but do not say more than the code does.
  * If one of those invariants ever changes, this file is part of the blast
  * radius.
  */
@@ -27,21 +35,21 @@ export const PILLARS: Pillar[] = [
   {
     kicker: 'For the guest',
     title: 'Ask for anything without picking up the phone.',
-    body: 'Dinner with modifiers, extra towels, an iron, someone from the desk, a later checkout, where to eat nearby. Every request confirms instantly and shows its live state.',
+    body: 'Dinner, extra towels, an iron, somebody from the desk, a later checkout, somewhere to eat nearby. Every request is confirmed on the spot, and they can see how far along it is without asking again.',
     foot: 'No app, no login, no waiting on hold',
     shape: 'arch',
   },
   {
     kicker: 'For your teams',
     title: 'Kitchen, runners, housekeeping and the desk, in sync.',
-    body: 'One order lands as a ticket, a pickup, a delivery and a folio line, each on the screen of the person who needs it. Nothing is relayed by radio or sticky note.',
-    foot: 'Kitchen display, staff phones, desk console',
+    body: 'One order becomes a kitchen ticket, a pickup, a delivery and a line on the bill — each appearing on the screen of the person who needs it. Nothing gets relayed by radio, shouted down a corridor, or written on a pad.',
+    foot: 'A kitchen screen, staff phones, and the front desk',
     shape: 'square',
   },
   {
     kicker: 'For the owner',
     title: 'Every interaction priced, timed and on the record.',
-    body: 'Service charge, delivery fee, late checkout tiers and taxes are configured once and applied every time. Promise times are measured. The event log settles arguments.',
+    body: 'Service charge, delivery fees, late checkout rates and taxes are set once and applied every time. You can see how long each request took. And there is a record of everything, which is what settles an argument at the desk.',
     foot: 'Revenue you were leaving in the room',
     shape: 'ring',
   },
@@ -60,7 +68,7 @@ export const STEPS: Step[] = [
     who: 'Guest',
     time: '21:40',
     title: 'Scans the QR on the nightstand.',
-    body: 'The link already knows room 214, Anjali, and that she checks out Thursday. No login screen, no verification until the first charge.',
+    body: 'The page already knows it is room 214, that Anjali is in it, and that she leaves on Thursday. Nothing to install, nothing to sign into.',
   },
   {
     who: 'Guest',
@@ -71,20 +79,20 @@ export const STEPS: Step[] = [
   {
     who: 'Kitchen',
     time: '21:41',
-    title: 'The ticket is on the pass display before she puts the phone down.',
-    body: 'It pulses until someone acknowledges it. Accept starts the prep timer; reject sends the reason straight back to the guest.',
+    title: 'The ticket is on the kitchen screen before she puts the phone down.',
+    body: 'It keeps flashing until somebody picks it up. Accepting starts the clock. If the sole is off tonight, the chef says so and the guest reads it in her own words, not from a phone call.',
   },
   {
     who: 'Runner',
     time: '22:09',
     title: 'Kishan’s phone buzzes when the kitchen bumps it.',
-    body: 'He sees the note: no bell after 10, please knock. Picked up, delivered, done. The guest watched every state on her phone.',
+    body: 'He sees her note — no bell after 10, please knock. Picked up, delivered, done. She watched each step happen on her phone without ringing anyone.',
   },
   {
     who: 'Front desk',
     time: '22:10',
     title: '₹2,266 is on the folio before the plates are cleared.',
-    body: 'Devika sees the line, the timestamps and who delivered it. At checkout it settles with everything else, one receipt.',
+    body: 'Devika can see the line, the times and who carried it up. At checkout it settles with everything else, on one bill.',
   },
 ];
 
@@ -157,46 +165,46 @@ export interface SecurityItem {
 
 export const SECURITY: SecurityItem[] = [
   {
-    kicker: 'Isolation',
-    badge: 'Proven by test',
+    kicker: 'Separation',
+    badge: 'Tested every release',
     badgeTone: 'strong',
-    title: 'Row-level security in Postgres',
-    body: 'The application connects as a role that owns no tables and cannot bypass RLS. Every query runs inside a tenant context. A cross-tenant read returns nothing, and a test in our suite tries every session.',
+    title: 'One hotel can never see another',
+    body: 'Your guests, your orders and your bills sit behind a wall the software itself cannot step over — not a setting somebody could switch off by mistake. We test that wall on every release by trying to break it.',
   },
   {
-    kicker: 'Guest sessions',
-    badge: 'Tiered',
+    kicker: 'Your guests',
+    badge: 'No accounts',
     badgeTone: 'gold',
-    title: 'Access follows the stay, not an account',
-    body: 'A QR scan issues a request-tier session tied to the room and the active stay. The first charge escalates it with one verification prompt. Tokens are hashed at rest and revoked at checkout.',
+    title: 'Nobody signs up for anything',
+    body: 'A guest scans the code by the bed and they are in. No app to install, no password, no email address collected. Their access lasts exactly as long as their stay and stops at checkout.',
   },
   {
-    kicker: 'Staff access',
+    kicker: 'Your team',
     badge: '8 roles',
     badgeTone: 'quiet',
-    title: 'Resource-action permissions',
-    body: 'Every staff action is authorised against a resource and an action, not a page. Roles are seeded per property; a kitchen login cannot see folios, a runner cannot edit menus.',
+    title: 'Everyone sees only their own job',
+    body: 'The kitchen sees tickets. A runner sees deliveries. Only the front desk sees a bill. Eight roles arrive already set up, and moving somebody between them takes one click.',
   },
   {
-    kicker: 'Validation',
-    badge: 'Every boundary',
+    kicker: 'Money',
+    badge: 'Never twice',
     badgeTone: 'quiet',
-    title: 'Nothing enters unchecked',
-    body: 'Every request body, every environment variable and every webhook is validated with a schema before a line of business logic runs.',
+    title: 'A guest cannot be charged twice',
+    body: 'Double-tapping “Place order” on slow hotel wifi is the single most common thing that happens in this product. It makes one order and one charge, every time, however many times the button is pressed.',
   },
   {
     kicker: 'Payments',
     badge: 'Razorpay',
     badgeTone: 'quiet',
-    title: 'Card data never touches us',
-    body: 'Settlement runs through Razorpay. We store a reference and an amount. Orders are idempotent, so a retried request cannot charge twice.',
+    title: 'Card details never reach us',
+    body: 'Money is taken by Razorpay, who hold the card. We keep the amount and a reference so it reconciles against the folio, and nothing else.',
   },
   {
-    kicker: 'Audit',
-    badge: 'Append-only',
+    kicker: 'The record',
+    badge: 'Permanent',
     badgeTone: 'quiet',
-    title: 'An event log nobody can edit',
-    body: 'Every status change writes a row in the same transaction that made it, to a table with UPDATE and DELETE revoked. It is the SLA record and the dispute record at once.',
+    title: 'Every action is on the record',
+    body: 'Who accepted the order, who carried it up, who approved the late checkout, and at what minute. None of it can be quietly changed afterwards — which is exactly what makes it worth having when a guest disputes a line on their bill.',
   },
 ];
 
@@ -253,6 +261,40 @@ export const QUOTES: Quote[] = [
  * are still the logo strip — and the section can come back when there is a
  * hotel behind one of them.
  */
+/**
+ * The section headings and ledes.
+ *
+ * Here rather than inline in the markup because they are the ARGUMENT, and the
+ * argument should be readable end to end without opening a component. Written
+ * for an owner: what it does for the hotel, never how it is built.
+ */
+export const SECTIONS = {
+  product: {
+    kicker: 'What it is',
+    title: 'Everything a guest asks for between check-in and checkout, on the phone they already have.',
+  },
+  how: {
+    kicker: 'How it works',
+    title: 'From the guest’s phone to the kitchen in about a second.',
+    lede: 'One order, four screens, no phone calls. Every step is written down as it happens, so nothing gets lost between a guest, a runner and the front desk.',
+  },
+  revenue: {
+    kicker: 'Revenue',
+    title: 'Every request becomes a line on the bill, not a favour at the desk.',
+    lede: 'Hotels leave money in the room because ordering means a phone call, late checkout is a shrug and the spa is a leaflet. Innstant turns each of those into something the guest does themselves — priced, timed and charged to the room.',
+  },
+  security: {
+    kicker: 'Trust',
+    title: 'Your guests’ data is yours. Your neighbour’s is theirs.',
+    lede: 'Innstant runs many hotels on one system, and each one is walled off from the rest. Not by a policy somebody has to remember — by the way it is built.',
+  },
+  contact: {
+    kicker: 'Book a demo',
+    title: 'Twenty minutes, on your phone, with your own menu.',
+    lede: 'Tell us the property and we set it up with your name, your rooms and your outlets before the call. You scan, you order, your team watches it land.',
+  },
+} as const;
+
 export const NAV = [
   { href: '#product', label: 'Product' },
   { href: '#security', label: 'Security' },

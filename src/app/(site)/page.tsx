@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { InnstantLogo, InnstantMark } from '@/components/innstant-logo';
-import { NAV, PILLARS, STEPS, REVENUE, THEMES, SECURITY, QUOTES } from './content';
+import { NAV, SECTIONS, PILLARS, STEPS, REVENUE, THEMES, SECURITY, QUOTES } from './content';
 import { DemoRequestForm } from './demo-request-form';
+import { Reveal, SiteHeader } from './motion';
 import { PhoneMock } from './phone-mock';
 import styles from './site.module.css';
 
@@ -54,7 +55,7 @@ export default function SitePage() {
 
 function SiteNav() {
   return (
-    <header className={styles.nav}>
+    <SiteHeader>
       <div className={styles.navInner}>
         <Link href="#top" className={styles.navBrand} aria-label="Innstant, back to top">
           {/* Above the fold and in the first paint — not lazy. */}
@@ -75,7 +76,7 @@ function SiteNav() {
           <a href="#contact" className={styles.navCta}>Book a demo</a>
         </div>
       </div>
-    </header>
+    </SiteHeader>
   );
 }
 
@@ -157,17 +158,16 @@ function Trusted() {
 function Pillars() {
   return (
     <section className={styles.wrap} id="product">
-      <div className={styles.sectionHead}>
-        <p className={styles.kicker}>What it is</p>
-        <h2 className={styles.sectionTitle}>
-          Everything a guest asks for between check-in and checkout, on the
-          phone they already have.
-        </h2>
-      </div>
+      <Reveal className={styles.sectionHead}>
+        <p className={styles.kicker}>{SECTIONS.product.kicker}</p>
+        <h2 className={styles.sectionTitle}>{SECTIONS.product.title}</h2>
+      </Reveal>
 
       <div className={styles.pillars}>
-        {PILLARS.map((pillar) => (
-          <article key={pillar.kicker} className={styles.pillar}>
+        {/* 90ms apart: enough to read as a sequence, short enough that the
+            third card is not still arriving when the eye reaches it. */}
+        {PILLARS.map((pillar, i) => (
+          <Reveal as="article" key={pillar.kicker} className={styles.pillar} delay={i * 90}>
             <div className={styles.pillarHead}>
               <span className={styles.pillarKicker}>{pillar.kicker}</span>
               <span className={styles.pillarShape} data-shape={pillar.shape} aria-hidden="true" />
@@ -175,7 +175,7 @@ function Pillars() {
             <h3 className={styles.pillarTitle}>{pillar.title}</h3>
             <p className={styles.pillarBody}>{pillar.body}</p>
             <p className={styles.pillarFoot}>{pillar.foot}</p>
-          </article>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -189,22 +189,16 @@ function HowItWorks() {
     <section className={styles.dark}>
       <div className={styles.wrap}>
         <div className={styles.howGrid}>
-          <div className={styles.howAside}>
-            <p className={styles.kickerOnDark}>How it works</p>
-            <h2 className={styles.sectionTitleOnDark}>
-              From the guest’s phone to the kitchen pass in under two seconds.
-            </h2>
-            <p className={styles.howLede}>
-              One order, four screens, no phone calls. Every step writes to the
-              folio and to an audit log, so nothing is lost between a guest, a
-              runner and the front desk.
-            </p>
+          <Reveal className={styles.howAside}>
+            <p className={styles.kickerOnDark}>{SECTIONS.how.kicker}</p>
+            <h2 className={styles.sectionTitleOnDark}>{SECTIONS.how.title}</h2>
+            <p className={styles.howLede}>{SECTIONS.how.lede}</p>
             <Link href="/demo" className={styles.ghostCta}>Walk through the product</Link>
-          </div>
+          </Reveal>
 
           <ol className={styles.steps}>
-            {STEPS.map((step) => (
-              <li key={step.title} className={styles.step}>
+            {STEPS.map((step, i) => (
+              <Reveal as="li" key={step.title} className={styles.step} delay={i * 70}>
                 <div className={styles.stepWho}>
                   <span className={styles.stepRole}>{step.who}</span>
                   <span className={styles.stepTime}>{step.time}</span>
@@ -213,7 +207,7 @@ function HowItWorks() {
                   <h3 className={styles.stepTitle}>{step.title}</h3>
                   <p className={styles.stepBody}>{step.body}</p>
                 </div>
-              </li>
+              </Reveal>
             ))}
           </ol>
         </div>
@@ -227,24 +221,17 @@ function HowItWorks() {
 function Revenue() {
   return (
     <section className={styles.wrap}>
-      <div className={styles.revenueHead}>
+      <Reveal className={styles.revenueHead}>
         <div>
-          <p className={styles.kicker}>Revenue</p>
-          <h2 className={styles.sectionTitle}>
-            Every request becomes a line on the folio, not a favour at the desk.
-          </h2>
+          <p className={styles.kicker}>{SECTIONS.revenue.kicker}</p>
+          <h2 className={styles.sectionTitle}>{SECTIONS.revenue.title}</h2>
         </div>
-        <p className={styles.revenueLede}>
-          Hotels leave money in the room because ordering is a phone call, late
-          checkout is a shrug and the spa is a leaflet. Innstant turns each of
-          those into a tap the guest takes on their own — priced, timed and
-          charged to the room.
-        </p>
-      </div>
+        <p className={styles.revenueLede}>{SECTIONS.revenue.lede}</p>
+      </Reveal>
 
       <div className={styles.revenueGrid}>
-        {REVENUE.map((card) => (
-          <article key={card.title} className={styles.revenueCard}>
+        {REVENUE.map((card, i) => (
+          <Reveal as="article" key={card.title} className={styles.revenueCard} delay={i * 80}>
             {/*
               Tabular figures, like every number in the product (#5). A column
               of statistics that shifts as the digits change is the first thing
@@ -254,7 +241,7 @@ function Revenue() {
             <p className={styles.revenueStatLabel}>{card.statLabel}</p>
             <h3 className={styles.revenueTitle}>{card.title}</h3>
             <p className={styles.revenueBody}>{card.body}</p>
-          </article>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -267,8 +254,8 @@ function Quotes() {
   return (
     <section className={styles.wrap}>
       <div className={styles.quotes}>
-        {QUOTES.map((quote) => (
-          <figure key={quote.name} className={styles.quote}>
+        {QUOTES.map((quote, i) => (
+          <Reveal as="figure" key={quote.name} className={styles.quote} delay={i * 90}>
             <blockquote className={styles.quoteText}>{quote.text}</blockquote>
             <figcaption className={styles.quoteWho}>
               <span
@@ -282,7 +269,7 @@ function Quotes() {
                 <span className={styles.quoteRole}>{quote.role}</span>
               </span>
             </figcaption>
-          </figure>
+          </Reveal>
         ))}
       </div>
     </section>
@@ -295,21 +282,15 @@ function Security() {
   return (
     <section className={styles.dark} id="security">
       <div className={styles.wrap}>
-        <div className={styles.sectionHead}>
-          <p className={styles.kickerOnDark}>Security &amp; multi-tenancy</p>
-          <h2 className={styles.sectionTitleOnDark}>
-            Your guests’ data is yours. Your neighbour’s is theirs.
-          </h2>
-          <p className={styles.howLede}>
-            Innstant runs many hotels on one platform. The isolation between
-            them is enforced where a bug in a screen cannot bypass it: in the
-            database.
-          </p>
-        </div>
+        <Reveal className={styles.sectionHead}>
+          <p className={styles.kickerOnDark}>{SECTIONS.security.kicker}</p>
+          <h2 className={styles.sectionTitleOnDark}>{SECTIONS.security.title}</h2>
+          <p className={styles.howLede}>{SECTIONS.security.lede}</p>
+        </Reveal>
 
         <div className={styles.securityGrid}>
-          {SECURITY.map((item) => (
-            <article key={item.kicker} className={styles.securityCard}>
+          {SECURITY.map((item, i) => (
+            <Reveal as="article" key={item.kicker} className={styles.securityCard} delay={(i % 3) * 80}>
               <div className={styles.securityHead}>
                 <span className={styles.securityKicker}>{item.kicker}</span>
                 <span className={styles.securityBadge} data-tone={item.badgeTone}>
@@ -318,7 +299,7 @@ function Security() {
               </div>
               <h3 className={styles.securityTitle}>{item.title}</h3>
               <p className={styles.securityBody}>{item.body}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
 
@@ -327,18 +308,19 @@ function Security() {
             <p className={styles.kickerOnDark}>What we don’t do</p>
             <h3 className={styles.securityNoteTitle}>No real guest data in demos, ever.</h3>
             <p className={styles.securityBody}>
-              Every demo property is seeded from a fixture and reset on demand.
-              Sales, support and engineering never touch a live guest record to
-              show you something.
+              Every demo runs on a hotel we invented, and it is wiped and rebuilt
+              on request. Nobody here opens a real guest’s record to show you
+              something.
             </p>
           </div>
           <div className={styles.securityNote}>
             <p className={styles.kickerOnDark}>Hosting</p>
-            <h3 className={styles.securityNoteTitle}>Singapore region, Indian payments.</h3>
+            <h3 className={styles.securityNoteTitle}>Close to home.</h3>
             <p className={styles.securityBody}>
-              Application and database run in Singapore for latency to Indian
-              properties. Payments go through Razorpay; card data never touches
-              our servers. Media is stored in object storage with signed URLs.
+              Everything runs from Singapore, which is near enough that the app
+              feels instant on Indian hotel wifi — the network it actually has
+              to work on. Payments go through Razorpay. Your photos and menus are
+              served from somewhere close to whoever is looking at them.
             </p>
           </div>
         </div>
@@ -354,15 +336,9 @@ function Contact() {
     <section className={styles.wrap} id="contact">
       <div className={styles.contactGrid}>
         <div>
-          <p className={styles.kicker}>Book a demo</p>
-          <h2 className={styles.sectionTitle}>
-            Twenty minutes, on your phone, with your menu.
-          </h2>
-          <p className={styles.sectionLede}>
-            Tell us the property and we set up a demo instance with your name,
-            rooms and outlets before the call. You scan, you order, your team
-            watches it land.
-          </p>
+          <p className={styles.kicker}>{SECTIONS.contact.kicker}</p>
+          <h2 className={styles.sectionTitle}>{SECTIONS.contact.title}</h2>
+          <p className={styles.sectionLede}>{SECTIONS.contact.lede}</p>
 
           <dl className={styles.contactFacts}>
             <Fact term="Setup time" detail="Live in a week for a property under 100 rooms" />
@@ -375,7 +351,7 @@ function Contact() {
         <DemoRequestForm />
       </div>
 
-      <div className={styles.closing}>
+      <Reveal className={styles.closing}>
         <span className={styles.closingMark} aria-hidden="true">
           <InnstantMark size={300} />
         </span>
@@ -392,7 +368,7 @@ function Contact() {
           <Link href="/demo" className={styles.closingPrimary}>See how it works</Link>
           <a href="#contact-form" className={styles.closingSecondary}>Book a demo</a>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }
@@ -450,7 +426,7 @@ function SiteFooter() {
 
         <div className={styles.footerRule}>
           <span>© 2026 Innstant</span>
-          <span>Made for hotels in India · Hosted in Singapore</span>
+          <span>Made for hotels in India</span>
         </div>
       </div>
     </footer>

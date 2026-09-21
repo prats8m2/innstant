@@ -22,6 +22,36 @@
   scroll-behavior: smooth;
 }
 
+/*
+  Scroll reveal. The attribute is set by `motion.tsx`; `out` is the state the
+  server renders, and a <noscript> rule in the layout overrides it so a page
+  without JavaScript is never blank.
+
+  Attribute selectors rather than classes so the noscript override can be
+  written as plain global CSS — a hashed module class is not addressable from
+  a <style> tag. Scoped under `.root` so it cannot leak into the guest app.
+
+  No reduced-motion query here: theme.css collapses every duration to 1ms for
+  the whole product, which turns this into an instant appearance rather than a
+  disabled one.
+*/
+.root [data-reveal] {
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+
+.root [data-reveal='out'] {
+  opacity: 0;
+  /* Small. A long travel reads as a slideshow; 18px reads as arriving. */
+  transform: translateY(18px);
+}
+
+.root [data-reveal='in'] {
+  opacity: 1;
+  transform: none;
+}
+
 .wrap {
   max-width: 1200px;
   margin: 0 auto;
@@ -30,13 +60,28 @@
 
 /* ── Nav ─────────────────────────────────────────────────────────────────── */
 
+/*
+  At the top of the page the header is furniture sitting on the hero and wants
+  no edge at all; over content it needs one, or text scrolls into it. The state
+  comes from `SiteHeader` in motion.tsx.
+*/
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid transparent;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.nav[data-scrolled='true'] {
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border-bottom-color: var(--border);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent);
 }
 
 .navInner {
@@ -198,8 +243,41 @@
               border-color var(--dur-fast) var(--ease-out);
 }
 
-.primaryCta { background: var(--brand-navy); color: var(--paper); }
+.primaryCta {
+  position: relative;
+  overflow: hidden;
+  background: var(--brand-navy);
+  color: var(--paper);
+}
+
 .primaryCta:hover { background: var(--brand-navy-lit); }
+
+/*
+  A light sweeping across the button on hover. One pseudo-element moved from
+  -120% to 120%; the transition is on `left` rather than `transform` so the
+  reveal's own transform rules cannot interact with it.
+*/
+.primaryCta::after,
+.closingPrimary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -120%;
+  width: 55%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent,
+    color-mix(in srgb, var(--paper) 22%, transparent), transparent);
+  transition: left var(--dur-slower) var(--ease-out);
+}
+
+.primaryCta:hover::after,
+.closingPrimary:hover::after { left: 120%; }
+
+.closingPrimary::after {
+  background: linear-gradient(100deg, transparent,
+    color-mix(in srgb, var(--brand-navy) 18%, transparent), transparent);
+}
 
 .secondaryCta {
   background: var(--white);
@@ -449,6 +527,7 @@
   background: var(--paper);
   border: 1px solid var(--border);
   box-shadow: 0 24px 60px rgb(16 30 51 / 0.25);
+  animation: driftSlow 4.6s ease-in-out infinite alternate;
 }
 
 .folioHead {
@@ -581,6 +660,33 @@ section.wrap { padding-top: 110px; }
   border-radius: var(--radius-xl);
   background: var(--white);
   border: 1px solid var(--border);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+
+/*
+  A 3px lift, and only where a pointer can actually hover — `@media (hover:
+  hover)` keeps it off touch, where :hover sticks after a tap and leaves one
+  card raised until something else is pressed.
+
+  It composes with the reveal: both write `transform`, but the reveal has
+  finished and settled on `none` long before a pointer arrives.
+*/
+@media (hover: hover) {
+  .pillar:hover,
+  .revenueCard:hover,
+  .quote:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  }
+
+  .securityCard:hover {
+    background: color-mix(in srgb, var(--paper) 9%, transparent);
+    border-color: color-mix(in srgb, var(--paper) 30%, transparent);
+  }
 }
 
 .pillarHead { display: flex; align-items: center; justify-content: space-between; }
@@ -626,11 +732,39 @@ section.wrap { padding-top: 110px; }
 /* ── Dark bands ──────────────────────────────────────────────────────────── */
 
 .dark {
+  position: relative;
   margin-top: 120px;
   padding: 110px 0;
   background: var(--brand-navy);
   color: var(--paper);
+  overflow: hidden;
 }
+
+/*
+  A very slow wash of the brand gold drifting across the navy.
+
+  Two radial gradients on one pseudo-element, moved by a 24s keyframe. It is
+  deliberately near the threshold of visible — the point is that a long dark
+  band stops looking like a flat rectangle, not that anybody notices a light
+  show. `pointer-events: none` because it covers the whole section.
+
+  It costs nothing when the visitor has asked for less motion: theme.css caps
+  every animation at 1ms and one iteration, so the gradient simply sits still.
+*/
+.dark::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 40rem at 18% 12%,
+      color-mix(in srgb, var(--brand-gold) 11%, transparent), transparent 62%),
+    radial-gradient(34rem 34rem at 86% 88%,
+      color-mix(in srgb, var(--brand-gold) 7%, transparent), transparent 60%);
+  animation: aurora 24s ease-in-out infinite alternate;
+}
+
+.dark > * { position: relative; }
 
 .dark .sectionHead { max-width: 720px; }
 .dark .sectionTitleOnDark { color: var(--paper); }
@@ -741,6 +875,10 @@ section.wrap { padding-top: 110px; }
   border-radius: var(--radius-lg);
   background: var(--white);
   border: 1px solid var(--border);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 
 .revenueStat {
@@ -788,6 +926,10 @@ section.wrap { padding-top: 110px; }
   border-radius: var(--radius-xl);
   background: var(--white);
   border: 1px solid var(--border);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 
 .quoteText {
@@ -833,6 +975,9 @@ section.wrap { padding-top: 110px; }
   border-radius: var(--radius-lg);
   background: rgb(243 244 241 / 0.05);
   border: 1px solid rgb(243 244 241 / 0.14);
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 
 .securityHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1036,6 +1181,17 @@ section.wrap { padding-top: 110px; }
   overflow: hidden;
 }
 
+/* The same slow wash as the dark bands, so the two read as one family. */
+.closing::before {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  pointer-events: none;
+  background: radial-gradient(30rem 30rem at 20% 10%,
+    color-mix(in srgb, var(--brand-gold) 13%, transparent), transparent 62%);
+  animation: aurora 20s ease-in-out infinite alternate;
+}
+
 /* The monogram, oversized and half off the edge — the only decoration on the
    page that is purely the mark.
 
@@ -1087,7 +1243,12 @@ section.wrap { padding-top: 110px; }
               border-color var(--dur-fast) var(--ease-out);
 }
 
-.closingPrimary { background: var(--brand-gold); color: var(--brand-navy); }
+.closingPrimary {
+  position: relative;
+  overflow: hidden;
+  background: var(--brand-gold);
+  color: var(--brand-navy);
+}
 .closingPrimary:hover { background: var(--brand-gold-lit); }
 
 .closingSecondary { border: 1px solid rgb(243 244 241 / 0.3); color: var(--paper); }
@@ -1160,6 +1321,18 @@ section.wrap { padding-top: 110px; }
 @keyframes drift {
   from { transform: translateY(0); }
   to   { transform: translateY(-10px); }
+}
+
+/* The folio card breathes against the ticket rather than with it — same idea,
+   slower, and in the opposite direction, so the two never look synchronised. */
+@keyframes driftSlow {
+  from { transform: translateY(0); }
+  to   { transform: translateY(8px); }
+}
+
+@keyframes aurora {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(3%, -4%, 0) scale(1.12); }
 }
 
 /* No reduced-motion query here, deliberately. theme.css answers that

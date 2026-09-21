@@ -2081,3 +2081,64 @@ and passed each time, because each run happened inside the two-day window. The
 check that caught it was a fourth run made for an unrelated reason. Anything
 whose correctness depends on how recently somebody ran a seed script needs a
 clock in the test, not a spot check.
+
+### D-067 · The site was written for the wrong reader
+The copy was full of the product's own vocabulary: "row-level security in
+Postgres", "resource-action permissions", "every request body, every
+environment variable and every webhook is validated with a schema", "orders are
+idempotent", "an append-only event log". All true. All meaningless to the
+person who signs.
+
+It reads as an owner's page now. The mechanism is left for the call and the
+guarantee is stated plainly:
+
+| Was | Is |
+|---|---|
+| Row-level security in Postgres | One hotel can never see another |
+| Access follows the stay, not an account | Nobody signs up for anything |
+| Resource-action permissions | Everyone sees only their own job |
+| Nothing enters unchecked | A guest cannot be charged twice |
+| An event log nobody can edit | Every action is on the record |
+| Singapore region, Indian payments | Close to home |
+
+The constraint that makes this harder than it looks: the claims still have to
+be TRUE. "One hotel can never see another" is what #1 and #2 enforce; "a guest
+never makes an account" is #9 and #10; "cannot be charged twice" is #8;
+"nothing can be quietly changed afterwards" is #7. Say it plainly, never say
+more than the code does. `content.ts` carries that instruction at the top,
+because the temptation on a sales page runs one way only.
+
+The section headings and ledes moved into `content.ts` as well. They are the
+argument, and the argument should be readable end to end in one file rather
+than reassembled from six components.
+
+### D-068 · Motion, and the blank-page failure it invites
+Scroll reveals, a header that gains an edge once the page moves, cards that
+lift under a pointer, a slow gold wash across the dark bands, and a light
+sweeping over the primary buttons.
+
+**IntersectionObserver, not `animation-timeline: view()`.** The CSS scroll
+timeline would do all of it with no JavaScript and is the right answer in a
+year or two; today it ships in Chromium and not Firefox, which would mean a
+page that animates for some visitors and sits still for others — on a site
+whose entire job is to look considered.
+
+**The failure mode is the whole design.** A reveal starts its element at
+`opacity: 0`. If the script that clears it never runs — a blocked extension, a
+hydration error — the page is blank, which is the worst outcome a marketing
+site has. So the hidden state is `data-reveal="out"`, an attribute rather than
+a hashed module class, and the layout carries a `<noscript>` rule that forces
+every one of them visible. No script, no hiding. Verified: 26 reveals, none
+stuck, at four widths.
+
+**Reduced motion needed no new code.** `theme.css` already collapses every
+duration to 1ms product-wide, which turns a reveal into an instant appearance
+rather than a disabled one, and stops the aurora dead. Adding a per-component
+query would also have failed the discipline test, correctly — that preference
+is answered once, globally, or it is answered inconsistently.
+
+Two smaller things worth keeping. Hover lifts are inside `@media (hover:
+hover)`, because on touch `:hover` sticks after a tap and leaves one card
+raised until something else is pressed. And the button sheen animates `left`
+rather than `transform`, so it cannot interact with the reveal's own transform
+on the same element.
