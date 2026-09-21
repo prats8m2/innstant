@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { scanQrCode, resolveGuestSession, GUEST_SESSION_COOKIE, QrNotUsableError } from '@/modules/access';
+import { resolveQrRouting } from '@/db';
 
 /**
  * The link. `/r/{publicCode}` — printed on a nightstand sticker, or simply
@@ -103,7 +104,27 @@ export async function GET(
    */
   const home = `/r/${encodeURIComponent(qrCode)}/home`;
 
-  // Already carrying a live session for this stay — reuse it.
+  /**
+   * Is this code real, before anything else?
+   *
+   * The reuse shortcut below used to come first, which meant a browser holding
+   * ANY live session was sent to `/r/{whatever}/home` without the code being
+   * looked at — so a dead link answered 200 and rendered a room. No data
+   * crossed (the session is bound to its own stay, #10, so it showed the
+   * holder their own room), but it made a broken link indistinguishable from a
+   * working one, which is how a reseed that invalidated every printed URL went
+   * unnoticed. It hid the bug it was being used to test for.
+   *
+   * `resolveQrRouting()` is the one pre-tenant lookup in the request path and
+   * returns routing ids only. Cheap, and it turns an unknown or revoked code
+   * into the same page it gets for everyone else.
+   */
+  const routing = await resolveQrRouting(qrCode);
+  if (!routing || routing.revokedAt) return linkNotActive();
+
+  // Already carrying a live session — reuse it rather than minting another on
+  // every reload, which would make `access_escalations` unreadable and
+  // re-prompt a verified guest after each refresh.
   const existing = await resolveGuestSession(request.cookies.get(GUEST_SESSION_COOKIE)?.value);
   if (existing) return redirectTo(home);
 

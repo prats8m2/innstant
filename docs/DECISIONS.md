@@ -2216,3 +2216,17 @@ Its styles are inline, which is the one place in the product that is allowed.
 A Route Handler returns bytes rather than a React tree, so it cannot reach a
 stylesheet whose filename is hashed at build time; linking a file that may not
 exist is worse than repeating four brand values.
+
+**And the reuse shortcut was hiding the whole problem.** `/r/{code}` checked
+for a live session BEFORE it looked at the code, and redirected to
+`/r/{whatever}/home` if it found one. A dead link therefore answered 200 and
+rendered a room. No data crossed — the session is bound to its own stay (#10),
+so it showed the holder their own room under somebody else's URL — but it made
+a broken link indistinguishable from a working one. That is how a reseed
+invalidating every printed URL went unnoticed, and it is how the first attempt
+to verify this fix produced a screenshot of a working room home for a code
+that had been deleted an hour earlier.
+
+The code is resolved first now. A reload of a LIVE code still reuses its
+session rather than minting a second one, which is what the shortcut was for
+and is asserted alongside the rest.
