@@ -2012,8 +2012,8 @@ about ellipses and terminals are now history rather than instructions.
 picks. There is no automatic choice: a component cannot know what is behind it,
 and guessing wrong makes the logo disappear rather than look slightly off.
 
-**Neither original could be used as supplied.** Both are 3482×1184, 3.6MB and
-5MB, with OPAQUE backgrounds — white behind one, a navy gradient behind the
+**Neither original could be used as supplied.** Both arrived with OPAQUE
+backgrounds — white behind one, a navy gradient behind the
 other. Dropped in, each draws a rectangle: white on the site's warm `#F3F4F1`,
 a lighter navy box on the `#101E33` panels. `scripts/prepare-logo.ts`
 (`pnpm logo:build`) keys the background to alpha, trims to the artwork and
@@ -2034,6 +2034,12 @@ Three details in that script are worth keeping:
   darker, so the surviving glow read as a grey smudge behind the word. The same
   floor also cuts the background noise that had made the PNG 1,023KB instead of
   89KB, because PNG compresses flat transparency and cannot compress speckle.
+
+**Each cut's width comes from its OWN file.** The two are trimmed from
+separately-exported masters and do not come out identical — 700×197 against
+700×195 in the current set. A single shared ratio squashes one of them by a
+percent, which is invisible until the two are seen side by side and then cannot
+be unseen.
 
 **`size` means HEIGHT now**, not the mark's width; the width follows from the
 artwork's own aspect. That is what a header actually asks for, and the previous

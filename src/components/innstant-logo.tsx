@@ -38,9 +38,17 @@ import styles from './innstant-logo.module.css';
 
 export type LogoTone = 'light' | 'dark';
 
-/** Set from the real files, so a height always yields the right width. */
-const LOCKUP_RATIO = lockupLight.width / lockupLight.height;
-const MARK_RATIO = markDark.width / markDark.height;
+/**
+ * Width from height, using EACH file's own aspect.
+ *
+ * Not one shared ratio: the two cuts are trimmed from two separately-exported
+ * masters and do not come out identical — 700×197 against 700×195 in the
+ * current artwork. Deriving both from the light file squashes the dark one by
+ * a percent, which is invisible until somebody puts them side by side and then
+ * cannot be unseen.
+ */
+const widthFor = (art: { width: number; height: number }, height: number) =>
+  Math.round((height * art.width) / art.height);
 
 /**
  * The full lockup: monogram and word.
@@ -61,12 +69,13 @@ export function InnstantLogo({
   /** Set on the one above the fold, so it is not lazy-loaded. */
   priority?: boolean;
 }) {
+  const art = tone === 'dark' ? lockupDark : lockupLight;
   return (
     <Image
-      src={tone === 'dark' ? lockupDark : lockupLight}
+      src={art}
       alt="Innstant"
       height={size}
-      width={Math.round(size * LOCKUP_RATIO)}
+      width={widthFor(art, size)}
       className={`${styles.lockup} ${className ?? ''}`}
       priority={priority}
     />
@@ -93,7 +102,7 @@ export function InnstantMark({
       alt=""
       aria-hidden="true"
       height={size}
-      width={Math.round(size * MARK_RATIO)}
+      width={widthFor(markDark, size)}
       className={className}
     />
   );
