@@ -126,6 +126,24 @@
   --brand-navy-lit: #1C2E4B;
   --brand-gold-lit: #D8AC63;
 
+  /* ── Icon tones ──────────────────────────────────────────────────────────
+     Four colours, one per tile on the guest home, so the marks can be told
+     apart at a glance rather than only read.
+
+     Declared here as constants rather than per theme, and inherited by every
+     scope for the same reason the brand pair above is: a compass is the same
+     compass on indigo and on paper, and four more values in three blocks is
+     three chances for them to drift apart.
+
+     They are DECORATIVE — each sits beside its own text label, never alone,
+     so they carry no meaning a colour-blind guest could lose. They clear 3:1
+     on both grounds, which is the bar for a graphic, not the 4.5:1 the
+     contrast test holds text to. */
+  --icon-amenity: #E9A227;   /* saffron, the house colour */
+  --icon-service: #E38368;   /* terracotta — warm, and not the saffron */
+  --icon-stay:    #5FB0A5;   /* teal, the same family as positive status */
+  --icon-nearby:  #8FA8E0;   /* periwinkle — the one cool tone, for outdoors */
+
   --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;

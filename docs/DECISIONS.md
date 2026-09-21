@@ -2318,3 +2318,49 @@ And the discipline test flagged a hex inside a comment. It skips lines whose
 first character is `*` or `/`, which a multi-line comment's CONTINUATION lines
 are not. The rule is right to be blunt, so the sample value came out of the
 prose rather than the test being loosened.
+
+### D-073 · Icons come from a library now, and CLAUDE.md says so
+The guest tiles have had three icon implementations. A CSS arch repeated four
+times, which carried no information. Then four hand-written SVG paths, which
+at least differed — the first of which read as a LIST icon on a screen made of
+lists. Now `lucide-react`.
+
+The third answer was an import, and the first two were the expensive way of
+finding that out. Hand-drawing is where this stops being worth it: every new
+mark is a fresh argument about stroke weight and optical size, nothing checks
+the result, and the reviewer is whoever happens to look at a screenshot.
+
+**Lucide, specifically**, because it is what shadcn/ui ships with and shadcn is
+already in this product's stack table. 2,095 icons on one grid at one stroke
+weight.
+
+**The dependency rule is satisfied on shipped bytes, not installed size.**
+CLAUDE.md asks before anything over ~50KB. Lucide is per-icon ESM and Next has
+it in `optimizePackageImports` by default: the shared bundle did not move
+(102 kB) and the guest home went 106 → 107 kB for four icons. The package on
+disk is tens of megabytes and none of that ships.
+
+**Colour, which is what made it worth doing at all.** Four tones in
+`--icon-*`, one per tile, each driving a badge, a stroke and a tint fill from
+a single `--tone` variable so they cannot disagree. Strictly decorative —
+every icon sits beside its own text label and never alone — so nothing is lost
+to a colour-blind guest, and the `soon` state replaces `--tone` wholesale to
+grey all three layers at once.
+
+Two picks had to be redone by eye. `HandPlatter` for Amenities is a dome on a
+hand, and the tile directly beside it is a concierge bell, which is a dome on
+a base — two domes side by side is worse than the four identical arches this
+started as. `SquareStack` reads as folded linen and is unmistakably not a
+bell. And `ReceiptText` beat a key or a bed for "Your stay", because the
+screen behind it is the folio and the checkout: what a guest is really tapping
+is "what do I owe, and when must I leave".
+
+The staff notification bell went the same way, and its comment — "inline so
+there is no icon dependency for one glyph" — went with it.
+
+**CLAUDE.md now carries the general rule**, because this was not really about
+icons: use a maintained package for a solved problem, judged on shipped bytes.
+The exception named there is anything encoding a decision this product has
+opinions about — `withTenant()`, the money type, the access tiers, the state
+machines — plus illustration, which is not iconography. The jharokha arch on
+the guest home stays hand-drawn: it is the brand, and no package has it.

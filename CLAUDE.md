@@ -36,6 +36,7 @@ Booking is deliberately **not** in scope. See `docs/EXTENSION-POINTS.md`.
 | Validation | Zod at every boundary | |
 | Styling | Tailwind + shadcn/ui with overridden tokens | not stock shadcn |
 | Motion | Framer Motion | |
+| Icons | lucide-react | not hand-drawn SVG |
 | Realtime | Postgres `LISTEN/NOTIFY` → SSE | no Redis, no Socket.IO yet |
 | Hosting | Railway (app + Postgres), Singapore region | not Vercel |
 | Images | Cloudflare R2 + CDN | |
@@ -214,6 +215,29 @@ that runs two operations in parallel and asserts exactly one wins.
 
 **UI:** mobile-first for guest routes, 44px minimum touch targets, visible focus
 states, `prefers-reduced-motion` respected.
+
+**Use a library for a solved problem.** Icons, date maths, currency
+formatting, slugs, colour manipulation, virtual lists, drag and drop — if it is
+a well-trodden problem with a maintained, tree-shakeable package, take the
+package. Hand-rolling these is not craft; it is an unbudgeted maintenance
+commitment that nothing tests and nobody reviews against a spec.
+
+This was learnt the expensive way on icons. The guest tiles went through a CSS
+arch repeated four times, then four hand-written SVG paths — the first of which
+read as a list icon on a screen made of lists — before landing on `lucide-react`
+(D-073). Two rounds of work, and the third answer was an import.
+
+The bar to clear is the one already stated below: **ask before adding a
+dependency over ~50KB**, judged on SHIPPED bytes, not installed size. Lucide is
+2,095 icons on disk and about a kilobyte in the bundle for the handful actually
+imported.
+
+The exception is anything that encodes a decision this product has opinions
+about. `withTenant()`, the money type, the access tiers and the state machines
+are deliberately ours, because a library would have to be bent to the
+non-negotiables above and the bending is the hard part. Illustration is also
+not iconography: the jharokha arch on the guest home is drawn by hand because
+it is the brand, and no package has it.
 
 **CSS custom properties are the only source of colour, radius, type, and motion
 values.** They live in `src/styles/theme.css`, hand-maintained. Never hardcode a

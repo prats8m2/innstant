@@ -1,91 +1,73 @@
+import { Compass, ConciergeBell, ReceiptText, SquareStack, type LucideIcon } from 'lucide-react';
 import styles from './room-home.module.css';
 
 /**
- * One icon per tile.
+ * One icon per tile, from Lucide.
  *
- * All four tiles drew the same thing — a small arch outline, repeated. It is
- * the app's motif and it looked deliberate, but four identical marks carry no
- * information: the eye cannot use them to find anything, so the tiles are
- * read as four blocks of text with decoration on top. Distinct marks let a
- * guest who has used the app once find "amenities" without reading.
+ * ─── Why a library, after two rounds of drawing them by hand ───────────────
  *
- * ─── Drawn to one recipe ───────────────────────────────────────────────────
+ * The first version was a CSS arch repeated four times, which carried no
+ * information. The second was four hand-written SVG paths, which at least
+ * differed — but hand-drawing is where this stops being worth it: every new
+ * mark is a fresh argument about stroke weight and optical size, the first
+ * towel came out looking like a list icon, and none of it is checked by
+ * anything.
  *
- * 24×24, 1.5 stroke, round caps, `currentColor` — so the tile decides the
- * colour and the `soon` state dims all four the same way. They keep the
- * arch's family resemblance: thin line, generous curve, nothing filled except
- * a single dot where one helps the shape read at 22px.
+ * Lucide is the set shadcn/ui ships with, and shadcn is already this
+ * product's component layer (see the stack table in CLAUDE.md), so it is the
+ * consistent choice rather than a new one. 2,095 icons drawn to one grid and
+ * one stroke weight by people who do that for a living.
  *
- * Deliberately not an icon font or a package. Four paths is less code than
- * the import, and a 40KB dependency on hotel wifi to draw four small lines is
- * the thing this product is supposed to be better than.
+ * ─── The dependency ────────────────────────────────────────────────────────
+ *
+ * CLAUDE.md asks before anything over ~50KB. Lucide is per-icon ESM and Next
+ * lists it in `optimizePackageImports` by default, so the four below cost
+ * roughly a kilobyte in the bundle — the installed package is large and the
+ * shipped bytes are not.
+ *
+ * ─── Colour ────────────────────────────────────────────────────────────────
+ *
+ * Each tile has its own tone from `--icon-*` in theme.css: a solid stroke, a
+ * tint filling the closed shapes, and a tinted badge behind. Decorative in
+ * the strict sense — every icon sits beside its own text label and never
+ * alone — so nothing is lost if the colours cannot be told apart.
  */
 export type TileIconName = 'amenities' | 'service' | 'stay' | 'nearby';
 
-/** The drawing, per tile. The `key` matches TILES in `page.tsx`. */
-const PATHS: Record<TileIconName, React.ReactNode> = {
+/**
+ * The mark and the tone, per tile.
+ *
+ * `ConciergeBell` is the same icon the service screen leads with, so the tile
+ * and the screen it opens are recognisably one thing — the only reason to
+ * care which bell it is.
+ *
+ * `ReceiptText` for "Your stay" rather than a key or a bed: the screen behind
+ * it is the folio and the checkout, so what a guest is really tapping is
+ * "what do I owe, and when do I have to leave".
+ */
+const TILES: Record<TileIconName, { Icon: LucideIcon; tone: string }> = {
   /*
-   * Two folded towels, stacked, with the fold showing on the left.
-   *
-   * The first attempt was three plain horizontal rules and a vertical one,
-   * which drew a list icon — the one mark on a screen of lists that must not
-   * look like a list. Rounded bars with a fold line read as cloth.
-   */
-  amenities: (
-    <>
-      <rect x="4" y="7.5" width="16" height="5" rx="2.5" />
-      <rect x="4" y="14" width="16" height="5" rx="2.5" />
-      <path d="M8.5 7.5v5" />
-      <path d="M8.5 14v5" />
-    </>
-  ),
-
-  /* A bell — the same mark the service screen leads with, so the tile and the
-     screen it opens are recognisably one thing. */
-  service: (
-    <>
-      <path d="M7 16c0-5 .9-8 5-8s5 3 5 8" />
-      <path d="M5 16h14" />
-      <path d="M12 8V6" />
-      <circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none" />
-    </>
-  ),
-
-  /* A key: the stay, and what is owed at the end of it. */
-  stay: (
-    <>
-      <circle cx="8.5" cy="9" r="3.5" />
-      <path d="M11 11.5 19 19.5" />
-      <path d="M16.5 17 15 18.5" />
-    </>
-  ),
-
-  /* A compass needle in its ring — a day out, rather than a map pin, which
-     would mean one place. */
-  nearby: (
-    <>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M14.8 9.2 10.6 10.6 9.2 14.8 13.4 13.4Z" />
-    </>
-  ),
+    `SquareStack` — folded linen, stacked. `HandPlatter` was tried first and
+    had to go: it is a dome on a hand, and the tile directly beside it is a
+    concierge bell, which is a dome on a base. Two domes side by side is worse
+    than the four identical arches this whole exercise replaced.
+  */
+  amenities: { Icon: SquareStack, tone: 'amenity' },
+  service: { Icon: ConciergeBell, tone: 'service' },
+  stay: { Icon: ReceiptText, tone: 'stay' },
+  nearby: { Icon: Compass, tone: 'nearby' },
 };
 
 export function TileIcon({ name }: { name: TileIconName }) {
+  const { Icon, tone } = TILES[name];
   return (
-    <svg
-      className={styles.tileIcon}
-      viewBox="0 0 24 24"
-      width="22"
-      height="22"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      focusable="false"
-    >
-      {PATHS[name]}
-    </svg>
+    <span className={styles.tileIcon} data-tone={tone} aria-hidden="true">
+      {/*
+        `absoluteStrokeWidth` keeps the stroke at 1.75px whatever the box is
+        scaled to. Without it Lucide scales the stroke with the icon, and a
+        22px mark ends up hairline beside 16px type.
+      */}
+      <Icon size={20} strokeWidth={1.75} absoluteStrokeWidth />
+    </span>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLiveRefresh } from '@/components/live-refresh';
@@ -74,7 +75,7 @@ export function NotificationBell({
   return (
     <details className={styles.bell}>
       <summary className={styles.trigger} aria-label={label(unseen)}>
-        <BellGlyph />
+        <Bell size={20} strokeWidth={1.6} absoluteStrokeWidth aria-hidden="true" />
         {unseen > 0 ? (
           <span className={`${styles.badge} tabular`} aria-hidden="true">{unseen}</span>
         ) : null}
@@ -158,26 +159,4 @@ function Ago({ at }: { at: string }) {
 function label(unseen: number): string {
   if (unseen === 0) return 'Alerts, none unseen';
   return unseen === 1 ? 'Alerts, 1 unseen' : `Alerts, ${unseen} unseen`;
-}
-
-/** Inline so there is no asset to host and no icon dependency for one glyph. */
-function BellGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
-      <path
-        d="M12 3a5 5 0 0 0-5 5v3.6l-1.4 2.8A1 1 0 0 0 6.5 16h11a1 1 0 0 0 .9-1.6L17 11.6V8a5 5 0 0 0-5-5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 19a2 2 0 0 0 4 0"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
 }

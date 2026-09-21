@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { ConciergeBell } from 'lucide-react';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getRequestTypeByKey, CALL_SERVICE_KEY } from '@/modules/requests';
@@ -71,26 +72,9 @@ export default async function ServiceScreen({
           <span className={styles.ring} aria-hidden="true" />
 
           <span className={styles.bell} aria-hidden="true">
-            <svg viewBox="0 0 48 48" width="40" height="40" focusable="false">
-              {/*
-                A hand bell, drawn rather than fetched: one path for the dome,
-                one for the lip, one for the handle. Stroked with
-                `currentColor` so the wrapper decides the colour.
-              */}
-              <path
-                d="M14 30c0-8 1.4-13 10-13s10 5 10 13"
-                fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
-              />
-              <path
-                d="M10.5 30.5h27" fill="none" stroke="currentColor"
-                strokeWidth="2.2" strokeLinecap="round"
-              />
-              <path
-                d="M24 17v-3.5" fill="none" stroke="currentColor"
-                strokeWidth="2.2" strokeLinecap="round"
-              />
-              <circle cx="24" cy="35" r="2.4" fill="currentColor" />
-            </svg>
+            {/* The same mark as this screen's tile on the room home, so the
+                two are recognisably one thing. */}
+            <ConciergeBell size={40} strokeWidth={1.6} absoluteStrokeWidth />
           </span>
         </div>
 

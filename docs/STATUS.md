@@ -96,6 +96,12 @@ teal in Public Sans, the guest app is the Kesari — indigo, saffron, Marcellus
 over Mukta, sharp radii — and the site is warm off-white and navy in Instrument
 Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
+**Icons come from `lucide-react`** (D-073), not from hand-written SVG. Four
+tones in `--icon-*`, one per guest tile, each driving a badge, a stroke and a
+fill from one variable. CLAUDE.md now carries the general rule — use a library
+for a solved problem, judged on shipped bytes — after the tiles went through
+three implementations to get there.
+
 **Call for service is a bell with the call going out from it (D-072)**, over a
 drifting saffron wash — it was three static arch outlines with the headline
 overlapping their edges. And the four home tiles have one icon each (towels,

@@ -281,20 +281,45 @@
 
 /* A miniature of the arch above — the same doorway, 18px wide. */
 /*
- * One icon per tile. It was `.tileArch` — the same small arch outline, four
- * times — which looked deliberate and carried no information: four identical
- * marks cannot help anybody find anything, so the tiles read as four blocks
- * of text with decoration on top.
+ * One icon per tile, from Lucide — see `tile-icon.tsx`.
  *
- * The colour lives here rather than in the SVG so the `soon` state below can
- * dim all four with one rule.
+ * `--tone` is set per tile by the `data-tone` attribute and everything else
+ * derives from it, so a tile's colour is one line to change and the badge,
+ * the stroke and the fill can never disagree.
  */
 .tileIcon {
-  color: color-mix(in srgb, var(--accent) 78%, transparent);
-  transition: color var(--dur-fast) var(--ease-out);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  /* The badge: the tone at low alpha, so the icon sits on its own colour
+     rather than floating on the card. */
+  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  color: var(--tone);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
-.tile:active .tileIcon { color: var(--accent); }
+.tileIcon[data-tone='amenity'] { --tone: var(--icon-amenity); }
+.tileIcon[data-tone='service'] { --tone: var(--icon-service); }
+.tileIcon[data-tone='stay']    { --tone: var(--icon-stay); }
+.tileIcon[data-tone='nearby']  { --tone: var(--icon-nearby); }
+
+/*
+ * Lucide draws with `fill="none"`. Filling the closed shapes with a tint of
+ * the same tone makes the marks read as objects rather than as wireframes,
+ * while the stroke stays solid so they keep their definition at 20px.
+ */
+.tileIcon svg {
+  fill: color-mix(in srgb, var(--tone) 26%, transparent);
+}
+
+.tile:active .tileIcon {
+  background: color-mix(in srgb, var(--tone) 24%, transparent);
+}
 
 .tileBody { display: flex; flex-direction: column; }
 
@@ -324,8 +349,10 @@
   background: transparent;
   border-color: var(--border-soft);
 }
+/* Not built yet: the tone is replaced wholesale, so the badge, the stroke and
+   the fill all go grey together. */
 .tile[data-soon='true'] .tileIcon {
-  color: color-mix(in srgb, var(--text) 28%, transparent);
+  --tone: color-mix(in srgb, var(--text) 40%, transparent);
 }
 
 .charged {
