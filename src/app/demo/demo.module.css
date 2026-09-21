@@ -37,7 +37,6 @@
 .brand {
   display: inline-flex;
   align-self: flex-start;
-  color: var(--white);
   text-decoration: none;
   margin-bottom: var(--space-4);
 }

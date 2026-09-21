@@ -31,3 +31,9 @@ design
 .idea
 .vscode
 *.tsbuildinfo
+
+# The logo masters — 8.7MB of 3482×1184 PNG that nothing imports. The web
+# assets beside them (innstant-lockup-*.png, innstant-mark-dark.png) ARE
+# imported and must stay. `pnpm logo:build` regenerates those from these, and
+# that runs on a developer's machine, never in the image.
+src/app/images/innstant_logo_*.png

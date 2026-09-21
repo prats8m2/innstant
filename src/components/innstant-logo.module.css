@@ -1,47 +1,23 @@
 /*
- * The mark takes its letter colour from `currentColor` so that a header can
- * simply set `color` — the gold is the only thing held here, because it is the
- * brand rather than the context.
+ * The logo is artwork now, not type and geometry — see `innstant-logo.tsx`.
+ * Nothing here recolours it: the light and dark cuts are separate files and
+ * `tone` picks between them.
  */
-.dot {
-  fill: var(--brand-gold);
-}
-
 .lockup {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55em;
-  color: inherit;
-}
-
-.word {
-  font-family: var(--font-body);
-  /* 600, not 700. The printed wordmark is medium — at bold the letters close
-     up and the wide tracking stops reading as tracking and starts reading as a
-     heavy word with gaps in it. */
-  font-weight: 600;
-  /* Wide, the way the printed mark is. The tracking is most of what makes it
-     read as a wordmark rather than as a word. */
-  letter-spacing: 0.18em;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-/* The A carries its roof, so the roof moves when the type size does. */
-.roofed {
-  position: relative;
-  display: inline-block;
-}
-
-.roof {
-  position: absolute;
-  left: 50%;
-  /* Above the cap height, not above the box — the box includes descender space
-     the A does not use, and centring on it sits the roof too high. */
-  bottom: 0.82em;
-  width: 0.78em;
-  height: 0.39em;
-  transform: translateX(-52%);
-  color: var(--brand-gold);
-  overflow: visible;
+  display: block;
+  /*
+    `height: auto` and NOT `width: auto`.
+   
+    The component sets both attributes from the artwork's own ratio, so the
+    element already knows its size. Adding `width: auto` as well told the
+    browser to ignore both and use the intrinsic 700×200 instead, capped by
+    `max-width` — which made the footer lockup three times its intended size
+    and left the one in the nav looking right only because a flex row happened
+    to squeeze it back down.
+   
+    `height: auto` alone is still worth having: it keeps the aspect correct if
+    a narrow parent ever forces the width below the attribute.
+  */
+  height: auto;
+  max-width: 100%;
 }

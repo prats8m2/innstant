@@ -1037,12 +1037,16 @@ section.wrap { padding-top: 110px; }
 }
 
 /* The monogram, oversized and half off the edge — the only decoration on the
-   page that is purely the mark. */
+   page that is purely the mark.
+
+   `opacity`, not a colour: the mark is artwork now rather than a drawn path, so
+   there is no `currentColor` to tint. It is the white-on-navy cut, faded until
+   it reads as a watermark. */
 .closingMark {
   position: absolute;
-  right: -30px;
-  bottom: -60px;
-  color: rgb(243 244 241 / 0.06);
+  right: -40px;
+  bottom: -70px;
+  opacity: 0.07;
   pointer-events: none;
 }
 

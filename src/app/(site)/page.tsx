@@ -57,7 +57,8 @@ function SiteNav() {
     <header className={styles.nav}>
       <div className={styles.navInner}>
         <Link href="#top" className={styles.navBrand} aria-label="Innstant, back to top">
-          <InnstantLogo size={26} />
+          {/* Above the fold and in the first paint — not lazy. */}
+          <InnstantLogo size={30} tone="light" priority />
         </Link>
 
         <nav className={styles.navLinks} aria-label="Sections">
@@ -376,7 +377,7 @@ function Contact() {
 
       <div className={styles.closing}>
         <span className={styles.closingMark} aria-hidden="true">
-          <InnstantMark size={220} />
+          <InnstantMark size={300} />
         </span>
         <div className={styles.closingCopy}>
           <h2 className={styles.closingTitle}>
@@ -413,7 +414,7 @@ function SiteFooter() {
       <div className={styles.wrap}>
         <div className={styles.footerGrid}>
           <div className={styles.footerBrand}>
-            <InnstantLogo size={26} />
+            <InnstantLogo size={28} tone="light" />
             <p className={styles.footerBlurb}>
               Guest services software for hotels that care how the app feels as
               much as how the lobby does.

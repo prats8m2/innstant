@@ -1,59 +1,85 @@
+import Image from 'next/image';
+import lockupLight from '@/app/images/innstant-lockup-light.png';
+import lockupDark from '@/app/images/innstant-lockup-dark.png';
+import markDark from '@/app/images/innstant-mark-dark.png';
 import styles from './innstant-logo.module.css';
 
 /**
- * The mark.
+ * The logo, from the supplied artwork.
  *
- * Drawn rather than linked, so that it is one colour token away from a dark
- * header, a light header or a favicon, and so that it stays sharp on the
- * screens this product is read on — a phone held in a hotel room and a 4K
- * monitor at a front desk. A raster would need three of it.
+ * ─── It used to be drawn, and that was a stopgap ───────────────────────────
  *
- * ─── How the S is constructed, and what two earlier attempts got wrong ────
+ * Every earlier version of this file was an SVG traced by eye: two arcs, two
+ * circles, and the wordmark set in Figtree with a gold chevron over the A. It
+ * was never right, and it could not have been — the real mark sets "InnSTÂNT"
+ * in mixed case with a four-point sparkle after the T, and no amount of tuning
+ * arc radii was going to arrive there. The whole construction is gone.
  *
- * Two ELLIPSES stacked tangentially — a ~310° arc from the upper, ~250° from
- * the lower, meeting at the waist. `rx` is larger than `ry`, and that is the
- * whole trick.
+ * ─── Two files, because the artwork is two files ───────────────────────────
  *
- * The first version used two tangent CIRCLES. It reads as an S, but the
- * proportion is locked: equal tangent circles of radius R give a mark
- * (4R+stroke) tall and (2R+stroke) wide, which is 1.7 however the numbers are
- * chosen, against the ~1.4 of the mark it is copying. There is no stroke width
- * that fixes it.
+ * The artwork ships as a light lockup (navy ink) and a dark one (white ink),
+ * and each is only legible on the ground it was drawn for. `tone` picks; there
+ * is no automatic choice, because a component cannot know what is behind it and
+ * guessing wrong makes the logo vanish.
  *
- * The second version tried unequal bowls on an offset axis to widen it. That
- * produced a lowercase g: the diagonal closes the upper counter into a loop,
- * and the letter stops being an S at all. Four variants, all g.
+ * ─── Why they are not the originals ────────────────────────────────────────
  *
- * Ellipses solve it directly. A bowl 33 wide and 27 high is short enough to
- * stack twice inside a 1.4 box, and the curvature still reverses cleanly at the
- * waist because the two are tangent there. The terminals are cut at 35° and
- * 145° rather than nearer the horizontal, which is what keeps the counters open
- * — a terminal that wraps further round closes them and the g comes back.
+ * The supplied PNGs are 3482×1184 and 3.6/5MB, with OPAQUE backgrounds — white
+ * behind one, a navy gradient behind the other. Used directly, each draws a
+ * rectangle: white on the site's warm #F3F4F1, a lighter navy box on the
+ * #101E33 panels. `scripts/prepare-logo.ts` keys the background to alpha, trims
+ * to the artwork and resizes; the originals stay in `src/app/images/` as the
+ * source of truth. Run `pnpm logo:build` after replacing them.
  *
- * The dots are the other half of the monogram and they have to READ: a quarter
- * of the mark's width, tucked into the notches the arcs leave, with real
- * daylight against the stroke. Both clearances are checked against the terminal
- * points, not just the bowls — the terminal is the part that reaches furthest
- * into each notch.
- *
- * Still a recreation, traced by eye from the supplied artwork. If the original
- * files are dropped into `public/`, this becomes an <img> and the comment above
- * becomes history.
+ * Static imports rather than `public/` URLs so that Next has the intrinsic
+ * dimensions at build time — no layout shift while the header paints, and no
+ * width/height to keep in step by hand.
  */
+
+export type LogoTone = 'light' | 'dark';
+
+/** Set from the real files, so a height always yields the right width. */
+const LOCKUP_RATIO = lockupLight.width / lockupLight.height;
+const MARK_RATIO = markDark.width / markDark.height;
 
 /**
- * Upper bowl centred at (70, 40), lower at (70, 94), both rx 33 / ry 27, so
- * they are tangent at the waist (70, 67).
+ * The full lockup: monogram and word.
+ *
+ * `size` is the HEIGHT in px, which is what a header actually cares about — the
+ * width follows from the artwork's own aspect. The previous component took a
+ * size that meant the mark's width, which made every call site a guess.
  */
-const S_PATH = 'M 97 55.5 A 33 27 0 1 0 70 67 A 33 27 0 1 1 43 109.5';
+export function InnstantLogo({
+  size = 30,
+  tone = 'light',
+  className,
+  priority = false,
+}: {
+  size?: number;
+  tone?: LogoTone;
+  className?: string;
+  /** Set on the one above the fold, so it is not lazy-loaded. */
+  priority?: boolean;
+}) {
+  return (
+    <Image
+      src={tone === 'dark' ? lockupDark : lockupLight}
+      alt="Innstant"
+      height={size}
+      width={Math.round(size * LOCKUP_RATIO)}
+      className={`${styles.lockup} ${className ?? ''}`}
+      priority={priority}
+    />
+  );
+}
 
-const DOTS = [
-  { cx: 117, cy: 15, r: 15 },   // upper right, clear of the top terminal at (97, 55.5)
-  { cx: 16, cy: 124, r: 15 },   // lower left, clear of the bottom one at (43, 109.5)
-];
-
-const VIEW_BOX = { x: 1, y: 0, w: 131, h: 139 };
-
+/**
+ * The monogram alone — the S and its two dots, no word.
+ *
+ * Only the dark cut exists, because the only thing that uses it is the oversized
+ * watermark behind the site's closing panel, which is navy. `size` is the
+ * height here too.
+ */
 export function InnstantMark({
   size = 32,
   className,
@@ -62,69 +88,13 @@ export function InnstantMark({
   className?: string;
 }) {
   return (
-    <svg
-      viewBox={`${VIEW_BOX.x} ${VIEW_BOX.y} ${VIEW_BOX.w} ${VIEW_BOX.h}`}
-      width={size}
-      height={(size * VIEW_BOX.h) / VIEW_BOX.w}
+    <Image
+      src={markDark}
+      alt=""
+      aria-hidden="true"
+      height={size}
+      width={Math.round(size * MARK_RATIO)}
       className={className}
-      role="img"
-      aria-label="Innstant"
-      focusable="false"
-    >
-      <path
-        d={S_PATH}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={26}
-        // Butt, not round: the cap is cut square to the path, which at these
-        // terminal angles reads as the angled shear the original has. A round
-        // cap would turn both ends into lollipops.
-        strokeLinecap="butt"
-      />
-      {DOTS.map((dot) => (
-        <circle key={dot.cx} cx={dot.cx} cy={dot.cy} r={dot.r} className={styles.dot} />
-      ))}
-    </svg>
-  );
-}
-
-/**
- * The full lockup: the mark, then the name with its roof.
- *
- * The circumflex over the A is a separate element rather than the character Â,
- * because it is gold and the letter is not — and a single glyph cannot be two
- * colours. It is also the idea in the whole identity (a roof, a gable, a place
- * to stay), so it is worth the extra element.
- */
-export function InnstantLogo({
-  size = 32,
-  withMark = true,
-  className,
-}: {
-  size?: number;
-  withMark?: boolean;
-  className?: string;
-}) {
-  return (
-    <span className={`${styles.lockup} ${className ?? ''}`}>
-      {withMark ? <InnstantMark size={size} /> : null}
-      <span className={styles.word} style={{ fontSize: `${size * 0.6}px` }}>
-        INNST
-        <span className={styles.roofed}>
-          A
-          <svg className={styles.roof} viewBox="0 0 20 10" aria-hidden="true" focusable="false">
-            <path
-              d="M 2 8 L 10 2 L 18 8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.6}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </span>
-        NT
-      </span>
-    </span>
+    />
   );
 }

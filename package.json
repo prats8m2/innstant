@@ -21,6 +21,7 @@
     "db:bootstrap": "tsx --env-file-if-exists=.env scripts/bootstrap-roles.ts",
     "db:studio": "drizzle-kit studio",
     "demo:reset": "tsx --env-file-if-exists=.env scripts/demo-reset.ts",
+    "logo:build": "tsx scripts/prepare-logo.ts",
     "status": "tsx scripts/status.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration",

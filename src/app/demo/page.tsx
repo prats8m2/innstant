@@ -46,7 +46,8 @@ export default async function DemoGate({
     <main className={styles.shell} data-theme="innstant">
       <div className={styles.card}>
         <Link href="/" className={styles.brand} aria-label="Innstant, home">
-          <InnstantLogo size={28} />
+          {/* The dark cut: this screen's ground is --paper-deep. */}
+          <InnstantLogo size={30} tone="dark" priority />
         </Link>
 
         {unavailable ? (

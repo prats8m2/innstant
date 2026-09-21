@@ -1998,3 +1998,51 @@ pixels between them.
 
 The element now carries a comment saying not to put a transform on it, because
 the next person to try will have exactly as little evidence as the last one did.
+
+### D-065 · The logo is the artwork now, not a tracing of it
+Every earlier version of `components/innstant-logo.tsx` drew the mark: arcs,
+circles, and the word set in Figtree with a gold chevron over the A. It was
+never right and could not have been — the real lockup sets "InnSTÂNT" in mixed
+case with a four-point sparkle after the T, and no amount of tuning arc radii
+arrives there. The whole construction is deleted. D-062's and D-064's notes
+about ellipses and terminals are now history rather than instructions.
+
+**Two cuts, chosen explicitly.** The artwork ships light (navy ink) and dark
+(white ink), and each is legible only on the ground it was drawn for. `tone`
+picks. There is no automatic choice: a component cannot know what is behind it,
+and guessing wrong makes the logo disappear rather than look slightly off.
+
+**Neither original could be used as supplied.** Both are 3482×1184, 3.6MB and
+5MB, with OPAQUE backgrounds — white behind one, a navy gradient behind the
+other. Dropped in, each draws a rectangle: white on the site's warm `#F3F4F1`,
+a lighter navy box on the `#101E33` panels. `scripts/prepare-logo.ts`
+(`pnpm logo:build`) keys the background to alpha, trims to the artwork and
+resizes. The masters stay in `src/app/images/` as the source of truth and are
+excluded from the Docker context, because nothing imports them.
+
+Three details in that script are worth keeping:
+
+- **It runs in Chromium.** Decoding a PNG in Node without a dependency means
+  implementing inflate plus five scanline filters. Playwright is already a
+  devDependency and its canvas does decode, key, trim and re-encode in one pass.
+- **A distance key is enough.** It leaves anti-aliased edges holding a blend of
+  artwork and background — the classic halo — which does not matter, because
+  each cut is only used on the ground it was drawn against. A white fringe on a
+  near-white page is invisible; so is a navy one on navy.
+- **The two need different alpha floors, 26 and 96.** The dark file's
+  letterforms carry a glow drawn against its own `#191B30`; ours is `#101E33`,
+  darker, so the surviving glow read as a grey smudge behind the word. The same
+  floor also cuts the background noise that had made the PNG 1,023KB instead of
+  89KB, because PNG compresses flat transparency and cannot compress speckle.
+
+**`size` means HEIGHT now**, not the mark's width; the width follows from the
+artwork's own aspect. That is what a header actually asks for, and the previous
+meaning made every call site a guess.
+
+**One trap found on the way.** The stylesheet set `height: auto` AND
+`width: auto` on the image. With both, the browser ignores the width and height
+attributes and uses the intrinsic 700×200 capped by `max-width` — which made
+the footer lockup three times its intended size and left the nav one looking
+correct only because a flex row happened to squeeze it back down. `height: auto`
+alone is right: it keeps the aspect if a narrow parent forces the width below
+the attribute, and otherwise defers to the attributes.
