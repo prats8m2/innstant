@@ -1,6 +1,6 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, gte, isNull, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { requestTypes } from '@/db/schema/requests';
+import { requestTypes, serviceRequests, serviceRequestItems } from '@/db/schema/requests';
 import type { CurrencyCode } from '@/lib/money';
 
 /**
@@ -118,3 +118,55 @@ export async function getRequestTypeByKey(
 
 /** The key the one-tap call uses. Seeded on every property. */
 export const CALL_SERVICE_KEY = 'CALL_SERVICE';
+
+/**
+ * What this property's guests actually ask for.
+ *
+ * ─── Why counted and not configured ────────────────────────────────────────
+ *
+ * The amenities screen leads with a handful of one-tap chips, and something
+ * has to decide which. The tempting answer is a `is_featured` column somebody
+ * ticks. The better one is already in the database: every request ever sent
+ * carries its `request_type_id`, so the property can be asked rather than
+ * guessed — and the answer improves on its own as the hotel is used, without
+ * anybody maintaining it.
+ *
+ * It also cannot be wrong in the way a curated list can. A GM who ticks
+ * "bathrobe" because the brand deck says so is overruled by ninety guests a
+ * month asking for towels.
+ *
+ * ─── The window, and the fallback ──────────────────────────────────────────
+ *
+ * Ninety days: long enough that a quiet fortnight does not reshuffle the
+ * screen, short enough to follow a season. A property with no history yet
+ * returns nothing here, and the caller falls back to the catalogue's own
+ * order — a new hotel gets a sensible screen on its first night rather than an
+ * empty strip.
+ */
+export async function countRequestsByType(
+  tx: Tx,
+  input: { propertyId: string; sinceDays?: number },
+): Promise<Map<string, number>> {
+  const since = new Date(Date.now() - (input.sinceDays ?? 90) * 86_400_000);
+
+  const rows = await tx
+    .select({
+      requestTypeId: serviceRequestItems.requestTypeId,
+      asked: sql<number>`sum(${serviceRequestItems.quantity})::int`,
+    })
+    .from(serviceRequestItems)
+    .innerJoin(serviceRequests, eq(serviceRequests.id, serviceRequestItems.serviceRequestId))
+    .where(and(
+      eq(serviceRequests.propertyId, input.propertyId),
+      gte(serviceRequests.createdAt, since),
+    ))
+    .groupBy(serviceRequestItems.requestTypeId);
+
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    // Null once the type has been deleted — the snapshot on the item keeps the
+    // old request readable (#6), but there is nothing left to rank.
+    if (row.requestTypeId) counts.set(row.requestTypeId, row.asked);
+  }
+  return counts;
+}

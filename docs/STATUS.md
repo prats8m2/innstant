@@ -96,6 +96,12 @@ teal in Public Sans, the guest app is the Kesari — indigo, saffron, Marcellus
 over Mukta, sharp radii — and the site is warm off-white and navy in Instrument
 Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
+**Amenities leads with what people actually ask for (D-071).** It was 22
+identical rows over three and a half phone screens, twenty of them captioned
+"NO CHARGE". It opens on a strip of one-tap chips now, ranked by real demand
+from `countRequestsByType()` — counted, not configured, so it sharpens as the
+hotel is used — with a one-line row per item behind it.
+
 **P4 has a read half already (D-069).** The guest home's fourth tile went from
 "Nearby · soon" to **Plan my day**, which opens the hotel's curated list of the
 city, ordered into a day and rotated to the part the guest is standing in.

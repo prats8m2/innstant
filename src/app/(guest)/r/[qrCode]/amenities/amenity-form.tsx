@@ -40,15 +40,23 @@ export function AmenityForm({
   qrCode,
   idempotencyKey,
   catalog,
+  shortlistIds,
   roomNumber,
 }: {
   qrCode: string;
   idempotencyKey: string;
   catalog: RequestTypeCard[];
+  /** The six the property's guests ask for most — see `shortlistForChips()`. */
+  shortlistIds: string[];
   roomNumber: string;
 }) {
   const [state, action] = useActionState<RequestActionState, FormData>(sendRequests, {});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  /** Resolved here rather than passed twice — the ids are the whole payload. */
+  const shortlist = shortlistIds
+    .map((id) => catalog.find((card) => card.id === id))
+    .filter((card): card is RequestTypeCard => card !== undefined);
 
   const chosen = catalog
     .map((card) => ({ card, quantity: quantities[card.id] ?? 0 }))
@@ -79,8 +87,54 @@ export function AmenityForm({
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
       <p className={styles.lede}>
-        Ask for as much as you like. Anything with a price says so before you send it.
+        Tap what you need. Everything is free unless it shows a price.
       </p>
+
+      {/*
+        The fast path. Most of the time a guest wants one of six things, and
+        making them read twenty-two rows to find a towel is the whole problem
+        with the screen this replaces.
+
+        A chip is one tap = one of that thing. Tapping again adds another
+        rather than removing it, because a guest reaching for "extra towels"
+        twice means two towels — and the count on the chip, plus the same row
+        further down, are both there to undo it.
+      */}
+      {shortlist.length ? (
+        <section className={styles.quick}>
+          <h2 className={styles.quickHeading}>Most asked for</h2>
+          <ul className={styles.chips}>
+            {shortlist.map((card) => {
+              const quantity = quantities[card.id] ?? 0;
+              return (
+                <li key={card.id}>
+                  <button
+                    type="button"
+                    className={styles.chip}
+                    data-on={quantity > 0}
+                    onClick={() => set(card.id, Math.min(card.maxQuantity, quantity + 1))}
+                    aria-label={
+                      quantity > 0
+                        ? `${card.name}, ${quantity} asked for. Tap for one more.`
+                        : `Ask for ${card.name}`
+                    }
+                  >
+                    {card.name}
+                    {quantity > 0 ? (
+                      <span className={`${styles.chipCount} tabular`}>{quantity}</span>
+                    ) : null}
+                    {card.isChargeable ? (
+                      <span className={styles.chipPrice}>
+                        {formatMoney(money(card.priceMinor, card.currency))}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
 
       {GROUPS.map(({ category, heading }) => {
         const inGroup = catalog.filter((card) => card.category === category);
@@ -94,28 +148,34 @@ export function AmenityForm({
           const quantity = quantities[card.id] ?? 0;
           return (
             <li key={card.id} className={styles.row} data-chosen={quantity > 0}>
-              {/* Line one: what it is, and what it costs. */}
-              <span className={styles.rowHead}>
+              {/*
+                One line, not two.
+
+                It was: name + "No charge" on the first line, "Usually 15
+                minutes" + the control on the second. Twenty-two rows of that
+                is three and a half phone screens, and twenty of them said "No
+                charge" — the same non-fact, in caps, twenty times.
+
+                Free rows now show NO price at all, which is what the line at
+                the top promises, and the wait sits next to the name as small
+                meta rather than owning a line of its own.
+              */}
+              <span className={styles.rowText}>
                 <span className={styles.name}>{card.name}</span>
-                <span className={card.isChargeable ? styles.price : styles.free}>
-                  {card.isChargeable
-                    ? formatMoney(money(card.priceMinor, card.currency))
-                    : 'No charge'}
+                <span className={styles.meta}>
+                  {card.isChargeable ? (
+                    <span className={styles.price}>
+                      {formatMoney(money(card.priceMinor, card.currency))}
+                    </span>
+                  ) : null}
+                  <span className={styles.eta}>{formatWait(card.slaMinutes)}</span>
                 </span>
               </span>
 
               {/* Posted whatever happens, so the screen works with no JS. */}
               <input type="hidden" name={`qty-${card.id}`} value={quantity} />
 
-              {/*
-                Line two: how long it takes, and the control. The wait sits
-                BESIDE the stepper rather than under the name, which is what the
-                export does — it is the answer to "should I bother", and it also
-                keeps this line from being a strip of empty space with one
-                button floated into the corner of it.
-              */}
-              <span className={styles.rowFoot}>
-                <span className={styles.eta}>Usually {card.slaMinutes} minutes</span>
+              <span className={styles.rowControl}>
                 {card.allowsQuantity ? (
                   <span className={styles.stepper}>
                     <button
@@ -271,4 +331,17 @@ function ConfirmButton() {
       </span>
     </button>
   );
+}
+
+/**
+ * "15 min", "4 hours". The wait, short enough to sit beside a name.
+ *
+ * It used to read "Usually 45 minutes" on its own line, which is a lot of
+ * words for a number that only answers "should I bother". Laundry is 240
+ * minutes, and "Usually 240 minutes" is a sum the guest has to do.
+ */
+function formatWait(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} hr${hours === 1 ? '' : 's'}`;
 }

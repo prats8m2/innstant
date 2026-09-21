@@ -7,7 +7,10 @@
  */
 export { seedDefaultRequestTypes, DEFAULT_REQUEST_TYPES } from './provision';
 
-export { getRequestCatalog, getRequestTypeByKey, CALL_SERVICE_KEY } from './catalog';
+export {
+  getRequestCatalog, getRequestTypeByKey, countRequestsByType, CALL_SERVICE_KEY,
+} from './catalog';
+export { shortlistForChips } from './shortlist';
 export type { RequestTypeCard } from './catalog';
 
 /** `request_types`, editable — the ops console's `/admin/requests`. */

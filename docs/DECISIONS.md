@@ -2230,3 +2230,43 @@ that had been deleted an hour earlier.
 The code is resolved first now. A reload of a LIVE code still reuses its
 session rather than minting a second one, which is what the shortcut was for
 and is asserted alongside the rest.
+
+### D-071 · Amenities was a catalogue, not a screen
+Twenty-two request types rendered as twenty-two identical two-line rows:
+2,963px, three and a half phone screens, nothing more important than anything
+else. Twenty of them said "NO CHARGE" — the same non-fact, in caps, twenty
+times. A guest who wanted a towel, which is most of them most of the time,
+read a catalogue to find one.
+
+**A strip of one-tap chips leads the screen now**, and the list behind it is
+one line per row. 2,224px, and the first screen is useful.
+
+**Which six is counted, not configured.** The tempting answer is an
+`is_featured` column somebody ticks. The better one was already in the
+database: every request carries its `request_type_id`, so
+`countRequestsByType()` asks the property what its guests actually want over
+the last ninety days. It sharpens by itself as the hotel is used, nobody
+maintains it, and it cannot be wrong the way a curated list can — a GM who
+ticks "bathrobe" because the brand deck says so is overruled by ninety guests
+a month asking for towels. Ninety days is long enough that a quiet fortnight
+does not reshuffle the screen and short enough to follow a season.
+
+A property with no history falls back to the catalogue's own `sort_order`,
+which is the only signal a hotel open one night has — and that is the case
+most likely to be seen by a new customer.
+
+**Two rules the ranking keeps.** Free before chargeable at equal demand: a
+strip of one-tap buttons is a place to put a towel, not a place to sell a
+bottle of wine, and making the fastest control on the screen the one that
+spends money is the opposite of #9's instinct. Demand still overrides it.
+And maintenance is never a chip — "the air conditioning is broken" is not a
+frequent action, it is an emergency, and one tap is the wrong affordance for
+something a guest should be able to describe.
+
+**Free rows show no price at all.** `.free` and its twenty "NO CHARGE" labels
+are deleted. The line at the top of the screen already promises that anything
+with a price says so, which makes silence the correct way to say free — and it
+took the loudest repeated element off the page.
+
+The wait moved beside the name as small meta and got shorter with it:
+"Usually 240 minutes" was a sum the guest had to do, and is "4 hrs".

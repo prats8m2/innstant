@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { getRequestCatalog, CALL_SERVICE_KEY } from '@/modules/requests';
+import {
+  getRequestCatalog, countRequestsByType, shortlistForChips, CALL_SERVICE_KEY,
+} from '@/modules/requests';
 import { AmenityForm } from './amenity-form';
 import styles from './amenities.module.css';
 
@@ -14,6 +16,12 @@ import styles from './amenities.module.css';
  * the line at the top says why: "Ask for as much as you like. Anything with a
  * price says so before you send it." Splitting them into paid and free tabs
  * would make asking for a towel feel like shopping.
+ *
+ * The screen LEADS with a strip of one-tap chips, because twenty-two equal
+ * rows is a catalogue and most guests want a towel (D-071). Which six is not
+ * a setting — it is counted from what this property's guests have actually
+ * asked for over the last ninety days, so it sharpens by itself and cannot be
+ * wrong in the way a curated list can.
  *
  * CLAUDE.md #9 — this whole screen renders for an anonymous REQUEST-tier
  * session. The one prompt appears only if the guest picks something that costs.
@@ -33,7 +41,7 @@ export default async function AmenitiesScreen({
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
 
-  const catalog = await withTenant(
+  const { catalog, shortlist } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       /**
@@ -49,7 +57,17 @@ export default async function AmenitiesScreen({
        * it has a screen of its own.
        */
       const all = await getRequestCatalog(tx, { propertyId: session.propertyId });
-      return all.filter((card) => card.key !== CALL_SERVICE_KEY);
+      const cards = all.filter((card) => card.key !== CALL_SERVICE_KEY);
+
+      /**
+       * What this property's guests actually ask for, so the screen can lead
+       * with it. Counted rather than configured — see `countRequestsByType()`.
+       * A property with no history falls back to the catalogue's own order,
+       * which is what a hotel open one night has.
+       */
+      const demand = await countRequestsByType(tx, { propertyId: session.propertyId });
+
+      return { catalog: cards, shortlist: shortlistForChips(cards, demand) };
     },
   );
 
@@ -70,6 +88,7 @@ export default async function AmenitiesScreen({
           qrCode={qrCode}
           idempotencyKey={idempotencyKey}
           catalog={catalog}
+          shortlistIds={shortlist.map((card) => card.id)}
           roomNumber={session.roomNumber}
         />
       ) : (
