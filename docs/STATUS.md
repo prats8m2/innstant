@@ -107,6 +107,9 @@ drifting saffron wash — it was three static arch outlines with the headline
 overlapping their edges. And the four home tiles have one icon each (towels,
 bell, key, compass) instead of four copies of the same arch.
 
+**The menu is cards** (D-075) — each dish boxed rather than a flat row in a
+column, per the supplied reference.
+
 **Amenities leads with what people actually ask for (D-071).** It was 22
 identical rows over three and a half phone screens, twenty of them captioned
 "NO CHARGE". It opens on a strip of one-tap chips now, ranked by real demand

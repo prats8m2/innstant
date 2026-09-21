@@ -2391,3 +2391,33 @@ The icon is top-aligned, not centred: it labels the TITLE, and centring it
 against the whole block floated it beside the subtitle — nearer the words it
 has nothing to do with than the ones it does. A −2px nudge puts it on the
 title's line box rather than its top edge.
+
+### D-075 · The menu is cards, not a column
+Dishes were flat rows on the page ground, separated by nothing but 24px of
+space. On a list of ten that reads as one long column of text: the eye has no
+edge to stop at, the thumbnails float unattached to their titles, and a
+tappable thing has no visible boundary.
+
+Each dish is a card now — `--surface`, `--radius-lg`, a soft border — which
+is the pattern the supplied reference uses and does three things a gap
+cannot. It draws a boundary around what is one tap. It lifts the dish off the
+ground so the arch thumbnail stops floating. And it gives the press state
+somewhere to happen, which a row on a background has nowhere to do.
+
+**No lift and no shadow on press**, only a ground and border change. This is a
+list a thumb runs down at 9:40pm, and ten cards that each rise under the
+finger is a trampoline.
+
+**Sold out recedes the whole card** — transparent, dashed — rather than greying
+the label. The dish reads as unavailable before a word of it is read, which is
+the same move the room home's `soon` tile makes.
+
+The thumbnail came down 104px → 84px and the dish name from `--text-lg` to
+`--text-md`: the card's own padding now does the separating that size used to
+do. It costs 10% more height overall (2,865px → 3,148px), which is the price
+of the boundaries and worth it.
+
+**What was NOT copied from the reference**: its nested cream panel. In the
+mockup that panel holds one block of key detail; repeated once per dish it
+would put ten cream slabs on a dark screen and wreck the hierarchy the card
+just created. The price stays saffron, as it is everywhere else in the app.

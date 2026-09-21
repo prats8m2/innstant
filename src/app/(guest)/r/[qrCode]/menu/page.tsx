@@ -141,7 +141,14 @@ export default async function MenuScreen({
             <ul className={styles.dishes}>
               {section.items.map((dish) => (
                 <li key={`${section.id}-${dish.id}`}>
-                  <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
+                  {/* `data-available` styles the whole card, not just the
+                      label — a dashed, unfilled card reads as unavailable
+                      before any of its text is read. */}
+                  <Link
+                    href={`${base}/menu/${dish.id}`}
+                    className={styles.dish}
+                    data-available={dish.isAvailable}
+                  >
                     <span className={styles.thumb} aria-hidden="true" />
                     <span className={styles.dishBody}>
                       <span className={styles.dishName}>{dish.name}</span>

@@ -169,24 +169,66 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* Tighter than the 24px it was: the cards now separate the dishes, so the
+     gap only has to stop them touching. */
+  gap: var(--space-3);
 }
 
+/*
+ * One card per dish.
+ *
+ * They were flat rows on the page ground, separated by nothing but space —
+ * which on a list of ten reads as one long column of text, and gives the eye
+ * no edge to stop at. A card per dish is the pattern the brief asked for, and
+ * it does three things a gap cannot: it draws a boundary around what is one
+ * tappable thing, it lifts the dish off the ground so the thumbnail stops
+ * floating, and it gives the press state somewhere to happen.
+ */
 .dish {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-3);
   align-items: flex-start;
   width: 100%;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
   color: var(--text);
   animation: archIn var(--dur-slow) var(--ease-out) both;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/*
+ * Pressed. No lift and no shadow — this is a list a thumb runs down at 9:40pm,
+ * and ten cards that each rise under the finger is a trampoline.
+ */
+.dish:active {
+  background: var(--surface-raised);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.dish:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Sold out: the card recedes rather than the text greying, so the whole thing
+   reads as unavailable before a word of it is read. */
+.dish[data-available='false'] {
+  background: transparent;
+  border-style: dashed;
 }
 
 /* The arch. The single strongest shape signal in the design — a jharokha
    window, not a rounded rectangle. */
 .thumb {
-  width: 104px;
-  height: 78px;
-  flex: 0 0 104px;
+  /* Smaller inside a card than it was on the open page — the card's own
+     padding now does the work the thumbnail's size used to. */
+  width: 84px;
+  height: 84px;
+  flex: 0 0 84px;
   border-radius: 40% 40% var(--radius-sm) var(--radius-sm) / 26% 26% 0 0;
   background-color: var(--ink-700);
   background-image:
@@ -199,13 +241,12 @@
 .dishBody {
   flex: 1;
   min-width: 0;
-  padding-top: 2px;
   display: block;
 }
 
 .dishName {
   display: block;
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: 600;
   line-height: 1.25;
   color: var(--text);
