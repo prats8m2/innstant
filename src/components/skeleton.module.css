@@ -1,0 +1,162 @@
+/*
+ * Skeletons. Every value from theme.css; the greys are the theme's own
+ * surfaces, so these look native in the guest app and in the console without
+ * knowing which one they are in.
+ */
+.screen {
+  min-height: 100dvh;
+  background: var(--bg);
+  max-width: 430px;
+  margin-inline: auto;
+  padding: 0 var(--space-4) var(--space-8);
+}
+
+.contents {
+  display: block;
+}
+
+/*
+ * One bar.
+ *
+ * The sweep is a gradient three times the width of the bar, slid across it —
+ * rather than an opacity pulse, which on eight bars at once makes the whole
+ * screen breathe. Only the highlight appears to move.
+ */
+.bar {
+  display: block;
+  background-color: var(--surface-raised);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--plaster) 7%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  animation: skeletonSweep 1.4s ease-in-out infinite;
+}
+
+@keyframes skeletonSweep {
+  from { background-position: 150% 0; }
+  to   { background-position: -150% 0; }
+}
+
+/* ── The back bar, which is real rather than grey ───────────────────────── */
+
+.bar_ {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 56px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-inline: var(--space-2);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+/* ── Shapes ─────────────────────────────────────────────────────────────── */
+
+.card {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cardFoot { margin-top: var(--space-1); }
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.rowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ── Stacks the loading screens compose with ────────────────────────────── */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.stackWide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.tile {
+  min-height: 92px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+.lede {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding-top: var(--space-10);
+}
+
+.pinned {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(398px, calc(100% - 32px));
+}
