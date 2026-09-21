@@ -38,6 +38,11 @@ same room still gets it. Verified both ways against the deployment's database
 The hero's release badge and the Themes section are deliberately **not** on the
 page — see D-062. The nav is Product / Security / Contact.
 
+The hero composition is checked at twelve widths from 360px up: no horizontal
+scroll, and nothing overlapping the phone's order button. It used to, under
+720px, and the cause was an animation eating a `transform` rather than anything
+about stacking (D-064).
+
 **A third theme, `[data-theme='innstant']`**, and two more self-hosted faces
 (Instrument Serif, Figtree). It is held to the same AA bar as the console and
 the Kesari; `theme-contrast.test.ts` now runs 29 assertions over three

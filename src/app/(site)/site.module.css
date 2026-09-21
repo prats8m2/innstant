@@ -234,6 +234,20 @@
 
 /* ── The hero's picture ──────────────────────────────────────────────────── */
 
+/*
+ * ─── Do not put `transform` on this element ──────────────────────────────
+ *
+ * It carries `fadeUp`, whose last keyframe is `transform: none`, and an
+ * animation with `both` fill wins over a declared property for as long as it is
+ * filling — which is forever. A `transform: scale(0.62)` written here computes
+ * to the identity matrix and does nothing.
+ *
+ * That is not a theoretical hazard. The narrow-screen rules below DID carry a
+ * scale, it silently never applied, and the phone stayed 620px tall inside a
+ * 420px box — overflowing 200px down the page and printing the logo strip's
+ * hotel names straight across the order button. The breakpoints resize the
+ * composition now instead of scaling it.
+ */
 .heroArt {
   position: relative;
   height: 640px;
@@ -1154,10 +1168,13 @@ section.wrap { padding-top: 110px; }
 
 @media (max-width: 1080px) {
   .hero { grid-template-columns: minmax(0, 1fr); padding-top: 56px; }
-  /* The picture is three absolutely-positioned cards in a fixed frame; below
-     this width it is scaled as one object rather than re-laid-out, which would
-     mean a second set of positions to keep in step with the first. */
-  .heroArt { height: 560px; transform: scale(0.86); transform-origin: top left; }
+  /*
+    The picture is NOT scaled here, and an earlier version that tried to was
+    doing nothing at all — see the note above `.heroArt`. It does not need to
+    be: one column is the full 1144px, which is wider than the ~580px the art
+    gets in the two-column layout, so the three cards have more room than
+    before rather than less.
+  */
   .howGrid, .revenueHead, .contactGrid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
   .howAside { position: static; }
   .pillars, .quotes, .securityGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1175,7 +1192,6 @@ section.wrap { padding-top: 110px; }
   .navLinks { display: none; }
   .navSignIn { display: none; }
   .hero { padding: 40px 18px 24px; }
-  .heroArt { height: 420px; transform: scale(0.62); }
   section.wrap { padding-top: 72px; }
   .dark { margin-top: 72px; padding: 72px 0; }
   .pillars, .quotes, .securityGrid,
@@ -1189,4 +1205,23 @@ section.wrap { padding-top: 110px; }
   .closing { margin: 72px 0; padding: 36px 24px; }
   .closingMark { display: none; }
   .trustedList { gap: 18px; }
+}
+
+/* ── Phone ───────────────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  /*
+    Below this the column is narrower than the phone plus the ticket beside it,
+    so the two floating cards land ON the phone — over the greeting and over the
+    order button. They are decoration; the phone is the product. So the phone
+    stands alone and centred, at its own size.
+
+    640px is where it actually breaks, not a round number: the ticket is 300px
+    at `right: 0`, the phone is 300px at `left: 0`, and the column is the page
+    width less 36px of padding. At 641px that leaves 5px of daylight between
+    them; at 640 they touch.
+  */
+  .heroArt { height: 660px; }
+  .heroArtSlab, .ticket, .folio { display: none; }
+  .phone { left: 50%; margin-left: -150px; }
 }

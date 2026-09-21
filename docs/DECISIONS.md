@@ -1971,3 +1971,30 @@ a Route Handler. Server Actions can set cookies, which was the only reason the
 handler existed; it now opens the session itself and redirects to a page.
 `/demo/enter` survives for the returning visitor, reached by a server-side 307
 that the browser follows before any router is involved.
+
+### D-064 · An animation that quietly ate a `transform`
+The hero's phone mock printed the logo strip's hotel names straight across its
+"Order dinner to room 214" button on any screen under 720px.
+
+The cause is worth writing down because it looks like a z-index problem and is
+not one. `.heroArt` carries `fadeUp`, whose last keyframe is `transform: none`,
+with `animation-fill-mode: both` — so the animation keeps filling forever, and
+an animated property beats a declared one. The narrow-screen rules set
+`transform: scale(0.62)` on that same element; it computed to the identity
+matrix and did nothing. The phone stayed 620px tall inside a 420px box,
+overflowed 200px down the page, and the logo strip drew over it.
+
+Nothing in a build or a test catches this: the CSS is valid, the cascade is
+working as specified, and the only symptom is 200 pixels of overlap on a screen
+nobody had opened.
+
+Two changes. The breakpoints RESIZE the composition now rather than scaling it —
+and the tablet one turned out to need nothing at all, because a single column is
+the full 1144px, which is wider than the ~580px the art gets in the two-column
+layout. Below 640px the two floating cards are hidden and the phone stands alone
+and centred: 640 is where it actually breaks, since the ticket is 300px at
+`right: 0` against a 300px phone at `left: 0`, and at 641px that leaves five
+pixels between them.
+
+The element now carries a comment saying not to put a transform on it, because
+the next person to try will have exactly as little evidence as the last one did.
