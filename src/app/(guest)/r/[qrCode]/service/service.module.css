@@ -50,64 +50,115 @@
   color: var(--plaster-faint);
 }
 
-/* ── The arches ─────────────────────────────────────────────────────────── */
+/* ── The bell, and the call going out from it ───────────────────────────── */
+
+/*
+ * This block replaced three static arch outlines that the headline sat on top
+ * of. They read as nothing, the text overlapped their edges, and the middle
+ * 300px of the screen did no work. What is here now is the thing the screen
+ * is for: a bell, rings leaving it, and a slow wash behind.
+ *
+ * No reduced-motion query, deliberately — theme.css answers that preference
+ * once for the whole product by collapsing every duration. The rings settle
+ * instantly at their transparent end state and the screen simply holds still,
+ * which is the correct outcome rather than a degraded one.
+ */
 .stage {
   position: relative;
   flex: 1;
-  min-height: 320px;
+  min-height: 300px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-6);
   overflow: hidden;
 }
 
-.archOuter,
-.archMid,
-.archInner {
+/*
+ * The moving background. Two saffron washes drifting across each other on
+ * different periods, so the pattern never visibly repeats.
+ *
+ * Deliberately near the threshold of visible: the point is that a dark screen
+ * with one button on it stops looking switched off, not that anybody watches
+ * it.
+ */
+.aurora {
   position: absolute;
-  border: 1px solid var(--border-soft);
+  inset: -25%;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 30% at 30% 28%,
+      color-mix(in srgb, var(--saffron) 16%, transparent), transparent 70%),
+    radial-gradient(32% 26% at 74% 72%,
+      color-mix(in srgb, var(--saffron) 10%, transparent), transparent 68%);
+  animation: serviceAurora 19s ease-in-out infinite alternate;
 }
 
-.archOuter {
-  width: 240px;
-  height: 300px;
-  border-radius: 120px 120px var(--radius-md) var(--radius-md);
-  background: radial-gradient(120% 80% at 50% 100%,
-    color-mix(in srgb, var(--saffron) 13%, transparent),
-    transparent 62%);
+.bellWrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 148px;
+  height: 148px;
+  flex: none;
 }
 
-.archMid {
-  width: 176px;
-  height: 226px;
-  border-radius: 88px 88px var(--radius-sm) var(--radius-sm);
-}
-
-.archInner {
-  width: 112px;
-  height: 152px;
-  border-radius: 56px 56px var(--radius-md) var(--radius-md);
-  border-color: color-mix(in srgb, var(--saffron) 30%, transparent);
-  animation: glow 4.2s ease-in-out infinite;
-}
-
-.sweep {
+/*
+ * One keyframe, three elements, each a third of a cycle behind the last — so
+ * the call reads as continuous rather than as three separate pulses.
+ */
+.ring {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 40%;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--saffron) 0%, transparent),
-    color-mix(in srgb, var(--saffron) 7%, transparent),
-    color-mix(in srgb, var(--saffron) 0%, transparent));
-  animation: sweep 11s ease-in-out infinite;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--saffron) 55%, transparent);
+  animation: serviceRing 4.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+.ring:nth-child(2) { animation-delay: 1.4s; }
+.ring:nth-child(3) { animation-delay: 2.8s; }
+
+.bell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  /* Translucent, not a solid disc. Mixing saffron into an opaque surface
+     colour gave a warm grey, which read as muddy against a saffron bell; a
+     veil lets the aurora drift behind it instead.
+     (No sample value quoted here on purpose — the discipline test greps every
+     line that is not a comment CONTINUATION for a hex, and a continuation
+     line does not start with an asterisk.) */
+  background: color-mix(in srgb, var(--saffron) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--saffron) 38%, transparent);
+  color: var(--accent);
+  /* The bell itself breathes, slower than the rings and out of phase with
+     them, so the two never land together. */
+  animation: serviceBell 4.2s ease-in-out infinite;
+}
+
+@keyframes serviceRing {
+  from { transform: scale(0.58); opacity: 0.85; }
+  to   { transform: scale(1.5); opacity: 0; }
+}
+
+@keyframes serviceBell {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.045); }
+}
+
+@keyframes serviceAurora {
+  from { transform: translate3d(-4%, 2%, 0) scale(1); }
+  to   { transform: translate3d(5%, -3%, 0) scale(1.15); }
 }
 
 .pitch {
   position: relative;
   text-align: center;
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
 }
 
 .headline {
@@ -120,11 +171,47 @@
 }
 
 .sub {
-  margin: var(--space-3) 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--text-base);
   line-height: 1.5;
   color: var(--text-muted);
   text-wrap: pretty;
+}
+
+/*
+ * The wait, as its own mark rather than a third sentence. It is the only
+ * number on the screen and the answer to "should I bother" — a guest skims
+ * for it, and a chip is findable in a way a clause is not.
+ *
+ * `.waitChip`, not `.eta`, and the name is load-bearing. THIS STYLESHEET IS
+ * SHARED by the call screen and the tracking screen under `[requestId]/`, and
+ * `.eta` was already taken down there by the tracking screen's own full-width
+ * status line. Declaring it twice does not error — the later rule silently
+ * wins — and the first version of this chip came out stretched across the
+ * screen for exactly that reason. It is the second time a duplicated class in
+ * a shared guest stylesheet has quietly restyled something a screen away.
+ */
+.waitChip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-4) 0 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+.waitDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-positive);
+  flex: none;
 }
 
 /* ── The tap ────────────────────────────────────────────────────────────── */

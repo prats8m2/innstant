@@ -48,22 +48,65 @@ export default async function ServiceScreen({
         <h1 className={styles.barTitle}>Service</h1>
       </header>
 
-      {/* The arches from the reference: three nested shapes and a light moving
-          across them. Decorative, and the reason this screen feels like a bell
-          pull rather than a form. */}
+      {/*
+        The bell, and the call going out from it.
+
+        This replaced three static arch outlines with the headline sitting on
+        top of them: the shapes read as nothing in particular, the text
+        overlapped their edges, and 300px of the screen was doing no work. The
+        composition is now what the screen is FOR — a bell, rings leaving it,
+        and the promise underneath.
+
+        Everything here is decorative and `aria-hidden`; the words below carry
+        the meaning, and the button below that does the thing.
+      */}
       <div className={styles.stage}>
-        <span className={styles.archOuter} aria-hidden="true" />
-        <span className={styles.archMid} aria-hidden="true" />
-        <span className={styles.archInner} aria-hidden="true" />
-        <span className={styles.sweep} aria-hidden="true" />
+        <span className={styles.aurora} aria-hidden="true" />
+
+        <div className={styles.bellWrap}>
+          {/* Three rings on one keyframe, staggered by a third of it each, so
+              the call looks continuous rather than like three pulses. */}
+          <span className={styles.ring} aria-hidden="true" />
+          <span className={styles.ring} aria-hidden="true" />
+          <span className={styles.ring} aria-hidden="true" />
+
+          <span className={styles.bell} aria-hidden="true">
+            <svg viewBox="0 0 48 48" width="40" height="40" focusable="false">
+              {/*
+                A hand bell, drawn rather than fetched: one path for the dome,
+                one for the lip, one for the handle. Stroked with
+                `currentColor` so the wrapper decides the colour.
+              */}
+              <path
+                d="M14 30c0-8 1.4-13 10-13s10 5 10 13"
+                fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"
+              />
+              <path
+                d="M10.5 30.5h27" fill="none" stroke="currentColor"
+                strokeWidth="2.2" strokeLinecap="round"
+              />
+              <path
+                d="M24 17v-3.5" fill="none" stroke="currentColor"
+                strokeWidth="2.2" strokeLinecap="round"
+              />
+              <circle cx="24" cy="35" r="2.4" fill="currentColor" />
+            </svg>
+          </span>
+        </div>
 
         <div className={styles.pitch}>
           <p className={styles.headline}>Someone comes up to room {session.roomNumber}</p>
-          <p className={styles.sub}>
-            {type
-              ? `One tap. No queue, no call, no reason needed. Usually ${type.slaMinutes} minutes.`
-              : 'One tap. No queue, no call, no reason needed.'}
-          </p>
+          <p className={styles.sub}>No queue, no call, no reason needed.</p>
+          {/*
+            The wait, as its own mark rather than a third sentence. It is the
+            one number on the screen and the answer to "should I bother".
+          */}
+          {type ? (
+            <p className={styles.waitChip}>
+              <span className={styles.waitDot} aria-hidden="true" />
+              Usually {type.slaMinutes} minutes
+            </p>
+          ) : null}
         </div>
       </div>
 

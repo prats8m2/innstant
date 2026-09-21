@@ -280,13 +280,21 @@
 }
 
 /* A miniature of the arch above — the same doorway, 18px wide. */
-.tileArch {
-  width: 18px;
-  height: 22px;
-  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
-  border-bottom: 0;
-  border-radius: 9px 9px 0 0;
+/*
+ * One icon per tile. It was `.tileArch` — the same small arch outline, four
+ * times — which looked deliberate and carried no information: four identical
+ * marks cannot help anybody find anything, so the tiles read as four blocks
+ * of text with decoration on top.
+ *
+ * The colour lives here rather than in the SVG so the `soon` state below can
+ * dim all four with one rule.
+ */
+.tileIcon {
+  color: color-mix(in srgb, var(--accent) 78%, transparent);
+  transition: color var(--dur-fast) var(--ease-out);
 }
+
+.tile:active .tileIcon { color: var(--accent); }
 
 .tileBody { display: flex; flex-direction: column; }
 
@@ -316,8 +324,8 @@
   background: transparent;
   border-color: var(--border-soft);
 }
-.tile[data-soon='true'] .tileArch {
-  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+.tile[data-soon='true'] .tileIcon {
+  color: color-mix(in srgb, var(--text) 28%, transparent);
 }
 
 .charged {

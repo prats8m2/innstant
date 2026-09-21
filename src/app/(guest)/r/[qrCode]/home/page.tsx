@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE } from '@/modules/demo';
+import { TileIcon, type TileIconName } from './tile-icon';
 import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
@@ -49,12 +50,14 @@ export const dynamic = 'force-dynamic';
  * screen does with the list, and because "nearby" is a distance while a day is
  * a plan.
  */
-const TILES = [
+const TILES: readonly {
+  key: TileIconName; title: string; sub: string; built: boolean;
+}[] = [
   { key: 'amenities', title: 'Amenities', sub: 'Towels · laundry · a charger', built: true },
   { key: 'service', title: 'Call for service', sub: 'Someone comes up', built: true },
   { key: 'stay', title: 'Your stay', sub: 'When you leave, what is owed', built: true },
   { key: 'nearby', title: 'Plan my day', sub: 'Where we send our friends', built: true },
-] as const;
+];
 
 export default async function RoomHome({
   params,
@@ -334,7 +337,8 @@ export default async function RoomHome({
         {TILES.map((tile) => {
           const body = (
             <>
-              <span className={styles.tileArch} aria-hidden="true" />
+              {/* One mark per tile, not four of the same — see tile-icon.tsx. */}
+              <TileIcon name={tile.key} />
               <span className={styles.tileBody}>
                 <span className={styles.tileTitle}>{tile.title}</span>
                 <span className={styles.tileSub}>

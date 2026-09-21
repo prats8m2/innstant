@@ -2270,3 +2270,51 @@ took the loudest repeated element off the page.
 
 The wait moved beside the name as small meta and got shorter with it:
 "Usually 240 minutes" was a sum the guest had to do, and is "4 hrs".
+
+### D-072 · Call for service, and four tiles that looked the same
+Two changes to the guest app, both about a screen carrying no information in
+the space it was using.
+
+**The service screen was three arch outlines and a lot of nothing.** The
+headline sat on top of them and overlapped their edges, the shapes read as no
+particular object, and 300px in the middle of the screen did no work. It is a
+bell now, with rings leaving it on a 4.2s loop staggered three ways so the
+call reads as continuous rather than as three pulses, over two saffron washes
+drifting on different periods. The wait moved out of the prose into a chip,
+because it is the one number on the screen and a guest skims for it.
+
+**Nothing here needs a reduced-motion query**, and adding one would fail the
+discipline test — correctly. `theme.css` answers that preference once for the
+whole product; the rings settle instantly at their transparent end state and
+the screen simply holds still, which is a correct outcome rather than a
+degraded one. Verified with the preference on: bell, words and chip all
+present.
+
+**All four home tiles drew the same small arch.** It looked deliberate and
+carried nothing — four identical marks cannot help anybody find anything, so
+the tiles read as four blocks of text with decoration on top. They have one
+mark each now: folded towels, a bell, a key, a compass. The bell is the same
+drawing the service screen leads with, so the tile and the screen it opens are
+recognisably one thing.
+
+Drawn to one recipe — 24×24, 1.5 stroke, `currentColor` so the `soon` state
+dims all four with one rule — and not from a package: four paths is less code
+than the import, and a dependency to draw four small lines is the thing this
+product is meant to be better than. The first towel came out as three
+horizontal rules and read as a LIST icon, which is the one thing it could not
+be on a screen of lists.
+
+── Two traps, both previously seen ──────────────────────────────────────────
+
+`service.module.css` is shared by the call screen and the tracking screen
+under `[requestId]/`, and `.eta` was already taken by the tracking screen's
+full-width status line. Declaring it twice does not error — the later rule
+silently wins — and the new chip came out stretched across the screen. Renamed
+to `.waitChip`. This is the second time a duplicated class in a shared guest
+stylesheet has quietly restyled something a screen away; the first painted a
+blob over the menu's category rail (D-051).
+
+And the discipline test flagged a hex inside a comment. It skips lines whose
+first character is `*` or `/`, which a multi-line comment's CONTINUATION lines
+are not. The rule is right to be blunt, so the sample value came out of the
+prose rather than the test being loosened.

@@ -96,6 +96,11 @@ teal in Public Sans, the guest app is the Kesari — indigo, saffron, Marcellus
 over Mukta, sharp radii — and the site is warm off-white and navy in Instrument
 Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
+**Call for service is a bell with the call going out from it (D-072)**, over a
+drifting saffron wash — it was three static arch outlines with the headline
+overlapping their edges. And the four home tiles have one icon each (towels,
+bell, key, compass) instead of four copies of the same arch.
+
 **Amenities leads with what people actually ask for (D-071).** It was 22
 identical rows over three and a half phone screens, twenty of them captioned
 "NO CHARGE". It opens on a strip of one-tap chips now, ranked by real demand
