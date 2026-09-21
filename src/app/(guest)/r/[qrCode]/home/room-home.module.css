@@ -256,14 +256,22 @@
 }
 
 .tile {
+  /*
+    Icon on the LEFT, words to its right. It was a column — icon above, title
+    and subtitle below — which spent the tile's height on a gap and pushed the
+    subtitle into three lines.
+  */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  /* Top, not centre. The icon labels the TITLE, and centring it against the
+     whole block floated it beside the subtitle instead — closer to the words
+     it has nothing to do with than the ones it does. */
   align-items: flex-start;
-  justify-content: space-between;
+  gap: var(--space-3);
   /* Taller than --touch-min by a long way: these are the four things a guest
      reaches for and they are tapped one-handed, in the dark. */
-  min-height: 108px;
-  padding: var(--space-3) var(--space-4) var(--space-4);
+  min-height: 92px;
+  padding: var(--space-3);
   background: var(--surface);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-md);
@@ -279,28 +287,29 @@
   border-color: color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
-/* A miniature of the arch above — the same doorway, 18px wide. */
 /*
  * One icon per tile, from Lucide — see `tile-icon.tsx`.
  *
- * `--tone` is set per tile by the `data-tone` attribute and everything else
- * derives from it, so a tile's colour is one line to change and the badge,
- * the stroke and the fill can never disagree.
+ * `--tone` is set per tile by the `data-tone` attribute and both the stroke
+ * and the fill derive from it, so a tile's colour is one line to change and
+ * the two can never disagree.
+ *
+ * No badge behind it. A tinted rounded square per icon was tried and it put a
+ * fifth box inside four boxes — the tiles are already cards, and nesting a
+ * chip in each one added weight without adding meaning. The colour does the
+ * separating on its own.
  */
 .tileIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-sm);
-  /* The badge: the tone at low alpha, so the icon sits on its own colour
-     rather than floating on the card. */
-  background: color-mix(in srgb, var(--tone) 15%, transparent);
+  /* Fixed, so four icons of different widths still line their labels up. */
+  flex: none;
+  width: 26px;
+  /* Optically centred on the title's line box rather than its top edge. */
+  margin-top: -2px;
   color: var(--tone);
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out);
 }
 
 .tileIcon[data-tone='amenity'] { --tone: var(--icon-amenity); }
@@ -318,10 +327,16 @@
 }
 
 .tile:active .tileIcon {
-  background: color-mix(in srgb, var(--tone) 24%, transparent);
+  color: color-mix(in srgb, var(--tone) 80%, var(--text));
 }
 
-.tileBody { display: flex; flex-direction: column; }
+.tileBody {
+  display: flex;
+  flex-direction: column;
+  /* min-width:0 or a long unbroken subtitle pushes the icon off the tile. */
+  min-width: 0;
+  flex: 1;
+}
 
 .tileTitle {
   font-size: var(--text-base);

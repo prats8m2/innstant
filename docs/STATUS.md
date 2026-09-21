@@ -97,8 +97,8 @@ over Mukta, sharp radii — and the site is warm off-white and navy in Instrumen
 Serif over Figtree. Each scope is applied once, by its own route-group layout.
 
 **Icons come from `lucide-react`** (D-073), not from hand-written SVG. Four
-tones in `--icon-*`, one per guest tile, each driving a badge, a stroke and a
-fill from one variable. CLAUDE.md now carries the general rule — use a library
+tones in `--icon-*`, one per guest tile, each driving a stroke and a fill from
+one variable. The tiles read as a row — icon, then title beside it (D-074). CLAUDE.md now carries the general rule — use a library
 for a solved problem, judged on shipped bytes — after the tiles went through
 three implementations to get there.
 

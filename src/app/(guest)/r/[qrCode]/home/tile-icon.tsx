@@ -27,10 +27,11 @@ import styles from './room-home.module.css';
  *
  * ─── Colour ────────────────────────────────────────────────────────────────
  *
- * Each tile has its own tone from `--icon-*` in theme.css: a solid stroke, a
- * tint filling the closed shapes, and a tinted badge behind. Decorative in
- * the strict sense — every icon sits beside its own text label and never
- * alone — so nothing is lost if the colours cannot be told apart.
+ * Each tile has its own tone from `--icon-*` in theme.css: a solid stroke and
+ * a tint filling the closed shapes. No badge behind it — a tinted square per
+ * icon put a fifth box inside four boxes, and the tiles are already cards.
+ * Decorative in the strict sense — every icon sits beside its own text label
+ * and never alone — so nothing is lost if the colours cannot be told apart.
  */
 export type TileIconName = 'amenities' | 'service' | 'stay' | 'nearby';
 
@@ -67,7 +68,7 @@ export function TileIcon({ name }: { name: TileIconName }) {
         scaled to. Without it Lucide scales the stroke with the icon, and a
         22px mark ends up hairline beside 16px type.
       */}
-      <Icon size={20} strokeWidth={1.75} absoluteStrokeWidth />
+      <Icon size={24} strokeWidth={1.75} absoluteStrokeWidth />
     </span>
   );
 }

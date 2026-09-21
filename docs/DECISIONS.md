@@ -2341,8 +2341,8 @@ it in `optimizePackageImports` by default: the shared bundle did not move
 disk is tens of megabytes and none of that ships.
 
 **Colour, which is what made it worth doing at all.** Four tones in
-`--icon-*`, one per tile, each driving a badge, a stroke and a tint fill from
-a single `--tone` variable so they cannot disagree. Strictly decorative —
+`--icon-*`, one per tile, each driving a stroke and a tint fill from a single
+`--tone` variable so the two cannot disagree. Strictly decorative —
 every icon sits beside its own text label and never alone — so nothing is lost
 to a colour-blind guest, and the `soon` state replaces `--tone` wholesale to
 grey all three layers at once.
@@ -2364,3 +2364,30 @@ The exception named there is anything encoding a decision this product has
 opinions about — `withTenant()`, the money type, the access tiers, the state
 machines — plus illustration, which is not iconography. The jharokha arch on
 the guest home stays hand-drawn: it is the brand, and no package has it.
+
+### D-074 · The tiles, after looking at them
+Three corrections to D-073's tiles, all from seeing them on a screen rather
+than from reasoning about them.
+
+**The badge behind each icon is gone.** A tinted rounded square per icon put a
+fifth box inside four boxes — the tiles are already cards, and nesting a chip
+in each one added weight without adding meaning. The colour separates them on
+its own, and the icon went 20px → 24px to hold the space the badge was
+occupying.
+
+**A faint arch texture behind the tiles was tried and reverted.** Three
+concentric arcs struck from below the card, at 4–7% of the accent — the same
+jharokha motif as the hero. On paper it was the obvious way to tie the tiles
+to the rest of the screen. On the screen it was noise behind text: the tiles
+are small, the arcs had nowhere to resolve, and a 171px card cannot carry a
+texture and a label and an icon. It lasted one screenshot.
+
+**The title moved beside the icon instead of under it.** The tile was a
+column — icon, then title, then subtitle — which spent its height on a gap and
+pushed the longest subtitle onto three lines. As a row it is 92px instead of
+108px and reads in one pass.
+
+The icon is top-aligned, not centred: it labels the TITLE, and centring it
+against the whole block floated it beside the subtitle — nearer the words it
+has nothing to do with than the ones it does. A −2px nudge puts it on the
+title's line box rather than its top edge.
