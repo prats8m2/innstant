@@ -16,21 +16,20 @@ command is right and the file is stale — fix the file.
 
 TASK
 
-Finish the skeleton loaders. The primitive is committed and documented at
-src/components/skeleton.tsx (Skeleton, SkeletonScreen, SkeletonBar,
-SkeletonCard, SkeletonRow) and NOTHING IMPORTS IT YET. Write one loading.tsx
-per guest segment, each shaped like the screen it stands in for so nothing
-jumps when the content lands:
+1. DEPLOY. The skeleton loaders are finished and committed (D-077) — eleven
+   loading.tsx files across the guest app — and production is a commit behind,
+   so none of them are live. Nothing else is pending.
 
-  home · menu · menu/[itemId] · cart · amenities · service
-  service/[requestId] · activity · order/[orderId] · stay · nearby
+     npx --yes @railway/cli@latest up --service kesari --detach
 
-(/orders is a redirect and needs none.) Read each page.tsx first and match its
-real layout — a skeleton that is the wrong shape is worse than none.
+   Then verify the change is actually there before calling it deployed: load
+   https://innstant.in/r/the-kesari-214 on a throttled connection and confirm
+   a tap shows a skeleton rather than holding the previous screen.
 
-Then look at docs/STATUS.md "Open issues". The demo's seeded stays expire on
-5 October 2026; after that /demo shows its "not open" page until somebody runs
-`pnpm demo:reset`. A scheduled reseed is the standing fix and is not built.
+2. Then docs/STATUS.md "Open issues". The demo's seeded stays expire on
+   5 OCTOBER 2026; after that /demo shows its "not open" page until somebody
+   runs `pnpm demo:reset`. A scheduled reseed is the standing fix, it is not
+   built, and it now has a deadline.
 
 ENVIRONMENT — these have each cost a session before
 
@@ -65,13 +64,16 @@ DISCIPLINE — the test suite enforces all of this
   across the service screen.
 - Prefer a maintained library for a solved problem, judged on SHIPPED bytes
   (CLAUDE.md "Conventions"). Icons are lucide-react.
+- Verify UI by SCREENSHOT, not by reading the diff. The skeleton session's one
+  real bug — bars overlapping a heading — was invisible in the code and
+  obvious in the first screenshot pass.
 
 DEFINITION OF DONE
 
 `pnpm typecheck && pnpm lint && pnpm test && pnpm build`, then verify the
 change on a running app — screenshot it, do not assume. Commit with a
 conventional message explaining WHY. Record anything non-obvious as a new
-D-0xx in docs/DECISIONS.md (D-076 is the last one used) and update
+D-0xx in docs/DECISIONS.md (D-077 is the last one used) and update
 docs/STATUS.md before finishing.
 
 Ask before: changing the tenancy model, adding an external service, changing a

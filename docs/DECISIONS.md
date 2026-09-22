@@ -2470,3 +2470,53 @@ Found on the way: a hand-written join used `mo.modifier_group_id`, which does
 not exist — the column is `group_id` — and nothing caught it until the menu
 returned 500 in a browser. Rewritten with the query builder, which knows the
 column names. Raw SQL buys nothing here that is worth that.
+
+### D-077 · Eleven loading screens, each shaped like its own page
+Every guest route is `force-dynamic` and reads the database on the way in.
+Without a Suspense fallback, tapping a tile holds the PREVIOUS screen until
+the server answers — which on a phone, on hotel wifi, reads as a tap that did
+not register, so the guest taps again. The primitive for this landed in P4
+(`src/components/skeleton.tsx`) and nothing imported it. Eleven segments have
+a `loading.tsx` now; `/orders` is a redirect and needs none.
+
+**Shaped like the screen it stands in for, or not worth having.** A spinner
+says "wait". A skeleton says "a list of four things is coming", and when the
+content lands nothing jumps, because the bars were already the right size and
+in the right places. Every one of the eleven was written against its own
+`page.tsx`: the home skeleton is a masthead, a 180px arch and a 2×2 grid; the
+cart's is a bottom sheet over a scrim, because the cart is a sheet and a
+full-page skeleton there would cover the menu and then uncover it again; the
+order screen's five timeline rungs are drawn rather than greyed, because
+every order has the same five and only the times are waiting.
+
+**Three bottom-clearance numbers are copied from the pages, not guessed** —
+148px for the home CTA, 104px for the menu and amenities pill, 176px for the
+dish screen's order bar. A skeleton that scrolls differently from the screen
+behind it has already jumped.
+
+**A title is real when the route knows it, grey when it is data.** "Amenities",
+"Service", "Your stay", "Your requests", "Plan my day" are literals in their
+own pages, decided before a query runs, so greying them out would be the app
+pretending to wait for something it already has. The other five titles are an
+outlet's name, a dish's name, a room number — a plausible guess there is worse
+than a grey box, because the guess changes under the reader.
+
+**The whole thing is one `role="status" aria-busy="true"` with a label, and
+every bar inside it is `aria-hidden`.** A screen reader hears "Loading the
+menu" once rather than reciting eleven nameless boxes.
+
+**`.screen` is a block, and that was the second answer.** It was briefly a
+flex column, so the service screen could push its call button to the bottom
+edge the way the real one does. Every screen taller than the viewport then
+shrank: flex items default to `flex-shrink: 1`, a nested stack squeezed below
+its own content, and its bars overlapped the heading beneath — visible on
+amenities in the first screenshot pass. The one screen that wants a bottom
+edge uses `.pinned`, which is what the three genuinely pinned elements
+already do.
+
+Verified by screenshotting all eleven at 390×844 in the Kesari theme, then by
+watching the real thing: a throttled hard navigation to `/menu` and throttled
+`Link` clicks to `/stay` and `/nearby` all render their own fallback inside
+200ms. The arch-topped thumbnail on the menu card is in the skeleton for the
+same reason the five rungs are — a plain rounded square there is the one thing
+on that screen that would visibly change shape when the dishes arrive.

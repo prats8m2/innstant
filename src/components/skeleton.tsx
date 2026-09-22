@@ -3,20 +3,7 @@ import styles from './skeleton.module.css';
 /**
  * Skeletons for the guest app.
  *
- * ─── UNFINISHED. Nothing imports this yet ──────────────────────────────────
- *
- * This is the primitive half of the job. The other half — one `loading.tsx`
- * per guest segment, each shaped like the screen it stands in for — has not
- * been written, so no screen currently shows a skeleton. Eleven need one:
- * home, menu, menu/[itemId], cart, amenities, service, service/[requestId],
- * activity, order/[orderId], stay, nearby. `/orders` is a redirect and needs
- * none.
- *
- * Kept rather than deleted because the thinking below — the sweep over a
- * pulse, the shapes matching real content so nothing jumps, the aria — is the
- * considered part, and what remains is mechanical. See docs/STATUS.md.
- *
- * ─── Why these exist at all ────────────────────────────────────────────────
+ * ─── Why these exist ──────────────────────────────────────────────────────
  *
  * Every guest screen is `force-dynamic` and reads the database on the way in:
  * the menu loads an outlet, its dishes, their schedules and the cart, and the
@@ -29,6 +16,14 @@ import styles from './skeleton.module.css';
  * a spinner says "wait", a skeleton says "a list of four things is coming",
  * and when the content lands nothing jumps because the bars were already the
  * right size.
+ *
+ * Eleven guest segments have one — home, menu, menu/[itemId], cart, amenities,
+ * service, service/[requestId], activity, order/[orderId], stay, nearby.
+ * `/orders` is a redirect: it renders nothing and needs none.
+ *
+ * The layout each screen composes with — the stacks, the grid, the sheet, the
+ * timeline — lives in `skeleton.module.css` beside these, so a `loading.tsx`
+ * is a shape and nothing else.
  *
  * ─── Motion ────────────────────────────────────────────────────────────────
  *
@@ -86,7 +81,7 @@ export function SkeletonScreen({
       aria-label={label}
       className={`${styles.screen} ${className ?? ''}`}
     >
-      <span aria-hidden="true" className={styles.contents}>{children}</span>
+      <div aria-hidden="true" className={styles.contents}>{children}</div>
     </div>
   );
 }
@@ -94,24 +89,53 @@ export function SkeletonScreen({
 /**
  * The back bar every inner guest screen opens with.
  *
- * Real, not a skeleton: the arrow and the title are already known before the
- * data is: the route decides them. Greying out a heading the app can render
- * immediately is a skeleton pretending to wait for something.
+ * The arrow is real, and so is the title WHEN THE ROUTE KNOWS IT: "Amenities",
+ * "Your stay", "Plan my day" are literals in their own pages, decided before
+ * any query runs. Greying out a heading the app can render immediately is a
+ * skeleton pretending to wait for something.
+ *
+ * The other five titles are data — an outlet's name, a dish's name, the room
+ * number — so those screens pass no `title` and get a bar instead. Rendering
+ * a plausible guess there would be worse than a grey box: the guess changes
+ * under the reader when the real one lands.
+ *
+ * `trailing` is the small right-hand slot the menu, the order and the request
+ * screens carry (a prep window, an order number). `divider` is the hairline
+ * the sticky bars sit on; the two plain bars — service and stay — do without.
  */
-export function SkeletonBar({ title }: { title: string }) {
+export function SkeletonBar({
+  title,
+  trailing = false,
+  divider = false,
+}: {
+  title?: string;
+  trailing?: boolean;
+  divider?: boolean;
+}) {
   return (
-    <div className={styles.bar_} aria-hidden="true">
+    <div className={styles.bar_} data-divider={divider} aria-hidden="true">
       <span className={styles.back}>←</span>
-      <span className={styles.title}>{title}</span>
+      {title
+        ? <span className={styles.title}>{title}</span>
+        : <Skeleton w="44%" h="1.15rem" />}
+      {trailing ? <Skeleton w="58px" h="0.8rem" className={styles.trailing} /> : null}
     </div>
   );
 }
 
-/** A card with a thumbnail and three lines — the menu and activity shape. */
+/**
+ * A card with a thumbnail and three lines — the menu and the cart's lines.
+ *
+ * The thumbnail is arch-topped, the same curve the real dish thumbnails and
+ * the room home carry. A plain rounded square there is the one thing on the
+ * screen that would visibly change shape when the dishes arrive.
+ */
+const THUMB_ARCH = '40% 40% var(--radius-sm) var(--radius-sm) / 26% 26% 0 0';
+
 export function SkeletonCard({ thumb = false }: { thumb?: boolean }) {
   return (
     <div className={styles.card}>
-      {thumb ? <Skeleton w="84px" h="84px" radius="var(--radius-md)" /> : null}
+      {thumb ? <Skeleton w="84px" h="84px" radius={THUMB_ARCH} /> : null}
       <div className={styles.cardBody}>
         <Skeleton w="62%" h="1.05rem" />
         <Skeleton w="100%" h="0.8rem" />
@@ -131,6 +155,56 @@ export function SkeletonRow() {
         <Skeleton w="22%" h="0.7rem" />
       </div>
       <Skeleton w="72px" h="34px" radius="var(--radius-pill)" />
+    </div>
+  );
+}
+
+/**
+ * A heading with a count beside it — the menu's section head, activity's
+ * group head, and the folio's. Two bars on one baseline rather than a stack,
+ * because that is what the real one is.
+ */
+export function SkeletonHeading({ count = false }: { count?: boolean }) {
+  return (
+    <div className={styles.headingRow}>
+      <Skeleton w="40%" h="1.1rem" />
+      {count ? <Skeleton w="54px" h="0.75rem" /> : null}
+    </div>
+  );
+}
+
+/** A money row: a label on the left, an amount right-aligned. */
+export function SkeletonTotal({ grand = false }: { grand?: boolean }) {
+  return (
+    <div className={styles.totalRow} data-grand={grand}>
+      <Skeleton w={grand ? '58%' : '34%'} h={grand ? '1.05rem' : '0.85rem'} />
+      <Skeleton w={grand ? '76px' : '54px'} h={grand ? '1.05rem' : '0.85rem'} />
+    </div>
+  );
+}
+
+/**
+ * One step of the order timeline: the rail with its dot, and two lines.
+ *
+ * The rail is drawn rather than greyed. It is the same five steps for every
+ * order — the route already knows there will be five of them and where the
+ * line between them runs — and only the times and the state are waiting on
+ * the server.
+ */
+export function SkeletonStep({ last = false }: { last?: boolean }) {
+  return (
+    <div className={styles.step}>
+      <span className={styles.stepRail} data-last={last}>
+        <span className={styles.dot} />
+        {last ? null : <span className={styles.line} />}
+      </span>
+      <div className={styles.stepBody}>
+        <div className={styles.headingRow}>
+          <Skeleton w="46%" h="0.95rem" />
+          <Skeleton w="44px" h="0.75rem" />
+        </div>
+        <Skeleton w="70%" h="0.75rem" />
+      </div>
     </div>
   );
 }

@@ -21,35 +21,35 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Everything is deployed, green and verified on production.**
+**Production is green and verified, and is one commit behind this repo.**
 
     https://innstant.in                        the site, /demo, and the app
     https://innstant.in/r/the-kesari-214       the demo room (stable link)
     https://innstant.in/admin                  staff console
 
-Gates at `b2904c2`: typecheck, lint, **370 unit tests**, build — all green.
+Gates locally: typecheck, lint, **370 unit tests**, build — all green.
 `/api/health` reports migrations 8/8 with none pending, 54 tables with RLS
 enabled and forced.
 
+**The skeleton loaders are finished and NOT yet deployed.** All eleven
+`loading.tsx` files are committed and verified locally; production is still
+running `b2904c2`. Deploying them is the first thing to do — see below.
+
 ### Pick up here
 
-**1 — Skeleton loaders (started, not finished).** The primitive is written and
-committed: `src/components/skeleton.tsx` + `.module.css`, with `Skeleton`,
-`SkeletonScreen`, `SkeletonBar`, `SkeletonCard`, `SkeletonRow`. **Nothing
-imports it yet** — that is the remaining work, and it is mechanical: one
-`loading.tsx` per guest segment, each shaped like the screen it stands in for.
+**1 — Deploy.** The guest app has eleven loading screens now (D-077) and the
+deployment has none of them. Nothing else is pending.
 
-Eleven screens need one (`/orders` is a redirect and needs none):
+    npx --yes @railway/cli@latest up --service kesari --detach
 
-    home · menu · menu/[itemId] · cart · amenities · service
-    service/[requestId] · activity · order/[orderId] · stay · nearby
-
-Every guest page is `force-dynamic` and reads the database on the way in, on
-hotel wifi, so this is worth doing: without a fallback a tap holds the previous
-screen until the server answers, which reads as a tap that did not register.
+Takes 5–10 minutes. Poll for the actual change — a scan of
+`https://innstant.in/r/the-kesari-214` on a throttled connection should show a
+skeleton, not the previous screen — rather than reporting "deployed" from the
+upload line.
 
 **2 — A scheduled demo reseed.** The single most persistent operational
-problem in this project. See "Open issues" below.
+problem in this project. See "Open issues" below. **The seeded stays run out
+on 5 October 2026**, so this now has a date on it.
 
 ### Open issues and decisions
 
@@ -109,6 +109,19 @@ explained, and that section was removed. Replace them or drop the strip.
 
 ### What landed this session
 
+Skeleton loaders, finished (D-077). Eleven `loading.tsx` files, one per guest
+segment, each built against its own `page.tsx` so nothing moves when the
+content lands. The primitive gained `SkeletonHeading`, `SkeletonTotal` and
+`SkeletonStep`, and `SkeletonBar` now takes an optional title — real where the
+route knows it, a grey bar where the title is data.
+
+Found on the way: making `.screen` a flex column so the service screen could
+anchor its button to the bottom edge made every screen taller than the
+viewport shrink its own children, and the amenities bars overlapped the
+heading under them. Caught by screenshotting all eleven rather than by a test.
+
+### Previously
+
 The marketing site at `/` and the `/demo` door beside it (D-062, D-063);
 business-facing copy and page motion (D-067, D-068); the real logo artwork and
 `pnpm logo:build` (D-065); stable demo QR codes and a readable dead-link page
@@ -124,6 +137,7 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P4 | `PENDING` | Skeleton loaders finished: eleven `loading.tsx` files, one per guest segment, each shaped like the page it stands in for, plus three new shapes on the primitive and a title that is real when the route knows it (D-077). Found `.screen` as a flex column shrinking every long screen's children until the amenities bars overlapped the heading — caught by screenshotting all eleven, not by a test. |
 | P4 | `e460b8f` | The marketing site, the demo door, and a session of guest-app work: business copy and motion on `/`, the real logo, stable demo links, Plan my day, amenities led by demand, lucide icons, and menu cards that add and remove (D-062 to D-076). Skeleton loaders begun — the primitive is in, the eleven `loading.tsx` files are not. |
 | P3.5 | `4f1db5b` | The marketing site at `/`, and the demo door beside it. Three themes now, two more self-hosted faces, and an SVG logo. `/demo` asks a visitor's name once, writes it to `demo_visitors` — the one untenanted table, INSERT-only under forced RLS — and opens the seeded room at FULL by a recorded vouch, so the four-digit prompt never fires for a stranger while a sticker scan still gets it (D-062, D-063). Found the form doing nothing: a Server Action redirect is followed by the client router, which cannot navigate to a Route Handler. |
 | P3.5 | `41cf78d` | `/admin/property` split into three tabs — This hotel, Room types, Floors & rooms. The two settings jobs went from a shared 4,400px page to 900px each, and the view switch moved into the shared console stylesheet so the desk and the property screen use one control (D-061). |

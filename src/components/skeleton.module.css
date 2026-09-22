@@ -11,6 +11,16 @@
   padding: 0 var(--space-4) var(--space-8);
 }
 
+/*
+ * Block, not a flex column.
+ *
+ * A column was tried so the service screen could push its button to the
+ * bottom edge the way the real one does. Every screen taller than the
+ * viewport then shrank: flex items default to `flex-shrink: 1`, a nested
+ * stack squeezed below its own content, and its bars overflowed onto the
+ * heading beneath. The one screen that wanted a bottom edge uses `.pinned`
+ * instead, which is what the other three pinned elements already do.
+ */
 .contents {
   display: block;
 }
@@ -50,6 +60,18 @@
   height: 56px;
   margin-inline: calc(var(--space-4) * -1);
   padding-inline: var(--space-2);
+}
+
+/* The sticky bars — menu, amenities, activity, order — sit on a hairline.
+   The two plain ones, service and stay, do not. */
+.bar_[data-divider='true'] {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* The small right-hand slot: a prep window, an order number. */
+.trailing {
+  margin-left: auto;
+  margin-right: var(--space-3);
 }
 
 .back {
@@ -145,12 +167,18 @@
   margin-top: var(--space-5);
 }
 
+/*
+ * The service screen's stage. The real one is `flex: 1` between a 56px bar
+ * and a 62px button, so 62dvh puts the bell within a few pixels of where it
+ * lands — near enough that nothing appears to move when it does.
+ */
 .centre {
+  min-height: 62dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
-  padding-top: var(--space-10);
+  justify-content: center;
+  gap: var(--space-6);
 }
 
 .pinned {
@@ -159,4 +187,242 @@
   bottom: 18px;
   transform: translateX(-50%);
   width: min(398px, calc(100% - 32px));
+}
+
+/* ── Shapes the eleven loading screens compose with ─────────────────────── */
+
+/*
+ * Baselines and money rows.
+ *
+ * `headingRow` is a section head — a title with a count or a time beside it,
+ * on one line. `totalRow` is a folio line: label left, amount hard right, and
+ * the grand total a step heavier with a rule above it.
+ */
+.headingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.totalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+.totalRow[data-grand='true'] {
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+/*
+ * Bottom clearance. Three screens pin something over their own content and
+ * each reserves a different amount for it — the home CTA, the menu and
+ * amenities pill, the dish screen's order bar with its review row. They are
+ * the page's own numbers; a skeleton that scrolls differently from the screen
+ * it stands in for has already jumped.
+ */
+.clearsCta { padding-bottom: 148px; }
+.clearsPill { padding-bottom: 104px; }
+.clearsOrderBar { padding-bottom: 176px; }
+
+/* ── The room home ──────────────────────────────────────────────────────── */
+
+/* Masthead: the hotel's name and the room chip, on one 60px line. */
+.mast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 60px;
+}
+
+/*
+ * The arch. Not a grey box: the doorway is drawn by the page, not fetched, so
+ * the dome, its recess and its height are all known before the query returns.
+ * Only the two lines of text inside it are waiting, and those are bars.
+ */
+.arch {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  height: 180px;
+  padding: var(--space-5);
+  border-radius: 44% 44% var(--radius-md) var(--radius-md) / 30% 30% 0 0;
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+}
+
+/* ── The dish screen ────────────────────────────────────────────────────── */
+
+/* The same jharokha at full bleed, square at the top where the bar sits. */
+.heroArch {
+  height: 220px;
+  margin-inline: calc(var(--space-4) * -1);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
+}
+
+/* ── The menu ───────────────────────────────────────────────────────────── */
+
+/* The category rail under the bar — a row of pills that scrolls sideways. */
+.rail {
+  display: flex;
+  gap: var(--space-2);
+  margin-inline: calc(var(--space-4) * -1);
+  padding: 0 var(--space-3) var(--space-3);
+  overflow: hidden;
+  /* The rail is the bottom of the menu's bar, so the hairline is here rather
+     than on the title row above it. */
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* ── Chips ──────────────────────────────────────────────────────────────── */
+
+/* Amenities leads with a wrapped strip of the most-asked-for things. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+
+/*
+ * A bordered block: the folio on the stay screen, the status block on a
+ * request, the hero on an order. Same surface and rule as the real ones.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+}
+
+/* ── The service screen ─────────────────────────────────────────────────── */
+
+/* The bell's disc, centred in its stage. Round, because the real one is. */
+.disc {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  /* The real bell's own veil and ring. At 12% with no ring it came out a
+     muddy olive against the indigo — the outline is what makes it a bell. */
+  background: color-mix(in srgb, var(--saffron) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--saffron) 38%, transparent);
+}
+
+/* ── The order timeline ─────────────────────────────────────────────────── */
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-5);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-3);
+  min-height: 62px;
+}
+
+.stepRail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+  width: 14px;
+  padding-top: 3px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-soft);
+}
+
+.line {
+  flex: 1;
+  width: 1px;
+  margin: 4px 0;
+  background: var(--border-soft);
+}
+
+.stepBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-5);
+}
+
+/* ── The cart, which is a sheet rather than a page ──────────────────────── */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink-900) 62%, transparent);
+}
+
+.sheet {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: min(430px, 100%);
+  max-height: 92dvh;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5) var(--space-6);
+  background: var(--ink-700);
+  border-top: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
+  border-radius: 18px 18px 0 0;
+}
+
+/* The grab handle. Real — it is a 44×4 rectangle whatever the server says. */
+.handle {
+  flex: none;
+  width: 44px;
+  height: 4px;
+  margin: var(--space-1) auto var(--space-2);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--plaster) 30%, transparent);
+}
+
+/*
+ * One entry in the activity list. Not a card — the real one is a column of
+ * three lines with a rule under it, and drawing a border around it here would
+ * make the list look like something else the moment it landed.
+ */
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* A place on the Plan-my-day list, which IS a card. */
+.place {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
 }
