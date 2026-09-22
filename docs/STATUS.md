@@ -51,6 +51,10 @@ upload line.
 problem in this project. See "Open issues" below. **The seeded stays run out
 on 5 October 2026**, so this now has a date on it.
 
+Run `pnpm quality` (localhost:3999) to see where the gates stand before and
+after either of those — it is faster than four terminals and it will tell you
+when a green belongs to an older tree than the one in front of you.
+
 ### Open issues and decisions
 
 **The demo data expires.** `DEMO_STAY_NIGHTS` is 14 and the last reseed was
@@ -108,6 +112,19 @@ explained, and that section was removed. Replace them or drop the strip.
    GitHub and CI has never run. P1's exit criterion is still unsigned.
 
 ### What landed this session
+
+`pnpm quality` (D-078) — every validation this repo has on one page, with
+what each proves, a Run button, streamed output, and a result stamped with
+the tree it ran against so a stale green says so. Its own process on
+localhost:3999, never deployable, because it spawns build tooling. The
+environment checks are now shared with `pnpm status` rather than copied
+(`scripts/lib/project-checks.ts`); that command's output is unchanged.
+
+Two hazards it surfaced, both found by using it: pressing Build would have
+written into the dev server's `.next` (it uses its own distDir now, and
+restores the two files `next build` rewrites), and pressing Run on the
+integration suite would have provisioned test tenants into **production** —
+so that row names its target host and asks first.
 
 Skeleton loaders, finished (D-077). Eleven `loading.tsx` files, one per guest
 segment, each built against its own `page.tsx` so nothing moves when the

@@ -49,6 +49,9 @@ ENVIRONMENT — these have each cost a session before
   Kill it, `rm -rf .next`, then build.
 - `pnpm demo:reset` wipes and reseeds The Kesari against whatever DATABASE_URL
   resolves to. Demo QR codes are stable (`the-kesari-214`) and survive it.
+- `pnpm test:integration` also writes to whatever DATABASE_URL resolves to —
+  it provisions tenants. On this machine that is PRODUCTION. The quality page
+  names the host and asks before running it; the bare command does not.
 
 DISCIPLINE — the test suite enforces all of this
 
@@ -70,10 +73,12 @@ DISCIPLINE — the test suite enforces all of this
 
 DEFINITION OF DONE
 
-`pnpm typecheck && pnpm lint && pnpm test && pnpm build`, then verify the
-change on a running app — screenshot it, do not assume. Commit with a
+`pnpm typecheck && pnpm lint && pnpm test && pnpm build` — or `pnpm quality`,
+which is those four on a page at localhost:3999 with the output, the
+durations and a stale marker when a green predates your last edit. Then
+verify the change on a running app — screenshot it, do not assume. Commit with a
 conventional message explaining WHY. Record anything non-obvious as a new
-D-0xx in docs/DECISIONS.md (D-077 is the last one used) and update
+D-0xx in docs/DECISIONS.md (D-078 is the last one used) and update
 docs/STATUS.md before finishing.
 
 Ask before: changing the tenancy model, adding an external service, changing a

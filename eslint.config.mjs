@@ -145,6 +145,27 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': 'off' },
   },
 
+  /**
+   * `pnpm quality` serves this one script to a browser.
+   *
+   * It is the only browser code in the repo that Next does not compile, so
+   * nothing else has taught eslint that `document` exists here. Named
+   * explicitly rather than pulling in a globals package for four identifiers.
+   */
+  {
+    files: ['scripts/quality/public/*.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        fetch: 'readonly',
+        EventSource: 'readonly',
+        setInterval: 'readonly',
+      },
+    },
+  },
+
   // Must come last — see the ORDER MATTERS note above.
   ...moduleBoundaries,
 );

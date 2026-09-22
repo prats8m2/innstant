@@ -2520,3 +2520,70 @@ watching the real thing: a throttled hard navigation to `/menu` and throttled
 200ms. The arch-topped thumbnail on the menu card is in the skeleton for the
 same reason the five rungs are — a plain rounded square there is the one thing
 on that screen that would visibly change shape when the dishes arrive.
+
+### D-078 · `pnpm quality` — the validations, on a page, runnable
+Six validations exist in this repo and the only way to see them was to type
+six commands and read six terminals. `pnpm status` reported three of them as
+bare pass/fail with no output, no duration and no history. This adds a page
+that lists all six with what each one proves, runs any of them, and streams
+the output.
+
+**It is a separate process, deliberately.** It spawns build tooling, and
+nothing that spawns build tooling belongs in the Next app: that app is a
+long-lived Node process serving guests on a public domain, and an
+`exec` endpoint guarded only by `NODE_ENV` is one misconfiguration from being
+reachable. `pnpm quality` binds to loopback, is started by hand, and cannot
+be deployed by accident. The alternative — a `/quality` route in the
+`(ops)` group — was considered and rejected on exactly that.
+
+**The registry is an allowlist, not a convenience.** `POST /api/run` names an
+`id`; the server looks it up in `scripts/quality/registry.ts` and spawns the
+`argv` recorded there. No command is ever assembled from request input. Three
+further guards, because a localhost port is still reachable from a browser
+tab on any site: no CORS headers are sent, mutating requests must carry
+`X-Quality: 1` (which forces a preflight that is never answered), and a
+request arriving with a foreign `Origin` is refused.
+
+**Every result is stamped with the tree it ran against.** A green tick with
+no provenance is the thing this page replaces. The first version compared
+"was the worktree dirty" — which marks every result stale the instant it
+finishes, because during ordinary work the tree is always dirty, and a badge
+that is always lit says nothing. It compares a fingerprint now: the commit,
+plus a hash of `git status --porcelain` and the content of `git diff HEAD`.
+Edit a file and the greens go stale; touch nothing and they stay green. The
+fingerprint misses content changes to untracked files, which is a real and
+small gap — closing it means reading every untracked file on every poll.
+
+**Two hazards the button made worse than the command did.** Both were found
+by using the page rather than by reading it:
+
+- `pnpm build` writes to `.next`, and a build into the directory a running
+  dev server is watching corrupts that server — it has cost this project a
+  session before. The check runs with `NEXT_DIST_DIR=.next-quality`, and
+  since `next build` rewrites `next-env.d.ts` and `tsconfig.json` to name
+  whichever distDir it used, the runner snapshots both and puts them back.
+  Pressing Build leaves the worktree byte-identical.
+- `pnpm test:integration` provisions tenants into whatever `DATABASE_URL`
+  resolves to, and on this machine that is **production** — a hazard
+  docs/STATUS.md has carried a warning about for two sessions. A command you
+  type gives you a moment to think; a button does not. That check is flagged
+  `writes: true`, the row names the target host, and clicking it asks first.
+  "Run everything" excludes it unless separately agreed.
+
+**The environment checks are shared with `pnpm status`, not copied.** Both
+now import `scripts/lib/project-checks.ts`. Two copies of an RLS check is
+precisely how two tools start disagreeing about whether RLS is on; the
+terminal output of `pnpm status` is unchanged, verified by diff.
+
+The page reads `src/styles/theme.css` off disk and serves it, so the tool is
+on the product's own palette with no second copy of a colour to drift — the
+same rule the app follows. Its behaviour is a separate `quality.js` rather
+than an inline script, because the one page that should never carry an
+inline-script exemption is the page that renders whatever a test run decided
+to print.
+
+`tests/unit/quality-registry.test.ts` guards the registry: unique ids, an
+unknown id resolving to nothing rather than a prototype property, every
+`command` matching the `argv` actually spawned, every script existing in
+package.json, the build's distDir and restore list, and the `writes` flag.
+All six guards were mutation-tested.

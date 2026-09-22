@@ -19,6 +19,10 @@ playwright-report/
 blob-report/
 .playwright/
 
+# `pnpm quality` caches its last results here so the page is useful the moment
+# it opens. Machine-local and re-derivable — never committed.
+.quality/
+
 # Written by `pnpm demo:reset` for the e2e suite. Holds live QR codes for
 # whichever database was last seeded — never commit it.
 .demo-seed.json

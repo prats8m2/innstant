@@ -23,6 +23,7 @@
     "demo:reset": "tsx --env-file-if-exists=.env scripts/demo-reset.ts",
     "logo:build": "tsx scripts/prepare-logo.ts",
     "status": "tsx scripts/status.ts",
+    "quality": "tsx scripts/quality/server.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "pnpm test && pnpm test:integration",
     "design:decode": "tsx scripts/decode-design-export.ts",

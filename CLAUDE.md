@@ -81,6 +81,8 @@ service function.
 
 ```bash
 pnpm status           # where the work is + verified env state — run first
+pnpm quality          # every validation on one page, runnable (D-078)
+                      #   localhost:3999, its own process — never deployed
 pnpm dev              # next dev
 pnpm dev:lan          # next dev + APP_URL set to this machine's wifi address,
                       #   so a QR link opened on a phone reaches this laptop
@@ -275,3 +277,11 @@ in `docs/EXTENSION-POINTS.md`.
 **Definition of done for a task:** types pass, lint passes, tests pass, the
 happy path works against the seeded demo property, and the event log shows the
 transitions you expect.
+
+`pnpm quality` is the same four gates on one page, with the output and the
+durations, and it stamps each result with the tree it ran against so a green
+from before your last edit is labelled rather than trusted. It also holds the
+two checks that are not part of the per-task bar — integration and e2e —
+because each needs a service the repo cannot provide for itself. Note that
+the integration suite WRITES to whatever `DATABASE_URL` resolves to; the page
+names the host and asks first, and you should read what it says.

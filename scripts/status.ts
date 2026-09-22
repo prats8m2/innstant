@@ -13,17 +13,9 @@
  */
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { dbSsl } from '@/db/ssl';
-
-type Check = { label: string; ok: boolean | null; detail: string };
-
-const sh = (cmd: string): string => {
-  try {
-    return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-  } catch {
-    return '';
-  }
-};
+import {
+  type Check, OPTIONAL_KEYS, sh, loadEnv, checkDatabase, checkDeploy,
+} from './lib/project-checks';
 
 const quiet = (cmd: string): boolean => {
   try {
@@ -34,145 +26,6 @@ const quiet = (cmd: string): boolean => {
   }
 };
 
-function loadEnv(): Record<string, string> {
-  if (!existsSync('.env')) return {};
-  return Object.fromEntries(
-    readFileSync('.env', 'utf8')
-      .split('\n')
-      .filter((l) => /^[A-Z0-9_]+=/.test(l))
-      .map((l) => {
-        const i = l.indexOf('=');
-        return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')] as const;
-      }),
-  );
-}
-
-async function checkDatabase(env: Record<string, string>): Promise<Check[]> {
-  const out: Check[] = [];
-  const url = env.DATABASE_URL;
-  const migrationUrl = env.DATABASE_MIGRATION_URL;
-
-  if (!url || url.includes('...')) {
-    return [{ label: 'database', ok: false, detail: 'DATABASE_URL unset or still a placeholder' }];
-  }
-
-  const role = (u: string): string => {
-    try {
-      return new URL(u).username;
-    } catch {
-      return '?';
-    }
-  };
-
-  // CLAUDE.md #2 — the app connects as app_user, migrations as the owner.
-  out.push({
-    label: 'DATABASE_URL role',
-    ok: role(url) === 'app_user',
-    detail: `${role(url)}${role(url) === 'app_user' ? '' : ' — MUST be app_user, or RLS is decorative (CLAUDE.md #2)'}`,
-  });
-  out.push({
-    label: 'DATABASE_MIGRATION_URL role',
-    ok: !!migrationUrl && !migrationUrl.includes('...') && role(migrationUrl) !== 'app_user',
-    detail: migrationUrl?.includes('...') ? 'placeholder' : `${role(migrationUrl ?? '')} (owner)`,
-  });
-
-  let pg: typeof import('pg') | undefined;
-  try {
-    pg = await import('pg');
-  } catch {
-    out.push({ label: 'database reachable', ok: null, detail: 'pg not installed yet' });
-    return out;
-  }
-
-  const ssl = dbSsl(url);
-  const client = new pg.default.Client({
-    connectionString: url,
-    ssl,
-    connectionTimeoutMillis: 10_000,
-  });
-  try {
-    await client.connect();
-    const v = await client.query<{ v: string }>("select current_setting('server_version') as v");
-    out.push({
-      label: 'database reachable',
-      ok: true,
-      detail: `PostgreSQL ${v.rows[0]?.v ?? '?'} (${ssl ? 'TLS' : 'no TLS, local host'})`,
-    });
-
-    const priv = await client.query<{ rolsuper: boolean; rolbypassrls: boolean }>(
-      `select rolsuper, rolbypassrls from pg_roles where rolname = current_user`,
-    );
-    const p = priv.rows[0];
-    out.push({
-      label: 'app_user is RLS-subject',
-      ok: !!p && !p.rolsuper && !p.rolbypassrls,
-      detail: p ? (p.rolsuper || p.rolbypassrls ? 'HAS SUPERUSER/BYPASSRLS — isolation is not enforced' : 'no superuser, no BYPASSRLS') : '?',
-    });
-
-    const t = await client.query<{ n: string }>(
-      `select count(*) n from pg_tables where schemaname = 'public'`,
-    );
-    out.push({ label: 'public tables', ok: null, detail: `${t.rows[0]?.n ?? '?'}` });
-
-    const owned = await client.query<{ n: string }>(
-      `select count(*) n from pg_tables where schemaname='public' and tableowner = current_user`,
-    );
-    out.push({
-      label: 'tables owned by app_user',
-      ok: owned.rows[0]?.n === '0',
-      detail: `${owned.rows[0]?.n ?? '?'} (must be 0 — owners bypass RLS silently)`,
-    });
-  } catch (e) {
-    out.push({
-      label: 'database reachable',
-      ok: false,
-      detail: e instanceof Error ? e.message.slice(0, 100) : 'unknown error',
-    });
-  } finally {
-    await client.end().catch(() => {});
-  }
-  return out;
-}
-
-/**
- * S8. The parts of a deploy that are visible from here.
- *
- * Deliberately narrow: this cannot tell you whether Railway is serving, only
- * whether the repo is wired up to get there. The one assertion that matters —
- * a phone on mobile data scanning a printed code — is not automatable and is
- * written down in docs/DEPLOYMENT.md instead.
- */
-function checkDeploy(): Check[] {
-  const remote = sh('git remote get-url origin');
-  const upstream = sh('git rev-parse --abbrev-ref --symbolic-full-name @{u}');
-  const branch = sh('git rev-parse --abbrev-ref HEAD');
-
-  return [
-    {
-      label: 'git remote',
-      ok: !!remote,
-      detail: remote || 'none — CI cannot run and Railway has nothing to deploy from',
-    },
-    {
-      label: 'branch tracks a remote',
-      ok: !!upstream,
-      detail: upstream || `${branch} is local only (\`git push -u origin ${branch}\`)`,
-    },
-    {
-      label: 'CI workflow',
-      ok: existsSync('.github/workflows/ci.yml'),
-      detail: existsSync('.github/workflows/ci.yml') ? 'checks · integration · e2e' : 'missing',
-    },
-    {
-      label: 'deploy image',
-      ok: existsSync('Dockerfile') && existsSync('railway.json'),
-      detail:
-        existsSync('Dockerfile') && existsSync('railway.json')
-          ? 'Dockerfile + railway.json (healthcheck /api/health)'
-          : 'missing Dockerfile or railway.json',
-    },
-  ];
-}
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -205,8 +58,7 @@ async function main(): Promise<void> {
     const mark = c.ok === null ? '\x1b[90m·\x1b[0m' : c.ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
     console.log(`  ${mark} ${c.label.padEnd(28)} ${c.detail}`);
   }
-  const optional = ['R2_ACCESS_KEY_ID', 'RAZORPAY_KEY_ID', 'SMS_PROVIDER_KEY', 'GOOGLE_PLACES_API_KEY'];
-  const unset = optional.filter((k) => !env[k]);
+  const unset = OPTIONAL_KEYS.filter((k) => !env[k]);
   if (unset.length) console.log(`  \x1b[90m·\x1b[0m ${'not needed yet'.padEnd(28)} ${unset.join(', ')}`);
 
   console.log('\n\x1b[1mDEPLOY\x1b[0m');
