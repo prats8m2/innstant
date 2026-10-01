@@ -21,47 +21,45 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Production is green and verified, and is one commit behind this repo.**
+**Production is green, verified, and CURRENT with this repo (`16bbca1`).**
 
     https://innstant.in                        the site, /demo, and the app
     https://innstant.in/r/the-kesari-214       the demo room (stable link)
     https://innstant.in/admin                  staff console
 
-Gates locally: typecheck, lint, **370 unit tests**, build — all green.
-`/api/health` reports migrations 8/8 with none pending, 54 tables with RLS
-enabled and forced.
+Gates locally: typecheck, lint, **377 unit tests**, build — all green.
+`/api/health` reports migrations 8/8 with none pending.
 
-**The skeleton loaders are finished and NOT yet deployed.** All eleven
-`loading.tsx` files are committed and verified locally; production is still
-running `b2904c2`. Deploying them is the first thing to do — see below.
-
-**The homepage's call to action has been inverted** (`69e1685`). `/demo` is
-the filled primary in the hero, the header and the dark band; "Book a demo" is
-the outlined secondary everywhere. The same change added
-`src/app/(site)/site-icons.tsx` and cut roughly a third of the body copy on
-`/`. Four gates green, `/demo` still 200. It ships in the same deploy as the
-skeleton loaders.
+**Nothing is waiting to be deployed.** The eleven skeleton loaders (D-077) and
+the homepage's inverted CTA (`69e1685`) went out together on 1 October 2026.
+Verified on the deployed site rather than from the upload line: `/` serves the
+new header button, `/demo` is 200, health reports a fresh process with the db
+up at ~25ms.
 
 ### Pick up here
 
-**1 — Deploy.** Two things are waiting: the guest app's eleven loading
-screens (D-077) and the homepage's inverted CTA (`69e1685`). Nothing else is
-pending.
-
-    npx --yes @railway/cli@latest up --service kesari --detach
-
-Takes 5–10 minutes. Poll for the actual change — a scan of
-`https://innstant.in/r/the-kesari-214` on a throttled connection should show a
-skeleton, not the previous screen — rather than reporting "deployed" from the
-upload line.
-
-**2 — A scheduled demo reseed.** The single most persistent operational
+**1 — A scheduled demo reseed.** The single most persistent operational
 problem in this project. See "Open issues" below. **The seeded stays run out
 on 5 October 2026**, so this now has a date on it.
 
-Run `pnpm quality` (localhost:3999) to see where the gates stand before and
-after either of those — it is faster than four terminals and it will tell you
-when a green belongs to an older tree than the one in front of you.
+Run `pnpm quality` (localhost:3999) to see where the gates stand — it is
+faster than four terminals and it will tell you when a green belongs to an
+older tree than the one in front of you.
+
+**2 — Two places the docs and the infrastructure disagree.** Both found while
+deploying on 1 October 2026, neither investigated:
+
+- `railway status` reports the `kesari` service in **`ams`**, not Singapore.
+  CLAUDE.md's stack table says Singapore, and the site's own Security section
+  tells visitors "Everything runs from Singapore, which is near enough that
+  the app feels instant on Indian hotel wifi". If the region is really
+  Amsterdam then that is a false claim on the one page whose argument is that
+  its claims are checkable — either move the service or fix the sentence.
+- The Railway project has a **`PgBouncer` service**. CLAUDE.md
+  non-negotiable #3 says "Superseded in part by D-022: there is no PgBouncer."
+  Harmless by construction — that same note exists so a pooler can be put back
+  without touching application code — but find out whether the app is routed
+  through it and make the doc say so.
 
 ### Open issues and decisions
 
