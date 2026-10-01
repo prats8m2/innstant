@@ -21,6 +21,7 @@
  * If one of those invariants ever changes, this file is part of the blast
  * radius.
  */
+import type { SiteIconName } from './site-icons';
 
 export interface Pillar {
   kicker: string;
@@ -29,29 +30,65 @@ export interface Pillar {
   foot: string;
   /** The little shape in the corner — a door, a tile, a ring. */
   shape: 'arch' | 'square' | 'ring';
+  /** The mark inside the shape, and the `--icon-*` tone it is drawn in. */
+  icon: SiteIconName;
+  tone: 'amenity' | 'service' | 'stay';
+  /**
+   * The list that used to be a sentence.
+   *
+   * Each of these three cards opened with a comma-separated list — "dinner,
+   * extra towels, an iron, somebody from the desk, a later checkout,
+   * somewhere to eat nearby" — which is a paragraph doing a diagram's job.
+   * Nobody reads the sixth item. As marks they are scanned in about as long
+   * as it takes to see there are four of them.
+   */
+  chips: { icon: SiteIconName; label: string }[];
 }
 
 export const PILLARS: Pillar[] = [
   {
     kicker: 'For the guest',
     title: 'Ask for anything without picking up the phone.',
-    body: 'Dinner, extra towels, an iron, somebody from the desk, a later checkout, somewhere to eat nearby. Every request is confirmed on the spot, and they can see how far along it is without asking again.',
+    body: 'Every request is confirmed on the spot, and they can watch it move without asking again.',
     foot: 'No app, no login, no waiting on hold',
     shape: 'arch',
+    icon: 'phone',
+    tone: 'amenity',
+    chips: [
+      { icon: 'dining', label: 'Dinner' },
+      { icon: 'linen', label: 'Amenities' },
+      { icon: 'desk', label: 'The desk' },
+      { icon: 'nearby', label: 'Nearby' },
+    ],
   },
   {
     kicker: 'For your teams',
     title: 'Kitchen, runners, housekeeping and the desk, in sync.',
-    body: 'One order becomes a kitchen ticket, a pickup, a delivery and a line on the bill — each appearing on the screen of the person who needs it. Nothing gets relayed by radio, shouted down a corridor, or written on a pad.',
-    foot: 'A kitchen screen, staff phones, and the front desk',
+    body: 'One order becomes a ticket, a pickup, a delivery and a line on the bill — each on the right screen.',
+    foot: 'Nothing relayed by radio or written on a pad',
     shape: 'square',
+    icon: 'screen',
+    tone: 'service',
+    chips: [
+      { icon: 'kitchen', label: 'Kitchen' },
+      { icon: 'runner', label: 'Runners' },
+      { icon: 'bed', label: 'Housekeeping' },
+      { icon: 'desk', label: 'Front desk' },
+    ],
   },
   {
     kicker: 'For the owner',
     title: 'Every interaction priced, timed and on the record.',
-    body: 'Service charge, delivery fees, late checkout rates and taxes are set once and applied every time. You can see how long each request took. And there is a record of everything, which is what settles an argument at the desk.',
+    body: 'Charges and taxes are set once and applied every time. Nothing is settled from memory.',
     foot: 'Revenue you were leaving in the room',
     shape: 'ring',
+    icon: 'rupee',
+    tone: 'stay',
+    chips: [
+      { icon: 'percent', label: 'Priced' },
+      { icon: 'timer', label: 'Timed' },
+      { icon: 'record', label: 'On the record' },
+    ],
   },
 ];
 
@@ -60,6 +97,19 @@ export interface Step {
   time: string;
   title: string;
   body: string;
+  /** The surface this step happens on. */
+  icon: SiteIconName;
+  /**
+   * The one thing actually on that screen at that minute, drawn rather than
+   * described.
+   *
+   * These replace the second half of every step's paragraph. "It keeps
+   * flashing until somebody picks it up. Accepting starts the clock." is two
+   * sentences about a button; a ticket showing `KE-1184 · 00:12` beside the
+   * word "Accept" is the button. The values are the seeded demo property's,
+   * so what a visitor reads here and what they see one click later agree.
+   */
+  proof: { label: string; value: string };
 }
 
 /** One order, followed across all four surfaces. The times are one evening. */
@@ -68,31 +118,41 @@ export const STEPS: Step[] = [
     who: 'Guest',
     time: '21:40',
     title: 'Scans the QR on the nightstand.',
-    body: 'The page already knows it is room 214, that Anjali is in it, and that she leaves on Thursday. Nothing to install, nothing to sign into.',
+    body: 'The page already knows the room, the guest and the checkout date. Nothing to install.',
+    icon: 'qr',
+    proof: { label: 'The Kesari', value: 'Room 214 · Anjali' },
   },
   {
     who: 'Guest',
     time: '21:41',
-    title: 'Orders laal maas and two lassis in three taps.',
-    body: 'Modifiers, quantity, a note for the runner. The cart pill morphs as items land. Sent to room 214, charged to the folio.',
+    title: 'Orders dinner in three taps.',
+    body: 'Modifiers, quantity, a note for the runner. Charged to the folio, not to a card.',
+    icon: 'cart',
+    proof: { label: 'Cart', value: '3 items · ₹2,266' },
   },
   {
     who: 'Kitchen',
     time: '21:41',
-    title: 'The ticket is on the kitchen screen before she puts the phone down.',
-    body: 'It keeps flashing until somebody picks it up. Accepting starts the clock. If the sole is off tonight, the chef says so and the guest reads it in her own words, not from a phone call.',
+    title: 'The ticket lands before she puts the phone down.',
+    body: 'It flashes until somebody accepts, and accepting starts the clock.',
+    icon: 'kitchen',
+    proof: { label: 'KE-1184 · 214', value: 'Accept · 00:12' },
   },
   {
     who: 'Runner',
     time: '22:09',
     title: 'Kishan’s phone buzzes when the kitchen bumps it.',
-    body: 'He sees her note — no bell after 10, please knock. Picked up, delivered, done. She watched each step happen on her phone without ringing anyone.',
+    body: 'He sees her note. Picked up, delivered, done — and she watched each step.',
+    icon: 'runner',
+    proof: { label: 'Note from 214', value: 'No bell — please knock' },
   },
   {
     who: 'Front desk',
     time: '22:10',
-    title: '₹2,266 is on the folio before the plates are cleared.',
-    body: 'Devika can see the line, the times and who carried it up. At checkout it settles with everything else, on one bill.',
+    title: 'It is on the folio before the plates are cleared.',
+    body: 'The line, the times and who carried it up. At checkout it settles with everything else.',
+    icon: 'folio',
+    proof: { label: 'Folio · 214', value: '₹2,266 posted' },
   },
 ];
 
@@ -101,6 +161,7 @@ export interface RevenueCard {
   statLabel: string;
   title: string;
   body: string;
+  icon: SiteIconName;
 }
 
 export const REVENUE: RevenueCard[] = [
@@ -108,25 +169,29 @@ export const REVENUE: RevenueCard[] = [
     stat: '+38%',
     statLabel: 'in-room dining orders',
     title: 'Ordering without a phone call',
-    body: 'Guests order more when they can browse a menu with pictures and prices at their own pace, at 11pm, without speaking to anyone.',
+    body: 'A menu with pictures and prices, browsed at 11pm without speaking to anyone.',
+    icon: 'dining',
   },
   {
     stat: '₹2,500',
     statLabel: 'average late checkout fee',
     title: 'Late checkout as a product',
-    body: 'Tiered fees the guest requests themselves. The desk approves in one click when the room is free. It used to be a shrug.',
+    body: 'Tiered fees the guest asks for themselves. One click at the desk. It used to be a shrug.',
+    icon: 'clock',
   },
   {
     stat: '6×',
     statLabel: 'more amenity requests logged',
     title: 'Chargeable amenities, visibly priced',
-    body: 'Laundry, airport cars, a bottle of wine. In one list next to free towels, each with a promise time.',
+    body: 'Laundry, airport cars, a bottle of wine — beside the free towels, each with a promise time.',
+    icon: 'linen',
   },
   {
     stat: '10%',
     statLabel: 'service charge, applied every time',
     title: 'Nothing forgotten at the desk',
-    body: 'Service charge, delivery fees and taxes are configured once. Every order carries them. Every one reconciles.',
+    body: 'Service charge, delivery and taxes are configured once. Every order carries them.',
+    icon: 'percent',
   },
 ];
 
@@ -161,50 +226,66 @@ export interface SecurityItem {
   badgeTone: 'strong' | 'gold' | 'quiet';
   title: string;
   body: string;
+  icon: SiteIconName;
 }
 
+/**
+ * Six promises, one short paragraph each.
+ *
+ * They used to run to four and five lines apiece, which on a dark band is a
+ * wall. The mechanism — how the wall between two hotels is actually built,
+ * why a double tap cannot make two charges — was always for the call rather
+ * than for the page; what is left is the promise itself and the mark that
+ * says which kind of promise it is.
+ */
 export const SECURITY: SecurityItem[] = [
   {
     kicker: 'Separation',
     badge: 'Tested every release',
     badgeTone: 'strong',
     title: 'One hotel can never see another',
-    body: 'Your guests, your orders and your bills sit behind a wall the software itself cannot step over — not a setting somebody could switch off by mistake. We test that wall on every release by trying to break it.',
+    body: 'Your guests, orders and bills sit behind a wall the software itself cannot step over — not a setting somebody could switch off. We try to break it on every release.',
+    icon: 'shield',
   },
   {
     kicker: 'Your guests',
     badge: 'No accounts',
     badgeTone: 'gold',
     title: 'Nobody signs up for anything',
-    body: 'A guest scans the code by the bed and they are in. No app to install, no password, no email address collected. Their access lasts exactly as long as their stay and stops at checkout.',
+    body: 'Scan the code by the bed and they are in. No app, no password, no email collected. Access lasts exactly as long as the stay.',
+    icon: 'qr',
   },
   {
     kicker: 'Your team',
     badge: '8 roles',
     badgeTone: 'quiet',
     title: 'Everyone sees only their own job',
-    body: 'The kitchen sees tickets. A runner sees deliveries. Only the front desk sees a bill. Eight roles arrive already set up, and moving somebody between them takes one click.',
+    body: 'The kitchen sees tickets. A runner sees deliveries. Only the front desk sees a bill. Moving somebody between roles takes one click.',
+    icon: 'roles',
   },
   {
     kicker: 'Money',
     badge: 'Never twice',
     badgeTone: 'quiet',
     title: 'A guest cannot be charged twice',
-    body: 'Double-tapping “Place order” on slow hotel wifi is the single most common thing that happens in this product. It makes one order and one charge, every time, however many times the button is pressed.',
+    body: 'Double-tapping “Place order” on slow hotel wifi is the most common thing that happens here. It makes one order and one charge, every time.',
+    icon: 'once',
   },
   {
     kicker: 'Payments',
     badge: 'Razorpay',
     badgeTone: 'quiet',
     title: 'Card details never reach us',
-    body: 'Money is taken by Razorpay, who hold the card. We keep the amount and a reference so it reconciles against the folio, and nothing else.',
+    body: 'Razorpay holds the card. We keep the amount and a reference so it reconciles against the folio, and nothing else.',
+    icon: 'card',
   },
   {
     kicker: 'The record',
     badge: 'Permanent',
     badgeTone: 'quiet',
     title: 'Every action is on the record',
-    body: 'Who accepted the order, who carried it up, who approved the late checkout, and at what minute. None of it can be quietly changed afterwards — which is exactly what makes it worth having when a guest disputes a line on their bill.',
+    body: 'Who accepted, who carried it up, who approved the late checkout, and at what minute. None of it can be quietly changed afterwards.',
+    icon: 'record',
   },
 ];
 
@@ -276,22 +357,22 @@ export const SECTIONS = {
   how: {
     kicker: 'How it works',
     title: 'From the guest’s phone to the kitchen in about a second.',
-    lede: 'One order, four screens, no phone calls. Every step is written down as it happens, so nothing gets lost between a guest, a runner and the front desk.',
+    lede: 'One order, four screens, no phone calls — followed here minute by minute.',
   },
   revenue: {
     kicker: 'Revenue',
     title: 'Every request becomes a line on the bill, not a favour at the desk.',
-    lede: 'Hotels leave money in the room because ordering means a phone call, late checkout is a shrug and the spa is a leaflet. Innstant turns each of those into something the guest does themselves — priced, timed and charged to the room.',
+    lede: 'Ordering means a phone call, late checkout is a shrug, the spa is a leaflet. Each becomes something the guest does themselves — priced, timed, charged to the room.',
   },
   security: {
     kicker: 'Trust',
     title: 'Your guests’ data is yours. Your neighbour’s is theirs.',
-    lede: 'Innstant runs many hotels on one system, and each one is walled off from the rest. Not by a policy somebody has to remember — by the way it is built.',
+    lede: 'Many hotels, one system, each walled off from the rest — by the way it is built, not by a policy somebody has to remember.',
   },
   contact: {
     kicker: 'Book a demo',
     title: 'Twenty minutes, on your phone, with your own menu.',
-    lede: 'Tell us the property and we set it up with your name, your rooms and your outlets before the call. You scan, you order, your team watches it land.',
+    lede: 'We set it up with your name, your rooms and your outlets before the call. You scan, you order, your team watches it land.',
   },
 } as const;
 

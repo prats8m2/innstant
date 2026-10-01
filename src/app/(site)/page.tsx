@@ -3,6 +3,7 @@ import { InnstantLogo, InnstantMark } from '@/components/innstant-logo';
 import { NAV, SECTIONS, PILLARS, STEPS, REVENUE, THEMES, SECURITY, QUOTES } from './content';
 import { DemoRequestForm } from './demo-request-form';
 import { Reveal, SiteHeader } from './motion';
+import { SiteIcon, type SiteIconName } from './site-icons';
 import { PhoneMock } from './phone-mock';
 import styles from './site.module.css';
 
@@ -73,7 +74,17 @@ function SiteNav() {
         <div className={styles.navActions}>
           {/* The real console, not a marketing page about it. */}
           <Link href="/admin" className={styles.navSignIn}>Staff sign in</Link>
-          <a href="#contact" className={styles.navCta}>Book a demo</a>
+          <a href="#contact" className={styles.navSignIn}>Book a demo</a>
+          {/*
+            The filled button in the header is the LIVE DEMO, not the contact
+            form. Both are still here, and below 720px the two quiet links
+            drop out and this is the only thing left — which is the intended
+            reading of "what should somebody do first".
+          */}
+          <Link href="/demo" className={styles.navCta}>
+            <SiteIcon name="play" size={15} />
+            See the live demo
+          </Link>
         </div>
       </div>
     </SiteHeader>
@@ -91,27 +102,46 @@ function Hero() {
         </h1>
 
         <p className={styles.heroBody}>
-          Innstant gives every hotel guest a personal concierge on their own
-          phone. They order dinner, ask for towels, reach the desk and extend
-          their stay in a few taps. Your kitchen, housekeeping and reception see
-          it the moment it happens.
+          A personal concierge on the phone your guest already has. Dinner,
+          towels, the front desk, a later checkout — and your kitchen,
+          housekeeping and reception see each one the moment it happens.
         </p>
 
         <div className={styles.heroActions}>
-          <a href="#contact" className={styles.primaryCta}>Book a 20-minute demo</a>
           {/*
-            The one link on this page that goes somewhere real. `/demo` asks
-            what to call the visitor, then opens the seeded property as a guest
-            — the actual product, not a screenshot of it.
+            ─── The demo is the primary action ─────────────────────────────
+
+            It was the other way round: "Book a 20-minute demo" filled and
+            "See how it works" in the outlined secondary. That asks a stranger
+            for a calendar slot before they have seen anything, and it spends
+            the page's loudest button on the harder yes.
+
+            `/demo` is the one link here that goes somewhere real — it asks
+            what to call the visitor, then opens the seeded property as a
+            guest. Letting somebody answer "is this any good" for themselves
+            in thirty seconds is what makes the second button worth pressing,
+            so the second button is what it demotes.
           */}
-          <Link href="/demo" className={styles.secondaryCta}>See how it works</Link>
+          <Link href="/demo" className={styles.primaryCta}>
+            <SiteIcon name="play" size={16} />
+            See how it works
+          </Link>
+          <a href="#contact" className={styles.secondaryCta}>Book a 20-minute demo</a>
         </div>
+
+        {/* Directly under the buttons, because the first objection to a link
+            that says "see it" is always what it is going to ask for first. */}
+        <p className={styles.heroReassure}>
+          <SiteIcon name="qr" size={15} />
+          The demo opens a real hotel we invented. No signup, no card.
+        </p>
 
         <dl className={styles.heroStats}>
           <Stat value="2 s" label="Scan to first screen" />
           <Stat value="3 taps" label="Dinner to the room" />
           <Stat value="0" label="Apps installed, passwords set" />
         </dl>
+
       </div>
 
       <PhoneMock />
@@ -170,10 +200,29 @@ function Pillars() {
           <Reveal as="article" key={pillar.kicker} className={styles.pillar} delay={i * 90}>
             <div className={styles.pillarHead}>
               <span className={styles.pillarKicker}>{pillar.kicker}</span>
-              <span className={styles.pillarShape} data-shape={pillar.shape} aria-hidden="true" />
+              {/*
+                The shape survives — a door, a tile and a ring are the brand's
+                three marks and they are what tells the cards apart at a
+                glance. It is a container now rather than a solid, with the
+                mark for this audience inside it: a phone for the guest, a
+                screen for the team, a rupee for the owner.
+              */}
+              <span className={styles.pillarShape} data-shape={pillar.shape} data-tone={pillar.tone}>
+                <SiteIcon name={pillar.icon} size={22} />
+              </span>
             </div>
             <h3 className={styles.pillarTitle}>{pillar.title}</h3>
             <p className={styles.pillarBody}>{pillar.body}</p>
+
+            <ul className={styles.pillarChips}>
+              {pillar.chips.map((chip) => (
+                <li key={chip.label} className={styles.pillarChip} data-tone={pillar.tone}>
+                  <SiteIcon name={chip.icon} size={15} />
+                  {chip.label}
+                </li>
+              ))}
+            </ul>
+
             <p className={styles.pillarFoot}>{pillar.foot}</p>
           </Reveal>
         ))}
@@ -193,19 +242,41 @@ function HowItWorks() {
             <p className={styles.kickerOnDark}>{SECTIONS.how.kicker}</p>
             <h2 className={styles.sectionTitleOnDark}>{SECTIONS.how.title}</h2>
             <p className={styles.howLede}>{SECTIONS.how.lede}</p>
-            <Link href="/demo" className={styles.ghostCta}>Walk through the product</Link>
+            {/* Filled, like the hero's. This section is where somebody decides
+                they would rather press it than keep reading, and a ghost
+                outline on navy was the quietest thing on the page. */}
+            <Link href="/demo" className={styles.darkCta}>
+              <SiteIcon name="play" size={16} />
+              Walk through it yourself
+            </Link>
           </Reveal>
 
           <ol className={styles.steps}>
             {STEPS.map((step, i) => (
               <Reveal as="li" key={step.title} className={styles.step} delay={i * 70}>
                 <div className={styles.stepWho}>
-                  <span className={styles.stepRole}>{step.who}</span>
-                  <span className={styles.stepTime}>{step.time}</span>
+                  <span className={styles.stepIcon}>
+                    <SiteIcon name={step.icon} size={20} />
+                  </span>
+                  <span className={styles.stepWhoText}>
+                    <span className={styles.stepRole}>{step.who}</span>
+                    <span className={styles.stepTime}>{step.time}</span>
+                  </span>
                 </div>
                 <div>
                   <h3 className={styles.stepTitle}>{step.title}</h3>
                   <p className={styles.stepBody}>{step.body}</p>
+                  {/*
+                    What is actually on that screen at that minute, drawn
+                    instead of described — the half of each paragraph that
+                    used to narrate a button. Decorative: every value in it
+                    is already in the sentence above or is the demo
+                    property's own data.
+                  */}
+                  <p className={styles.stepProof} aria-hidden="true">
+                    <span className={styles.stepProofLabel}>{step.proof.label}</span>
+                    <span className={`${styles.stepProofValue} tabular`}>{step.proof.value}</span>
+                  </p>
                 </div>
               </Reveal>
             ))}
@@ -237,6 +308,9 @@ function Revenue() {
               of statistics that shifts as the digits change is the first thing
               that makes a page look homemade.
             */}
+            <span className={styles.revenueIcon}>
+              <SiteIcon name={card.icon} size={20} />
+            </span>
             <p className={`${styles.revenueStat} tabular`}>{card.stat}</p>
             <p className={styles.revenueStatLabel}>{card.statLabel}</p>
             <h3 className={styles.revenueTitle}>{card.title}</h3>
@@ -292,7 +366,10 @@ function Security() {
           {SECURITY.map((item, i) => (
             <Reveal as="article" key={item.kicker} className={styles.securityCard} delay={(i % 3) * 80}>
               <div className={styles.securityHead}>
-                <span className={styles.securityKicker}>{item.kicker}</span>
+                <span className={styles.securityKicker}>
+                  <SiteIcon name={item.icon} size={17} />
+                  {item.kicker}
+                </span>
                 <span className={styles.securityBadge} data-tone={item.badgeTone}>
                   {item.badge}
                 </span>
@@ -341,10 +418,10 @@ function Contact() {
           <p className={styles.sectionLede}>{SECTIONS.contact.lede}</p>
 
           <dl className={styles.contactFacts}>
-            <Fact term="Setup time" detail="Live in a week for a property under 100 rooms" />
-            <Fact term="Hardware" detail="Printed QR stickers, one tablet per kitchen, staff phones" />
-            <Fact term="Pricing" detail="Per room per month, discussed on the call" />
-            <Fact term="Email" detail="hello@innstant.in" />
+            <Fact icon="setup" term="Setup time" detail="Live in a week, under 100 rooms" />
+            <Fact icon="tablet" term="Hardware" detail="QR stickers, a kitchen tablet, staff phones" />
+            <Fact icon="wallet" term="Pricing" detail="Per room per month, discussed on the call" />
+            <Fact icon="mail" term="Email" detail="hello@innstant.in" />
           </dl>
         </div>
 
@@ -360,12 +437,15 @@ function Contact() {
             See it running on your own property in twenty minutes.
           </h2>
           <p className={styles.closingBody}>
-            Or don’t wait for us — the demo property is open right now, with a
-            kitchen, a runner and a front desk behind it that all actually work.
+            Or don’t wait for us. The demo property is open right now, with a
+            kitchen, a runner and a front desk behind it that all work.
           </p>
         </div>
         <div className={styles.closingActions}>
-          <Link href="/demo" className={styles.closingPrimary}>See how it works</Link>
+          <Link href="/demo" className={styles.closingPrimary}>
+            <SiteIcon name="play" size={16} />
+            See how it works
+          </Link>
           <a href="#contact-form" className={styles.closingSecondary}>Book a demo</a>
         </div>
       </Reveal>
@@ -373,10 +453,21 @@ function Contact() {
   );
 }
 
-function Fact({ term, detail }: { term: string; detail: string }) {
+function Fact({
+  icon,
+  term,
+  detail,
+}: {
+  icon: SiteIconName;
+  term: string;
+  detail: string;
+}) {
   return (
     <div className={styles.fact}>
-      <dt className={styles.factTerm}>{term}</dt>
+      <dt className={styles.factTerm}>
+        <SiteIcon name={icon} size={16} />
+        {term}
+      </dt>
       <dd className={styles.factDetail}>{detail}</dd>
     </div>
   );

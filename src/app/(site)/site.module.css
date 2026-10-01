@@ -142,9 +142,14 @@
 
 .navSignIn:hover { color: var(--text); }
 
+/* The header's one filled button. It is the LIVE DEMO, not the contact
+   anchor — see the note in page.tsx. */
 .navCta {
   display: inline-flex;
   align-items: center;
+  /* Every CTA on the page leads with a mark now; this is the gap between it
+     and the words, declared once per button family. */
+  gap: 8px;
   height: 40px;
   padding: 0 18px;
   border-radius: var(--radius-pill);
@@ -165,7 +170,7 @@
 .navBrand:focus-visible,
 .primaryCta:focus-visible,
 .secondaryCta:focus-visible,
-.ghostCta:focus-visible,
+.darkCta:focus-visible,
 .closingPrimary:focus-visible,
 .closingSecondary:focus-visible,
 .chip:focus-visible,
@@ -233,6 +238,7 @@
 .secondaryCta {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   min-height: var(--touch-min);
   padding: 0 22px;
   border-radius: var(--radius-pill);
@@ -286,6 +292,26 @@
 }
 
 .secondaryCta:hover { border-color: var(--accent); color: var(--accent); }
+
+/*
+  The line under the buttons.
+
+  It exists because the hero's primary action changed from "book a call" to
+  "open the live product", and the question that immediately follows a link
+  like that is what it is going to ask for. Mono, small, with the same QR mark
+  the step list uses — close enough to the button to be read as part of it.
+*/
+.heroReassure {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.heroReassure svg { color: var(--accent); flex: none; }
 
 .heroStats {
   display: flex;
@@ -699,11 +725,73 @@ section.wrap { padding-top: 110px; }
   color: var(--text-secondary);
 }
 
-/* A door, a tile and a ring — the guest, the team and the owner. */
-.pillarShape { width: 36px; height: 36px; }
-.pillarShape[data-shape='arch']   { border-radius: 18px 18px 4px 4px; background: var(--brand-navy); }
-.pillarShape[data-shape='square'] { border-radius: 4px; background: var(--brand-gold); }
-.pillarShape[data-shape='ring']   { border-radius: 50%; border: 6px solid var(--brand-navy); }
+/*
+  A door, a tile and a ring — the guest, the team and the owner.
+
+  These were solid 36px blocks of navy and gold. They are now 44px containers
+  holding the mark for that audience, which is the same change the guest home
+  made at D-073 and for the same reason: a shape alone carries no information,
+  and three of them side by side carry three times none.
+
+  The shape itself survives because it is the brand's, and because it is what
+  distinguishes the cards at the scale where the icon inside is a smudge.
+  Tinted rather than solid: a 22px stroke mark needs a quiet ground behind it,
+  and the full-strength navy left the drawing invisible.
+*/
+.pillarShape {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+  color: var(--tone);
+}
+
+/* One tone per audience, from the product's own icon palette — the same four
+   values the guest home's tiles use, so a mark means the same thing on both
+   sides of the demo link. */
+.pillarShape[data-tone='amenity'] { --tone: var(--icon-amenity); }
+.pillarShape[data-tone='service'] { --tone: var(--icon-service); }
+.pillarShape[data-tone='stay']    { --tone: var(--icon-stay); }
+
+.pillarShape[data-shape='arch']   { border-radius: 22px 22px 6px 6px; }
+.pillarShape[data-shape='square'] { border-radius: var(--radius-md); }
+.pillarShape[data-shape='ring']   { border-radius: 50%; }
+
+/*
+  The list that used to be a sentence.
+
+  `auto` rows and `margin-top: auto` on the foot below mean a card with three
+  chips and a card with four still agree on where their bottom rule sits.
+*/
+.pillarChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pillarChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px 6px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--paper-raised);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The mark takes the card's tone; the label stays ink, because a coloured
+   label is a link and these are not. */
+.pillarChip[data-tone='amenity'] svg { color: var(--icon-amenity); }
+.pillarChip[data-tone='service'] svg { color: var(--icon-service); }
+.pillarChip[data-tone='stay']    svg { color: var(--icon-stay); }
+.pillarChip svg { flex: none; }
 
 .pillarTitle {
   font-family: var(--font-display);
@@ -787,22 +875,31 @@ section.wrap { padding-top: 110px; }
   text-wrap: pretty;
 }
 
-.ghostCta {
+/*
+  The "walk through it yourself" button.
+
+  It was `.ghostCta` — a 30%-white outline on navy, which made the one link in
+  this section that opens the actual product the quietest element on the band.
+  Gold on navy is the same pairing the closing block uses for the same link,
+  so the two reads as one invitation repeated rather than two offers.
+*/
+.darkCta {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   min-height: var(--touch-min);
   margin-top: 26px;
   padding: 0 22px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgb(243 244 241 / 0.3);
-  color: var(--paper);
+  background: var(--brand-gold);
+  color: var(--brand-navy);
   font-size: 15px;
   font-weight: 650;
   text-decoration: none;
-  transition: border-color var(--dur-fast) var(--ease-out);
+  transition: background var(--dur-fast) var(--ease-out);
 }
 
-.ghostCta:hover { border-color: var(--paper); }
+.darkCta:hover { background: var(--brand-gold-lit); }
 
 .steps { margin: 0; padding: 0; list-style: none; }
 
@@ -814,7 +911,23 @@ section.wrap { padding-top: 110px; }
   border-top: 1px solid rgb(243 244 241 / 0.14);
 }
 
-.stepWho { display: flex; flex-direction: column; gap: 4px; }
+/* The left column: the surface's mark, then who and when. */
+.stepWho { display: flex; flex-direction: column; gap: 12px; }
+
+.stepWhoText { display: flex; flex-direction: column; gap: 4px; }
+
+/* Gold, on the navy band — the one accent this section has, and it is what
+   carries the eye down the five steps. */
+.stepIcon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--brand-gold) 16%, transparent);
+  color: var(--brand-gold);
+}
 
 .stepRole {
   font-family: var(--font-mono);
@@ -844,6 +957,41 @@ section.wrap { padding-top: 110px; }
   line-height: 1.55;
   margin: 8px 0 0;
   text-wrap: pretty;
+}
+
+/*
+  The screen-chip: what is actually on that surface at that minute.
+
+  A small piece of the real interface rather than a sentence about it — the
+  same move the hero's phone mock makes, at a twentieth of the size. Mono for
+  the value, because every one of them is a reference, a room number or an
+  amount and all three are tabular figures in the product itself.
+*/
+.stepProof {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: rgb(243 244 241 / 0.06);
+  border: 1px solid rgb(243 244 241 / 0.14);
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.stepProofLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(243 244 241 / 0.5);
+}
+
+.stepProofValue {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--brand-gold);
 }
 
 /* ── Revenue ─────────────────────────────────────────────────────────────── */
@@ -879,6 +1027,19 @@ section.wrap { padding-top: 110px; }
     transform var(--dur-base) var(--ease-out),
     box-shadow var(--dur-base) var(--ease-out),
     border-color var(--dur-base) var(--ease-out);
+}
+
+/* Above the statistic, in the accent, so a column of four cards is scannable
+   by shape before any of the numbers are read. */
+.revenueIcon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-md);
+  background: var(--accent-tint);
+  color: var(--accent);
 }
 
 .revenueStat {
@@ -983,12 +1144,19 @@ section.wrap { padding-top: 110px; }
 .securityHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 .securityKicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   font-family: var(--font-mono);
   font-size: 11.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgb(243 244 241 / 0.6);
 }
+
+/* Gold, at full strength — the kicker beside it is deliberately dim and a
+   mark at 60% white on navy disappears. */
+.securityKicker svg { color: var(--brand-gold); flex: none; }
 
 .securityBadge {
   font-family: var(--font-mono);
@@ -1068,6 +1236,9 @@ section.wrap { padding-top: 110px; }
 }
 
 .factTerm {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   font-family: var(--font-mono);
   font-size: 11.5px;
   letter-spacing: 0.1em;
@@ -1075,6 +1246,8 @@ section.wrap { padding-top: 110px; }
   color: var(--text-secondary);
   padding-top: 2px;
 }
+
+.factTerm svg { color: var(--accent); flex: none; }
 
 .factDetail { margin: 0; font-size: 15px; }
 
@@ -1233,6 +1406,7 @@ section.wrap { padding-top: 110px; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 52px;
   padding: 0 24px;
   border-radius: var(--radius-pill);
@@ -1376,7 +1550,11 @@ section.wrap { padding-top: 110px; }
     grid-template-columns: minmax(0, 1fr);
   }
   .step { grid-template-columns: minmax(0, 1fr); gap: 10px; }
-  .stepWho { flex-direction: row; gap: 12px; align-items: baseline; }
+  /* The mark, the role and the time on one line above the step, rather than a
+     42px circle eating a row of its own on a 360px screen. */
+  .stepWho { flex-direction: row; gap: 12px; align-items: center; }
+  .stepWhoText { flex-direction: row; gap: 12px; align-items: baseline; }
+  .stepIcon { width: 34px; height: 34px; }
   .fact { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .form { padding: 24px 20px; }
   .closing { margin: 72px 0; padding: 36px 24px; }
