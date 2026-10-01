@@ -35,10 +35,18 @@ enabled and forced.
 `loading.tsx` files are committed and verified locally; production is still
 running `b2904c2`. Deploying them is the first thing to do — see below.
 
+**The homepage's call to action has been inverted** (`69e1685`). `/demo` is
+the filled primary in the hero, the header and the dark band; "Book a demo" is
+the outlined secondary everywhere. The same change added
+`src/app/(site)/site-icons.tsx` and cut roughly a third of the body copy on
+`/`. Four gates green, `/demo` still 200. It ships in the same deploy as the
+skeleton loaders.
+
 ### Pick up here
 
-**1 — Deploy.** The guest app has eleven loading screens now (D-077) and the
-deployment has none of them. Nothing else is pending.
+**1 — Deploy.** Two things are waiting: the guest app's eleven loading
+screens (D-077) and the homepage's inverted CTA (`69e1685`). Nothing else is
+pending.
 
     npx --yes @railway/cli@latest up --service kesari --detach
 
@@ -113,6 +121,31 @@ explained, and that section was removed. Replace them or drop the strip.
 
 ### What landed this session
 
+**The front door now leads with the product, not with a calendar.** The hero's
+filled button was "Book a 20-minute demo" and `/demo` — the one link on the
+page that opens the real thing — was the outlined secondary beside it. They
+are swapped. The header's filled button is the live demo too (below 720px the
+two quiet links drop and it is the only thing left), and the dark band's
+`.ghostCta`, a 30%-white outline on navy, is gold like the closing block's.
+A line under the hero buttons answers the question a link like that provokes:
+no signup, no card.
+
+**And the page explains itself with marks now.** `site-icons.tsx` is the one
+place a copy string becomes a Lucide component, so `content.ts` stays JSX-free
+and the site's whole icon set is one reviewable list (D-073's argument, one
+surface over). What it bought, section by section: the three pillars' opening
+comma-lists are chips — Dinner, Amenities, The desk, Nearby — and their brand
+shapes are containers for a mark rather than solid blocks; every step in How
+it works has its surface's mark and a small screen-chip showing what is
+actually on that screen at that minute (`KE-1184 · 214  Accept · 00:12`),
+which is the half of each paragraph that used to narrate a button; the four
+revenue cards and the six security cards each lead with a mark.
+
+Net: body copy on `/` is down by about a third and nothing in the argument
+was dropped. There is no photography in the repo and none was invented —
+`public/` is still empty, and every picture on the page is built markup, which
+is the rule the hero's phone mock already followed.
+
 `pnpm quality` (D-078) — every validation this repo has on one page, with
 what each proves, a Run button, streamed output, and a result stamped with
 the tree it ran against so a stale green says so. Its own process on
@@ -154,6 +187,7 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P4 | `69e1685` | The front door leads with the product: `/demo` is the filled primary in the hero, the header and the dark band, and "Book a demo" is the outlined secondary everywhere. `site-icons.tsx` turns a copy string into a Lucide mark in one place, so the pillars' comma-lists are chips, every How-it-works step carries its surface's mark and a screen-chip of what is on that screen at that minute, and the revenue and security cards lead with one. Body copy on `/` down about a third; no photography invented, every picture is still built markup. |
 | P4 | `5018941` | `pnpm quality` — every validation on one page, runnable, with what each one proves and a result stamped with the tree it ran against. Its own loopback process, never deployable, because it spawns build tooling. Found two hazards a button makes worse than a command: Build writing into the dev server's `.next`, and the integration suite provisioning tenants into production (D-078). |
 | P4 | `a029357` | Skeleton loaders finished: eleven `loading.tsx` files, one per guest segment, each shaped like the page it stands in for, plus three new shapes on the primitive and a title that is real when the route knows it (D-077). Found `.screen` as a flex column shrinking every long screen's children until the amenities bars overlapped the heading — caught by screenshotting all eleven, not by a test. |
 | P4 | `e460b8f` | The marketing site, the demo door, and a session of guest-app work: business copy and motion on `/`, the real logo, stable demo links, Plan my day, amenities led by demand, lucide icons, and menu cards that add and remove (D-062 to D-076). Skeleton loaders begun — the primitive is in, the eleven `loading.tsx` files are not. |
