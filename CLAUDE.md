@@ -19,8 +19,14 @@ nightstand and can order food, request amenities, call a staff member, manage
 their checkout, and browse a curated list of nearby places. Hotel staff manage
 all of it from an admin panel, a kitchen display, and a runner app.
 
+A property can also be used **without a room**: a restaurant puts a link on a
+table tent, at the till, or in an Instagram bio, and somebody orders dine-in,
+takeaway or delivery from it (D-079). Those orders land on the same kitchen
+display as room service.
+
 Three surfaces, one codebase:
-- **Guest PWA** — `/r/[qrCode]` and below. Mobile only, no install, no signup.
+- **Guest PWA** — `/r/[qrCode]` (a room) and `/p/[code]` (a property link) and
+  below. Mobile only, no install, no signup.
 - **Ops console** — `/admin`. Desktop. RBAC-heavy.
 - **Kitchen & floor** — `/kds`, `/runner`. Always-on tablet and phone.
 
@@ -51,15 +57,18 @@ schedulers are all fine and expected.
 ```
 src/
   app/
-    (guest)/r/[qrCode]/...      guest PWA
+    (guest)/r/[qrCode]/...      guest PWA, from a room sticker
+    (guest)/p/[code]/...        guest PWA, from a property link (D-079)
     (admin)/admin/...           ops console
     (ops)/kds/...  (ops)/runner/...
     api/...                     route handlers (webhooks, SSE, health)
   modules/                      domain logic — the real code lives here
-    identity/  stay/  catalog/  ordering/  requests/
+    identity/  stay/  visit/  catalog/  ordering/  requests/
       # identity owns tenancy: tenants, properties, floors, rooms,
       # room_qr_codes, staff_users, roles. provisionProperty() lives here.
       # There is no `tenancy` module.
+      # visit owns the room-less ordering context: visit_links, visits.
+      # openVisit() lives there and is sealed the way createStay() is.
     housekeeping/  concierge/  billing/  notifications/  access/
   db/
     schema/*.ts                 Drizzle tables, one file per module
@@ -139,11 +148,15 @@ cannot. `withTenant()` is the only place this is done.
 Keeping the discipline also means a pooler can be put back later without
 touching a line of application code.
 
-### 4. Stays are created in exactly one place
+### 4. Stays are created in exactly one place — and visits in one other
 
 `modules/stay/createStay()`. Front desk, PMS import and the seeder all call it.
 Nothing else inserts into `stays`. This is what keeps a future booking module
 additive.
+
+`modules/visit/openVisit()` is the same rule on the sibling table (D-079).
+A visit is what a property link opens — somebody ordering with no room behind
+them. Both are enforced by the ESLint boundary rule, not by memory.
 
 ### 5. Money is integer minor units
 
@@ -177,10 +190,24 @@ A bare QR scan grants the tier in `access_policies.base_tier` (default
 to the room. Menus, prices, POIs and free service calls must work with zero
 screens in the way. See `modules/access/`.
 
-### 10. Guest sessions bind to `stay_id`, never `room_id`
+A **visit** session opens at `CHARGE` and never sees that prompt, because it
+posts money to no room and there is nothing for the prompt to defend (D-079).
+What it is asked for instead is a name and a phone number, once, at the cart —
+so the kitchen can ring. That is a form validation enforced in the domain, not
+an access tier, and it is logged as `visit.identified` rather than as an
+escalation.
+
+### 10. Guest sessions bind to `stay_id` or `visit_id`, never `room_id`
 
 Rooms are reused. A session keyed on a room shows the previous occupant's data.
 Session tokens are stored as SHA-256 hashes only, and are revoked at checkout.
+
+Since D-079 the same row may instead be bound to a `visit` — a property link's
+ordering context, which has no room either. **Exactly one of the two, enforced
+by `CHECK (num_nonnulls(stay_id, visit_id) = 1)`**, on `guest_sessions`, `carts`
+and `orders` alike. In TypeScript that is a discriminated union, and
+`resolveStaySession()` / `resolveVisitSession()` narrow it: a `/r/*` screen that
+rendered a visit would be reading a room number that does not exist.
 
 ### 11. Never put a price on `rooms`
 

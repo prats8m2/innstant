@@ -98,6 +98,65 @@ built, so the desk takes the money elsewhere and the number stays in the log.
 
 ---
 
+### The other ordering context: a visit (D-079)
+
+A stay is the aggregate root for somebody **in a room**. A property link —
+`/p/{code}` — belongs to an **outlet**, and whoever opens one has no room and no
+stay: a diner at a table tent, somebody collecting at a counter, somebody
+ordering delivery from a link in a bio.
+
+`visits` is the sibling, not a subtype:
+
+```
+visit_links  —  the public code. (outlet_id, kind, label, table_label, version)
+                kind ∈ TABLE | COUNTER | ONLINE, globally-unique public_code
+visits       —  one person's ordering context. (outlet_id, visit_link_id,
+                fulfilment, customer_name, customer_phone, table_label,
+                delivery_address, guest_id, expires_at)
+```
+
+Three tables now carry one of two contexts, with the database holding them to it:
+
+```sql
+-- on guest_sessions, carts and orders
+CHECK (num_nonnulls(stay_id, visit_id) = 1)
+```
+
+That constraint is what stops this being a nullable field somebody forgets to
+branch on. A row bound to neither would be a context-free guest ordering against
+nothing; one bound to both makes "whose order is this" a coin toss.
+
+**`carts` needed its unique index replaced, and this is the Postgres fact
+behind it.** `UNIQUE (stay_id, outlet_id)` stops constraining anything once
+`stay_id` is nullable, because NULL is distinct from NULL — `(NULL, outlet)`
+could repeat without limit and a visit would open a fresh cart on every tap of
+the plus. Two partial indexes say what the one index used to say, for each half.
+
+**`orders` gained `fulfilment` and `destination_label`.** The first is the
+discriminator (`IN_ROOM` for a stay, never for a visit — also a CHECK); the
+second is §4 applied to the destination: "Room 214", "Table 4",
+"Delivery · 12 MG Road", frozen at placement so a reassigned room or a renamed
+tent cannot move a tray already cooking. The KDS reads it instead of joining
+back to `rooms` — and that join is now LEFT rather than INNER, because an inner
+one drops every visit order off the kitchen display while the food is still
+ordered.
+
+**What a visit deliberately does not have:** a folio. A folio is what a stay
+accumulates and settles at checkout, and a visit pays per order at the counter
+or at the door. `placeOrder()` skips `postFolioLine()` for a visit rather than
+`folios` gaining a nullable stay, which would create a folio nobody settles.
+
+**One door, like `createStay()`.** `openVisit()` is the only thing that inserts
+into `visits`, enforced by the same ESLint boundary rule that seals `stays`
+(§A of EXTENSION-POINTS). The property link is its first caller; a waiter's
+tablet and a phone order taken at the counter are the callers it exists for.
+
+**Session expiry** has no checkout to hang on, so the visit carries its own:
+six hours from opening. Long enough for a meal and a second round; short enough
+that a tent photographed from the next table is not a live cart by evening.
+
+---
+
 ### Changing when a guest leaves (D-033)
 
 `checkout_fee_tiers` is what a property sells at the end of a stay, and a tier is

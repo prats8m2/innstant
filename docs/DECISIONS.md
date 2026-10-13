@@ -2587,3 +2587,54 @@ unknown id resolving to nothing rather than a prototype property, every
 `command` matching the `argv` actually spawned, every script existing in
 package.json, the build's distDir and restore list, and the `writes` flag.
 All six guards were mutation-tested.
+
+### D-079 · A property link opens a VISIT, which is a sibling of a stay
+`/p/{code}` resolves to an outlet rather than a room, so a restaurant can be
+used like a food-delivery app. The ordering context behind it is a `visit` —
+dine-in at a table, takeaway at a counter, or delivery to an address — and it
+sits BESIDE `stays` rather than inside it. `guest_sessions`, `carts` and
+`orders` keep `stay_id`, gain a nullable `visit_id`, and carry
+`CHECK (num_nonnulls(stay_id, visit_id) = 1)`.
+
+**Why not a stay against a virtual room**, which is the cheap answer and would
+have left every query untouched: `stays` has a partial unique index permitting
+one active stay per room, so two tables ordering at once is a constraint
+violation; a stay appears on the room board, the occupancy count, the arrivals
+list and the checkout queue, and a person eating lunch is on none of those; and
+`scheduled_checkout_at` is NOT NULL and is what every guest session's expiry is
+computed from. A diner has no checkout.
+
+**#4 is untouched.** Nothing here inserts into `stays`, and `createStay()`
+remains the one door to the one thing it is the door to. `openVisit()` is the
+same discipline on the sibling table, enforced by the same lint rule.
+
+**No folio.** A folio is what a stay accumulates and settles at checkout; a
+visit pays per order, at the counter or at the door. Giving `folios` a nullable
+stay would create a folio nobody settles and a balance nobody reads. The order's
+own `total_minor` is the record of what is owed, and it is where online payment
+attaches when Razorpay is wired up.
+
+**A visit session opens at CHARGE, and that is not a hole in D-012.** That
+prompt defends one thing: a photographed sticker posting ₹4,000 to room 214. A
+visit posts to no room, so the fraud does not exist on this path, and opening
+below CHARGE would put a phone-digits prompt in front of somebody with no stay
+to have digits for — the dead end D-012 removed. What is asked instead is a name
+and a number, once, at the cart, because a kitchen that cannot ring has to shout
+across a counter. That is a form validation enforced in the domain, recorded as
+`visit.identified` rather than as an escalation: the audit trail must not claim
+somebody proved who they are when nobody asked. FULL is never granted — it opens
+a folio, a stay and a checkout, none of which a visit has.
+
+**`orders.destination_label` is #6 applied to the destination.** "Room 214",
+"Table 4", "Delivery · 12 MG Road", frozen at placement, so a reassigned room or
+a renamed table tent cannot move a tray already cooking. The KDS room join
+became a LEFT JOIN rather than being deleted: `room_number` survives as nullable
+because the front desk's board keys on it, and an INNER join would have dropped
+every visit order off the kitchen display silently, while the food was still
+ordered.
+
+**Cost:** two tables, a nullable column on three more, and a second guest route
+tree. `GuestSession` became a discriminated union and `stayId: string` became
+`OrderContext` through the ordering module — both chosen over nullable fields
+precisely so the ~20 call sites became compile errors rather than one runtime
+failure on a screen a guest is looking at.

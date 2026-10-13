@@ -74,6 +74,13 @@ folio creation.
 **Enforce it:** the `stays` table is only importable from `modules/stay/`. Add an
 ESLint `no-restricted-imports` rule. This is worth the twenty minutes.
 
+> **D-079 added a second sealed table on the same reasoning.** `visits` — the
+> ordering context behind a property link, for somebody with no room — is
+> importable only from `modules/visit/`, and `openVisit()` is its one door. It
+> is a SIBLING of a stay, not a kind of one, so nothing above changes: booking
+> is still a fourth caller of `createStay()`, and a visit is not a reservation
+> of anything. The twenty minutes were worth it twice.
+
 ### B. `PmsAdapter` is the boundary — and booking is just another implementation
 
 This is the important one.

@@ -21,45 +21,43 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Production is green, verified, and CURRENT with this repo (`16bbca1`).**
+**Property links are built, migrated and verified locally — NOT deployed.**
+`pnpm db:migrate` has run against the LOCAL `ci-pg` container only. Production
+is still on `16bbca1` with 8 migrations; it has not seen `0008`.
 
-    https://innstant.in                        the site, /demo, and the app
-    https://innstant.in/r/the-kesari-214       the demo room (stable link)
-    https://innstant.in/admin                  staff console
+    http://localhost:3000/p/the-kesari-table-4    a table tent  (dine in)
+    http://localhost:3000/p/the-kesari-counter    the till      (takeaway)
+    http://localhost:3000/p/the-kesari-order      a sent link   (either, + delivery)
+    http://localhost:3000/admin/links             where staff make and revoke them
 
-Gates locally: typecheck, lint, **377 unit tests**, build — all green.
-`/api/health` reports migrations 8/8 with none pending.
-
-**Nothing is waiting to be deployed.** The eleven skeleton loaders (D-077) and
-the homepage's inverted CTA (`69e1685`) went out together on 1 October 2026.
-Verified on the deployed site rather than from the upload line: `/` serves the
-new header button, `/demo` is 200, health reports a fresh process with the db
-up at ~25ms.
+Gates locally, all green against the local database: typecheck, lint,
+**377 unit tests**, **486 integration tests**, build. Migration 0008 applies
+and reports 56 tables with RLS enabled and forced.
 
 ### Pick up here
 
-**1 — A scheduled demo reseed.** The single most persistent operational
-problem in this project. See "Open issues" below. **The seeded stays run out
-on 5 October 2026**, so this now has a date on it.
+**1 — Deploying 0008.** This is the first migration since the deployment went
+live, and it ALTERs three populated tables (`guest_sessions`, `carts`,
+`orders`): three columns dropped to nullable, three added, a backfill of
+`destination_label` over existing orders, and `carts_stay_outlet_uq` replaced
+by two partial indexes. All of it is online in Postgres and none of it rewrites
+a table, but it has only been run against a local container with demo data in
+it. Read `0008_property_links.sql` top to bottom before shipping — its header
+explains what each change costs and why.
 
-Run `pnpm quality` (localhost:3999) to see where the gates stand — it is
-faster than four terminals and it will tell you when a green belongs to an
-older tree than the one in front of you.
+The app and the migration must go out TOGETHER: the new code writes
+`fulfilment` and `destination_label`, and `orders_fulfilment_ck` rejects a row
+that omits them. Old code against the new schema is fine; new code against the
+old schema is not.
 
-**2 — Two places the docs and the infrastructure disagree.** Both found while
-deploying on 1 October 2026, neither investigated:
+**2 — A scheduled demo reseed.** Still the most persistent operational problem
+here, and the stays were reseeded today so the clock has restarted rather than
+stopped. See "Open issues".
 
-- `railway status` reports the `kesari` service in **`ams`**, not Singapore.
-  CLAUDE.md's stack table says Singapore, and the site's own Security section
-  tells visitors "Everything runs from Singapore, which is near enough that
-  the app feels instant on Indian hotel wifi". If the region is really
-  Amsterdam then that is a false claim on the one page whose argument is that
-  its claims are checkable — either move the service or fix the sentence.
-- The Railway project has a **`PgBouncer` service**. CLAUDE.md
-  non-negotiable #3 says "Superseded in part by D-022: there is no PgBouncer."
-  Harmless by construction — that same note exists so a pooler can be put back
-  without touching application code — but find out whether the app is routed
-  through it and make the doc say so.
+**3 — The two infrastructure disagreements** below, both still uninvestigated:
+the `ams` region and the PgBouncer service.
+
+Run `pnpm quality` (localhost:3999) to see where the gates stand.
 
 ### Open issues and decisions
 
@@ -80,6 +78,19 @@ local dev at production means `pnpm demo:reset` wipes the live demo.
 **`APP_URL` still says the railway subdomain**, not `innstant.in`. Both serve
 everything so nothing is broken, but `APP_URL` is what a printed sticker's URL
 is built from. Change it and reseed before any print run.
+
+**A property link has no online payment.** A visit order is pay-at-the-counter
+or pay-the-rider, said plainly on the cart and on the tracking screen (D-079).
+There is no folio to settle — a visit has none, deliberately — so the order's
+own total is the record of what is owed. Razorpay has no keys on the deployment
+either way; when it is wired up it attaches to the ORDER, not to a folio that
+should not exist.
+
+**A visit's orders are not swept up anywhere.** `closeVisit()` exists and
+nothing calls it: a visit stays OPEN until its six-hour window lapses and the
+session stops resolving. Harmless — a lapsed session cannot order — but
+`/admin/links` "Ordering right now" counts visits that finished eating an hour
+ago. The same cron that would fix the demo reseed is the place for it.
 
 **The site's book-a-demo form does not submit.** It collects everything and
 hands over a `mailto:`, and says so on the page (D-062). A real endpoint needs
@@ -118,6 +129,48 @@ explained, and that section was removed. Replace them or drop the strip.
    GitHub and CI has never run. P1's exit criterion is still unsigned.
 
 ### What landed this session
+
+**A property can be used without a room (D-079).** `/p/{code}` opens a VISIT —
+dine-in at a table tent, takeaway at a counter, delivery from a link somebody
+sends — and the orders land on the same kitchen rail as room service, beside
+"Room 214", reading "Courtyard 4" or "Delivery · 12 MG Road".
+
+A visit is a SIBLING of a stay rather than a kind of one. The cheap answer was
+a stay against a virtual room, which would have left every query untouched and
+was rejected on three counts: the partial unique index permits one active stay
+per room, so two tables ordering at once is a constraint violation; a stay shows
+up on the room board, the occupancy count, the arrivals list and the checkout
+queue, and a person eating lunch is on none of those; and
+`scheduled_checkout_at` is NOT NULL and is what every session's expiry is
+computed from.
+
+`guest_sessions`, `carts` and `orders` keep `stay_id`, gain a nullable
+`visit_id`, and carry `CHECK (num_nonnulls(stay_id, visit_id) = 1)`. Two
+type-level decisions did the real work of keeping that honest: `GuestSession`
+became a discriminated union and `stayId: string` became `OrderContext` through
+the ordering module — both over nullable fields, so the ~20 call sites became
+compile errors rather than one runtime failure on a screen a guest is looking
+at.
+
+`orders.destination_label` snapshots where the tray goes (#6 applied to the
+destination). The KDS's room join became LEFT rather than being deleted:
+`room_number` survives as nullable because the front desk board keys on it, and
+an INNER join would have dropped every visit order off the kitchen display,
+silently, while the food was still ordered.
+
+No folio for a visit, deliberately. A folio is what a stay settles at checkout.
+
+**Two bugs the verification found, both real.** The demo seeder writes `orders`
+directly and so never snapshotted a destination — its two tickets rendered as a
+dash on a rail otherwise full of correct ones. And `notify.test.ts` asserts the
+payload's keys exactly, which is the point of that test; `visitId` joined the
+list.
+
+**Verified rather than assumed:** 0008 applied to the local container, 56 tables
+with RLS forced, 486 integration tests green, and all three fulfilments placed
+end to end through the real module path with the resulting tickets read back off
+the kitchen rail.
+
 
 **The front door now leads with the product, not with a calendar.** The hero's
 filled button was "Book a 20-minute demo" and `/demo` — the one link on the
@@ -185,6 +238,7 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P4 | `ceb14df` | A property can be used without a room (D-079). `/p/{code}` opens a VISIT — dine-in at a table tent, takeaway at a counter, delivery from a sent link — and the orders land on the same kitchen rail as room service. A visit is a SIBLING of a stay, not a stay against a virtual room: the partial unique index permits one per room, a stay shows up on four screens a diner is not on, and `scheduled_checkout_at` is NOT NULL. `GuestSession` became a discriminated union and `stayId` became `OrderContext`, so ~20 call sites were compile errors rather than one runtime failure. No folio for a visit, deliberately. Found the demo seeder never snapshotting a destination, rendering two dashes on a rail otherwise full of correct ones. |
 | P4 | `69e1685` | The front door leads with the product: `/demo` is the filled primary in the hero, the header and the dark band, and "Book a demo" is the outlined secondary everywhere. `site-icons.tsx` turns a copy string into a Lucide mark in one place, so the pillars' comma-lists are chips, every How-it-works step carries its surface's mark and a screen-chip of what is on that screen at that minute, and the revenue and security cards lead with one. Body copy on `/` down about a third; no photography invented, every picture is still built markup. |
 | P4 | `5018941` | `pnpm quality` — every validation on one page, runnable, with what each one proves and a result stamped with the tree it ran against. Its own loopback process, never deployable, because it spawns build tooling. Found two hazards a button makes worse than a command: Build writing into the dev server's `.next`, and the integration suite provisioning tenants into production (D-078). |
 | P4 | `a029357` | Skeleton loaders finished: eleven `loading.tsx` files, one per guest segment, each shaped like the page it stands in for, plus three new shapes on the primitive and a title that is real when the route knows it (D-077). Found `.screen` as a flex column shrinking every long screen's children until the amenities bars overlapped the heading — caught by screenshotting all eleven, not by a test. |
@@ -273,8 +327,19 @@ sticker is a capability URL.
 
 **The seeded stays run 14 nights** (`DEMO_STAY_NIGHTS`), so the demo still
 needs a reseed roughly fortnightly — the LINK no longer breaks, but the stay
-behind it expires. Last reseed: 21 September 2026, stays out 5 October. A
+behind it expires. Last reseed: 13 October 2026, stays out 27 October. A
 scheduled reseed is still the real fix.
+
+**The three property links (D-079) have no stay behind them and never expire
+for that reason.** They open a visit on the spot:
+
+| Link | Kind | What it does |
+|---|---|---|
+| `/p/the-kesari-table-4` | TABLE | Dine in. The ticket reads "Courtyard 4"; nobody types a table number. |
+| `/p/the-kesari-counter` | COUNTER | Takeaway. The kitchen calls a name. |
+| `/p/the-kesari-order` | ONLINE | The customer picks collection or delivery; delivery asks for an address. |
+
+Staff make, copy, reprint and revoke these at `/admin/links`.
 
 A room link whose stay has ended now renders a page saying so, with a way back
 to `/demo`, instead of a blank browser 404.
