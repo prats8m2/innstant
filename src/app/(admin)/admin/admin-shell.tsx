@@ -38,7 +38,7 @@ import styles from './admin.module.css';
  */
 export type AdminSection =
   | 'home' | 'desk' | 'rooms' | 'checkouts'
-  | 'menu' | 'requests' | 'outlet'
+  | 'menu' | 'requests' | 'outlet' | 'links'
   | 'property' | 'staff';
 
 interface NavItem {
@@ -75,6 +75,10 @@ const GROUPS: NavGroup[] = [
       { href: '/admin/menu', label: 'Menu', section: 'menu', needs: 'catalog:read' },
       { href: '/admin/requests', label: 'Requests', section: 'requests', needs: 'request:read' },
       { href: '/admin/outlet', label: 'The kitchen', section: 'outlet', needs: 'catalog:read' },
+      /* D-079. Under Service rather than Setup: a table tent is reprinted
+         mid-service by whoever is running the floor, not configured once by
+         whoever set the property up. */
+      { href: '/admin/links', label: 'Links', section: 'links', needs: 'catalog:read' },
     ],
   },
   {

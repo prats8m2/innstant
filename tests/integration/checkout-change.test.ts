@@ -6,7 +6,7 @@ import {
   decideCheckoutRequest, listCheckoutRequests,
 } from '@/modules/stay';
 import { getFolioForStay } from '@/modules/billing';
-import { scanQrCode, resolveGuestSession } from '@/modules/access';
+import { scanQrCode, resolveStaySession } from '@/modules/access';
 import { atLocalHourOnSameDay, localTimeAt } from '@/lib/clock';
 import {
   ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
@@ -38,7 +38,7 @@ describe('changing when a guest leaves', () => {
    *
    * A stay due out on a date in the past mints guest sessions that are already
    * expired — `expires_at = scheduled_checkout_at + grace` — so
-   * `resolveGuestSession()` returns null and the session assertions test
+   * `resolveStaySession()` returns null and the session assertions test
    * nothing. That is a real property of the product and it made the first
    * version of this file fail in a way that looked like a session bug.
    */
@@ -193,7 +193,7 @@ describe('changing when a guest leaves', () => {
   it('moves the stay, posts the fee and extends the sessions, together', async () => {
     // A live session, minted before the change, expiring at checkout + grace.
     const scan = await scanQrCode(a.qrCode);
-    const before = (await resolveGuestSession(scan.cookieValue))!;
+    const before = (await resolveStaySession(scan.cookieValue))!;
     expect(before.expiresAt.getTime()).toBe(DUE_OUT.getTime() + 120 * 60_000);
 
     const asked = await ask(18);
@@ -214,7 +214,7 @@ describe('changing when a guest leaves', () => {
     expect(folio!.lines[0]!.description).toBe('Late checkout · 6pm');
 
     // And the phone in the room keeps working until the new time.
-    const after = (await resolveGuestSession(scan.cookieValue))!;
+    const after = (await resolveStaySession(scan.cookieValue))!;
     expect(after.expiresAt.getTime()).toBe(moved.getTime() + 120 * 60_000);
     expect(after.scheduledCheckoutAt.getTime()).toBe(moved.getTime());
     expect(after.expiresAt.getTime()).toBeGreaterThan(before.expiresAt.getTime());

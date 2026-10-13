@@ -11,7 +11,7 @@ import {
 } from '@/modules/identity';
 import { createStay, checkOutStay } from '@/modules/stay';
 import { postFolioLine } from '@/modules/billing';
-import { scanQrCode, resolveGuestSession, QrNotUsableError } from '@/modules/access';
+import { scanQrCode, resolveStaySession, QrNotUsableError } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
 import {
   ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
@@ -547,7 +547,7 @@ describe('setting up the building', () => {
     const scan = await scanQrCode(room.publicCode);
     await reprint(room.id);
 
-    const still = await resolveGuestSession(scan.cookieValue);
+    const still = await resolveStaySession(scan.cookieValue);
     expect(still?.stayId).toBe(scan.session.stayId);
   });
 

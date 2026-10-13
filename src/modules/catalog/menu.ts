@@ -429,6 +429,30 @@ export async function getInRoomDiningOutletConfig(
 }
 
 /**
+ * Every outlet a property runs, for a screen that has to CHOOSE one.
+ *
+ * D-079 — the first thing in this product that genuinely needs the list. Until
+ * property links existed, the guest's outlet was resolved by kind (there was
+ * one choice and it was not theirs to make) and the admin edited that same one.
+ * A property link points at an outlet, and somebody creating one has to say
+ * which: a hotel with a rooftop bar and room service prints two different
+ * links, and they open two different menus.
+ *
+ * Archived outlets are excluded, like everything else that reads this table
+ * (D-008): a link may not be created against a menu that no longer exists.
+ */
+export async function listOutlets(
+  tx: Tx,
+  propertyId: string,
+): Promise<Array<{ id: string; name: string; kind: string }>> {
+  return tx
+    .select({ id: outlets.id, name: outlets.name, kind: outlets.kind })
+    .from(outlets)
+    .where(and(eq(outlets.propertyId, propertyId), isNull(outlets.archivedAt)))
+    .orderBy(asc(outlets.createdAt));
+}
+
+/**
  * The same four integers, for an outlet named by id rather than by kind.
  *
  * D-079 — a property link points at ONE outlet, chosen when the link was made,

@@ -18,6 +18,7 @@ import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } fr
 import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
 import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
 import { createStay } from '@/modules/stay';
+import { createVisitLink } from '@/modules/visit';
 import { menuItems, outlets } from '@/db/schema/catalog';
 import { orders, orderItems } from '@/db/schema/ordering';
 import { serviceRequests, serviceRequestItems, requestTypes } from '@/db/schema/requests';
@@ -55,6 +56,7 @@ const DEMO_STAY_NIGHTS = 14;
 function demoPublicCode(roomNumber: string): string {
   return `${PROPERTY_SLUG}-${roomNumber}`;
 }
+
 
 /**
  * Udaipur, in the GM's voice.
@@ -102,6 +104,37 @@ const KESARI_POIS = [
 ] as const;
 const TENANT_SLUG = 'kesari-demo';
 const PROPERTY_SLUG = 'the-kesari';
+
+/**
+ * The demo's property links — the restaurant half of the product (D-079).
+ *
+ * Three, because three is what it takes to show that a link's KIND is the
+ * thing that decides the flow: a tent that knows its own table, a till that
+ * does not, and a link somebody sends where the customer picks.
+ *
+ * Stable codes for the same reason the room stickers have them, and with the
+ * same single exception: see `createVisitLink`'s `publicCode`.
+ */
+const DEMO_LINKS = [
+  {
+    code: `${PROPERTY_SLUG}-table-4`,
+    kind: 'TABLE' as const,
+    label: 'Courtyard 4',
+    tableLabel: 'Courtyard 4',
+  },
+  {
+    code: `${PROPERTY_SLUG}-counter`,
+    kind: 'COUNTER' as const,
+    label: 'Front counter',
+    tableLabel: null,
+  },
+  {
+    code: `${PROPERTY_SLUG}-order`,
+    kind: 'ONLINE' as const,
+    label: 'Instagram bio',
+    tableLabel: null,
+  },
+];
 const DEMO_PASSWORD = 'kesari-demo-2026';
 const APP_URL = process.env.APP_URL ?? 'http://localhost:3000';
 
@@ -154,6 +187,9 @@ const DEMO_STAFF = [
 const WIPE_ORDER = [
   'event_log', 'order_item_modifiers', 'order_items', 'orders',
   'cart_item_modifiers', 'cart_items', 'carts',
+  // D-079. Before `outlets` and `guests`, both of which they reference —
+  // though the order genuinely does not matter, see the note above.
+  'visits', 'visit_links',
   'service_request_items', 'service_requests',
   'folio_lines', 'folios', 'payments',
   'checkout_requests', 'guest_sessions', 'access_escalations',
@@ -241,6 +277,26 @@ async function main(): Promise<void> {
       collections: KESARI_COLLECTIONS,
       modifierGroups: KESARI_MODIFIER_GROUPS,
     });
+
+    /**
+     * The property links. After the menu, because each one points at an outlet
+     * and there is no outlet to point at until `seedMenu` has run.
+     *
+     * `createVisitLink()` rather than a direct insert, for the reason every
+     * other seeder call here does it: it is the one door (D-079), and a seeder
+     * that writes the row itself is the first caller to drift.
+     */
+    for (const link of DEMO_LINKS) {
+      await createVisitLink(tx, {
+        tenantId: TENANT_ID,
+        propertyId: provisioned.propertyId,
+        outletId: provisioned.outletId,
+        kind: link.kind,
+        label: link.label,
+        tableLabel: link.tableLabel,
+        publicCode: link.code,
+      });
+    }
 
     // ── Staff, all with the same demo password ──────────────────────────────
     const roleIds = await seedSystemRoles(tx, TENANT_ID);
@@ -354,6 +410,11 @@ async function main(): Promise<void> {
         tenantId: TENANT_ID, propertyId: provisioned.propertyId,
         stayId: stayIds.get(spec.room)!, outletId: provisioned.outletId,
         orderNumber: spec.number, status: spec.status,
+        // D-079 — what the kitchen ticket says. `placeOrder()` snapshots this
+        // on every real order; this seeder writes the row directly, so it has
+        // to say it too. Without it the two seeded tickets render as a dash on
+        // a KDS otherwise full of correct destinations.
+        fulfilment: 'IN_ROOM', destinationLabel: `Room ${spec.room}`,
         subtotalMinor: subtotal, taxMinor: tax, totalMinor: subtotal + tax,
         placedAt: new Date(Date.now() - 15 * 60_000),
         acceptedAt: spec.status === 'PREPARING' ? new Date(Date.now() - 12 * 60_000) : null,
@@ -557,7 +618,13 @@ async function main(): Promise<void> {
   for (const room of ['214', '105', '301', '210']) {
     console.log(`    room ${room}  ${APP_URL}/r/${provisioned.qrCodes.get(room)}`);
   }
-  console.log(`\n  ${provisioned.qrCodes.size} QR codes total. Orders KE-1184 (preparing) and KE-1185 (placed) are live.\n`);
+  console.log(`\n  ${provisioned.qrCodes.size} QR codes total. Orders KE-1184 (preparing) and KE-1185 (placed) are live.`);
+
+  console.log('\n  Open these  (property links — no room, no stay, pay at the counter)');
+  for (const link of DEMO_LINKS) {
+    console.log(`    ${link.label.padEnd(15)} ${APP_URL}/p/${link.code}`);
+  }
+  console.log('');
 
   /**
    * The same facts, machine-readable, for the e2e suite.
@@ -576,6 +643,8 @@ async function main(): Promise<void> {
         tenantId: TENANT_ID,
         propertyId: provisioned.propertyId,
         qrCodes: Object.fromEntries(provisioned.qrCodes),
+        // D-079 — the property links, for the e2e that orders without a room.
+        visitLinks: Object.fromEntries(DEMO_LINKS.map((l) => [l.kind, l.code])),
         // The e2e suite needs these to answer the one verification prompt
         // (D-012). Demo data, in a gitignored file, for a demo property.
         guests: Object.fromEntries(

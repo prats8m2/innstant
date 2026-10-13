@@ -5,7 +5,7 @@ import {
   seedMenu, getInRoomDiningMenu, getDish,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
-import { addToCart, getCart, setCartItemQuantity, removeCartItem } from '@/modules/ordering';
+import { addToCart, getCart, setCartItemQuantity, removeCartItem, stayContext } from '@/modules/ordering';
 import type { CartOutletConfig } from '@/modules/ordering';
 import { ValidationError, ConflictError, NotFoundError } from '@/lib/errors';
 import {
@@ -115,7 +115,7 @@ describe('cart', () => {
 
   const read = () =>
     withTenant({ tenantId: a.tenantId, propertyId: a.propertyId }, (tx) =>
-      getCart(tx, { propertyId: a.propertyId, stayId, outlet }));
+      getCart(tx, { propertyId: a.propertyId, context: stayContext(stayId), outlet }));
 
   it('reports no cart at all before the first add', async () => {
     // Distinct from an empty cart — the screen says different things.
@@ -127,7 +127,7 @@ describe('cart', () => {
     const chef = await optionId(laal, 'As the chef makes it');
 
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal),
       quantity: 2,
       modifierOptionIds: [roti, chef],
@@ -145,7 +145,7 @@ describe('cart', () => {
     const chef = await optionId(laal, 'As the chef makes it');
     const item = await dishId(laal);
     const line = {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: item, quantity: 1, modifierOptionIds: [chef],
     };
 
@@ -162,8 +162,8 @@ describe('cart', () => {
     const chef = await optionId(laal, 'As the chef makes it');
     const gentle = await optionId(laal, 'Gentle');
 
-    await add({ tenantId: a.tenantId, propertyId: a.propertyId, stayId, menuItemId: item, quantity: 1, modifierOptionIds: [chef] });
-    await add({ tenantId: a.tenantId, propertyId: a.propertyId, stayId, menuItemId: item, quantity: 1, modifierOptionIds: [gentle] });
+    await add({ tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId), menuItemId: item, quantity: 1, modifierOptionIds: [chef] });
+    await add({ tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId), menuItemId: item, quantity: 1, modifierOptionIds: [gentle] });
 
     const cart = await read();
     expect(cart!.lines).toHaveLength(2);
@@ -172,7 +172,7 @@ describe('cart', () => {
   it('keeps a different note as its own line', async () => {
     const item = await dishId(laal);
     const chef = await optionId(laal, 'As the chef makes it');
-    const base = { tenantId: a.tenantId, propertyId: a.propertyId, stayId, menuItemId: item, quantity: 1, modifierOptionIds: [chef] };
+    const base = { tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId), menuItemId: item, quantity: 1, modifierOptionIds: [chef] };
 
     await add(base);
     await add({ ...base, notes: 'No coriander' });
@@ -186,7 +186,7 @@ describe('cart', () => {
     const foreign = await optionId('Kesar lassi', 'Cold');
 
     await expect(add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 1, modifierOptionIds: [foreign],
     })).rejects.toBeInstanceOf(ValidationError);
   });
@@ -195,14 +195,14 @@ describe('cart', () => {
     // Chilli is required, min 1. The screen preselects it; form data is not a
     // guarantee that it stayed selected.
     await expect(add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 1, modifierOptionIds: [],
     })).rejects.toBeInstanceOf(ValidationError);
   });
 
   it('refuses two picks in a single-select group', async () => {
     await expect(add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 1,
       modifierOptionIds: [await optionId(laal, 'Gentle'), await optionId(laal, 'Extra fiery')],
     })).rejects.toBeInstanceOf(ValidationError);
@@ -213,7 +213,7 @@ describe('cart', () => {
     await owner.query(`UPDATE menu_items SET is_available = false WHERE id = $1`, [item]);
     try {
       await expect(add({
-        tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+        tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
         menuItemId: item, quantity: 1,
         modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
       })).rejects.toBeInstanceOf(ConflictError);
@@ -225,7 +225,7 @@ describe('cart', () => {
   it('shows a line that went unavailable but does not charge for it', async () => {
     const item = await dishId(laal);
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: item, quantity: 1,
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
@@ -247,7 +247,7 @@ describe('cart', () => {
   it('follows a live reprice, because a cart is not a receipt', async () => {
     const item = await dishId(laal);
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: item, quantity: 1,
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
@@ -263,21 +263,21 @@ describe('cart', () => {
 
   it('treats quantity zero as removal', async () => {
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 3,
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
     const cart = await read();
 
     await withTenant({ tenantId: a.tenantId, propertyId: a.propertyId }, (tx) =>
-      setCartItemQuantity(tx, { stayId, cartItemId: cart!.lines[0]!.id, quantity: 0 }));
+      setCartItemQuantity(tx, { context: stayContext(stayId), cartItemId: cart!.lines[0]!.id, quantity: 0 }));
 
     expect((await read())!.lines).toHaveLength(0);
   });
 
   it('will not let one stay edit another stay’s line', async () => {
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 1,
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
@@ -291,7 +291,7 @@ describe('cart', () => {
     // Same tenant, same property, real line id — and still not theirs. RLS
     // confines this to the hotel; the stay check confines it to the guest.
     await expect(withTenant({ tenantId: a.tenantId, propertyId: a.propertyId }, (tx) =>
-      removeCartItem(tx, { stayId: otherStay, cartItemId: cart!.lines[0]!.id })))
+      removeCartItem(tx, { context: stayContext(otherStay), cartItemId: cart!.lines[0]!.id })))
       .rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -301,7 +301,7 @@ describe('cart', () => {
     const item = await dishId(laal);
     const chef = await optionId(laal, 'As the chef makes it');
     const line = {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: item, quantity: 1, modifierOptionIds: [chef],
     };
 
@@ -315,7 +315,7 @@ describe('cart', () => {
 
   it('cannot be read from another tenant', async () => {
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: await dishId(laal), quantity: 1,
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
@@ -323,7 +323,7 @@ describe('cart', () => {
     const leaked = await withTenant({ tenantId: b.tenantId, propertyId: b.propertyId }, (tx) =>
       getCart(tx, {
         propertyId: b.propertyId,
-        stayId,
+        context: stayContext(stayId),
         outlet: { ...outlet, outletId: b.outletId },
       }));
 
@@ -333,7 +333,7 @@ describe('cart', () => {
   it('marks the no-extra choice so a line does not read "· Nothing"', async () => {
     const item = await dishId(laal);
     await add({
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: item, quantity: 1,
       modifierOptionIds: [
         await optionId(laal, 'As the chef makes it'),

@@ -89,11 +89,22 @@ export function toKitchenTicket(row: {
     id: row.id,
     orderNumber: row.order_number,
     status: row.status,
-    // Null only for a row written before 0008 backfilled it, or by a path that
-    // forgot to snapshot one. A ticket with no destination is still a ticket
-    // the kitchen must see — printing a dash is survivable, dropping the order
-    // is not.
-    destination: row.destination_label ?? '—',
+    /**
+     * The snapshot, or the room behind it, or a dash.
+     *
+     * Null means a row written by a path that did not snapshot one — 0008
+     * backfilled every order that existed, so in practice this is a direct
+     * insert (the demo seeder was exactly that, and rendered two dashes on a
+     * rail of correct destinations before it was fixed).
+     *
+     * Falling back to the joined room is not a workaround for that; it is the
+     * honest answer when there IS a room and nobody wrote it down. The dash is
+     * the last resort, because a ticket with no destination is still a ticket
+     * the kitchen must see — printing a dash is survivable, dropping the order
+     * is not.
+     */
+    destination: row.destination_label
+      ?? (row.room_number ? `Room ${row.room_number}` : '—'),
     fulfilment: row.fulfilment,
     roomNumber: row.room_number,
     placedAt: asDate(row.placed_at),

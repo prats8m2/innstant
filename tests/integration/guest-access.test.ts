@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type pg from 'pg';
 import { withTenant, closePool } from '@/db';
 import {
-  scanQrCode, resolveGuestSession, revokeSessionsForStay, requireTier,
+  scanQrCode, resolveStaySession, revokeSessionsForStay, requireTier,
   startPhoneLast4Challenge, answerChallenge, vouchForGuest, QrNotUsableError,
 } from '@/modules/access';
 import { ForbiddenError, TooManyAttemptsError } from '@/lib/errors';
@@ -95,7 +95,7 @@ describe('S7 · DONE CONDITION — a bare scan, nothing in the way', () => {
 
   it('resolves the cookie back to the same session', async () => {
     const scan = await scanQrCode(a.qrCode);
-    const resolved = await resolveGuestSession(scan.cookieValue);
+    const resolved = await resolveStaySession(scan.cookieValue);
     expect(resolved?.id).toBe(scan.session.id);
     expect(resolved?.accessTier).toBe('REQUEST');
   });
@@ -189,7 +189,7 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
 
     // The same cookie now carries the higher tier — nothing the guest was doing
     // was orphaned.
-    const resolved = await resolveGuestSession(scan.cookieValue);
+    const resolved = await resolveStaySession(scan.cookieValue);
     expect(resolved?.accessTier).toBe('FULL');
   });
 
@@ -205,7 +205,7 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
     await answerChallenge(scan.session, challengeId, '1111');
 
     // And now the folio, on the same session, with nothing more asked.
-    const verified = (await resolveGuestSession(scan.cookieValue))!;
+    const verified = (await resolveStaySession(scan.cookieValue))!;
     expect((await requireTier(verified, 'view_folio')).required).toBe(false);
     expect((await requireTier(verified, 'request_checkout')).required).toBe(false);
   });
@@ -226,7 +226,7 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
       staffUserId: staff.rows[0]!.id, guestSessionId: scan.session.id,
     });
 
-    const vouched = (await resolveGuestSession(scan.cookieValue))!;
+    const vouched = (await resolveStaySession(scan.cookieValue))!;
     expect(vouched.accessTier).toBe('CHARGE');
     expect((await requireTier(vouched, 'place_order')).required).toBe(false);
     expect((await requireTier(vouched, 'view_folio')).required).toBe(true);
@@ -244,7 +244,7 @@ describe('S7 · escalation is triggered by ACTION, not entry (D-012)', () => {
       grantedTier: 'FULL',
     });
 
-    expect((await resolveGuestSession(scan.cookieValue))?.accessTier).toBe('FULL');
+    expect((await resolveStaySession(scan.cookieValue))?.accessTier).toBe('FULL');
   });
 
   it('never stores the last four digits in the clear', async () => {
@@ -340,7 +340,7 @@ describe('S7 · staff vouching — the guest sees no prompt at all', () => {
     });
 
     for (const s of [phone, tablet]) {
-      const resolved = await resolveGuestSession(s.cookieValue);
+      const resolved = await resolveStaySession(s.cookieValue);
       expect(resolved?.accessTier).toBe('CHARGE');
       expect(resolved?.isAnonymous).toBe(false);
     }
@@ -369,7 +369,7 @@ describe('S7 · staff vouching — the guest sees no prompt at all', () => {
     })).rejects.toBeInstanceOf(ForbiddenError);
 
     // And the session is untouched — a refused vouch must not half-apply.
-    expect((await resolveGuestSession(scan.cookieValue))?.accessTier).toBe('REQUEST');
+    expect((await resolveStaySession(scan.cookieValue))?.accessTier).toBe('REQUEST');
     const vouches = await owner.query(
       `SELECT id FROM staff_vouches WHERE tenant_id=$1 AND stay_id=$2`,
       [TENANT_A, stayId]);
@@ -439,20 +439,20 @@ describe('S7 · the access policy is read, not decorative', () => {
 describe('S7 · checkout revokes every session (#10)', () => {
   it('a checked-out stay resolves to nothing', async () => {
     const scan = await scanQrCode(a.qrCode);
-    expect(await resolveGuestSession(scan.cookieValue)).not.toBeNull();
+    expect(await resolveStaySession(scan.cookieValue)).not.toBeNull();
 
     const revoked = await withTenant({ tenantId: TENANT_A }, (tx) =>
       revokeSessionsForStay(tx, stayId));
     expect(revoked).toBeGreaterThan(0);
 
-    expect(await resolveGuestSession(scan.cookieValue)).toBeNull();
+    expect(await resolveStaySession(scan.cookieValue)).toBeNull();
   });
 
   it('the next guest in the same room never sees the previous session', async () => {
     // D-007 + #10 together: the room is reused, the stay is not.
     const previous = await scanQrCode(a.qrCode);
     await owner.query(`UPDATE stays SET status='CHECKED_OUT' WHERE id=$1`, [stayId]);
-    expect(await resolveGuestSession(previous.cookieValue)).toBeNull();
+    expect(await resolveStaySession(previous.cookieValue)).toBeNull();
 
     stayId = await freshStay();
     const next = await scanQrCode(a.qrCode);

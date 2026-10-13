@@ -3,7 +3,7 @@ import type pg from 'pg';
 import { withTenant } from '@/db';
 import { getFolioForStay, postFolioLine, buildGuestStatement } from '@/modules/billing';
 import {
-  scanQrCode, resolveGuestSession, requireTier, startPhoneLast4Challenge, answerChallenge,
+  scanQrCode, resolveStaySession, requireTier, startPhoneLast4Challenge, answerChallenge,
 } from '@/modules/access';
 import {
   getRequestTypeByKey, raiseServiceRequest, advanceRequest,
@@ -89,7 +89,7 @@ describe('the folio a guest can reach', () => {
       const result = await answerChallenge(scan.session, challengeId, '1111');
 
       expect(result.ok).toBe(true);
-      const verified = (await resolveGuestSession(scan.cookieValue))!;
+      const verified = (await resolveStaySession(scan.cookieValue))!;
       expect(verified.accessTier).toBe('FULL');
       expect((await requireTier(verified, 'view_folio')).required).toBe(false);
     });

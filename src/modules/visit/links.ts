@@ -42,6 +42,26 @@ export interface CreateVisitLinkInput {
   /** Required for TABLE, forbidden otherwise — the database says so too. */
   tableLabel?: string | null;
   staffUserId?: string;
+
+  /**
+   * Override the public code. **The demo property and nothing else.**
+   *
+   * A real link's code must be random: it is a capability printed on a tent or
+   * posted in a bio, and a guessable scheme lets somebody walk a chain's
+   * tables. `newPublicCode()` is the only correct answer there, and it is the
+   * default precisely so that forgetting this option is safe.
+   *
+   * The demo property is the opposite problem, and the room sticker's version
+   * of this note (`publicCodeFor` in modules/identity/provision.ts) explains it
+   * at length: `pnpm demo:reset` rebuilds the property, which would reissue
+   * every code and break every link anyone has written down. Its data is
+   * invented and reachable from a public button, so a stable readable code is
+   * strictly better.
+   *
+   * Only `scripts/demo-reset.ts` passes this. If you find yourself reaching for
+   * it anywhere else, the answer is no.
+   */
+  publicCode?: string;
 }
 
 const MAX_LABEL = 60;
@@ -66,7 +86,7 @@ export async function createVisitLink(
     throw new ValidationError('Only a table link carries a table.');
   }
 
-  const publicCode = newPublicCode();
+  const publicCode = input.publicCode ?? newPublicCode();
 
   const [row] = await tx.insert(visitLinks).values({
     tenantId: input.tenantId,

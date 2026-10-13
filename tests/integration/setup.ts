@@ -138,6 +138,9 @@ export async function checkInGuest(
 const TENANT_SCOPED_TABLES = [
   'event_log', 'order_item_modifiers', 'order_items', 'orders',
   'cart_item_modifiers', 'cart_items', 'carts',
+  // D-079 — order does not matter here either, but these reference `outlets`
+  // and `guests`, so they are listed with the rows that do.
+  'visits', 'visit_links',
   'service_request_items', 'service_requests',
   'folio_lines', 'folios', 'payments',
   'checkout_requests',

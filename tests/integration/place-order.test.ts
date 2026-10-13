@@ -5,7 +5,7 @@ import {
   seedMenu, getInRoomDiningMenu, getDish,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
-import { addToCart, getCart, placeOrder, getOrderForStay } from '@/modules/ordering';
+import { addToCart, getCart, placeOrder, getOrderForContext, stayContext } from '@/modules/ordering';
 import { getFolioForStay } from '@/modules/billing';
 import { ConflictError, ForbiddenError } from '@/lib/errors';
 import {
@@ -68,7 +68,7 @@ describe('placeOrder', () => {
     await scoped((tx) => addToCart(tx, {
       tenantId: a.tenantId,
       propertyId: a.propertyId,
-      stayId,
+      context: stayContext(stayId),
       menuItemId: dish,
       quantity,
       modifierOptionIds: [chefOption, rotiOption],
@@ -79,8 +79,8 @@ describe('placeOrder', () => {
     scoped((tx) => placeOrder(tx, {
       tenantId: a.tenantId,
       propertyId: a.propertyId,
-      stayId,
-      roomNumber: '214',
+      context: stayContext(stayId),
+      destinationLabel: `Room ${'214'}`,
       idempotencyKey: key,
       // The screen establishes this by escalating (D-012); these tests are
       // about what happens once it has. The refusal below covers the other side.
@@ -192,7 +192,7 @@ describe('placeOrder', () => {
 
     const cart = await scoped((tx) => getCart(tx, {
       propertyId: a.propertyId,
-      stayId,
+      context: stayContext(stayId),
       outlet: {
         outletId: a.outletId, currency: 'INR',
         taxRateBps: 500, serviceChargeBps: 1_000, deliveryFeeMinor: 0,
@@ -273,8 +273,8 @@ describe('placeOrder', () => {
     await expect(
       scoped(async (tx) => {
         await placeOrder(tx, {
-          tenantId: a.tenantId, propertyId: a.propertyId, stayId,
-          roomNumber: '214', idempotencyKey: 'rollback', accessTier: 'CHARGE',
+          tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
+          destinationLabel: `Room ${'214'}`, idempotencyKey: 'rollback', accessTier: 'CHARGE',
         });
         throw new Error('caller changed its mind');
       }),
@@ -295,7 +295,7 @@ describe('placeOrder', () => {
   it('does not print "Nothing" on a receipt that will outlive the menu', async () => {
     const nothing = await optionId(laal, 'Nothing');
     await scoped((tx) => addToCart(tx, {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: dish, quantity: 1,
       modifierOptionIds: [chefOption, nothing],
     }));
@@ -317,7 +317,7 @@ describe('placeOrder', () => {
     const placed = await place('read-back');
 
     const detail = await scoped((tx) =>
-      getOrderForStay(tx, { stayId, orderId: placed.orderId }));
+      getOrderForContext(tx, { context: stayContext(stayId), orderId: placed.orderId }));
 
     expect(detail!.orderNumber).toBe(placed.orderNumber);
     expect(detail!.lines).toHaveLength(1);
@@ -343,7 +343,7 @@ describe('placeOrder', () => {
 
     // Same hotel, real order id, and still not theirs. The id travels in a URL.
     const leaked = await scoped((tx) =>
-      getOrderForStay(tx, { stayId: otherStay, orderId: placed.orderId }));
+      getOrderForContext(tx, { context: stayContext(otherStay), orderId: placed.orderId }));
     expect(leaked).toBeNull();
   });
 
@@ -410,7 +410,7 @@ describe('placeOrder', () => {
       await fillCart();
       const subtotal = await scoped(async (tx) => {
         const cart = await getCart(tx, {
-          propertyId: a.propertyId, stayId,
+          propertyId: a.propertyId, context: stayContext(stayId),
           outlet: {
             outletId: a.outletId, currency: 'INR',
             taxRateBps: 500, serviceChargeBps: 1000, deliveryFeeMinor: 0,

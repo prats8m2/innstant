@@ -1,8 +1,9 @@
 export { createOutlet, seedMenu, DEFAULT_IRD_HOURS } from './provision';
 export {
   getMenu, getInRoomDiningMenu, getInRoomDiningOutlet, getInRoomDiningOutletConfig,
-  /** D-079 — the same config for an outlet a property link names by id. */
-  getOutletConfig,
+  /** D-079 — the same config for an outlet a property link names by id,
+   *  and the list a link-creation screen chooses from. */
+  getOutletConfig, listOutlets,
   getDish, getCartPricing, getOutletHours,
 } from './menu';
 export { outletOpenState, describeOpenState, isItemOnNow, hoursForDay } from './hours';

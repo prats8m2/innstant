@@ -14,7 +14,7 @@ import {
   archiveModifierOption, setMenuItemAvailabilityWindows,
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
-import { addToCart, getCart } from '@/modules/ordering';
+import { addToCart, getCart, stayContext } from '@/modules/ordering';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
   ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
@@ -440,7 +440,7 @@ describe('catalog admin', () => {
 
       const stayId = await checkInGuest(a);
       await scoped((tx) => addToCart(tx, {
-        tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+        tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
         menuItemId: itemId, quantity: 1, modifierOptionIds: [],
       }));
 
@@ -451,7 +451,7 @@ describe('catalog admin', () => {
        * happens depends on the hour this suite runs at, and both are correct.
        */
       const priced = await scoped((tx) => getCart(tx, {
-        propertyId: a.propertyId, stayId, at: { dayOfWeek: 3, minutes: 21 * 60 },
+        propertyId: a.propertyId, context: stayContext(stayId), at: { dayOfWeek: 3, minutes: 21 * 60 },
         outlet: {
           outletId: a.outletId, currency: 'INR',
           taxRateBps: 0, serviceChargeBps: 0, deliveryFeeMinor: 0,
@@ -463,7 +463,7 @@ describe('catalog admin', () => {
       expect(priced!.totals.subtotal.amountMinor).toBe(0);
 
       const inWindow = await scoped((tx) => getCart(tx, {
-        propertyId: a.propertyId, stayId, at: { dayOfWeek: 3, minutes: 8 * 60 },
+        propertyId: a.propertyId, context: stayContext(stayId), at: { dayOfWeek: 3, minutes: 8 * 60 },
         outlet: {
           outletId: a.outletId, currency: 'INR',
           taxRateBps: 0, serviceChargeBps: 0, deliveryFeeMinor: 0,

@@ -6,7 +6,7 @@ import {
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import {
-  addToCart, placeOrder, advanceOrder, kitchenTickets, runnerTickets, openTicketCount,
+  addToCart, placeOrder, advanceOrder, kitchenTickets, runnerTickets, openTicketCount, stayContext
 } from '@/modules/ordering';
 import { getFolioForStay, reverseFolioLinesForSource } from '@/modules/billing';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
@@ -47,12 +47,12 @@ describe('advanceOrder', () => {
 
   async function anOrder(key: string): Promise<{ orderId: string; orderNumber: string }> {
     await scoped((tx) => addToCart(tx, {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: dish, quantity: 1, modifierOptionIds: [chefOption],
     }));
     const placed = await scoped((tx) => placeOrder(tx, {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
-      roomNumber: '214', idempotencyKey: key, accessTier: 'CHARGE',
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
+      destinationLabel: `Room ${'214'}`, idempotencyKey: key, accessTier: 'CHARGE',
     }));
     return { orderId: placed.orderId, orderNumber: placed.orderNumber };
   }

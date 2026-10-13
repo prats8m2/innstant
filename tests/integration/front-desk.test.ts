@@ -6,7 +6,7 @@ import {
   requestCheckoutChange, decideCheckoutRequest, listCheckoutRequests,
 } from '@/modules/stay';
 import { postFolioLine } from '@/modules/billing';
-import { scanQrCode, resolveGuestSession, QrNotUsableError } from '@/modules/access';
+import { scanQrCode, resolveStaySession, QrNotUsableError } from '@/modules/access';
 import { atLocalHourOnSameDay } from '@/lib/clock';
 import {
   ownerClient, seedTenant, cleanup, TENANT_A, TENANT_B, type Fixture,
@@ -230,13 +230,13 @@ describe('the front desk', () => {
       const stay = await checkIn();
       const phone = await scanQrCode(a.qrCode);
       const tablet = await scanQrCode(a.qrCode);
-      expect(await resolveGuestSession(phone.cookieValue)).toBeTruthy();
+      expect(await resolveStaySession(phone.cookieValue)).toBeTruthy();
 
       const result = await checkOut(stay.stayId);
       expect(result.sessionsRevoked).toBe(2);
 
       for (const device of [phone, tablet]) {
-        expect(await resolveGuestSession(device.cookieValue)).toBeNull();
+        expect(await resolveStaySession(device.cookieValue)).toBeNull();
       }
 
       // The next guest scans the same unchanged sticker and gets their own stay.
@@ -303,7 +303,7 @@ describe('the front desk', () => {
 
     const history = await scoped((tx) => readEventHistory(tx, 'stay', stay.stayId));
     expect(history.filter((e) => e.event_type === 'stay.checked_out')).toHaveLength(1);
-    expect(await resolveGuestSession(phone.cookieValue)).toBeNull();
+    expect(await resolveStaySession(phone.cookieValue)).toBeNull();
   });
 
   /* ── The checkout requests it tidies up ──────────────────────────────── */

@@ -6,7 +6,7 @@ import {
   KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import {
-  addToCart, placeOrder, advanceOrder, ORDER_CHANNEL, type OrderChangedPayload,
+  addToCart, placeOrder, advanceOrder, ORDER_CHANNEL, type OrderChangedPayload, stayContext
 } from '@/modules/ordering';
 import { ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, type Fixture } from './setup';
 
@@ -115,12 +115,12 @@ describe('order notifications', () => {
 
   async function anOrder(key: string): Promise<string> {
     await scoped((tx) => addToCart(tx, {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
       menuItemId: dish, quantity: 1, modifierOptionIds: [chefOption],
     }));
     const placed = await scoped((tx) => placeOrder(tx, {
-      tenantId: a.tenantId, propertyId: a.propertyId, stayId,
-      roomNumber: '214', idempotencyKey: key, accessTier: 'CHARGE',
+      tenantId: a.tenantId, propertyId: a.propertyId, context: stayContext(stayId),
+      destinationLabel: `Room ${'214'}`, idempotencyKey: key, accessTier: 'CHARGE',
     }));
     return placed.orderId;
   }
@@ -156,8 +156,12 @@ describe('order notifications', () => {
     const [event] = await collector.settle();
     // Every process listening on this database hears this. No money, no guest
     // name, no dish — the screen re-reads what it is allowed to see.
+    // D-079 added `visitId` alongside `stayId` — exactly one is ever set, and
+    // both are routing. Listing both here is the point of the assertion: it is
+    // what fails when somebody puts a total or a guest name in the payload.
     expect(Object.keys(event!).sort()).toEqual([
-      'orderId', 'orderNumber', 'outletId', 'propertyId', 'stayId', 'status', 'tenantId',
+      'orderId', 'orderNumber', 'outletId', 'propertyId',
+      'stayId', 'visitId', 'status', 'tenantId',
     ].sort());
     expect(JSON.stringify(event)).not.toMatch(/Laal maas|Anjali|minor/i);
   });

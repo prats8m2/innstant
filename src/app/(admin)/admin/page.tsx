@@ -215,6 +215,13 @@ export default async function AdminHome() {
             </Card>
           ) : null}
 
+          {mayEditMenu ? (
+            <Card href="/admin/links" title="Links">
+              A code that is not on a nightstand — a table tent, the counter, a
+              link to send. The menu, reachable without a room.
+            </Card>
+          ) : null}
+
           {maySeeRequests ? (
             <Card href="/admin/requests" title="What guests can ask for">
               Amenities and services, what each costs, how long it is promised
