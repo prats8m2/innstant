@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { subscribeToChannel, type Subscription } from '@/db';
-import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { ORDER_CHANNEL, type OrderChangedPayload } from '@/modules/ordering';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
@@ -41,10 +41,11 @@ const HEARTBEAT_MS = 25_000;
  * moves, and opening one stream per live order would be N connections from a
  * phone to say the same thing.
  *
- * What makes that safe is that `orderId` was never the security boundary:
- * `stayId` is (#10), it is taken from the session and not from the query, and
- * it is checked on every notification either way. Dropping `orderId` widens
- * what a guest hears about their OWN stay and nothing else.
+ * What makes that safe is that `orderId` was never the security boundary: the
+ * session's own context is (#10, and D-079 for the visit half). It is taken
+ * from the session and not from the query, and it is checked on every
+ * notification either way. Dropping `orderId` widens what a guest hears about
+ * their OWN stay or visit and nothing else.
  */
 const Query = z.object({ orderId: z.uuid().optional() });
 
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const store = await cookies();
-  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
   /**
    * 401, not a redirect. `EventSource` cannot follow one usefully, and the page
    * that opened this stream already redirects an unresolvable session to the
@@ -103,10 +104,22 @@ export async function GET(request: NextRequest): Promise<Response> {
 
       subscription = subscribeToChannel(ORDER_CHANNEL, (payload) => {
         const change = payload as OrderChangedPayload;
-        // Every process listening on this database hears every order in every
-        // hotel. This line is what makes it this guest's stay, and it is not
-        // optional.
-        if (change?.stayId !== session.stayId) return;
+        /**
+         * Every process listening on this database hears every order in every
+         * hotel. This line is what makes it this guest's own, and it is not
+         * optional.
+         *
+         * D-079 — the session may be bound to a stay or to a visit, and this
+         * route serves both: a diner watching their table's order arrive is
+         * the same screen as a guest watching a tray come up. The comparison
+         * is against whichever id the session HAS, and `mine` is written so
+         * that a null on either side can never match a null on the other —
+         * two unidentified rows are not the same row.
+         */
+        const mine = session.kind === 'STAY'
+          ? change?.stayId === session.stayId
+          : change?.visitId === session.visitId;
+        if (!mine) return;
         // This one is the caller's narrowing: one order for the tracking
         // screen, the whole stay for the list.
         if (orderId && change.orderId !== orderId) return;
@@ -140,7 +153,10 @@ export async function GET(request: NextRequest): Promise<Response> {
         }
       });
 
-      log.info({ orderId, stayId: session.stayId }, 'guest order stream opened');
+      log.info(
+        { orderId, context: session.kind, contextId: session.kind === 'STAY' ? session.stayId : session.visitId },
+        'guest order stream opened',
+      );
     },
 
     cancel() {

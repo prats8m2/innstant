@@ -1,0 +1,152 @@
+/*
+ * The checkout fields on a property-link order. D-079.
+ *
+ * Everything the sheet itself needs — the scrim, the lines, the totals, the
+ * send button — comes from `/r/[qrCode]/cart/cart.module.css`, imported rather
+ * than copied. This file holds only what the room flow has no equivalent of:
+ * the name, the phone, the delivery address, and the pickup/delivery choice.
+ *
+ * Every value is a custom property from theme.css (CLAUDE.md). No hex, no
+ * radius, no duration.
+ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+/* ── Pickup or delivery ──────────────────────────────────────────────────── */
+
+.modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  padding: 0 0 var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+/*
+ * A label wrapping its own radio, rather than a button that sets state.
+ *
+ * It is the control that works with JavaScript off, which is the same reason
+ * every other control in the guest app is a form. `:has()` would let the
+ * styling follow `:checked` with no React at all — `data-on` is here because
+ * the delivery fields below have to appear and disappear, and that genuinely
+ * needs the state.
+ */
+.mode {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--plaster) 20%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+
+.mode[data-on='true'] {
+  border-color: var(--saffron);
+  background: color-mix(in srgb, var(--saffron) 10%, var(--surface-raised));
+}
+
+/* Visually hidden, not display:none — a removed radio is unreachable by
+   keyboard and invisible to a screen reader. */
+.radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.radio:focus-visible + .modeLabel {
+  outline: 2px solid var(--saffron);
+  outline-offset: 3px;
+}
+
+.modeLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.modeSub {
+  font-size: var(--text-xs);
+  color: var(--plaster-faint);
+}
+
+/* ── The fields ──────────────────────────────────────────────────────────── */
+
+.field {
+  display: block;
+}
+
+.label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--plaster-faint);
+}
+
+/* 56px, like the verification input next door: a thumb on a phone, in a
+   restaurant, by somebody who wants their dinner. */
+.input,
+.textarea {
+  width: 100%;
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid color-mix(in srgb, var(--plaster) 20%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+}
+
+.textarea {
+  min-height: 84px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.input::placeholder,
+.textarea::placeholder { color: var(--plaster-faint); }
+
+.input:focus-visible,
+.textarea:focus-visible {
+  outline: 2px solid var(--saffron);
+  outline-offset: 2px;
+}
+
+/* The field the server named in its refusal, so the message above the button
+   has somewhere to point.
+   `--accent` rather than a red: this theme has no danger token (theme.css), and
+   the warning block next door already marks a refusal with the saffron rule. A
+   field that could not be accepted is the same event, not a worse one. */
+.input[aria-invalid='true'],
+.textarea[aria-invalid='true'] {
+  border-color: var(--accent);
+}
