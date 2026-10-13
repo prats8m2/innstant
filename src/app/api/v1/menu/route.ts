@@ -1,7 +1,7 @@
 import { getMenu } from '@/modules/catalog';
 import { NotFoundError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler } from '../_lib/handler';
+import { apiHandler, corsPreflight } from '../_lib/handler';
 import { withVisitContext } from '../_lib/context';
 import { apiSection } from '../_lib/serialise';
 import type { ApiMenu } from '@/lib/api-contract';
@@ -51,3 +51,6 @@ export const GET = apiHandler('/api/v1/menu', async (request): Promise<ApiMenu> 
     };
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

@@ -4,7 +4,7 @@ import {
 } from '@/modules/ordering';
 import { ValidationError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler, parseBody } from '../../../_lib/handler';
+import { apiHandler, parseBody, corsPreflight } from '../../../_lib/handler';
 import { withVisitContext } from '../../../_lib/context';
 import { apiCart } from '../../../_lib/serialise';
 import type { ApiCart } from '@/lib/api-contract';
@@ -93,3 +93,6 @@ export const DELETE = apiHandler(
     });
   },
 );
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

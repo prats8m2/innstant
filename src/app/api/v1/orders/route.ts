@@ -4,7 +4,7 @@ import {
 } from '@/modules/ordering';
 import { setVisitDetails, destinationLabelFor, VISIT_FULFILMENTS } from '@/modules/visit';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler, parseBody } from '../_lib/handler';
+import { apiHandler, parseBody, corsPreflight } from '../_lib/handler';
 import { withVisitContext } from '../_lib/context';
 import { apiMoney, apiOrderSummary } from '../_lib/serialise';
 import type { ApiOrderSummary, ApiPlacedOrder } from '@/lib/api-contract';
@@ -120,3 +120,6 @@ export const GET = apiHandler('/api/v1/orders', async (request): Promise<ApiOrde
     return orders.map((order) => apiOrderSummary(order, OPEN_TO_A_GUEST.includes(order.status)));
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

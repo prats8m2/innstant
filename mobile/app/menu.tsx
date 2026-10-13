@@ -101,7 +101,13 @@ export default function Menu() {
         options={{
           title: session.property.name,
           headerRight: () => (
-            <Pressable onPress={() => router.push('/orders')} hitSlop={12}>
+            <Pressable
+              onPress={() => router.push('/orders')}
+              hitSlop={12}
+              // The padding is load-bearing: without it the label sits flush
+              // against the screen edge and is clipped on a 390px viewport.
+              style={{ paddingHorizontal: space[2] }}
+            >
               <Text style={s.headerLink}>Orders</Text>
             </Pressable>
           ),

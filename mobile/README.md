@@ -60,6 +60,22 @@ somebody's phone.
 Auth is a bearer token that is the same string the web holds in a cookie. Same
 session row, same revocation, same expiry — see `src/lib/api-auth.ts`.
 
+## The web target
+
+`pnpm start` then `w` runs the app in a browser through `react-native-web`. It
+is there for verification — this machine has no Xcode and no Android SDK, and a
+browser proves the screens mount and the API client works, which a bundle does
+not.
+
+Two things differ there and neither is a bug:
+
+- **The session does not survive a reload.** `expo-secure-store` is a native
+  API; on web it no-ops, `getToken()` catches and degrades to in-memory, and a
+  full page load starts a cold app. Navigate in-app.
+- **It needs CORS**, which `/api/v1` answers with a wildcard. Native `fetch`
+  ignores CORS entirely, so none of that machinery is for the app — see the
+  note on `corsPreflight`.
+
 ## Layout
 
 ```

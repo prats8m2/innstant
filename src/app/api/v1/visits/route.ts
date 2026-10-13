@@ -3,7 +3,7 @@ import { withTenant } from '@/db';
 import { scanVisitLink, QrNotUsableError } from '@/modules/access';
 import { findVisit } from '@/modules/visit';
 import { NotFoundError } from '@/lib/errors';
-import { apiHandler, parseBody } from '../_lib/handler';
+import { apiHandler, parseBody, corsPreflight } from '../_lib/handler';
 import { loadVisitContext } from '../_lib/context';
 import { apiVisit } from '../_lib/serialise';
 import type { ApiSession } from '@/lib/api-contract';
@@ -89,3 +89,6 @@ export const POST = apiHandler('/api/v1/visits', async (request): Promise<ApiSes
     },
   );
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

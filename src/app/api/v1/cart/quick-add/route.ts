@@ -3,7 +3,7 @@ import {
   quickAddDish, quickRemoveDish, getCart, contextForSession,
 } from '@/modules/ordering';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler, parseBody } from '../../_lib/handler';
+import { apiHandler, parseBody, corsPreflight } from '../../_lib/handler';
 import { withVisitContext } from '../../_lib/context';
 import { apiCart } from '../../_lib/serialise';
 import type { ApiCart } from '@/lib/api-contract';
@@ -79,3 +79,6 @@ export const POST = apiHandler('/api/v1/cart/quick-add', async (request): Promis
     return apiCart(cart, ctx.outlet.minimumOrderMinor, currency);
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

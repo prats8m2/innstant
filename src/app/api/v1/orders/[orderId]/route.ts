@@ -5,7 +5,7 @@ import {
 import { findVisit, destinationLabelFor } from '@/modules/visit';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler } from '../../_lib/handler';
+import { apiHandler, corsPreflight } from '../../_lib/handler';
 import { withVisitContext } from '../../_lib/context';
 import { apiOrder, paymentLineFor } from '../../_lib/serialise';
 import type { ApiOrder } from '@/lib/api-contract';
@@ -81,3 +81,6 @@ export const GET = apiHandler('/api/v1/orders/[orderId]', async (request): Promi
     );
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

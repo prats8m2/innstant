@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getDish } from '@/modules/catalog';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler } from '../../_lib/handler';
+import { apiHandler, corsPreflight } from '../../_lib/handler';
 import { withVisitContext } from '../../_lib/context';
 import { apiDish, apiMoney } from '../../_lib/serialise';
 import type { ApiDishDetail } from '@/lib/api-contract';
@@ -74,3 +74,6 @@ export const GET = apiHandler('/api/v1/menu/[itemId]', async (request): Promise<
     };
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

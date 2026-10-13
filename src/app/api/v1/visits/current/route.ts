@@ -1,7 +1,7 @@
 import { findVisit } from '@/modules/visit';
 import { NotFoundError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
-import { apiHandler } from '../../_lib/handler';
+import { apiHandler, corsPreflight } from '../../_lib/handler';
 import { withVisitContext } from '../../_lib/context';
 import { apiVisit } from '../../_lib/serialise';
 import type { ApiSession } from '@/lib/api-contract';
@@ -47,3 +47,6 @@ export const GET = apiHandler('/api/v1/visits/current', async (request): Promise
     };
   });
 });
+
+/** Preflight. See the note on `corsPreflight`. */
+export const OPTIONS = corsPreflight;

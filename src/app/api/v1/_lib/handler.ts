@@ -22,6 +22,47 @@ import { requestLogger } from '@/lib/logger';
  * what a customer saying "it would not let me order" can be asked for, and it
  * is already on the log line.
  */
+/**
+ * `/api/v1` answers cross-origin. D-080.
+ *
+ * ─── Why a wildcard is the SAFE choice here, not the lazy one ──────────────
+ *
+ * A native client is not subject to CORS at all — RN's `fetch` ignores it — so
+ * none of this is for the app. It is for every other client: Expo's web
+ * target, a future ordering page on a restaurant's own domain, and anyone
+ * debugging with curl or a browser console.
+ *
+ * `*` CANNOT be combined with credentials: a browser refuses to send cookies
+ * to a wildcard origin, and refuses the response if the server tries to allow
+ * both. That is exactly the behaviour this API wants. It authenticates by
+ * BEARER TOKEN — a header a cross-origin page can only set if it already has
+ * the token — so there is no ambient authority to abuse and no CSRF to
+ * defend: a malicious page can make the request and will be answered 401,
+ * because it has nothing to put in the header.
+ *
+ * The cookie fallback in `guestCredentialFrom` simply does not work
+ * cross-origin, which is correct rather than a limitation. Same-origin callers
+ * (the web app itself) are unaffected.
+ *
+ * If this ever needs credentials cross-origin, the wildcard has to become an
+ * allow-list of exact origins and `Vary: Origin` has to be set. Do not add
+ * `Allow-Credentials` to a wildcard; browsers reject it, which is the one
+ * mercy in this area.
+ */
+const CORS: Record<string, string> = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'access-control-allow-headers': 'authorization, content-type',
+  // A day. The preflight answer cannot go stale in a way that matters — the
+  // methods and headers are fixed by this file.
+  'access-control-max-age': '86400',
+};
+
+/** The preflight. Every route exports this; it carries no data and no auth. */
+export function corsPreflight(): Response {
+  return new Response(null, { status: 204, headers: CORS });
+}
+
 export function apiHandler<T>(
   route: string,
   fn: (request: Request, ctx: { log: ReturnType<typeof requestLogger> }) => Promise<T>,
@@ -32,7 +73,7 @@ export function apiHandler<T>(
 
     try {
       const body = await fn(request, { log });
-      return Response.json(body, { headers: { [REQUEST_ID_HEADER]: reqId } });
+      return Response.json(body, { headers: { ...CORS, [REQUEST_ID_HEADER]: reqId } });
     } catch (error) {
       const status = httpStatusFor(error);
       const payload = publicPayloadFor(error);
@@ -44,7 +85,10 @@ export function apiHandler<T>(
 
       return Response.json(payload, {
         status,
-        headers: { [REQUEST_ID_HEADER]: reqId },
+        // On the failures too: a browser that cannot read a 401 because the
+        // header is missing reports a CORS error instead, and the client
+        // sees a network failure where the server gave a clear answer.
+        headers: { ...CORS, [REQUEST_ID_HEADER]: reqId },
       });
     }
   };

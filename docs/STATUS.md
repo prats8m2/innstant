@@ -45,11 +45,13 @@ code writes `fulfilment` and `destination_label`, and `orders_fulfilment_ck`
 rejects a row that omits them. Old code on the new schema is fine; the reverse
 is not.
 
-**2 — The mobile app has not been RUN.** `/api/v1` is verified over HTTP end to
-end — every endpoint, all three fulfilments, idempotency, cross-visit
-isolation — and `mobile/` typechecks against it, but no simulator has opened
-it. That is the next session's first job: `cd mobile && pnpm start`, press `i`,
-and walk the flow. Expect layout bugs; expect nothing structural.
+**2 — The app has not been run on a DEVICE.** It has been driven end to end in
+a browser through Expo's web target — all eleven steps of the real journey
+against the real API and database, zero console errors — and both native
+bundles build. What that cannot prove is anything native: safe-area insets on a
+notched phone, the keyboard avoiding view, `expo-secure-store` actually
+persisting (it no-ops on web), the camera, and universal links. This machine
+has no Xcode and no Android SDK, so that needs a machine that does.
 
 **3 — Universal links need two files served from the domain.** `app.json`
 declares `applinks:innstant.in` and an Android intent filter for `/p`, and
@@ -188,8 +190,25 @@ removed the token generator. `tests/unit/mobile-theme.test.ts` reads both files
 and fails if either moves, including the two alphas that are `color-mix()` on
 the web and literal rgba in the app. 22 assertions.
 
-**Not run on a simulator yet.** The API is verified over HTTP end to end; the
-screens typecheck and have not been looked at.
+**Driven end to end in a browser.** Expo's web target renders the real screens
+against the real API: open a link, add from the menu, choose a variant on the
+dish screen, fill the checkout, place a delivery order, watch the timeline, and
+find it in the orders list — eleven steps, zero console errors. Both native
+bundles build (iOS 1127 modules, Android 1271).
+
+Three toolchain things, each found by running it rather than reasoning about
+it: the app is NOT a pnpm workspace member (RN needs a flat `node_modules` and
+`nodeLinker` is workspace-wide, so enabling it would have relaxed the deployed
+web app's layout); pnpm 10 moved settings out of `.npmrc`, so the first attempt
+reported "Done in 31.2s" over an empty `node_modules`; and `react-native` has
+to be the version the SDK bundles (0.86.3), not `latest` — 0.87 removed a file
+`@expo/metro-config@57` still calls.
+
+`/api/v1` answers cross-origin with a wildcard, which is safe precisely because
+a wildcard cannot carry credentials and this API authenticates by bearer.
+
+**Not run on a device.** Nothing native is proven — insets, the keyboard, the
+keychain, the camera, universal links.
 
 
 **A property can be used without a room (D-079).** `/p/{code}` opens a VISIT —
