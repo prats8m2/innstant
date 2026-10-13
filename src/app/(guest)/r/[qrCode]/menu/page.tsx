@@ -2,13 +2,13 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import {
   getInRoomDiningMenu, getOutletHours, outletOpenState, describeOpenState, hoursForDay,
 } from '@/modules/catalog';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt, formatClock } from '@/lib/clock';
-import { getCart } from '@/modules/ordering';
+import { getCart, contextForSession } from '@/modules/ordering';
 import { formatMoney, money } from '@/lib/money';
 import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from './category-rail';
@@ -34,7 +34,7 @@ export default async function MenuScreen({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   // Cookie missing or stale — checked out, expired, revoked. Back through the
   // link, which issues a fresh session or 404s (#10).
@@ -68,7 +68,7 @@ export default async function MenuScreen({
         property: found,
         cart: await getCart(tx, {
           propertyId: session.propertyId,
-          stayId: session.stayId,
+          context: contextForSession(session),
           // A dish outside its schedule must price as unavailable here too, or
           // the pill's total and the send would disagree with the menu above it.
           at: localNow,

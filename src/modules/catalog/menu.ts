@@ -429,6 +429,34 @@ export async function getInRoomDiningOutletConfig(
 }
 
 /**
+ * The same four integers, for an outlet named by id rather than by kind.
+ *
+ * D-079 — a property link points at ONE outlet, chosen when the link was made,
+ * and `placeOrder()` has to price against that one. The in-room variant above
+ * stays because the room flow genuinely has no choice to make: until a guest
+ * can pick between a rooftop bar and room service, the in-room outlet IS the
+ * menu, and resolving it by kind is how that is said.
+ */
+export async function getOutletConfig(
+  tx: Tx,
+  input: { propertyId: string; outletId: string },
+): Promise<OutletMenu['outlet'] | null> {
+  const rows = await tx
+    .select(OUTLET_COLUMNS)
+    .from(outlets)
+    .where(and(
+      eq(outlets.id, input.outletId),
+      // Scoped to the property as well as the id: the id travels in a session,
+      // and RLS confines it to the tenant, which is one hotel wider than this.
+      eq(outlets.propertyId, input.propertyId),
+      isNull(outlets.archivedAt),
+    ))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+/**
  * What the guest menu screen calls. One outlet lookup, not two.
  *
  * A property may run several outlets later — a rooftop bar with its own hours.

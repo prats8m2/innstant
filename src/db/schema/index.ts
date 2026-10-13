@@ -9,6 +9,7 @@ export * from './_shared';
 export * from './core';
 export * from './identity';
 export * from './stay';
+export * from './visit';
 export * from './access';
 export * from './catalog';
 export * from './ordering';

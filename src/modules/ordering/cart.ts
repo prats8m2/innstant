@@ -7,11 +7,14 @@ import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import { type CurrencyCode, money, formatMoney } from '@/lib/money';
 import type { LocalTime } from '@/lib/clock';
 import { calculateTotals, type OrderTotals } from './totals';
+import { cartsIn, contextColumns, type OrderContext } from './context';
 
 /**
- * The cart. One per `(stay, outlet)` — CLAUDE.md #10: keyed on the STAY, never
- * the room, because rooms are reused and the next guest must not inherit an
- * abandoned cart.
+ * The cart. One per `(context, outlet)` — CLAUDE.md #10: keyed on the STAY,
+ * never the room, because rooms are reused and the next guest must not inherit
+ * an abandoned cart. D-079 adds the second kind of context, a VISIT, and the
+ * same sentence is true of it: a table is reused, and the next diner must not
+ * inherit the last one's cart.
  *
  * ─── Live prices, not snapshots ────────────────────────────────────────────
  *
@@ -72,32 +75,38 @@ export interface CartOutletConfig {
 }
 
 /**
- * One cart per (stay, outlet), created on first use.
+ * One cart per (context, outlet), created on first use.
  *
  * `ON CONFLICT DO NOTHING` then re-select rather than a check-then-insert: two
  * taps on "Add to order" arrive concurrently often enough that the race is
  * real, and the unique index is the only thing that actually settles it.
+ *
+ * D-079 — the index behind that `ON CONFLICT` is now two PARTIAL indexes, one
+ * per context, because a composite unique over a nullable column stops
+ * constraining the rows where it is null (0008 explains it at length). The
+ * conflict target is still inferred, and still resolves, because exactly one of
+ * the two columns is non-null on any row this writes.
  */
 export async function getOrCreateCart(
   tx: Tx,
-  input: { tenantId: string; propertyId: string; stayId: string; outletId: string },
+  input: { tenantId: string; propertyId: string; context: OrderContext; outletId: string },
 ): Promise<{ id: string }> {
   await tx.insert(carts).values({
     tenantId: input.tenantId,
     propertyId: input.propertyId,
-    stayId: input.stayId,
+    ...contextColumns(input.context),
     outletId: input.outletId,
   }).onConflictDoNothing();
 
   const rows = await tx.select({ id: carts.id }).from(carts)
-    .where(and(eq(carts.stayId, input.stayId), eq(carts.outletId, input.outletId)))
+    .where(and(cartsIn(input.context), eq(carts.outletId, input.outletId)))
     .limit(1);
 
   const cart = rows[0];
   if (!cart) {
     // Only reachable if the insert was rejected by RLS — which means the stay
-    // is not this tenant's, and saying more would confirm it exists.
-    throw new NotFoundError('cart could not be opened for this stay');
+    // or visit is not this tenant's, and saying more would confirm it exists.
+    throw new NotFoundError('cart could not be opened for this context');
   }
   return cart;
 }
@@ -148,7 +157,7 @@ function assertSelectionIsValid(
 export interface AddToCartInput {
   tenantId: string;
   propertyId: string;
-  stayId: string;
+  context: OrderContext;
   menuItemId: string;
   quantity: number;
   notes?: string | null;
@@ -198,7 +207,7 @@ export async function addToCart(
   const cart = await getOrCreateCart(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
-    stayId: input.stayId,
+    context: input.context,
     outletId: detail.outlet.id,
   });
 
@@ -267,7 +276,7 @@ async function findIdenticalLine(
 
 export async function setCartItemQuantity(
   tx: Tx,
-  input: { stayId: string; cartItemId: string; quantity: number },
+  input: { context: OrderContext; cartItemId: string; quantity: number },
 ): Promise<void> {
   if (!Number.isInteger(input.quantity) || input.quantity < 0) {
     throw new ValidationError('That is not a quantity.');
@@ -276,7 +285,7 @@ export async function setCartItemQuantity(
     throw new ValidationError('Call the desk for an order that size.');
   }
 
-  const line = await lineInStayCart(tx, input.stayId, input.cartItemId);
+  const line = await lineInOwnCart(tx, input.context, input.cartItemId);
 
   // Zero means remove. A stepper that bottoms out at 1 and needs a separate
   // delete control is two ways to do one thing.
@@ -292,29 +301,30 @@ export async function setCartItemQuantity(
 
 export async function removeCartItem(
   tx: Tx,
-  input: { stayId: string; cartItemId: string },
+  input: { context: OrderContext; cartItemId: string },
 ): Promise<void> {
-  const line = await lineInStayCart(tx, input.stayId, input.cartItemId);
+  const line = await lineInOwnCart(tx, input.context, input.cartItemId);
   await tx.delete(cartItems).where(eq(cartItems.id, line.id));
 }
 
 /**
- * Resolves a cart line id against THIS stay's cart.
+ * Resolves a cart line id against THIS context's cart.
  *
  * RLS confines the row to the tenant; this confines it to the guest. Without
- * it, a line id from another room in the same hotel would be editable, and
- * that id travels in a form.
+ * it, a line id from another room in the same hotel would be editable — or,
+ * since D-079, from another table in the same restaurant — and that id travels
+ * in a form.
  */
-async function lineInStayCart(
+async function lineInOwnCart(
   tx: Tx,
-  stayId: string,
+  context: OrderContext,
   cartItemId: string,
 ): Promise<{ id: string }> {
   const rows = await tx
     .select({ id: cartItems.id })
     .from(cartItems)
     .innerJoin(carts, eq(carts.id, cartItems.cartId))
-    .where(and(eq(cartItems.id, cartItemId), eq(carts.stayId, stayId)))
+    .where(and(eq(cartItems.id, cartItemId), cartsIn(context)))
     .limit(1);
 
   const line = rows[0];
@@ -323,14 +333,14 @@ async function lineInStayCart(
 }
 
 /**
- * The cart, priced. Returns null when the stay has never opened one — which is
- * different from an empty cart, and the screen says different things.
+ * The cart, priced. Returns null when this context has never opened one — which
+ * is different from an empty cart, and the screen says different things.
  */
 export async function getCart(
   tx: Tx,
   input: {
     propertyId: string;
-    stayId: string;
+    context: OrderContext;
     outlet: CartOutletConfig;
     /**
      * Property-local time, so a dish outside its schedule prices as unavailable
@@ -343,7 +353,7 @@ export async function getCart(
 ): Promise<Cart | null> {
   const cartRows = await tx.select({ id: carts.id, outletId: carts.outletId })
     .from(carts)
-    .where(and(eq(carts.stayId, input.stayId), eq(carts.outletId, input.outlet.outletId)))
+    .where(and(cartsIn(input.context), eq(carts.outletId, input.outlet.outletId)))
     .limit(1);
 
   const cart = cartRows[0];

@@ -19,7 +19,7 @@ import nextPlugin from '@next/eslint-plugin-next';
  * `tests/lint-boundary.test.ts` — it is not a hypothetical mistake.
  */
 const MODULES = [
-  'identity', 'stay', 'catalog', 'ordering', 'requests',
+  'identity', 'stay', 'visit', 'catalog', 'ordering', 'requests',
   'housekeeping', 'concierge', 'billing', 'notifications', 'access',
   // `demo` owns exactly one table, `demo_visitors`, and it is the only one in
   // the product with no tenant column — a name typed by a stranger on the
@@ -41,6 +41,11 @@ const TABLES_ARE_PRIVATE =
 const STAYS_ARE_SEALED =
   'Only modules/stay may touch `stays` (CLAUDE.md #4, EXTENSION-POINTS §A). ' +
   'Every stay in the system is created by createStay(); call it.';
+
+/** D-079 — the same discipline, for the same reason, on the sibling table. */
+const VISITS_ARE_SEALED =
+  'Only modules/visit may touch `visits` (D-079). Every visit is opened by ' +
+  'openVisit(); call it.';
 
 const schemaGroup = (names) =>
   names.flatMap((m) => [`**/db/schema/${m}`, `@/db/schema/${m}`]);
@@ -65,8 +70,12 @@ const moduleBoundaries = MODULES.map((name) => {
             group: schemaGroup(['stay']),
             message: STAYS_ARE_SEALED,
           }]),
+          ...(name === 'visit' ? [] : [{
+            group: schemaGroup(['visit']),
+            message: VISITS_ARE_SEALED,
+          }]),
           {
-            group: schemaGroup(others.filter((m) => m !== 'stay')),
+            group: schemaGroup(others.filter((m) => m !== 'stay' && m !== 'visit')),
             message: TABLES_ARE_PRIVATE,
           },
         ],
@@ -111,6 +120,7 @@ export default tseslint.config(
         ],
         patterns: [
           { group: schemaGroup(['stay']), message: STAYS_ARE_SEALED },
+          { group: schemaGroup(['visit']), message: VISITS_ARE_SEALED },
           {
             group: ['**/db/schema/*', '@/db/schema/*'],
             // D-019 — core.ts is exempt: every module writes event_log in its

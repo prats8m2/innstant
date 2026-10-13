@@ -2,11 +2,11 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
-import { getCart } from '@/modules/ordering';
+import { getCart, contextForSession } from '@/modules/ordering';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { LineControls } from './line-controls';
 import { SendOrder } from './send-order';
@@ -37,7 +37,7 @@ export default async function CartScreen({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
@@ -59,7 +59,7 @@ export default async function CartScreen({
         currency: outlet.currency as CurrencyCode,
         cart: await getCart(tx, {
           propertyId: session.propertyId,
-          stayId: session.stayId,
+          context: contextForSession(session),
           at,
           outlet: {
             outletId: outlet.id,

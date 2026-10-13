@@ -4,10 +4,10 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getInRoomDiningMenu } from '@/modules/catalog';
 import { findProperty } from '@/modules/identity';
-import { quickAddDish, quickRemoveDish } from '@/modules/ordering';
+import { quickAddDish, quickRemoveDish, contextForSession } from '@/modules/ordering';
 import { localTimeAt } from '@/lib/clock';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -56,7 +56,7 @@ export async function adjustDishInOrder(
   const store = await cookies();
 
   try {
-    const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+    const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
     // Changing an order is not browsing, and #9 covers browsing only.
     if (!session) throw new UnauthenticatedError('no guest session');
 
@@ -76,7 +76,7 @@ export async function adjustDishInOrder(
         const input = {
           tenantId: session.tenantId,
           propertyId: session.propertyId,
-          stayId: session.stayId,
+          context: contextForSession(session),
           outletId: menu.outlet.id,
           menuItemId: parsed.data.menuItemId,
         };

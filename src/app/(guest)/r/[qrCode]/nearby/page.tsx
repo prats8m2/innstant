@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { findProperty } from '@/modules/identity';
 import { listPlacesForProperty, planDay, describeTrip } from '@/modules/concierge';
 import { localTimeAt } from '@/lib/clock';
@@ -39,7 +39,7 @@ export default async function NearbyScreen({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 

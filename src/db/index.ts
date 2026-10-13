@@ -14,9 +14,11 @@ export {
   readMigrationState,
   closePool,
   resolveQrRouting,
+  /** The property-link twin — /p/[code]. See client.ts. */
+  resolveVisitLink,
   slaSweepProperties,
 } from './client';
-export type { Tx, TenantContext, QrRouting, SweepTarget } from './client';
+export type { Tx, TenantContext, QrRouting, VisitLinkRouting, SweepTarget } from './client';
 export { subscribeToChannel, closeNotifyConnection, notifyStatus } from './notify';
 export type { Subscription } from './notify';
 export { recordEvent, readEventHistory } from './events';

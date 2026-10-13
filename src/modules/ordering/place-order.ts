@@ -3,7 +3,7 @@ import type { Tx } from '@/db';
 import { recordEvent } from '@/db';
 import { carts, cartItems, orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import { idempotencyKeys } from '@/db/schema/core';
-import { getInRoomDiningOutletConfig } from '@/modules/catalog';
+import { getInRoomDiningOutletConfig, getOutletConfig } from '@/modules/catalog';
 import { postFolioLine } from '@/modules/billing';
 import { guestProfileForStay } from '@/modules/stay';
 import { findProperty } from '@/modules/identity';
@@ -12,6 +12,7 @@ import { tierAtLeast, type AccessTier } from '@/modules/access';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { getCart } from './cart';
+import { contextColumns, type OrderContext } from './context';
 import { notifyOrderChanged } from './advance-order';
 
 /**
@@ -40,8 +41,34 @@ const IDEMPOTENCY_TTL_HOURS = 24;
 export interface PlaceOrderInput {
   tenantId: string;
   propertyId: string;
-  stayId: string;
-  roomNumber: string;
+  /** D-079 — a stay (charged to a room) or a visit (paid at the counter). */
+  context: OrderContext;
+  /**
+   * What the kitchen ticket says. Snapshotted onto the order (#6 applied to
+   * the destination) so a renamed table tent or a reassigned room cannot move
+   * a tray that is already cooking.
+   */
+  destinationLabel: string;
+  /**
+   * Which outlet. Null means "the in-room dining one", which is what the room
+   * flow has always meant and the only thing it can mean: until a guest can
+   * choose between a rooftop bar and room service, that outlet IS the menu.
+   * A property link names its outlet, because that was the choice made when
+   * somebody created the link.
+   */
+  outletId?: string | null;
+  /**
+   * Dine in, takeaway or delivery — for a VISIT. A stay order is always
+   * IN_ROOM and this is ignored.
+   *
+   * Not derived from the context inside this function, because deriving it
+   * would mean reading the visit row to find out, and the caller has just read
+   * it: the screen that asked "pickup or delivery" is the one calling here.
+   * The database holds the two discriminators to each other with
+   * `orders_fulfilment_ck`, so a caller that passes the wrong one is a 23514
+   * rather than a ticket sent to a table that does not exist.
+   */
+  fulfilment?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
   /** Stable per attempt, minted by the screen. Two taps send the same key. */
   idempotencyKey: string;
 
@@ -79,19 +106,32 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
     // Deliberately not the guest-facing path: by the time anything reaches
     // here the screen should already have asked its one question. This is the
     // backstop that makes the rule true rather than customary.
+    //
+    // D-079 — a visit session arrives here ALREADY at CHARGE, and the check is
+    // left in place rather than branched around. It is cheap, it is the same
+    // assertion for both kinds, and the day somebody adds a tier below CHARGE
+    // for visits this is the line that catches it.
     throw new ForbiddenError('This order has not been verified for room charges.');
   }
 
   const replayed = await claimIdempotencyKey(tx, input);
   if (replayed) return { ...replayed, wasAlreadyPlaced: true };
 
-  const outlet = await getInRoomDiningOutletConfig(tx, input.propertyId);
+  const outlet = input.outletId
+    ? await getOutletConfig(tx, { propertyId: input.propertyId, outletId: input.outletId })
+    : await getInRoomDiningOutletConfig(tx, input.propertyId);
   if (!outlet) throw new NotFoundError('There is no kitchen taking orders here.');
   if (!outlet.isAcceptingOrders) {
     throw new ConflictError('The kitchen has stopped taking orders for tonight.');
   }
 
   const currency = outlet.currency as CurrencyCode;
+
+  // The two discriminators, kept in step. `orders_fulfilment_ck` asserts the
+  // same equality in the database; this is where it is made true.
+  const fulfilment = input.context.kind === 'STAY'
+    ? 'IN_ROOM' as const
+    : (input.fulfilment ?? 'TAKEAWAY');
 
   /**
    * The hotel's own clock, read here rather than taken from the caller.
@@ -107,7 +147,7 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
 
   const cart = await getCart(tx, {
     propertyId: input.propertyId,
-    stayId: input.stayId,
+    context: input.context,
     at,
     outlet: {
       outletId: outlet.id,
@@ -163,26 +203,39 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
    * overrules the desk. Checked before anything is written, and phrased so the
    * guest knows who to talk to rather than being told "no".
    */
-  const profile = await guestProfileForStay(tx, {
-    propertyId: input.propertyId,
-    stayId: input.stayId,
-  });
+  //
+  // D-079 — both halves are about a STAY, and neither has a visit equivalent.
+  // `charging_blocked` is the front desk's veto on posting to a room, and a
+  // visit posts to no room; the dietary flags live on a
+  // `guest_property_profiles` row that a walk-in customer does not have. A
+  // visit order therefore carries no flags, which is honest rather than
+  // convenient: the kitchen has been told nothing about this person, and a
+  // ticket that silently printed "no allergies" would be a claim.
+  const profile = input.context.kind === 'STAY'
+    ? await guestProfileForStay(tx, {
+        propertyId: input.propertyId,
+        stayId: input.context.stayId,
+      })
+    : null;
 
-  if (profile.chargingBlocked) {
+  if (profile?.chargingBlocked) {
     throw new ForbiddenError(
       'Charges to this room are on hold. The front desk can take the order.',
     );
   }
 
-  const dietaryFlags = profile.dietaryFlags;
+  const dietaryFlags = profile?.dietaryFlags ?? [];
 
   const [order] = await tx.insert(orders).values({
     tenantId: input.tenantId,
     propertyId: input.propertyId,
-    stayId: input.stayId,
+    ...contextColumns(input.context),
     outletId: outlet.id,
     orderNumber,
     status: 'PLACED',
+    fulfilment,
+    // #6, applied to the destination. See the column's note in the schema.
+    destinationLabel: input.destinationLabel,
     subtotalMinor: totals.subtotal.amountMinor,
     taxMinor: totals.tax.amountMinor,
     serviceChargeMinor: totals.serviceCharge.amountMinor,
@@ -244,16 +297,33 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
     }
   }
 
-  await postFolioLine(tx, {
-    tenantId: input.tenantId,
-    propertyId: input.propertyId,
-    stayId: input.stayId,
-    source: 'ORDER',
-    sourceRefId: orderId,
-    description: `In-room dining · ${orderNumber}`,
-    amountMinor: totals.total.amountMinor,
-    currency,
-  });
+  /**
+   * "Charged to room 214" is true the instant the guest is told it is — for a
+   * guest who HAS a room.
+   *
+   * D-079 — a visit posts no folio line, and that is the design rather than an
+   * omission. A folio is what a stay accumulates and settles at checkout; a
+   * restaurant customer pays per order, at the counter or at the door, and
+   * there is no later moment at which a balance would be collected. Giving
+   * `folios` a nullable stay to accommodate them would create a folio nobody
+   * ever settles and a balance nobody ever reads.
+   *
+   * The order's own `total_minor` is the record of what is owed, which is where
+   * online payment attaches when Razorpay is wired up — to the order, not to a
+   * folio that should not exist.
+   */
+  if (input.context.kind === 'STAY') {
+    await postFolioLine(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      stayId: input.context.stayId,
+      source: 'ORDER',
+      sourceRefId: orderId,
+      description: `In-room dining · ${orderNumber}`,
+      amountMinor: totals.total.amountMinor,
+      currency,
+    });
+  }
 
   await recordEvent(tx, {
     tenantId: input.tenantId,
@@ -268,7 +338,9 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       : { kind: 'SYSTEM' },
     payload: {
       orderNumber,
-      roomNumber: input.roomNumber,
+      // What the ticket says — "Room 214", "Table 4", "Delivery · 12 MG Road".
+      destination: input.destinationLabel,
+      fulfilment,
       itemCount: cart.itemCount,
       totalMinor: totals.total.amountMinor,
       currency,
@@ -291,7 +363,7 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
     outletId: outlet.id,
     orderId,
     orderNumber,
-    stayId: input.stayId,
+    ...contextColumns(input.context),
     status: 'PLACED',
   });
 

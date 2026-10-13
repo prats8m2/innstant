@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getRequestForStay } from '@/modules/requests';
 import { findProperty } from '@/modules/identity';
 import { formatMoney, money } from '@/lib/money';
@@ -30,7 +30,7 @@ export default async function RequestScreen({
 }) {
   const { qrCode, requestId } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 

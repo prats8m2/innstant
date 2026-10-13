@@ -13,7 +13,17 @@ export {
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
 export { placeOrder } from './place-order';
-export { getOrderForStay, listOrdersForStay } from './read-order';
+export { getOrderForContext, listOrdersForContext } from './read-order';
+
+/**
+ * D-079 — what an order belongs to. A stay (charged to a room) or a visit
+ * (paid at the counter). Every read in this module scopes by it, which is what
+ * keeps "whose order is this" answerable now that there are two answers.
+ */
+export {
+  stayContext, visitContext, contextForSession, contextOf, contextColumns,
+} from './context';
+export type { OrderContext } from './context';
 
 export {
   advanceOrder, kitchenTickets, runnerTickets, openTicketCount, ORDER_CHANNEL,

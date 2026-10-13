@@ -82,3 +82,27 @@ export const outletKind = pgEnum('outlet_kind', [
 ]);
 
 export const shiftStatus = pgEnum('shift_status', ['SCHEDULED', 'ON_DUTY', 'ON_BREAK', 'OFF_DUTY']);
+
+/**
+ * Where the food is going. D-079.
+ *
+ * `IN_ROOM` is every order this product placed before property links existed:
+ * a guest on a stay, charged to a room. The other three belong to a VISIT —
+ * somebody who scanned a table tent or opened a link in an Instagram bio, who
+ * has no room and no stay (modules/visit).
+ *
+ * One enum rather than two because the kitchen asks one question. A ticket says
+ * where the tray goes, and "Room 214", "Table 4" and "12 MG Road" are three
+ * answers to it, not three different questions.
+ */
+export const fulfilmentMode = pgEnum('fulfilment_mode', [
+  'IN_ROOM', 'DINE_IN', 'TAKEAWAY', 'DELIVERY',
+]);
+
+/** What a property link IS, which decides what the visit may become. See
+ *  `visit_links.kind` for why the two enums are separate. */
+export const visitLinkKind = pgEnum('visit_link_kind', ['TABLE', 'COUNTER', 'ONLINE']);
+
+/** A visit is OPEN while somebody is ordering against it. CLOSED once the
+ *  last order is delivered or the link's session has lapsed. */
+export const visitStatus = pgEnum('visit_status', ['OPEN', 'CLOSED']);

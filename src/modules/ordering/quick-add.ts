@@ -4,6 +4,7 @@ import { getDish } from '@/modules/catalog';
 import { cartItems, cartItemModifiers, carts } from '@/db/schema/ordering';
 import { NotFoundError, ConflictError } from '@/lib/errors';
 import { addToCart, setCartItemQuantity, removeCartItem } from './cart';
+import { cartsIn, type OrderContext } from './context';
 import { canQuickAdd, defaultOptionIds } from './quick-add-rules';
 
 /**
@@ -19,7 +20,7 @@ import { canQuickAdd, defaultOptionIds } from './quick-add-rules';
 export interface QuickAdjustInput {
   tenantId: string;
   propertyId: string;
-  stayId: string;
+  context: OrderContext;
   outletId: string;
   menuItemId: string;
 }
@@ -42,7 +43,7 @@ export async function quickAddDish(tx: Tx, input: QuickAdjustInput): Promise<voi
   await addToCart(tx, {
     tenantId: input.tenantId,
     propertyId: input.propertyId,
-    stayId: input.stayId,
+    context: input.context,
     menuItemId: input.menuItemId,
     quantity: 1,
     modifierOptionIds: defaultOptionIds(detail.modifierGroups),
@@ -66,7 +67,7 @@ export async function quickRemoveDish(tx: Tx, input: QuickAdjustInput): Promise<
     .from(carts)
     .where(and(
       eq(carts.propertyId, input.propertyId),
-      eq(carts.stayId, input.stayId),
+      cartsIn(input.context),
       eq(carts.outletId, input.outletId),
     ))
     .limit(1);
@@ -116,12 +117,12 @@ export async function quickRemoveDish(tx: Tx, input: QuickAdjustInput): Promise<
   const target = lines.find((l) => isDefaultLine(l.id, l.notes)) ?? lines[0]!;
 
   if (target.quantity <= 1) {
-    await removeCartItem(tx, { stayId: input.stayId, cartItemId: target.id });
+    await removeCartItem(tx, { context: input.context, cartItemId: target.id });
     return true;
   }
 
   await setCartItemQuantity(tx, {
-    stayId: input.stayId,
+    context: input.context,
     cartItemId: target.id,
     quantity: target.quantity - 1,
   });

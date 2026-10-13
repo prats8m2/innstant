@@ -229,6 +229,55 @@ export async function resolveQrRouting(publicCode: string): Promise<QrRouting | 
   };
 }
 
+/**
+ * The visit-side twin (0008_property_links.sql). Same shape, same reasoning,
+ * same restraint: somebody opening `/p/{publicCode}` from an Instagram bio has
+ * no cookie and no tenant, so this is how the request learns which hotel —
+ * or which restaurant — it belongs to.
+ *
+ * It returns the link's KIND and its table label as well as the ids, because
+ * both decide what the very first screen asks for and neither is a secret: the
+ * code is printed on the tent that says "Table 4" on it.
+ */
+export interface VisitLinkRouting {
+  tenantId: string;
+  propertyId: string;
+  outletId: string;
+  visitLinkId: string;
+  kind: 'TABLE' | 'COUNTER' | 'ONLINE';
+  tableLabel: string | null;
+  version: number;
+  revokedAt: Date | null;
+}
+
+export async function resolveVisitLink(publicCode: string): Promise<VisitLinkRouting | null> {
+  // Same shape check as resolveQrRouting, and more necessary rather than less:
+  // a property link is meant to be public, so it is the one URL in this product
+  // that a crawler will certainly find.
+  if (!publicCode || publicCode.length > 64 || !/^[A-Za-z0-9_-]+$/.test(publicCode)) {
+    return null;
+  }
+
+  const { rows } = await pool.query<{
+    tenant_id: string; property_id: string; outlet_id: string;
+    visit_link_id: string; kind: VisitLinkRouting['kind'];
+    table_label: string | null; version: number; revoked_at: Date | null;
+  }>('SELECT * FROM resolve_visit_link($1)', [publicCode]);
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    tenantId: row.tenant_id,
+    propertyId: row.property_id,
+    outletId: row.outlet_id,
+    visitLinkId: row.visit_link_id,
+    kind: row.kind,
+    tableLabel: row.table_label,
+    version: row.version,
+    revokedAt: row.revoked_at,
+  };
+}
+
 export interface SweepTarget {
   tenantId: string;
   propertyId: string;

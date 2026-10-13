@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import {
-  resolveGuestSession, GUEST_SESSION_COOKIE,
+  resolveStaySession, GUEST_SESSION_COOKIE,
   requireTier, startPhoneLast4Challenge, answerChallenge,
 } from '@/modules/access';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
@@ -68,7 +68,7 @@ export async function verifyForFolio(
   }
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) {
     return { error: 'This link has expired. Scan the code on your nightstand again.' };
   }

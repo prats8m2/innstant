@@ -67,7 +67,7 @@ function Tray({
   return (
     <li className={styles.tray} data-status={ticket.status}>
       <header className={styles.trayHead}>
-        <span className={`${styles.room} tabular`}>{ticket.roomNumber}</span>
+        <span className={`${styles.room} tabular`}>{ticket.destination}</span>
         <span className={styles.trayMeta}>
           <span className={`${styles.number} tabular`}>{ticket.orderNumber}</span>
           <span className={styles.items}>

@@ -4,8 +4,8 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { addToCart } from '@/modules/ordering';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { addToCart, contextForSession } from '@/modules/ordering';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -53,7 +53,7 @@ export async function addToOrder(
   const store = await cookies();
 
   try {
-    const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+    const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
     // Adding to a cart is not browsing (#9 covers browsing, and only browsing).
     // No session means checked out, expired or revoked — not a tier problem.
     if (!session) throw new UnauthenticatedError('no guest session');
@@ -63,7 +63,7 @@ export async function addToOrder(
       (tx) => addToCart(tx, {
         tenantId: session.tenantId,
         propertyId: session.propertyId,
-        stayId: session.stayId,
+        context: contextForSession(session),
         menuItemId: parsed.data.menuItemId,
         quantity: parsed.data.quantity,
         notes: parsed.data.notes,

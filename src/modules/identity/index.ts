@@ -35,6 +35,9 @@ export type {
 } from './rooms';
 
 export { provisionProperty, provisionTenant } from './provision';
+/** One generator for every public code in the product — a room sticker and a
+ *  property link are the same question about guessability (D-079). */
+export { newPublicCode } from './provision';
 
 /** P3.5 — the building: floors and the rooms on them. */
 export {

@@ -2,8 +2,8 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
-import { getOrderForStay, trackView, trackEta } from '@/modules/ordering';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { getOrderForContext, trackView, trackEta, contextForSession } from '@/modules/ordering';
 import { findProperty } from '@/modules/identity';
 import { formatMoney, money } from '@/lib/money';
 import { LiveOrder } from './live-order';
@@ -31,14 +31,14 @@ export default async function OrderScreen({
 }) {
   const { qrCode, orderId } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
   const { order, property } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => ({
-      order: await getOrderForStay(tx, { stayId: session.stayId, orderId }),
+      order: await getOrderForContext(tx, { context: contextForSession(session), orderId }),
       property: await findProperty(tx, session.propertyId),
     }),
   );

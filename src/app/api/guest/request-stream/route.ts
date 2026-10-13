@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { subscribeToChannel, type Subscription } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { REQUEST_CHANNEL, type RequestChangedPayload } from '@/modules/requests';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   // 401, not a redirect: EventSource cannot follow one usefully, and the page
   // that opened this stream already sends an unresolvable session to the scan.
   if (!session) {

@@ -195,6 +195,47 @@ async function assertRoomIsAvailable(
  * With no phone there is nothing to match on, so a new guest row is created.
  * That is the honest outcome: an anonymous walk-in has no identity to reuse.
  */
+/**
+ * The same match, for somebody who has no stay at all. D-079.
+ *
+ * A restaurant customer ordering through a property link is a person this
+ * tenant may already know — the regular who eats here every Thursday, or the
+ * guest who stayed last March and whose number is already on a `guests` row.
+ * EXTENSION-POINTS §2 made the key `(tenant_id, phone)` precisely so that
+ * recognising them is a lookup rather than a reconciliation script.
+ *
+ * It lives in THIS file, and is exported through the module interface, because
+ * `guests` is the stay module's table (D-001) and `modules/visit` may not
+ * reach it. The matching rule has one implementation for the same reason
+ * `createStay()` is one door: two of them would eventually disagree about who
+ * counts as the same person.
+ *
+ * The existing row's NAME is deliberately left alone. A guest called "Anjali
+ * Menon" on her folio who types "anj" into a takeaway form has not renamed
+ * herself, and the visit keeps what she typed as its own snapshot.
+ */
+export async function upsertGuestByPhone(
+  tx: Tx,
+  input: { tenantId: string; phone: string; fullName: string },
+): Promise<string> {
+  const phone = input.phone.trim();
+
+  const existing = await tx
+    .select({ id: guests.id })
+    .from(guests)
+    .where(and(eq(guests.tenantId, input.tenantId), eq(guests.phone, phone)))
+    .limit(1);
+  if (existing[0]) return existing[0].id;
+
+  const [created] = await tx.insert(guests).values({
+    tenantId: input.tenantId,
+    fullName: input.fullName.trim(),
+    phone,
+  }).returning({ id: guests.id });
+
+  return created!.id;
+}
+
 async function findOrCreateGuest(
   tx: Tx,
   input: CreateStayInput,

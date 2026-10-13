@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import {
   getRequestTypeByKey, raiseServiceRequest, advanceRequest, CALL_SERVICE_KEY,
 } from '@/modules/requests';
@@ -43,7 +43,7 @@ export async function callForService(
   if (!parsed.success) return { error: 'That did not come through. Try again.' };
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}`);
 
   let requestId: string;
@@ -115,7 +115,7 @@ export async function cancelRequest(
   if (!parsed.success) return { error: 'That did not come through. Try again.' };
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}`);
 
   try {

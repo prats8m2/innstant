@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { subscribeToChannel, type Subscription } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { ORDER_CHANNEL, type OrderChangedPayload } from '@/modules/ordering';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
@@ -20,7 +20,7 @@ import { requestLogger } from '@/lib/logger';
  *
  * A nudge, not the data: the order id and its new status, and only for an order
  * belonging to THIS guest's stay. The screen then re-reads the order through
- * `getOrderForStay()` under RLS, so the stream can never become a way to see
+ * `getOrderForContext()` under RLS, so the stream can never become a way to see
  * something the page itself would not have rendered.
  *
  * #10 is the load-bearing filter. The notification carries `stayId`, and the
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   /**
    * 401, not a redirect. `EventSource` cannot follow one usefully, and the page
    * that opened this stream already redirects an unresolvable session to the

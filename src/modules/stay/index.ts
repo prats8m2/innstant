@@ -10,6 +10,8 @@
 export {
   createStay, activeStayForRoom, dietaryFlagsForStay, guestProfileForStay,
   countActiveStays,
+  /** D-079 — the (tenant, phone) match, for a visit that has no stay. */
+  upsertGuestByPhone,
 } from './create-stay';
 export type { CreateStayInput, CreatedStay, StayGuestProfile } from './create-stay';
 

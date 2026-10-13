@@ -62,6 +62,7 @@ export async function advanceOrder(
       status: orders.status,
       outletId: orders.outletId,
       stayId: orders.stayId,
+      visitId: orders.visitId,
     })
     .from(orders)
     .where(and(eq(orders.id, input.orderId), eq(orders.propertyId, input.propertyId)))
@@ -175,7 +176,13 @@ export async function advanceOrder(
    * `reverseFolioLinesForSource()` nets against what is already posted, so even
    * a second call credits nothing.
    */
-  if (input.to === 'REJECTED' || input.to === 'CANCELLED') {
+  //
+  // D-079 — and only for an order that was charged to a room. A VISIT order
+  // never posted a folio line (there is no folio: a restaurant customer pays at
+  // the counter or at the door), so there is nothing to credit back. Refunding
+  // money that was never posted is the one way this could be worse than doing
+  // nothing.
+  if ((input.to === 'REJECTED' || input.to === 'CANCELLED') && order.stayId) {
     const reversal = await reverseFolioLinesForSource(tx, {
       tenantId: input.tenantId,
       propertyId: input.propertyId,
@@ -215,6 +222,7 @@ export async function advanceOrder(
     orderId: order.id,
     orderNumber: order.orderNumber,
     stayId: order.stayId,
+    visitId: order.visitId,
     status: input.to,
   });
 
@@ -244,7 +252,10 @@ export interface OrderChangedPayload {
   outletId: string;
   orderId: string;
   orderNumber: string;
-  stayId: string;
+  /** D-079 — exactly one of these, matching the order's own context. The
+   *  listener filters on whichever one its screen is bound to. */
+  stayId: string | null;
+  visitId: string | null;
   status: OrderStatus;
 }
 
@@ -269,6 +280,26 @@ export async function notifyOrderChanged(
  *
  * Everything shown comes from the order's SNAPSHOT columns (#6) — the ticket a
  * cook is reading must not change because someone edited the menu mid-service.
+ *
+ * ─── D-079: the room join became a LEFT JOIN, and stopped being the label ──
+ *
+ * This reached orders → stays → rooms with an INNER join, purely to print a
+ * room number. An inner join does not survive property links: a restaurant's
+ * rail is full of orders with no stay, and every one of them would have
+ * vanished from the kitchen display — the worst available failure, because the
+ * food is still ordered and the guest is still waiting.
+ *
+ * Two things changed, and they are separate:
+ *
+ *   · What a cook READS is `destination_label`, a snapshot on the order
+ *     itself. It covers all four fulfilments, and because it is frozen at
+ *     placement a reassigned room or a renamed table tent cannot move a tray
+ *     that is already cooking (#6 applied to the destination).
+ *   · `room_number` survives as a NULLABLE field, because the front desk's
+ *     board genuinely keys on it — it groups what is happening by room, and
+ *     matching on a rendered label would mean parsing "Room 214" back apart.
+ *     It is null for every visit order, which is the honest answer: those
+ *     orders are not happening in a room and do not belong on that board.
  */
 export async function kitchenTickets(
   tx: Tx,
@@ -277,7 +308,9 @@ export async function kitchenTickets(
   const statuses = input.statuses ?? KITCHEN_OPEN_STATUSES;
 
   const rows = await tx.execute<{
-    id: string; order_number: string; status: OrderStatus; room_number: string;
+    id: string; order_number: string; status: OrderStatus;
+    destination_label: string | null; fulfilment: KitchenTicket['fulfilment'];
+    room_number: string | null;
     /**
      * `Timestamp` — NOT `Date`. The generic on `tx.execute()` is an assertion,
      * not a parse: nothing checks it, and what the driver actually hands back
@@ -289,7 +322,8 @@ export async function kitchenTickets(
     guest_notes: string | null; dietary_flags: unknown; lines: unknown;
   }>(sql`
     SELECT
-      o.id, o.order_number, o.status, r.number AS room_number,
+      o.id, o.order_number, o.status, o.destination_label, o.fulfilment,
+      r.number AS room_number,
       o.placed_at, o.promised_by_at, o.ready_at, o.assigned_runner_id,
       o.guest_notes, o.dietary_flags,
       COALESCE(
@@ -309,8 +343,10 @@ export async function kitchenTickets(
          ) AS lines_for_order),
         '[]'::jsonb) AS lines
     FROM orders o
-    JOIN stays s ON s.id = o.stay_id
-    JOIN rooms r ON r.id = s.room_id
+    -- LEFT, not INNER. See the note above: an inner join drops every visit
+    -- order off the kitchen display, silently.
+    LEFT JOIN stays s ON s.id = o.stay_id
+    LEFT JOIN rooms r ON r.id = s.room_id
     WHERE o.outlet_id = ${input.outletId}
       AND o.status IN (${sql.join(statuses.map((s) => sql`${s}`), sql`, `)})
     ORDER BY o.placed_at ASC NULLS LAST

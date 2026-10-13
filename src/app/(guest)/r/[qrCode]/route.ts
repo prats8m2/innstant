@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { scanQrCode, resolveGuestSession, GUEST_SESSION_COOKIE, QrNotUsableError } from '@/modules/access';
+import { scanQrCode, resolveStaySession, GUEST_SESSION_COOKIE, QrNotUsableError } from '@/modules/access';
 import { resolveQrRouting } from '@/db';
 
 /**
@@ -125,7 +125,7 @@ export async function GET(
   // Already carrying a live session — reuse it rather than minting another on
   // every reload, which would make `access_escalations` unreadable and
   // re-prompt a verified guest after each refresh.
-  const existing = await resolveGuestSession(request.cookies.get(GUEST_SESSION_COOKIE)?.value);
+  const existing = await resolveStaySession(request.cookies.get(GUEST_SESSION_COOKIE)?.value);
   if (existing) return redirectTo(home);
 
   try {

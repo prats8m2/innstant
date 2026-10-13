@@ -87,7 +87,7 @@ export function TicketCard({
   return (
     <li className={styles.ticket} data-status={ticket.status} data-fresh={fresh} data-heat={heat}>
       <header className={styles.ticketHead}>
-        <span className={`${styles.room} tabular`}>{ticket.roomNumber}</span>
+        <span className={`${styles.room} tabular`}>{ticket.destination}</span>
         <span className={styles.ticketMeta}>
           <span className={`${styles.number} tabular`}>{ticket.orderNumber}</span>
           {ticket.placedAt ? (

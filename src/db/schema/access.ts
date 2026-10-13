@@ -2,6 +2,7 @@ import { pgTable, uuid, text, integer, boolean, index, uniqueIndex } from 'drizz
 import { pk, ts, createdAt, updatedAt, tenantId, propertyId } from './_shared';
 import { accessTier, escalationTrigger, verificationMethod } from './_shared';
 import { stays } from './stay';
+import { visits } from './visit';
 import { rooms, roomQrCodes, staffUsers } from './identity';
 
 /**
@@ -46,12 +47,31 @@ export const accessPolicies = pgTable('access_policies', {
  * #10 — bound to stay_id, NEVER room_id. Rooms are reused; a session keyed on
  * a room shows the previous occupant's data. Tokens stored as SHA-256 only,
  * revoked at checkout.
+ *
+ * ─── D-079: one of stay_id or visit_id, never both, never neither ──────────
+ *
+ * A property link (`/p/{code}`) opens a VISIT — somebody at a table or on a
+ * pavement, with no room and no stay. The session that comes out of it is the
+ * same row with the same guarantees; what it is bound TO is the only
+ * difference, and it is still never a room.
+ *
+ * Both columns are nullable at the type level and exactly one is set at the
+ * database level: 0008 adds
+ *
+ *     CHECK (num_nonnulls(stay_id, visit_id) = 1)
+ *
+ * which Drizzle cannot express. That constraint is what stops this becoming a
+ * nullable field somebody forgets to branch on — a session bound to neither
+ * would resolve to a context-free guest who could order against nothing, and
+ * one bound to both would make "whose order is this" a coin toss.
  */
 export const guestSessions = pgTable('guest_sessions', {
   id: pk(),
   tenantId: tenantId(),
   propertyId: propertyId(),
-  stayId: uuid('stay_id').notNull().references(() => stays.id),
+  /** Exactly one of these two. See the note above. */
+  stayId: uuid('stay_id').references(() => stays.id),
+  visitId: uuid('visit_id').references(() => visits.id),
 
   tokenHash: text('token_hash').notNull(),
 
@@ -73,6 +93,7 @@ export const guestSessions = pgTable('guest_sessions', {
 }, (t) => [
   uniqueIndex('guest_sessions_token_hash_uq').on(t.tokenHash),
   index('guest_sessions_stay_idx').on(t.stayId),
+  index('guest_sessions_visit_idx').on(t.visitId),
 ]);
 
 /** Rate-limited per room AND per phone — both, because either alone is

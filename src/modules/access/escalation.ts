@@ -5,7 +5,17 @@ import {
 } from '@/db/schema/access';
 import { ConflictError, ForbiddenError, TooManyAttemptsError, ValidationError } from '@/lib/errors';
 import { hashToken } from '@/lib/tokens';
-import { raiseSessionTier, type GuestSession } from './guest-sessions';
+/**
+ * D-079 — every function in this file takes a STAY session, deliberately.
+ *
+ * The whole mechanism is the last four digits of the phone number ON A STAY,
+ * rate-limited per ROOM, recorded against a `stays.id`. A visit has none of
+ * those, and there is nothing for it to escalate TO: it opens at CHARGE
+ * already, because a visit posts money to no room (see visit-sessions.ts).
+ * Narrowing the parameter is what makes that a compile error rather than a
+ * runtime one.
+ */
+import { raiseSessionTier, type StayGuestSession } from './guest-sessions';
 import { tierAtLeast, tierForAction, type AccessTier, type GuestAction } from './tiers';
 
 /**
@@ -32,7 +42,7 @@ export type TierCheck = { required: false } | EscalationRequired;
  * "you need to verify" is a normal branch of the happy path, not an error.
  */
 export async function requireTier(
-  session: GuestSession,
+  session: StayGuestSession,
   action: GuestAction,
 ): Promise<TierCheck> {
   const needed = tierForAction(action);
@@ -73,7 +83,7 @@ export async function requireTier(
 }
 
 /** Marks an escalation abandoned — the guest saw the prompt and left. */
-export async function abandonEscalation(session: GuestSession, escalationId: string): Promise<void> {
+export async function abandonEscalation(session: StayGuestSession, escalationId: string): Promise<void> {
   await withTenant({ tenantId: session.tenantId }, (tx) =>
     tx.update(accessEscalations)
       .set({ outcome: 'ABANDONED', abandonedAt: new Date() })
@@ -116,7 +126,7 @@ async function policyFor(
   };
 }
 
-async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> {
+async function assertNotLockedOut(tx: Tx, session: StayGuestSession): Promise<void> {
   const { maxPerRoom, lockoutMinutes } = await policyFor(tx, session.propertyId);
 
   const recent = await tx.select({
@@ -165,7 +175,7 @@ async function assertNotLockedOut(tx: Tx, session: GuestSession): Promise<void> 
  * digits of a phone number are low entropy, and a leaked table of them across
  * a hotel is a plausible attack on its own.
  */
-export async function startPhoneLast4Challenge(session: GuestSession): Promise<string> {
+export async function startPhoneLast4Challenge(session: StayGuestSession): Promise<string> {
   return withTenant({ tenantId: session.tenantId, propertyId: session.propertyId }, async (tx) => {
     await assertNotLockedOut(tx, session);
 
@@ -208,7 +218,7 @@ export async function startPhoneLast4Challenge(session: GuestSession): Promise<s
  * (D-012) — a second session would orphan whatever the guest was doing.
  */
 export async function answerChallenge(
-  session: GuestSession,
+  session: StayGuestSession,
   challengeId: string,
   answer: string,
   escalationId?: string,

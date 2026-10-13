@@ -12,7 +12,27 @@ export interface KitchenTicket {
   id: string;
   orderNumber: string;
   status: OrderStatus;
-  roomNumber: string;
+  /**
+   * Where the tray goes, as one line: "Room 214", "Table 4",
+   * "Takeaway · Priya", "Delivery · 12 MG Road".
+   *
+   * D-079 — this replaced `roomNumber`, which could not be written at all for
+   * an order with no stay behind it. Read from the order's own snapshot column
+   * rather than joined, so what a cook sees is what was true when the order was
+   * placed.
+   */
+  destination: string;
+  /** What KIND of destination, for the screens that group or badge by it — a
+   *  rail with three deliveries waiting reads differently from three tables. */
+  fulfilment: 'IN_ROOM' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+  /**
+   * The room, for the one screen that keys on it rather than reads it: the
+   * front desk's board groups everything in flight by room.
+   *
+   * Null for every visit order, and that is the point — a table's lunch is not
+   * happening in a room and must not appear on a room's row.
+   */
+  roomNumber: string | null;
   placedAt: Date | null;
   promisedByAt: Date | null;
   /** When it came off the pan. What a runner is actually racing — food goes
@@ -58,7 +78,9 @@ export type Timestamp = Date | string | null;
  * does it.
  */
 export function toKitchenTicket(row: {
-  id: string; order_number: string; status: OrderStatus; room_number: string;
+  id: string; order_number: string; status: OrderStatus;
+  destination_label: string | null; fulfilment: KitchenTicket['fulfilment'];
+  room_number: string | null;
   placed_at: Timestamp; promised_by_at: Timestamp; ready_at: Timestamp;
   assigned_runner_id: string | null;
   guest_notes: string | null; dietary_flags: unknown; lines: unknown;
@@ -67,6 +89,12 @@ export function toKitchenTicket(row: {
     id: row.id,
     orderNumber: row.order_number,
     status: row.status,
+    // Null only for a row written before 0008 backfilled it, or by a path that
+    // forgot to snapshot one. A ticket with no destination is still a ticket
+    // the kitchen must see — printing a dash is survivable, dropping the order
+    // is not.
+    destination: row.destination_label ?? '—',
+    fulfilment: row.fulfilment,
     roomNumber: row.room_number,
     placedAt: asDate(row.placed_at),
     promisedByAt: asDate(row.promised_by_at),

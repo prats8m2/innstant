@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE, requireTier } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE, requireTier } from '@/modules/access';
 import { findProperty } from '@/modules/identity';
 import { getCheckoutOptions, requestCheckoutChange, cancelCheckoutRequest } from '@/modules/stay';
 import { AppError, publicPayloadFor } from '@/lib/errors';
@@ -54,7 +54,7 @@ export async function requestCheckout(
   if (!parsed.success) return { error: 'That did not come through. Try again.' };
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) {
     return { error: 'This link has expired. Scan the code on your nightstand again.' };
   }
@@ -142,7 +142,7 @@ export async function withdrawCheckoutRequest(
   if (!parsed.success) return { error: 'That did not come through. Try again.' };
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) {
     return { error: 'This link has expired. Scan the code on your nightstand again.' };
   }

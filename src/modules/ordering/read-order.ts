@@ -4,6 +4,7 @@ import { orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import type { CurrencyCode } from '@/lib/money';
 import type { OrderStatus } from './transitions';
 import type { OrderStamps } from './track';
+import { ordersIn, type OrderContext } from './context';
 
 /**
  * Reading a placed order back — the confirmation, and later the tracking
@@ -48,15 +49,16 @@ export interface PlacedOrderDetail extends OrderStamps {
 }
 
 /**
- * Scoped by stay, not just by id.
+ * Scoped by CONTEXT, not just by id.
  *
- * RLS confines this to the tenant; the stay check confines it to the guest.
- * An order id from the room next door is a 404 rather than someone else's
- * dinner, and the id travels in a URL.
+ * RLS confines this to the tenant; the context check confines it to the one
+ * guest. An order id from the room next door — or, since D-079, from the next
+ * table — is a 404 rather than someone else's dinner, and the id travels in a
+ * URL.
  */
-export async function getOrderForStay(
+export async function getOrderForContext(
   tx: Tx,
-  input: { stayId: string; orderId: string },
+  input: { context: OrderContext; orderId: string },
 ): Promise<PlacedOrderDetail | null> {
   const rows = await tx.select({
     id: orders.id,
@@ -84,7 +86,7 @@ export async function getOrderForStay(
     rejectionReason: orders.rejectionReason,
     cancellationReason: orders.cancellationReason,
   }).from(orders)
-    .where(and(eq(orders.id, input.orderId), eq(orders.stayId, input.stayId)))
+    .where(and(eq(orders.id, input.orderId), ordersIn(input.context)))
     .limit(1);
 
   const order = rows[0];
@@ -172,9 +174,9 @@ export interface OrderSummary {
   itemCount: number;
 }
 
-export async function listOrdersForStay(
+export async function listOrdersForContext(
   tx: Tx,
-  input: { stayId: string },
+  input: { context: OrderContext },
 ): Promise<OrderSummary[]> {
   const rows = await tx.select({
     id: orders.id,
@@ -189,7 +191,7 @@ export async function listOrdersForStay(
     cancellationReason: orders.cancellationReason,
   }).from(orders)
     .where(and(
-      eq(orders.stayId, input.stayId),
+      ordersIn(input.context),
       ne(orders.status, 'DRAFT'),
     ))
     // Newest first. `placed_at` is null only for a row that never left DRAFT,

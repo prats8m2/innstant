@@ -2,14 +2,14 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE } from '@/modules/demo';
 import { TileIcon, type TileIconName } from './tile-icon';
 import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
 } from '@/modules/catalog';
-import { listOrdersForStay, orderStateFor, OPEN_TO_A_GUEST } from '@/modules/ordering';
+import { listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession } from '@/modules/ordering';
 import { getRequestsForStay, REQUEST_OPEN_TO_A_GUEST } from '@/modules/requests';
 import { localTimeAt, formatClock, formatCheckoutDay } from '@/lib/clock';
 import styles from './room-home.module.css';
@@ -66,7 +66,7 @@ export default async function RoomHome({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   /**
    * Who is actually holding the phone.
@@ -107,7 +107,7 @@ export default async function RoomHome({
       const timeZone = found?.timezone ?? 'Asia/Kolkata';
       // Everything this room has asked for — food AND amenities. The answer
       // decides whether this screen has a way back to something in progress.
-      const placed = await listOrdersForStay(tx, { stayId: session.stayId });
+      const placed = await listOrdersForContext(tx, { context: contextForSession(session) });
       const asked = await getRequestsForStay(tx, { stayId: session.stayId });
 
       if (!outlet) {

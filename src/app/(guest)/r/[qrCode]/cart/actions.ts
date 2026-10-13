@@ -6,10 +6,13 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import {
-  resolveGuestSession, GUEST_SESSION_COOKIE,
+  resolveStaySession, GUEST_SESSION_COOKIE,
   requireTier, startPhoneLast4Challenge, answerChallenge,
 } from '@/modules/access';
-import { setCartItemQuantity, removeCartItem, placeOrder } from '@/modules/ordering';
+import {
+  setCartItemQuantity, removeCartItem, placeOrder, contextForSession,
+  type OrderContext,
+} from '@/modules/ordering';
 import { AppError, UnauthenticatedError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -49,15 +52,15 @@ export interface CartEditState {
 }
 
 async function withStay<T>(
-  fn: (ctx: { tenantId: string; propertyId: string; stayId: string }) => Promise<T>,
+  fn: (ctx: { tenantId: string; propertyId: string; context: OrderContext }) => Promise<T>,
 ): Promise<T> {
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) throw new UnauthenticatedError('no guest session');
   return fn({
     tenantId: session.tenantId,
     propertyId: session.propertyId,
-    stayId: session.stayId,
+    context: contextForSession(session),
   });
 }
 
@@ -75,10 +78,10 @@ export async function updateLineQuantity(
   }
 
   try {
-    await withStay(({ tenantId, propertyId, stayId }) =>
+    await withStay(({ tenantId, propertyId, context }) =>
       withTenant({ tenantId, propertyId }, (tx) =>
         setCartItemQuantity(tx, {
-          stayId,
+          context,
           cartItemId: parsed.data.cartItemId,
           quantity: parsed.data.quantity!,
         })));
@@ -102,9 +105,9 @@ export async function removeLine(
   if (!parsed.success) return { error: 'That change did not come through. Try again.' };
 
   try {
-    await withStay(({ tenantId, propertyId, stayId }) =>
+    await withStay(({ tenantId, propertyId, context }) =>
       withTenant({ tenantId, propertyId }, (tx) =>
-        removeCartItem(tx, { stayId, cartItemId: parsed.data.cartItemId })));
+        removeCartItem(tx, { context, cartItemId: parsed.data.cartItemId })));
 
     revalidatePath(`/r/${parsed.data.qrCode}/cart`);
     revalidatePath(`/r/${parsed.data.qrCode}/menu`);
@@ -256,7 +259,7 @@ export async function verifyAndSend(
 /** Resolve the guest session, or say plainly that there is not one. */
 async function currentSession() {
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) throw new UnauthenticatedError('no guest session');
   return session;
 }
@@ -272,8 +275,10 @@ async function send(
     (tx) => placeOrder(tx, {
       tenantId: session.tenantId,
       propertyId: session.propertyId,
-      stayId: session.stayId,
-      roomNumber: session.roomNumber,
+      context: contextForSession(session),
+      // #6 applied to the destination — what the kitchen ticket says, frozen
+      // at placement. A room reassigned after checkout must not move a tray.
+      destinationLabel: `Room ${session.roomNumber}`,
       idempotencyKey,
       guestSessionId: session.id,
       accessTier,

@@ -20,16 +20,31 @@ import { firstNameOf } from './guest-name';
 
 export const GUEST_SESSION_COOKIE = 'hgs_guest';
 
-export interface GuestSession {
+/**
+ * Everything both kinds of session carry. D-079.
+ *
+ * Tenant, property, tier, expiry — the things every caller needs and neither
+ * kind can be without. What differs is what the session is BOUND to, and that
+ * is the discriminated half below.
+ */
+export interface GuestSessionBase {
   id: string;
   tenantId: string;
   propertyId: string;
-  stayId: string;
-  roomId: string;
-  roomNumber: string;
   accessTier: AccessTier;
   isAnonymous: boolean;
   expiresAt: Date;
+}
+
+/**
+ * A guest on a stay — the session a room sticker mints. Unchanged from P1 in
+ * every respect except the `kind` tag.
+ */
+export interface StayGuestSession extends GuestSessionBase {
+  kind: 'STAY';
+  stayId: string;
+  roomId: string;
+  roomNumber: string;
   /** When the guest is due out, property-local when rendered. The room home and
    *  the checkout flow both need it, and it is already on the joined stay —
    *  fetching it here saves every screen a second query. */
@@ -49,8 +64,35 @@ export interface GuestSession {
   guestFirstName: string | null;
 }
 
+/**
+ * Somebody who opened a property link — a table, a counter, a delivery. No
+ * stay, no room, and nothing to charge to one.
+ *
+ * ─── Why this is a discriminated union and not two nullable fields ─────────
+ *
+ * `stayId: string | null` would compile at every one of the ~20 call sites that
+ * read it today and fail at exactly one of them, at runtime, on a screen a
+ * guest is looking at. The union makes each of those a compile error that has
+ * to be answered, and `resolveStaySession()` / `resolveVisitSession()` below
+ * mean the answer is one line per screen rather than a guard in every function.
+ */
+export interface VisitGuestSession extends GuestSessionBase {
+  kind: 'VISIT';
+  visitId: string;
+  outletId: string;
+  fulfilment: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+  tableLabel: string | null;
+  /** What they typed at checkout, once they have. Null until then — #9 applies
+   *  on a pavement exactly as it does in a corridor. */
+  customerName: string | null;
+  customerPhone: string | null;
+  deliveryAddress: string | null;
+}
+
+export type GuestSession = StayGuestSession | VisitGuestSession;
+
 export interface ScanResult {
-  session: GuestSession;
+  session: StayGuestSession;
   /** `<tenantId>.<token>` — same reasoning as the staff cookie: the tenant id
    *  is routing information, not a credential, and RLS confines the lookup. */
   cookieValue: string;
@@ -174,6 +216,7 @@ export async function scanQrCode(
 
     return {
       session: {
+        kind: 'STAY',
         id: session!.id,
         tenantId: routing.tenantId,
         propertyId: routing.propertyId,
@@ -208,8 +251,26 @@ function parseCookie(value: string): { tenantId: string; tokenHash: string } | n
   return { tenantId, tokenHash: hashToken(token) };
 }
 
-/** Null for anything unusable — expired, revoked, or a stay that has checked
- *  out. A stale session resolving to nothing is the #10 guarantee. */
+/**
+ * The cookie, resolved to whichever kind of session it is. D-079.
+ *
+ * Null for anything unusable — expired, revoked, a stay that has checked out,
+ * or a visit that has closed. A stale session resolving to nothing is the #10
+ * guarantee, and it holds for both kinds.
+ *
+ * ─── One query, two LEFT JOINs ─────────────────────────────────────────────
+ *
+ * The obvious shape is to try the stay query, and on a miss try the visit
+ * query. It is also two round-trips on every single render of every guest
+ * screen, for a branch the row itself already answers: `guest_sessions` carries
+ * exactly one of the two ids (the CHECK in 0008 guarantees it), so LEFT JOINing
+ * both resolves in one pass and the non-null id says which arm to build.
+ *
+ * `JOIN` became `LEFT JOIN` on the stay side, and that is the load-bearing
+ * change: an inner join against `stays` silently returns nothing for every
+ * visit session, which would have read as "cookie expired" on a screen with a
+ * perfectly good cookie.
+ */
 export async function resolveGuestSession(cookieValue: string | undefined): Promise<GuestSession | null> {
   if (!cookieValue) return null;
   const parsed = parseCookie(cookieValue);
@@ -217,18 +278,29 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
 
   return withTenant({ tenantId: parsed.tenantId }, async (tx) => {
     const rows = await tx.execute<{
-      id: string; property_id: string; stay_id: string; room_id: string;
-      room_number: string; access_tier: AccessTier; is_anonymous: boolean;
-      expires_at: Date; stay_status: string; scheduled_checkout_at: Date;
+      id: string; property_id: string; access_tier: AccessTier;
+      is_anonymous: boolean; expires_at: Date;
+      stay_id: string | null; room_id: string | null; room_number: string | null;
+      stay_status: string | null; scheduled_checkout_at: Date | null;
       guest_name: string | null;
+      visit_id: string | null; outlet_id: string | null;
+      visit_status: string | null; fulfilment: VisitGuestSession['fulfilment'] | null;
+      table_label: string | null; customer_name: string | null;
+      customer_phone: string | null; delivery_address: string | null;
+      visit_expires_at: Date | null;
     }>(sql`
-      SELECT gs.id, gs.property_id, gs.stay_id, s.room_id, r.number AS room_number,
-             gs.access_tier, gs.is_anonymous, gs.expires_at, s.status AS stay_status,
-             s.scheduled_checkout_at, g.full_name AS guest_name
+      SELECT gs.id, gs.property_id, gs.access_tier, gs.is_anonymous, gs.expires_at,
+             gs.stay_id, s.room_id, r.number AS room_number,
+             s.status AS stay_status, s.scheduled_checkout_at,
+             g.full_name AS guest_name,
+             gs.visit_id, v.outlet_id, v.status AS visit_status, v.fulfilment,
+             v.table_label, v.customer_name, v.customer_phone,
+             v.delivery_address, v.expires_at AS visit_expires_at
       FROM guest_sessions gs
-      JOIN stays s ON s.id = gs.stay_id
-      JOIN rooms r ON r.id = s.room_id
-      JOIN guests g ON g.id = s.guest_id
+      LEFT JOIN stays s  ON s.id = gs.stay_id
+      LEFT JOIN rooms r  ON r.id = s.room_id
+      LEFT JOIN guests g ON g.id = s.guest_id
+      LEFT JOIN visits v ON v.id = gs.visit_id
       WHERE gs.token_hash = ${parsed.tokenHash}
         AND gs.revoked_at IS NULL
         AND gs.expires_at > now()
@@ -237,24 +309,74 @@ export async function resolveGuestSession(cookieValue: string | undefined): Prom
 
     const row = rows.rows[0];
     if (!row) return null;
+
+    if (row.visit_id) {
+      // Belt and braces, exactly as below: a closed visit must not resolve even
+      // if whatever closed it missed the session revoke.
+      if (row.visit_status !== 'OPEN') return null;
+      return {
+        kind: 'VISIT',
+        id: row.id,
+        tenantId: parsed.tenantId,
+        propertyId: row.property_id,
+        visitId: row.visit_id,
+        outletId: row.outlet_id!,
+        fulfilment: row.fulfilment!,
+        tableLabel: row.table_label,
+        customerName: row.customer_name,
+        customerPhone: row.customer_phone,
+        deliveryAddress: row.delivery_address,
+        accessTier: row.access_tier,
+        isAnonymous: row.is_anonymous,
+        expiresAt: new Date(row.expires_at),
+      };
+    }
+
+    if (!row.stay_id) return null;
     // Checkout revokes sessions, but belt and braces: a stay that is no longer
     // CHECKED_IN must not resolve even if a revoke was missed.
     if (row.stay_status !== 'CHECKED_IN') return null;
 
     return {
+      kind: 'STAY',
       id: row.id,
       tenantId: parsed.tenantId,
       propertyId: row.property_id,
       stayId: row.stay_id,
-      roomId: row.room_id,
-      roomNumber: row.room_number,
+      roomId: row.room_id!,
+      roomNumber: row.room_number!,
       accessTier: row.access_tier,
       isAnonymous: row.is_anonymous,
       expiresAt: new Date(row.expires_at),
-      scheduledCheckoutAt: new Date(row.scheduled_checkout_at),
+      scheduledCheckoutAt: new Date(row.scheduled_checkout_at!),
       guestFirstName: firstNameOf(row.guest_name),
     };
   });
+}
+
+/**
+ * The same cookie, narrowed to one kind — and the reason every `/r/*` screen
+ * changed by one line rather than by a guard in every function.
+ *
+ * A screen under `/r/{code}` is a ROOM screen: it reads a room number, a
+ * checkout date and a folio, none of which a visit has. A screen under
+ * `/p/{code}` is the mirror image. Asking for the kind you can render, and
+ * treating the other as no session at all, is both the correct behaviour — the
+ * redirect sends them back through their own link — and the thing that makes
+ * the union free at the call site.
+ */
+export async function resolveStaySession(
+  cookieValue: string | undefined,
+): Promise<StayGuestSession | null> {
+  const session = await resolveGuestSession(cookieValue);
+  return session?.kind === 'STAY' ? session : null;
+}
+
+export async function resolveVisitSession(
+  cookieValue: string | undefined,
+): Promise<VisitGuestSession | null> {
+  const session = await resolveGuestSession(cookieValue);
+  return session?.kind === 'VISIT' ? session : null;
 }
 
 /** Raise the tier on the EXISTING session (D-012), never issue a second one. */

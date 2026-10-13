@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
 import {
-  resolveGuestSession, GUEST_SESSION_COOKIE, tierAtLeast, tierForAction,
+  resolveStaySession, GUEST_SESSION_COOKIE, tierAtLeast, tierForAction,
 } from '@/modules/access';
 import { findProperty, describeRoom } from '@/modules/identity';
 import { getFolioForStay, buildGuestStatement } from '@/modules/billing';
@@ -58,7 +58,7 @@ export default async function StayScreen({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 

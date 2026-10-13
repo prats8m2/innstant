@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import {
-  resolveGuestSession, GUEST_SESSION_COOKIE, requireTier, startPhoneLast4Challenge,
+  resolveStaySession, GUEST_SESSION_COOKIE, requireTier, startPhoneLast4Challenge,
   answerChallenge,
 } from '@/modules/access';
 import { raiseServiceRequest, getRequestCatalog } from '@/modules/requests';
@@ -103,7 +103,7 @@ export async function sendOrEscalate(input: {
   lines: readonly Chosen[];
 }): Promise<RequestActionState> {
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) redirect(`/r/${encodeURIComponent(input.qrCode)}`);
 
   try {
@@ -217,7 +217,7 @@ export async function verifyAndSend(
   }
 
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
   if (!session) redirect(`/r/${encodeURIComponent(parsed.data.qrCode)}`);
 
   let lines: Chosen[];

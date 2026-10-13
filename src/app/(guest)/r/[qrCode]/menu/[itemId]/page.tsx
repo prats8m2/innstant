@@ -2,9 +2,9 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getDish } from '@/modules/catalog';
-import { getCart } from '@/modules/ordering';
+import { getCart, contextForSession } from '@/modules/ordering';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -31,7 +31,7 @@ export default async function DishScreen({
 }) {
   const { qrCode, itemId } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
@@ -62,7 +62,7 @@ export default async function DishScreen({
         detail: found,
         cart: found ? await getCart(tx, {
           propertyId: session.propertyId,
-          stayId: session.stayId,
+          context: contextForSession(session),
           at,
           outlet: {
             outletId: found.outlet.id,

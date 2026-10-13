@@ -2,9 +2,9 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { resolveGuestSession, GUEST_SESSION_COOKIE } from '@/modules/access';
+import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { findProperty } from '@/modules/identity';
-import { listOrdersForStay, orderStateFor, OPEN_TO_A_GUEST } from '@/modules/ordering';
+import { listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession } from '@/modules/ordering';
 import {
   getRequestsForStay, requestStateFor, REQUEST_OPEN_TO_A_GUEST,
 } from '@/modules/requests';
@@ -68,7 +68,7 @@ export default async function ActivityScreen({
 }) {
   const { qrCode } = await params;
   const store = await cookies();
-  const session = await resolveGuestSession(store.get(GUEST_SESSION_COOKIE)?.value);
+  const session = await resolveStaySession(store.get(GUEST_SESSION_COOKIE)?.value);
 
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
@@ -78,7 +78,7 @@ export default async function ActivityScreen({
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => ({
       property: await findProperty(tx, session.propertyId),
-      orders: await listOrdersForStay(tx, { stayId: session.stayId }),
+      orders: await listOrdersForContext(tx, { context: contextForSession(session) }),
       requests: await getRequestsForStay(tx, { stayId: session.stayId }),
     }),
   );
@@ -237,7 +237,7 @@ function Row({ entry, timeZone }: { entry: Entry; timeZone: string }) {
 /**
  * Newest first, across both kinds.
  *
- * An order with no `placed_at` cannot reach this list (`listOrdersForStay`
+ * An order with no `placed_at` cannot reach this list (`listOrdersForContext`
  * excludes DRAFT), and a request always has `created_at` — so the null arm is
  * belt and braces rather than a real case, and it sorts last rather than
  * throwing the whole list into an arbitrary order.

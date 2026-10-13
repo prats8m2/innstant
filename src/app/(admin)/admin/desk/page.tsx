@@ -117,7 +117,13 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
     found[key] += 1;
     openBy.set(room, found);
   };
-  for (const ticket of tickets) bump(ticket.roomNumber, 'orders');
+  // D-079 — a visit order has no room and belongs on no room's row. Skipping
+  // it here is deliberate: the board answers "what is happening in room 214",
+  // and a table's lunch is not an answer to that question. The kitchen display
+  // and the runner queue show those orders; this screen does not.
+  for (const ticket of tickets) {
+    if (ticket.roomNumber) bump(ticket.roomNumber, 'orders');
+  }
   for (const request of requests) bump(request.roomNumber, 'requests');
   for (const checkout of checkouts) {
     const found = openBy.get(checkout.roomNumber)
@@ -338,7 +344,10 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
             {view === 'orders' && maySeeOrders ? (
               <div className={styles.table}>
                 <div className={`${styles.row} ${styles.orderRow} ${styles.tableHead}`}>
-                  <span>Order</span><span>Room</span><span>Items</span>
+                  {/* "Where", not "Room": since D-079 this list carries
+                      restaurant orders too, and half of them go to a table or
+                      an address rather than to a room. */}
+                  <span>Order</span><span>Where</span><span>Items</span>
                   <span className={styles.right}>State</span>
                 </div>
                 {tickets.length ? tickets.map((ticket) => (
@@ -350,7 +359,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
                     className={`${styles.row} ${styles.orderRow}`}
                   >
                     <span className={`${styles.when} tabular`}>{ticket.orderNumber}</span>
-                    <span className={`${styles.roomNumber} tabular`}>{ticket.roomNumber}</span>
+                    <span className={`${styles.roomNumber} tabular`}>{ticket.destination}</span>
                     <span className={styles.guest}>
                       {ticket.lines.map((l) => `${l.quantity}× ${l.name}`).join(', ')}
                     </span>

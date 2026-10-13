@@ -1,7 +1,11 @@
 import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, integer, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
-import { pk, ts, createdAt, updatedAt, tenantId, propertyId, currency, orderStatus } from './_shared';
+import {
+  pk, ts, createdAt, updatedAt, tenantId, propertyId, currency, orderStatus,
+  fulfilmentMode,
+} from './_shared';
 import { stays } from './stay';
+import { visits } from './visit';
 import { outlets, menuItems, modifierOptions } from './catalog';
 
 /**
@@ -18,17 +22,33 @@ import { outlets, menuItems, modifierOptions } from './catalog';
  * affordance for that, it is not a bug.
  */
 
-/** One cart per (stay, outlet) — enforced by the unique index below. */
+/**
+ * One cart per (context, outlet), where a context is a stay OR a visit (D-079).
+ *
+ * Exactly one of `stay_id` / `visit_id` is set — the CHECK lives in 0008, like
+ * the one on `guest_sessions`. The uniqueness that used to be a single index on
+ * (stay_id, outlet_id) is now two PARTIAL indexes, because a plain composite
+ * index over a nullable column does not constrain anything: in Postgres NULL is
+ * distinct from NULL, so (NULL, outlet) could repeat without limit and a visit
+ * would accumulate a fresh cart on every tap of "add".
+ */
 export const carts = pgTable('carts', {
   id: pk(),
   tenantId: tenantId(),
   propertyId: propertyId(),
-  stayId: uuid('stay_id').notNull().references(() => stays.id),
+  /** Exactly one of these two. */
+  stayId: uuid('stay_id').references(() => stays.id),
+  visitId: uuid('visit_id').references(() => visits.id),
   outletId: uuid('outlet_id').notNull().references(() => outlets.id),
 
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (t) => [uniqueIndex('carts_stay_outlet_uq').on(t.stayId, t.outletId)]);
+}, (t) => [
+  uniqueIndex('carts_stay_outlet_uq').on(t.stayId, t.outletId)
+    .where(sql`${t.stayId} IS NOT NULL`),
+  uniqueIndex('carts_visit_outlet_uq').on(t.visitId, t.outletId)
+    .where(sql`${t.visitId} IS NOT NULL`),
+]);
 
 export const cartItems = pgTable('cart_items', {
   id: pk(),
@@ -56,12 +76,31 @@ export const orders = pgTable('orders', {
   id: pk(),
   tenantId: tenantId(),
   propertyId: propertyId(),
-  stayId: uuid('stay_id').notNull().references(() => stays.id),
+  /** Exactly one of these two — a stay (charged to a room) or a visit (D-079).
+   *  CHECK (num_nonnulls(stay_id, visit_id) = 1), added in 0008. */
+  stayId: uuid('stay_id').references(() => stays.id),
+  visitId: uuid('visit_id').references(() => visits.id),
   outletId: uuid('outlet_id').notNull().references(() => outlets.id),
 
   /** Human-facing, printed on the KDS ticket and quoted by the guest: KE-1184. */
   orderNumber: text('order_number').notNull(),
   status: orderStatus('status').notNull().default('DRAFT'),
+
+  /**
+   * Where the tray goes — and #6 applied to the destination, not just the line.
+   *
+   * `fulfilment` is the kind; `destination_label` is the sentence a cook reads:
+   * "Room 214", "Table 4", "Takeaway · Priya", "12 MG Road, 2nd floor". It is a
+   * SNAPSHOT, written once at placement, for exactly the reason every other
+   * snapshot in this file exists: a table tent renamed mid-service, or a room
+   * reassigned after checkout, must not move a tray that is already cooking.
+   *
+   * It also removes a join. `kitchenTickets()` used to reach orders → stays →
+   * rooms purely to print a room number, which is a join that cannot be
+   * written at all once half the orders have no stay.
+   */
+  fulfilment: fulfilmentMode('fulfilment').notNull().default('IN_ROOM'),
+  destinationLabel: text('destination_label'),
 
   /** #5 — every amount is minor units, and the currency is on the row. */
   subtotalMinor: integer('subtotal_minor').notNull().default(0),
@@ -99,6 +138,7 @@ export const orders = pgTable('orders', {
   // DATA-MODEL §9 — the KDS open-ticket query, oldest first.
   index('orders_kds_idx').on(t.outletId, t.status, t.placedAt),
   index('orders_stay_idx').on(t.stayId),
+  index('orders_visit_idx').on(t.visitId),
 ]);
 
 export const orderItems = pgTable('order_items', {
