@@ -1,5 +1,11 @@
 # Shipping property links and the mobile app
 
+**Steps 1-3 were RUN on 13 October 2026** and production is current — see
+`docs/STATUS.md`. This is kept as the record of what was done and as the
+procedure for the next schema change, which will have the same shape.
+
+Step 4, the APK, has NOT been run: it needs an Expo account.
+
 The runbook for getting `0008`, the `/p/` surface, `/api/v1` and the Android
 app into production. Written during the session that built them, against a
 production that was on `16bbca1` with 8 migrations.
@@ -29,6 +35,19 @@ So: **migrate first, deploy second.** The window between them is safe, and a
 deploy that fails leaves a database that the running code is still happy with.
 
 ---
+
+## What actually happened, 13 October 2026
+
+Each step behaved as written. Two things worth keeping:
+
+- Between steps 1 and 2 the health check went **`degraded`** with
+  `unknown: ["0008_property_links.sql"]` — the running old code noticing the
+  database was ahead of it. That is the intended signal, not a fault, and it
+  cleared when the code landed.
+- The production `DATABASE_URL` for `app_user` contains an **unencoded `@` in
+  the password** (two at-signs in the URL). `pg-connection-string` splits on
+  the last one and parses it correctly, but anything doing its own parsing
+  will get this wrong. It was tested before being relied on.
 
 ## 0. Confirm where production is
 

@@ -21,54 +21,82 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Two things built and NOT deployed: property links (D-079) and the mobile
-app's API (D-080).** `pnpm db:migrate` has run against the LOCAL `ci-pg`
-container only. Production is still on `16bbca1` with 8 migrations.
+**Production is CURRENT with this repo and carries property links and the
+mobile API.** Deployed 13 October 2026 from `fd7bc0a`.
 
-    http://localhost:3000/p/the-kesari-table-4    a table tent  (dine in)
-    http://localhost:3000/p/the-kesari-counter    the till      (takeaway)
-    http://localhost:3000/p/the-kesari-order      a sent link   (either, + delivery)
-    http://localhost:3000/admin/links             where staff make and revoke them
-    http://localhost:3000/api/v1/…                the app's contract
+    https://innstant.in                            the site, /demo, the app
+    https://innstant.in/r/the-kesari-214           the demo room
+    https://innstant.in/p/the-kesari-table-4       a table tent (dine in)
+    https://innstant.in/p/the-kesari-counter       the till (takeaway)
+    https://innstant.in/p/the-kesari-order         a sent link (+ delivery)
+    https://innstant.in/admin                      staff console
+    https://innstant.in/api/v1/…                   the mobile contract
 
-Gates locally, against the local database: typecheck, lint, **399 unit tests**,
-**492 integration tests**, build. Migration 0008 applies and reports 56 tables
-with RLS enabled and forced.
+`/api/health` reports **ok, 9/9 migrations**, latest `0008_property_links.sql`.
+
+Verified on the deployed site rather than from the upload line: a real DELIVERY
+order placed through the live `/api/v1` — open the link, read the menu
+(7 sections, 17 dishes), quick-add, place — came back `KE-1186 ₹1,207.50`,
+`Delivery · 12 MG Road, 2nd floor`, `Pay the rider when it arrives.`, and the
+timeline read "Packed · A rider brings it to you · They will call when they are
+outside". There is a `Deploy Check` order on the demo KDS as a result; it is
+demo data and harmless.
+
+The deploy ran migration-first, which is the order
+`docs/DEPLOY-D079-D080.md` explains: between the two steps production served
+old code on the new schema and reported `degraded` with
+`unknown: ["0008_property_links.sql"]`, which is the health check noticing the
+database was ahead of it. That resolved the moment the code landed.
+
+The demo was reseeded as part of this — **the stays had already expired on
+5 October**, so `/r/the-kesari-214` was answering 404 before today regardless
+of the deploy.
 
 ### Pick up here
 
-**1 — Deploying 0008, with the app.** The first migration since the deployment
-went live, and it ALTERs three populated tables. Read
-`0008_property_links.sql` top to bottom before shipping — its header explains
-what each change costs. The app and the migration must go out TOGETHER: new
-code writes `fulfilment` and `destination_label`, and `orders_fulfilment_ck`
-rejects a row that omits them. Old code on the new schema is fine; the reverse
-is not.
+**1 — The Android APK is NOT built.** `eas.json`'s `preview` profile is ready
+and pins the two things that matter (`buildType: apk`, because EAS defaults
+Android to an AAB a phone cannot install; and
+`EXPO_PUBLIC_API_URL=https://innstant.in`, baked in at build time with no
+runtime switch). It needs an Expo account:
 
-**2 — The app has not been run on a DEVICE.** It has been driven end to end in
-a browser through Expo's web target — all eleven steps of the real journey
-against the real API and database, zero console errors — and both native
-bundles build. What that cannot prove is anything native: safe-area insets on a
-notched phone, the keyboard avoiding view, `expo-secure-store` actually
-persisting (it no-ops on web), the camera, and universal links. This machine
-has no Xcode and no Android SDK, so that needs a machine that does.
+```bash
+cd mobile && eas login && eas init
+eas build --platform android --profile preview
+```
 
-**3 — Universal links need two files served from the domain.** `app.json`
-declares `applinks:innstant.in` and an Android intent filter for `/p`, and
-neither verifies until the deployment serves
-`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`.
-Until then a tapped link opens the web app, which is a correct fallback and
-not a failure.
+The `eas` and `railway` CLIs are both installed now. Railway is authenticated;
+Expo is not.
 
-**4 — A scheduled demo reseed.** Still the most persistent operational problem
-here. See "Open issues".
+**2 — The app has still not run on a device.** Nothing native is proven —
+safe-area insets, the keyboard on the checkout form, `expo-secure-store`
+actually persisting (it no-ops on the web target, so it has never been
+exercised), the camera, universal links.
 
-Run `pnpm quality` (localhost:3999) to see where the gates stand.
+**3 — Universal links do not verify.** `app.json` declares
+`applinks:innstant.in` and an Android intent filter for `/p`, and nothing
+serves `/.well-known/apple-app-site-association` or
+`/.well-known/assetlinks.json`. Until they exist a tapped link opens the web
+app, which is a correct fallback. The Android file needs the APK's signing
+certificate fingerprint, so it cannot be written before the first build.
+
+**4 — `APP_URL` on Railway still names the railway subdomain**, not
+`innstant.in`. It is what printed sticker URLs are built from. Today's reseed
+passed `APP_URL` inline so the links above are right, but the next person who
+runs `pnpm demo:reset` without it gets railway.app URLs on the stickers.
+
+**5 — The demo expires again on 27 October** (`DEMO_STAY_NIGHTS` is 14). A
+scheduled reseed remains the single most persistent operational problem here.
+
+**6 — Two infrastructure disagreements**, still uninvestigated: `railway
+status` reports the service in `ams` rather than Singapore, which the site's
+Security section asserts to visitors; and the project has a PgBouncer service
+while CLAUDE.md #3 says there is none.
 
 ### Open issues and decisions
 
 **The demo data expires.** `DEMO_STAY_NIGHTS` is 14 and the last reseed was
-21 September 2026 — **the seeded stays run out on 5 October 2026**. After that
+13 October 2026 — **the seeded stays run out on 27 October 2026**. After that
 `/demo` shows its "the demo room isn't open" page until somebody runs
 `pnpm demo:reset`. The LINKS no longer break (D-070, they are
 `the-kesari-<room>` now and survive a reseed); it is the stay behind them that
