@@ -103,6 +103,27 @@ generator on purpose rather than keep a build step for one consumer.
 `tests/unit/mobile-theme.test.ts` (in the web app, where `pnpm test` runs)
 reads both files and fails if either moves.
 
+## The build profiles
+
+`eas.json` is strict JSON — EAS validates it against a schema and rejects
+unknown keys, including the `"//"` comment convention. So the reasoning lives
+here instead:
+
+| profile | Android output | API it points at |
+|---|---|---|
+| `development` | APK | `10.0.2.2:3000` — the host machine, seen from inside an Android emulator |
+| `preview` | **APK** | `https://innstant.in` |
+| `production` | AAB | `https://innstant.in` |
+
+**`preview` is the one to use for anything a person installs by hand.** EAS
+defaults Android to an **AAB** (Android App Bundle), which is what the Play
+Store ingests and what a phone *cannot install* — an AAB sent to somebody to
+"just try it" is a file they cannot open. `production` keeps the AAB because
+that is what the store requires.
+
+`EXPO_PUBLIC_API_URL` is baked in **at build time**. There is no runtime
+switch: an APK is permanently pointed at whatever that said when it was built.
+
 ## What is not built
 
 - **Push notifications.** The one thing a PWA cannot do on iOS and the best

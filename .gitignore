@@ -48,3 +48,10 @@ mobile/.expo/
 mobile/dist/
 mobile/ios/
 mobile/android/
+
+# The Expo access token, for non-interactive `eas build`. Kept in a file rather
+# than pasted into a terminal so it never lands in a transcript or a shell
+# history, and ignored here so it can never land in a commit. It is a
+# credential for the account that signs and publishes the app.
+.eas-token
+mobile/.eas-token

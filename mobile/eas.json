@@ -7,23 +7,14 @@
       "android": { "buildType": "apk" },
       "env": { "EXPO_PUBLIC_API_URL": "http://10.0.2.2:3000" }
     },
-
-    "//": "The profile to use for a sideloadable test build.",
     "preview": {
       "distribution": "internal",
-      "android": {
-        "//": "APK, EXPLICITLY. EAS defaults Android to an AAB (app bundle), which the Play Store ingests and a phone CANNOT install. An AAB handed to somebody to 'just try it' is a file they cannot open.",
-        "buildType": "apk"
-      },
+      "android": { "buildType": "apk" },
       "env": { "EXPO_PUBLIC_API_URL": "https://innstant.in" }
     },
-
     "production": {
       "autoIncrement": true,
-      "android": {
-        "//": "An AAB here is correct — this profile is for the Play Store, which requires one. Use `preview` for anything a person installs by hand.",
-        "buildType": "app-bundle"
-      },
+      "android": { "buildType": "app-bundle" },
       "env": { "EXPO_PUBLIC_API_URL": "https://innstant.in" }
     }
   },
