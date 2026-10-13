@@ -54,19 +54,29 @@ of the deploy.
 
 ### Pick up here
 
-**1 — The Android APK is NOT built.** `eas.json`'s `preview` profile is ready
-and pins the two things that matter (`buildType: apk`, because EAS defaults
-Android to an AAB a phone cannot install; and
-`EXPO_PUBLIC_API_URL=https://innstant.in`, baked in at build time with no
-runtime switch). It needs an Expo account:
+**1 — The APK is built and points at production.** Built 13 October 2026 on
+EAS as `@prats8m/kesari-order`, profile `preview`, version 0.1.0 / versionCode 1.
+
+    ~/Downloads/kesari-order-preview.apk                        118 MB
+    https://expo.dev/artifacts/eas/Cd8OyISfaHNdskb_zrZjMGDdCyLP6FVb-C6O8jFTPSE.apk
+
+Verified by opening the archive rather than by trusting the build log: 5
+`classes*.dex` (an AAB has none, which is the mistake this profile exists to
+avoid), an APK Signing Block present — v2/v3, so there is deliberately no
+`META-INF/*.RSA` to find — and the Hermes bundle contains exactly one
+`https://innstant.in` with **zero** occurrences of `10.0.2.2` or
+`localhost:300x`. `EXPO_PUBLIC_API_URL` is compiled in; there is no runtime
+switch, so a build for a different server is a different build.
+
+Rebuild with:
 
 ```bash
-cd mobile && eas login && eas init
-eas build --platform android --profile preview
+cd mobile && EXPO_TOKEN="$(cat ../.eas-token)" \
+  eas build --platform android --profile preview
 ```
 
-The `eas` and `railway` CLIs are both installed now. Railway is authenticated;
-Expo is not.
+The `eas` and `railway` CLIs are both installed and both authenticated — EAS
+via the token in `.eas-token` (gitignored, 0600).
 
 **2 — The app has still not run on a device.** Nothing native is proven —
 safe-area insets, the keyboard on the checkout form, `expo-secure-store`
