@@ -24,6 +24,8 @@ WORKDIR /app
 
 RUN corepack enable
 COPY --from=deps /app/node_modules ./node_modules
+# `.dockerignore` keeps mobile/ out of this: it is a separate app with its own
+# toolchain, and `next build` has no reason to see it.
 COPY . .
 
 # src/db refuses to load without DATABASE_URL — correctly, since a process that

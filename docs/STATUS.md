@@ -21,41 +21,45 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Property links are built, migrated and verified locally — NOT deployed.**
-`pnpm db:migrate` has run against the LOCAL `ci-pg` container only. Production
-is still on `16bbca1` with 8 migrations; it has not seen `0008`.
+**Two things built and NOT deployed: property links (D-079) and the mobile
+app's API (D-080).** `pnpm db:migrate` has run against the LOCAL `ci-pg`
+container only. Production is still on `16bbca1` with 8 migrations.
 
     http://localhost:3000/p/the-kesari-table-4    a table tent  (dine in)
     http://localhost:3000/p/the-kesari-counter    the till      (takeaway)
     http://localhost:3000/p/the-kesari-order      a sent link   (either, + delivery)
     http://localhost:3000/admin/links             where staff make and revoke them
+    http://localhost:3000/api/v1/…                the app's contract
 
-Gates locally, all green against the local database: typecheck, lint,
-**377 unit tests**, **486 integration tests**, build. Migration 0008 applies
-and reports 56 tables with RLS enabled and forced.
+Gates locally, against the local database: typecheck, lint, **399 unit tests**,
+**492 integration tests**, build. Migration 0008 applies and reports 56 tables
+with RLS enabled and forced.
 
 ### Pick up here
 
-**1 — Deploying 0008.** This is the first migration since the deployment went
-live, and it ALTERs three populated tables (`guest_sessions`, `carts`,
-`orders`): three columns dropped to nullable, three added, a backfill of
-`destination_label` over existing orders, and `carts_stay_outlet_uq` replaced
-by two partial indexes. All of it is online in Postgres and none of it rewrites
-a table, but it has only been run against a local container with demo data in
-it. Read `0008_property_links.sql` top to bottom before shipping — its header
-explains what each change costs and why.
+**1 — Deploying 0008, with the app.** The first migration since the deployment
+went live, and it ALTERs three populated tables. Read
+`0008_property_links.sql` top to bottom before shipping — its header explains
+what each change costs. The app and the migration must go out TOGETHER: new
+code writes `fulfilment` and `destination_label`, and `orders_fulfilment_ck`
+rejects a row that omits them. Old code on the new schema is fine; the reverse
+is not.
 
-The app and the migration must go out TOGETHER: the new code writes
-`fulfilment` and `destination_label`, and `orders_fulfilment_ck` rejects a row
-that omits them. Old code against the new schema is fine; new code against the
-old schema is not.
+**2 — The mobile app has not been RUN.** `/api/v1` is verified over HTTP end to
+end — every endpoint, all three fulfilments, idempotency, cross-visit
+isolation — and `mobile/` typechecks against it, but no simulator has opened
+it. That is the next session's first job: `cd mobile && pnpm start`, press `i`,
+and walk the flow. Expect layout bugs; expect nothing structural.
 
-**2 — A scheduled demo reseed.** Still the most persistent operational problem
-here, and the stays were reseeded today so the clock has restarted rather than
-stopped. See "Open issues".
+**3 — Universal links need two files served from the domain.** `app.json`
+declares `applinks:innstant.in` and an Android intent filter for `/p`, and
+neither verifies until the deployment serves
+`/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json`.
+Until then a tapped link opens the web app, which is a correct fallback and
+not a failure.
 
-**3 — The two infrastructure disagreements** below, both still uninvestigated:
-the `ams` region and the PgBouncer service.
+**4 — A scheduled demo reseed.** Still the most persistent operational problem
+here. See "Open issues".
 
 Run `pnpm quality` (localhost:3999) to see where the gates stand.
 
@@ -78,6 +82,19 @@ local dev at production means `pnpm demo:reset` wipes the live demo.
 **`APP_URL` still says the railway subdomain**, not `innstant.in`. Both serve
 everything so nothing is broken, but `APP_URL` is what a printed sticker's URL
 is built from. Change it and reseed before any print run.
+
+**The mobile app has no push notifications**, which is the best single reason
+for it to exist — the one thing a PWA still cannot do on iOS. The tracking
+screen polls every 5s while an order is live and stops when it is not (D-080).
+Expo's push service plus a `device_tokens` table is the shape; it also needs a
+decision about what is worth waking somebody for, which is a product question
+rather than a session.
+
+**The app's order history is per VISIT and lasts six hours.** There is no
+account (D-080), so nothing ties an order to a phone after the visit closes.
+The empty state says so plainly. Phone + OTP is what would change it, and it
+needs an SMS provider — `OTP_SMS` is an enum value and a policy flag that
+`requireTier()` already advertises with nothing behind it.
 
 **A property link has no online payment.** A visit order is pay-at-the-counter
 or pay-the-rider, said plainly on the cart and on the tracking screen (D-079).
@@ -129,6 +146,51 @@ explained, and that section was removed. Replace them or drop the strip.
    GitHub and CI has never run. P1's exit criterion is still unsigned.
 
 ### What landed this session
+
+**A React Native app for the restaurant side, and the API under it (D-080).**
+`mobile/` is an Expo app — browse, order dine-in / takeaway / delivery, track
+it. Not the hotel guest app: a room guest scans a sticker and gets the web, and
+an App Store download in front of that is the wall D-012 exists to remove.
+
+**The API was the work.** The guest surface had NO JSON endpoint of any kind —
+Server Components render HTML, Server Actions speak RSC, and a native client
+can call neither. `/api/v1` is eleven handlers, versioned from the first commit
+because a phone cannot be redeployed.
+
+Auth is the same session row in a different envelope: the web's cookie value
+arrives as a bearer token and `resolveVisitSession()` parses it unchanged. Same
+revocation, same expiry. A JWT would have thrown that away.
+
+Three things cross the wire that a domain type would not have carried — money
+pre-formatted (#5, one formatter), the order timeline already decided by
+`trackView()` (so the app does not reimplement a state machine), and
+`shortfall` computed server-side (so the app never owns the minimum-order
+rule).
+
+**Four bugs, all found by using it rather than reading it:**
+
+- The order timeline was hotel-corridor copy — "On the way up", "Crossing the
+  courtyard", "No bell after 10" — shown to somebody awaiting a DELIVERY.
+  `trackView()` now takes the fulfilment. The web `/p` screen had it too.
+- `NotFoundError` had a FIXED `publicMessage`, so all thirty-odd throw sites
+  that wrote a specific sentence had it silently replaced by "That is no longer
+  available." The identical bug the comment on `ForbiddenError` describes
+  having already been found there — finding it twice is the argument for the
+  rule they now share.
+- `UnauthenticatedError` told guests to "Sign in to continue", a screen this
+  product does not have (#9).
+- `guestCredentialFrom(request)` read the cookie from Next's AMBIENT scope
+  rather than the request it was handed, and threw outright anywhere there is
+  no request scope.
+
+**The palette is a hand-kept copy** — RN has no custom properties and D-023
+removed the token generator. `tests/unit/mobile-theme.test.ts` reads both files
+and fails if either moves, including the two alphas that are `color-mix()` on
+the web and literal rgba in the app. 22 assertions.
+
+**Not run on a simulator yet.** The API is verified over HTTP end to end; the
+screens typecheck and have not been looked at.
+
 
 **A property can be used without a room (D-079).** `/p/{code}` opens a VISIT —
 dine-in at a table tent, takeaway at a counter, delivery from a link somebody

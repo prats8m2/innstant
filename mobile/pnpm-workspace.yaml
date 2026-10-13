@@ -1,0 +1,36 @@
+# This file does two jobs for this app. D-080.
+#
+# ─── 1. It declares this directory a workspace ROOT ────────────────────────
+#
+# pnpm walks UP for the nearest `pnpm-workspace.yaml` to decide where the
+# workspace is. Without this it finds the web app's, decides `/think` is the
+# root, and — since `mobile` is deliberately not a member there — installs the
+# web app's dependencies and silently none of this app's. `pnpm install`
+# reported "Done in 31.2s" over an empty node_modules, which is the most
+# expensive kind of success.
+#
+# ─── 2. It carries the settings, which no longer live in .npmrc ────────────
+#
+# pnpm 10 moved configuration out of `.npmrc` and into this file. A
+# `node-linker=hoisted` in `.npmrc` is read by nothing — `pnpm config get
+# node-linker` answers `undefined` — and npm prints "Unknown project config"
+# at it, which is the only clue anything is wrong.
+packages: []
+
+minimumReleaseAgeExclude:
+  - '@expo/ui@57.0.23'
+  - expo-router@57.0.26
+
+# React Native needs a FLAT node_modules.
+#
+# Metro resolves by walking directories rather than by asking Node, and parts
+# of the toolchain reach across packages by relative path.
+# `react-native/rn-get-polyfills` is the one that surfaced here, asked for by a
+# Metro that predates its removal in RN 0.80; pnpm's symlinked layout is
+# strictly more correct and that reach simply fails under it.
+#
+# This is Expo's own documented answer, and it is a WORKSPACE-WIDE setting —
+# which is exactly why this app is not in the web app's workspace. Applying it
+# there would relax the install layout of a deployed thing that does not have
+# the problem.
+nodeLinker: hoisted

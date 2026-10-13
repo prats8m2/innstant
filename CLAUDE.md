@@ -24,11 +24,14 @@ table tent, at the till, or in an Instagram bio, and somebody orders dine-in,
 takeaway or delivery from it (D-079). Those orders land on the same kitchen
 display as room service.
 
-Three surfaces, one codebase:
+Three web surfaces, one codebase — plus a native app:
 - **Guest PWA** — `/r/[qrCode]` (a room) and `/p/[code]` (a property link) and
   below. Mobile only, no install, no signup.
 - **Ops console** — `/admin`. Desktop. RBAC-heavy.
 - **Kitchen & floor** — `/kds`, `/runner`. Always-on tablet and phone.
+- **`mobile/`** — an Expo app for the RESTAURANT flow only (D-080), on
+  `/api/v1`. A room guest never installs anything; that is #9, and the
+  asymmetry is deliberate.
 
 Booking is deliberately **not** in scope. See `docs/EXTENSION-POINTS.md`.
 
@@ -62,6 +65,9 @@ src/
     (admin)/admin/...           ops console
     (ops)/kds/...  (ops)/runner/...
     api/...                     route handlers (webhooks, SSE, health)
+    api/v1/...                  the MOBILE contract (D-080) — versioned,
+                                #  bearer-authenticated, never changed under
+                                #  a client already installed
   modules/                      domain logic — the real code lives here
     identity/  stay/  visit/  catalog/  ordering/  requests/
       # identity owns tenancy: tenants, properties, floors, rooms,
@@ -107,6 +113,10 @@ pnpm db:bootstrap     # create app_user on a fresh database (CI, or a local PG)
 pnpm db:migrate       # apply migrations (runs as the migration role, not app_user)
 pnpm db:studio
 pnpm demo:reset       # wipe + reseed The Kesari demo property
+
+cd mobile && pnpm install && pnpm start   # the app (D-080). Needs the API
+                      #   running: `pnpm dev` for a simulator, `pnpm dev:lan`
+                      #   for a real phone. See mobile/README.md.
 ```
 
 ---

@@ -2638,3 +2638,86 @@ tree. `GuestSession` became a discriminated union and `stayId: string` became
 `OrderContext` through the ordering module — both chosen over nullable fields
 precisely so the ~20 call sites became compile errors rather than one runtime
 failure on a screen a guest is looking at.
+
+### D-080 · A React Native app for the restaurant side, on a versioned JSON API
+`mobile/` is an Expo app for the customer-facing **restaurant** flow (D-079's
+visits): browse, order dine-in / takeaway / delivery, track it. It is not the
+hotel guest app, and the asymmetry is the decision.
+
+**Why not for room guests.** CLAUDE.md says the guest PWA is "mobile only, no
+install, no signup", and D-012 exists because a guest who cannot see a menu
+without a login does not come back. An App Store download is a far bigger wall
+than a login prompt: nobody installs an app to order a dal at 9:40pm from a
+nightstand sticker. A restaurant customer is the opposite case — repeat visits,
+saved intent, an order to watch, and push notifications when food is ready,
+which is the one thing a PWA still cannot do on iOS.
+
+**The API was the work, not the screens.** The guest surface had no JSON
+endpoint of any kind: Server Components render HTML and Server Actions speak
+the RSC protocol, neither of which a native client can call. `/api/v1` is
+eleven handlers and the contract a shipped app binds to. Versioned from the
+first commit, because an app on somebody's phone cannot be redeployed — a
+customer who installed in March is still running March's client in November.
+Within a version fields may be added and never removed or redefined.
+
+**One session model, two envelopes.** The web's cookie value
+`<tenantId>.<token>` arrives as `Authorization: Bearer <the same string>`, and
+`resolveVisitSession()` parses it unchanged. Same SHA-256 lookup, same
+revocation, same expiry — close a visit and the app's credential dies at the
+instant the browser's does. A JWT would have been stateless and would have
+thrown exactly that away (#10). The token lives in the OS keychain, not
+AsyncStorage: it is a bearer credential for somebody's name, number and
+address.
+
+**Three things cross the wire that a domain type would not have carried.**
+Money arrives pre-formatted, because #5 says format in one place and a second
+implementation of Indian digit grouping is how one of them drifts. The order
+timeline arrives already decided by `trackView()`, so the app does not
+reimplement a state machine nobody would review against the spec. And
+`shortfall` is computed server-side, so the app never owns the minimum-order
+rule that `placeOrder()` enforces.
+
+**Tracking polls; it does not stream.** The web screen is right to use SSE and
+the app would be wrong to. An iOS app backgrounded has its sockets torn down
+within seconds with no event saying so, and a silently-dead stream looks
+exactly like a kitchen that has not touched the order — the one thing that
+screen must never fake. A poll is stateless, `AppState` makes "stop while
+backgrounded" one line, and `isLive` from the server stops it entirely once the
+order is finished.
+
+**`mobile/` is a sibling directory with its own lockfile, NOT a pnpm workspace
+member.** It was a member for about an hour, and the reason it is not is worth
+recording because it is not obvious.
+
+React Native's toolchain needs a FLAT `node_modules`. Metro resolves by walking
+directories rather than by asking Node, and parts of the toolchain reach across
+packages by relative path — `react-native/rn-get-polyfills` is the one that
+surfaced, asked for by a Metro that predates its removal in RN 0.80. pnpm's
+symlinked layout is strictly more correct and those reaches simply fail under
+it. Expo's documented answer is `node-linker=hoisted`, and that is a
+WORKSPACE-WIDE setting in pnpm: applying it to fix the app would have relaxed
+the install layout of the deployed web app, which does not have the problem.
+
+So `mobile/.npmrc` sets `node-linker=hoisted` for itself alone. The web app's
+`pnpm-workspace.yaml`, Dockerfile and lockfile are untouched — which was the
+point of not moving it to `apps/web` in the first place.
+
+**Nothing is lost by this**, because the one thing a workspace would have
+bought — type sharing — is not done through the workspace anyway. The contract
+is reached by a tsconfig path alias (`@contract` →
+`../src/lib/api-contract.ts`), which is a relative file path and works whatever
+the package boundary is. `moving to apps/web` and `workspace member` were both
+answers to a question that a path alias had already answered.
+
+**The palette is a hand-kept copy with a drift test.** RN has no custom
+properties and no `color-mix()`, so `theme.css` cannot be consumed — and D-023
+removed the token generator rather than keep a build step for one consumer.
+`tests/unit/mobile-theme.test.ts` reads both files and fails if either moves,
+including the two alpha percentages that are computed on the web and literal in
+the app.
+
+**Cost:** a second toolchain, a second lockfile's worth of dependencies, and an
+API surface that is now a public contract rather than an internal shape. The
+screens are the cheap half and will stay that way; `/api/v1` is the thing that
+has to be got right, because it is the thing that cannot be changed under a
+client already installed.

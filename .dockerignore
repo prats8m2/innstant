@@ -37,3 +37,8 @@ design
 # imported and must stay. `pnpm logo:build` regenerates those from these, and
 # that runs on a developer's machine, never in the image.
 src/app/images/innstant_logo_*.png
+
+# The React Native app (D-080). A separate package with its own lockfile and
+# its own toolchain, built by EAS rather than by this Dockerfile, and nothing
+# in the Next.js server imports a line of it.
+mobile/

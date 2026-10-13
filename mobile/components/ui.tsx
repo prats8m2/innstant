@@ -9,7 +9,16 @@ import { colors, radius, space, text as type, TOUCH_MIN, tabular } from '@/lib/t
  * Five components is what turned out to be shared.
  */
 
-export function Screen({ children, style }: { children: React.ReactNode; style?: object }) {
+export function Screen({
+  children,
+  style,
+}: {
+  /** Optional: `scan.tsx` renders an empty one while the camera permission
+   *  is still being resolved, so the ground is painted rather than flashing
+   *  the system background. */
+  children?: React.ReactNode;
+  style?: object;
+}) {
   return <View style={[s.screen, style]}>{children}</View>;
 }
 
