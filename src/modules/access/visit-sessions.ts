@@ -1,7 +1,10 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { withTenant, recordEvent, resolveVisitLink, type Tx } from '@/db';
 import { guestSessions } from '@/db/schema/access';
-import { openVisit, fulfilmentForLinkKind, type VisitFulfilment } from '@/modules/visit';
+import {
+  openVisit, fulfilmentForLinkKind,
+  type VisitFulfilment, type VisitLinkKind,
+} from '@/modules/visit';
 import { issueToken } from '@/lib/tokens';
 import type { AccessTier } from './tiers';
 import { QrNotUsableError, type VisitGuestSession } from './guest-sessions';
@@ -47,6 +50,9 @@ export const VISIT_SESSION_TIER: AccessTier = 'CHARGE';
 
 export interface VisitScanResult {
   session: VisitGuestSession;
+  /** What the link is — TABLE, COUNTER or ONLINE. The mobile app reports it;
+   *  nothing decides anything on it (see `Visit.linkKind`). */
+  linkKind: VisitLinkKind;
   cookieValue: string;
   /** Where to send the browser. The menu, not a home screen — a restaurant
    *  link has one thing to do and burying it behind a landing page is how a
@@ -83,6 +89,7 @@ export async function scanVisitLink(
       propertyId: routing.propertyId,
       outletId: routing.outletId,
       visitLinkId: routing.visitLinkId,
+      linkKind: routing.kind,
       fulfilment,
       tableLabel: routing.tableLabel,
     });
@@ -142,6 +149,7 @@ export async function scanVisitLink(
         isAnonymous: true,
         expiresAt: visit.expiresAt,
       },
+      linkKind: routing.kind,
       cookieValue: `${routing.tenantId}.${token}`,
       next: `/p/${encodeURIComponent(publicCode)}/menu`,
     };

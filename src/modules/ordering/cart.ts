@@ -106,7 +106,9 @@ export async function getOrCreateCart(
   if (!cart) {
     // Only reachable if the insert was rejected by RLS — which means the stay
     // or visit is not this tenant's, and saying more would confirm it exists.
-    throw new NotFoundError('cart could not be opened for this context');
+    throw new NotFoundError('That is no longer available.', {
+      detail: 'cart could not be opened for this context',
+    });
   }
   return cart;
 }

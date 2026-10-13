@@ -62,10 +62,17 @@ export async function login(input: LoginInput, ctx: LoginContext): Promise<Issue
     const passwordOk = await verifyPassword(input.password, stored);
 
     if (!user || !passwordOk || user.status !== 'ACTIVE') {
-      throw new UnauthenticatedError('Check your email and password and try again.', {
-        email: input.email,
-        reason: !user ? 'no_user' : !passwordOk ? 'bad_password' : 'inactive',
-      });
+      // One sentence for all three outcomes: a missing account, a wrong
+      // password and a deactivated user must be indistinguishable, or the form
+      // becomes a way to ask whether somebody works here.
+      throw new UnauthenticatedError(
+        'sign-in refused',
+        'Check your email and password and try again.',
+        {
+          email: input.email,
+          reason: !user ? 'no_user' : !passwordOk ? 'bad_password' : 'inactive',
+        },
+      );
     }
 
     const session = await createStaffSession(tx, {

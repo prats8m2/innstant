@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "The Kesari",
+    "slug": "kesari-order",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "kesari",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "in.innstant.kesari.order",
+      "associatedDomains": ["applinks:innstant.in"]
+    },
+    "android": {
+      "package": "in.innstant.kesari.order",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "https", "host": "innstant.in", "pathPrefix": "/p" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Scan the code on your table to see the menu."
+        }
+      ]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

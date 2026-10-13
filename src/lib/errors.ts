@@ -17,10 +17,22 @@ export abstract class AppError extends Error {
   }
 }
 
-/** No session, or a session that no longer resolves. */
+/**
+ * No session, or a session that no longer resolves.
+ *
+ * The default is written for the staff console, where signing in is a thing a
+ * person can actually do. It is wrong on a guest surface — there is no sign-in
+ * anywhere in the guest app (#9), so telling somebody to do one sends them
+ * looking for a screen that does not exist. A guest-facing throw passes its
+ * own sentence; see `requireVisitSession()` in src/lib/api-auth.ts.
+ */
 export class UnauthenticatedError extends AppError {
   readonly code = 'UNAUTHENTICATED';
-  readonly publicMessage = 'Sign in to continue.';
+  readonly publicMessage: string;
+  constructor(message: string, publicMessage?: string, context: Record<string, unknown> = {}) {
+    super(message, context);
+    this.publicMessage = publicMessage ?? 'Sign in to continue.';
+  }
 }
 
 /**
@@ -58,10 +70,43 @@ export class ForbiddenError extends AppError {
  * 403 would confirm the resource exists, and that single bit is enough to
  * enumerate another hotel's rooms or orders. Cross-tenant access is
  * indistinguishable from a typo, by design.
+ *
+ * ─── The message is the caller's — the same fix ForbiddenError had ─────────
+ *
+ * This held a fixed `publicMessage` of 'That is no longer available.', and so
+ * every one of the thirty-odd throw sites that had written a specific,
+ * actionable sentence had it silently replaced. "No such room at this
+ * property", "That link has expired or has already been used. Ask for a new
+ * one", "That dish is no longer on the menu" — all of them, since P0, read as
+ * one vague line.
+ *
+ * It is the identical bug the note on `ForbiddenError` above describes having
+ * already been found and fixed there, in a class written the same way on the
+ * same day. Finding it twice is the argument for the rule the two of them now
+ * share: **what the thrower writes is what the person reads.**
+ *
+ * ─── Which means a vague refusal has to say so deliberately ────────────────
+ *
+ * Two kinds of throw must NOT explain themselves, and both now do that on
+ * purpose rather than by accident:
+ *
+ *   · `authorize()` — a property the session cannot see. Naming it would
+ *     confirm it exists.
+ *   · `QrNotUsableError` — unknown code, revoked sticker, wrong version and
+ *     no-active-stay are ONE sentence, because a scanner in a corridor must
+ *     not learn which, and in particular must not learn whether a room is
+ *     occupied (D-012).
+ *
+ * Both pass a deliberately uninformative sentence and put the detail in
+ * `context`, which is logged and never sent.
  */
 export class NotFoundError extends AppError {
   readonly code = 'NOT_FOUND';
-  readonly publicMessage = 'That is no longer available.';
+  readonly publicMessage: string;
+  constructor(publicMessage: string, context: Record<string, unknown> = {}) {
+    super(publicMessage, context);
+    this.publicMessage = publicMessage;
+  }
 }
 
 /** Input failed validation at a boundary. */

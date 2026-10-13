@@ -100,12 +100,21 @@ export interface ScanResult {
   room: { id: string; number: string };
 }
 
-/** Raised when a code resolves to nothing a guest may use: unknown, revoked,
- *  wrong version, or a room with no one currently checked in. Deliberately one
- *  error — a scanner in a corridor learns nothing from which. */
+/**
+ * Raised when a code resolves to nothing a guest may use: unknown, revoked,
+ * wrong version, or a room with no one currently checked in.
+ *
+ * Deliberately ONE error and ONE sentence. A scanner in a corridor must learn
+ * nothing from which of the four it was — and in particular must not learn
+ * whether a room is occupied, which "no active stay" would tell them outright.
+ *
+ * The public message is passed explicitly now that `NotFoundError` shows what
+ * it is given. The `detail` stays in `context`, where it is logged and never
+ * sent: that distinction is the whole of this class.
+ */
 export class QrNotUsableError extends NotFoundError {
   constructor(readonly detail: string) {
-    super(`qr not usable: ${detail}`);
+    super('That is no longer available.', { detail: `qr not usable: ${detail}` });
   }
 }
 

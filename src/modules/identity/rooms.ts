@@ -256,6 +256,9 @@ export interface PropertySettings {
   name: string;
   timezone: string;
   currency: string;
+  /** D-080 — "The Kesari · Udaipur" on the mobile app's masthead. Nullable
+   *  because `provisionProperty` does not require it. */
+  city: string | null;
 }
 
 export async function findProperty(
@@ -268,6 +271,7 @@ export async function findProperty(
       name: properties.name,
       timezone: properties.timezone,
       currency: properties.currency,
+      city: properties.city,
     })
     .from(properties)
     .where(eq(properties.id, propertyId))

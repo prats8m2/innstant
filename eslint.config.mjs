@@ -92,6 +92,14 @@ export default tseslint.config(
       // Derived from the design export by `pnpm design:decode` — vendored
       // React/runtime bundles, never edited, never shipped.
       'design/reference/decoded/**',
+      /*
+       * The React Native app is its own package with its own toolchain
+       * (D-080). It is typechecked by `mobile/tsconfig.json` and linted by
+       * Expo's config, which knows about React Native's globals and its JSX
+       * runtime — neither of which this config does. Linting it from here
+       * reports `fetch` as undefined and `View` as a missing React import.
+       */
+      'mobile/**',
     ],
   },
 

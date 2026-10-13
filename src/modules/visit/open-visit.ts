@@ -46,6 +46,8 @@ export interface OpenVisitInput {
   outletId: string;
   /** Null when staff opened this at the counter rather than somebody scanning. */
   visitLinkId?: string | null;
+  /** What the link is, carried onto the returned visit. See `Visit.linkKind`. */
+  linkKind?: VisitLinkKind | null;
   fulfilment: VisitFulfilment;
   /** DINE_IN only. Copied from the link, never typed by the customer. */
   tableLabel?: string | null;
@@ -57,6 +59,19 @@ export interface Visit {
   propertyId: string;
   outletId: string;
   visitLinkId: string | null;
+  /**
+   * What KIND of link opened this, when one did. D-080.
+   *
+   * Not derivable from the visit alone, which is why it is carried: COUNTER and
+   * ONLINE both open as TAKEAWAY (`fulfilmentForLinkKind`), so after the fact
+   * the fulfilment cannot tell them apart. Null for a visit staff opened at the
+   * counter, or one whose link has since been deleted.
+   *
+   * Informational, deliberately. What decides whether a customer may be ASKED
+   * about delivery is `tableLabel` — a table tent overrules a posted
+   * fulfilment in `setVisitDetails()` regardless of what any client believes.
+   */
+  linkKind: VisitLinkKind | null;
   status: 'OPEN' | 'CLOSED';
   fulfilment: VisitFulfilment;
   customerName: string | null;
@@ -130,6 +145,7 @@ export async function openVisit(tx: Tx, input: OpenVisitInput): Promise<Visit> {
     propertyId: input.propertyId,
     outletId: input.outletId,
     visitLinkId: input.visitLinkId ?? null,
+    linkKind: input.linkKind ?? null,
     status: 'OPEN',
     fulfilment: input.fulfilment,
     customerName: null,
@@ -142,15 +158,27 @@ export async function openVisit(tx: Tx, input: OpenVisitInput): Promise<Visit> {
 }
 
 export async function findVisit(tx: Tx, visitId: string): Promise<Visit | null> {
-  const rows = await tx.select().from(visits).where(eq(visits.id, visitId)).limit(1);
-  const row = rows[0];
-  if (!row) return null;
+  // A LEFT join, because `visit_link_id` is nullable twice over: a visit staff
+  // opened has none, and the FK is ON DELETE SET NULL so a deleted link leaves
+  // the visit standing. An inner join would make those visits vanish.
+  const rows = await tx.select({
+    visit: visits,
+    linkKind: visitLinks.kind,
+  }).from(visits)
+    .leftJoin(visitLinks, eq(visitLinks.id, visits.visitLinkId))
+    .where(eq(visits.id, visitId))
+    .limit(1);
+
+  const found = rows[0];
+  if (!found) return null;
+  const row = found.visit;
   return {
     id: row.id,
     tenantId: row.tenantId,
     propertyId: row.propertyId,
     outletId: row.outletId,
     visitLinkId: row.visitLinkId,
+    linkKind: (found.linkKind as VisitLinkKind | null) ?? null,
     status: row.status,
     fulfilment: row.fulfilment as VisitFulfilment,
     customerName: row.customerName,
@@ -222,7 +250,12 @@ export async function setVisitDetails(tx: Tx, input: VisitDetailsInput): Promise
   }
 
   const current = await findVisit(tx, input.visitId);
-  if (!current) throw new NotFoundError('visit not found');
+  if (!current) {
+    throw new NotFoundError('This order session has ended. Open the link again.', {
+      detail: 'visit not found',
+      visitId: input.visitId,
+    });
+  }
   if (current.status !== 'OPEN') {
     throw new ConflictError('This order session has closed. Open the link again.');
   }

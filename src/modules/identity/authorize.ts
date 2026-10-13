@@ -46,13 +46,23 @@ export function authorize(
   if (!session) throw new UnauthenticatedError('no staff session');
 
   if (session.expiresAt.getTime() <= Date.now()) {
-    throw new UnauthenticatedError('session expired', { staffUserId: session.staffUserId });
+    throw new UnauthenticatedError(
+      'session expired',
+      'Your session has ended. Sign in again.',
+      { staffUserId: session.staffUserId },
+    );
   }
 
   const granted = session.properties.get(propertyId);
   if (!granted) {
-    // Deliberately 404. See the note above.
-    throw new NotFoundError('property not visible to this session', {
+    /**
+     * Deliberately 404, and deliberately vague — see the note on
+     * `NotFoundError`. Naming the property would confirm it exists, and that
+     * one bit is enough to enumerate a competitor's estate a uuid at a time.
+     * The detail goes to the log, where it is read by us.
+     */
+    throw new NotFoundError('That is no longer available.', {
+      detail: 'property not visible to this session',
       staffUserId: session.staffUserId,
       propertyId,
     });

@@ -45,7 +45,7 @@ export {
   trackView, trackEta, TRACK_STEPS, ETA_WINDOW_MINUTES,
   orderStateFor, OPEN_TO_A_GUEST,
 } from './track';
-export type { OrderState, OrderStateTone } from './track';
+export type { OrderState, OrderStateTone, TrackFulfilment } from './track';
 export type { TrackView, TrackStep, TrackStepKey, TrackStepState, TrackHalt, TrackEta, OrderStamps }
   from './track';
 export type { PlaceOrderInput, PlacedOrder } from './place-order';

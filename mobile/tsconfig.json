@@ -1,0 +1,23 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "@/*": ["./*"],
+      /*
+       * The API contract, imported from the web app it belongs to.
+       *
+       * TYPE-ONLY, always. `src/lib/api-contract.ts` holds no runtime code at
+       * all — no constants, no helpers, no Zod — precisely so that this alias
+       * cannot drag the web app's module graph into Metro. A value import
+       * through here would pull in Next.js, `pg` and the whole server.
+       *
+       * The point of the alias is that a changed response shape is a compile
+       * error in THIS app rather than a blank screen on somebody's phone.
+       */
+      "@contract": ["../src/lib/api-contract.ts"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+}

@@ -79,6 +79,105 @@ const PENDING_SUB: Record<TrackStepKey, string> = {
   AT_YOUR_DOOR: 'They will knock. No bell after 10.',
 };
 
+/**
+ * The same timeline, in the words the destination actually deserves. D-080.
+ *
+ * Everything above is written for a tray going to a hotel room, because until
+ * D-079 that was the only thing an order could be: "On the way up", "Crossing
+ * the courtyard", "They will knock. No bell after 10." All of it is true of
+ * room 214 and none of it is true of somebody waiting at a counter or at
+ * 12 MG Road — and it was being shown to them, on the web `/p` screen and in
+ * the API's first response, which is how it was found.
+ *
+ * Only the lines that ARE different are overridden. RECEIVED and KITCHEN are
+ * the same event wherever the food is going, so they fall through to the
+ * tables above rather than being restated three times — restating them is how
+ * one copy of a sentence quietly stops matching the other three.
+ *
+ * `IN_ROOM` is absent on purpose: it is the fallback, and giving it an entry
+ * would mean two places to change the room wording.
+ */
+export type TrackFulfilment = 'IN_ROOM' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+
+interface StepCopy {
+  title?: string;
+  /** Keyed by status, for the line a REACHED step shows. */
+  sub?: Partial<Record<OrderStatus, string>>;
+  /** The line shown before the step is reached. */
+  pending?: string;
+}
+
+const BY_FULFILMENT: Record<
+  Exclude<TrackFulfilment, 'IN_ROOM'>,
+  Partial<Record<TrackStepKey, StepCopy>>
+> = {
+  DINE_IN: {
+    PLATED: {
+      sub: { READY: 'Plated, waiting to be carried over.' },
+      pending: 'Plated when it comes off the pan.',
+    },
+    ON_THE_WAY: {
+      title: 'Coming to your table',
+      sub: { OUT_FOR_DELIVERY: 'On its way across now.' },
+      pending: 'Someone brings it over.',
+    },
+    AT_YOUR_DOOR: {
+      title: 'At your table',
+      sub: {
+        DELIVERED: 'On the table. Nothing else to do.',
+        CLOSED: 'On the table. Nothing else to do.',
+      },
+      pending: 'Served at your table.',
+    },
+  },
+
+  TAKEAWAY: {
+    PLATED: {
+      title: 'Bagged up',
+      sub: { READY: 'Bagged and waiting at the counter.' },
+      pending: 'Bagged when it comes off the pan.',
+    },
+    ON_THE_WAY: {
+      title: 'Ready for you',
+      sub: { OUT_FOR_DELIVERY: 'Waiting at the counter — come and get it.' },
+      pending: 'We will call your name.',
+    },
+    AT_YOUR_DOOR: {
+      title: 'Collected',
+      sub: {
+        DELIVERED: 'Handed over. Nothing else to do.',
+        CLOSED: 'Handed over. Nothing else to do.',
+      },
+      pending: 'Picked up at the counter.',
+    },
+  },
+
+  DELIVERY: {
+    PLATED: {
+      title: 'Packed',
+      sub: { READY: 'Packed, waiting on a rider.' },
+      pending: 'Packed when it comes off the pan.',
+    },
+    ON_THE_WAY: {
+      title: 'On its way',
+      sub: { OUT_FOR_DELIVERY: 'A rider has it.' },
+      pending: 'A rider brings it to you.',
+    },
+    AT_YOUR_DOOR: {
+      sub: {
+        DELIVERED: 'Delivered. Nothing else to do.',
+        CLOSED: 'Delivered. Nothing else to do.',
+      },
+      pending: 'They will call when they are outside.',
+    },
+  },
+};
+
+function copyFor(key: TrackStepKey, fulfilment: TrackFulfilment): StepCopy {
+  if (fulfilment === 'IN_ROOM') return {};
+  return BY_FULFILMENT[fulfilment][key] ?? {};
+}
+
 export type TrackStepState = 'done' | 'active' | 'pending';
 
 export interface TrackStep {
@@ -148,6 +247,13 @@ export function trackView(
   stamps: OrderStamps = {},
   /** `rejection_reason` or `cancellation_reason` — shown to the guest verbatim. */
   reason: string | null = null,
+  /**
+   * Where the food is going, which decides the wording of the last three steps
+   * (D-080). Defaults to IN_ROOM so every caller written before property links
+   * existed keeps the copy it was written against — and so a caller that
+   * forgets it gets the room wording rather than nothing.
+   */
+  fulfilment: TrackFulfilment = 'IN_ROOM',
 ): TrackView {
   if (status === 'REJECTED') {
     return {
@@ -207,10 +313,17 @@ export function trackView(
       .map((field) => stamps[field] ?? null)
       .find((value): value is Date => value instanceof Date) ?? null;
 
+    // Each override falls back to the room copy, so a fulfilment only has to
+    // say what is actually different about it.
+    const copy = copyFor(step.key, fulfilment);
+    const pending = copy.pending ?? PENDING_SUB[step.key];
+
     return {
       key: step.key,
-      title: step.title,
-      sub: state === 'pending' ? PENDING_SUB[step.key] : SUB[status] ?? PENDING_SUB[step.key],
+      title: copy.title ?? step.title,
+      sub: state === 'pending'
+        ? pending
+        : copy.sub?.[status] ?? SUB[status] ?? pending,
       state,
       // A step in the future has no time, even if a stamp exists — which it
       // can, out of order, if a kitchen bumps backwards through a correction.
@@ -223,7 +336,9 @@ export function trackView(
   for (const [i, step] of steps.entries()) {
     if (step.state !== 'done') continue;
     const reached = TRACK_STEPS[i]?.statuses[0];
-    if (reached) step.sub = SUB[reached] ?? step.sub;
+    if (!reached) continue;
+    const copy = copyFor(step.key, fulfilment);
+    step.sub = copy.sub?.[reached] ?? SUB[reached] ?? step.sub;
   }
 
   // Live while a step is still ahead. Once the tray is at the door nothing the

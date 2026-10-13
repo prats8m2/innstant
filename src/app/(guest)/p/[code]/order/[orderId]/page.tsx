@@ -59,7 +59,10 @@ export default async function VisitOrderScreen({
   if (!order) notFound();
 
   const base = `/p/${encodeURIComponent(code)}`;
-  const view = trackView(order.status, order, order.haltReason);
+  // D-080 — the timeline in the words this destination deserves. The default
+  // is room copy ("On the way up", "No bell after 10"), which is true of a
+  // tray going to 214 and of nothing on this screen.
+  const view = trackView(order.status, order, order.haltReason, session.fulfilment);
   const eta = trackEta(order.status, order.promisedByAt, order);
 
   // The PROPERTY's timezone, never the server's (CLAUDE.md "Dates"). A guest in
