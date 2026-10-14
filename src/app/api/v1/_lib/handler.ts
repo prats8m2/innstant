@@ -52,7 +52,11 @@ import { requestLogger } from '@/lib/logger';
 const CORS: Record<string, string> = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'access-control-allow-headers': 'authorization, content-type',
+  // `x-customer-token` is D-081's identity credential. Without it listed,
+  // every cross-origin preflight for an account endpoint fails — and the
+  // failure presents as a network error rather than as a CORS one, which is
+  // how an hour disappears.
+  'access-control-allow-headers': 'authorization, content-type, x-customer-token',
   // A day. The preflight answer cannot go stale in a way that matters — the
   // methods and headers are fixed by this file.
   'access-control-max-age': '86400',

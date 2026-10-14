@@ -35,6 +35,21 @@ CREATE TYPE "customer_auth_method" AS ENUM ('OTP_SMS');
 ALTER TABLE "guests" ADD COLUMN "phone_verified_at" timestamptz;
 --> statement-breakpoint
 
+-- What the CUSTOMER calls themselves, separate from what the front desk
+-- recorded.
+--
+-- `full_name` belongs to the desk. It is what `getGuestDossier()` renders on
+-- /admin/guests/[guestId] and what a folio is made out to. `upsertGuestByPhone()`
+-- already states the rule in a comment — "a guest called 'Anjali Menon' on her
+-- folio who types 'anj' into a takeaway form has not renamed herself" — and a
+-- customer-facing PATCH /profile writing `full_name` would break exactly that
+-- invariant, for the one caller that can prove a phone number and nothing else.
+-- A recycled number would rename a real guest's record.
+--
+-- Reads resolve COALESCE(display_name, full_name).
+ALTER TABLE "guests" ADD COLUMN "display_name" text;
+--> statement-breakpoint
+
 -- Denormalised from the link. The account's history is DIRECT-link orders
 -- only, and `orders.fulfilment` cannot express that: TAKEAWAY comes from both
 -- a COUNTER link and an ONLINE one. `visit_link_id` is ON DELETE SET NULL, so
@@ -111,7 +126,17 @@ CREATE TABLE "otp_challenges" (
   "max_attempts" integer DEFAULT 5 NOT NULL,
   "locked_until" timestamptz,
   "consumed_at"  timestamptz,
+  -- Superseded by a newer code for the same number. NOT `consumed_at`: a
+  -- verified challenge and an abandoned one must stay distinguishable in the
+  -- audit trail, and overloading one column to mean both loses that forever.
+  "superseded_at" timestamptz,
   "expires_at"   timestamptz NOT NULL,
+  -- Per-PHONE throttling alone stops nothing: one request each across a list
+  -- of 100,000 numbers trips no limit and sends 100,000 texts from the
+  -- property's own sender ID. `scanVisitLink` already reads x-forwarded-for
+  -- for this reason.
+  "ip_address"   text,
+  "user_agent"   text,
   "created_at"   timestamptz DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -120,6 +145,23 @@ CREATE TABLE "otp_challenges" (
 -- resend throttle, and the lockout window.
 CREATE INDEX "otp_challenges_phone_idx"
   ON "otp_challenges" ("tenant_id", "phone", "created_at" DESC);
+--> statement-breakpoint
+
+CREATE INDEX "otp_challenges_ip_idx"
+  ON "otp_challenges" ("tenant_id", "ip_address", "created_at" DESC);
+--> statement-breakpoint
+
+-- At most ONE live code per number. Six digits is ~20 bits defended only by
+-- `attempts`; five simultaneously-valid codes make every guess five times
+-- likelier to land. Issuing a new code stamps `superseded_at` on the previous
+-- row in the same transaction.
+--
+-- The index cannot test expiry — `now()` is not immutable and Postgres
+-- refuses it in an index predicate — so supersession has to be explicit
+-- rather than inferred from a timestamp.
+CREATE UNIQUE INDEX "otp_challenges_one_live_uq"
+  ON "otp_challenges" ("tenant_id", "phone")
+  WHERE "consumed_at" IS NULL AND "superseded_at" IS NULL;
 --> statement-breakpoint
 
 ALTER TABLE "otp_challenges" ADD CONSTRAINT "otp_challenges_code_hash_ck"

@@ -43,7 +43,19 @@ export const guests = pgTable('guests', {
    */
   phoneVerifiedAt: ts('phone_verified_at'),
   email: text('email'),
+  /**
+   * The front desk's name for this person. Theirs, not the customer's.
+   *
+   * This is what a folio is made out to and what `/admin/guests/[guestId]`
+   * renders. `upsertGuestByPhone()` already refuses to touch it, and D-081
+   * extends that refusal to `PATCH /profile`: a customer proves a phone
+   * number and nothing else, and a recycled number must not be able to rename
+   * a real guest's record. Customer-facing reads resolve
+   * `COALESCE(display_name, full_name)`.
+   */
   fullName: text('full_name').notNull(),
+  /** What the CUSTOMER calls themselves. Null until they say. See above. */
+  displayName: text('display_name'),
   preferredLanguage: text('preferred_language').notNull().default('en'),
 
   /** Present and unused until v2 booking (EXTENSION-POINTS). */

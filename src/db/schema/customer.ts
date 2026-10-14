@@ -120,12 +120,32 @@ export const otpChallenges = pgTable('otp_challenges', {
 
   /** Single use. A verified challenge is spent even if it has not expired. */
   consumedAt: ts('consumed_at'),
+  /**
+   * Replaced by a newer code for the same number.
+   *
+   * Deliberately NOT `consumed_at`. A verified challenge and an abandoned one
+   * must stay distinguishable in the audit trail, and overloading one column
+   * to mean both loses that distinction permanently.
+   */
+  supersededAt: ts('superseded_at'),
   expiresAt: ts('expires_at').notNull(),
+
+  /** Per-phone throttling alone stops nothing: one request each across a list
+   *  of 100,000 numbers trips no limit and sends 100,000 texts from the
+   *  property's own sender ID. */
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+
   createdAt: createdAt(),
 }, (t) => [
   // Serves three questions at once: the newest live challenge for a number,
   // the resend throttle, and the lockout window.
   index('otp_challenges_phone_idx').on(t.tenantId, t.phone, t.createdAt),
+  index('otp_challenges_ip_idx').on(t.tenantId, t.ipAddress, t.createdAt),
+  // At most ONE live code per number — six digits is ~20 bits, and five
+  // simultaneously-valid codes make every guess five times likelier to land.
+  // The partial unique index lives in 0009 because Drizzle cannot express a
+  // WHERE clause on one; this is the declaration, that is the enforcement.
 ]);
 
 /**

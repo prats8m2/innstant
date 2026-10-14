@@ -114,7 +114,12 @@ export default function Menu() {
               accessibilityLabel="Scan the code on your table"
               style={{ paddingHorizontal: space[2] }}
             >
-              <Text style={s.headerLink}>⌗</Text>
+              {/* The WORD, not a glyph. This was U+2317 (⌗), which is not in
+                  Roboto and has no Android fallback — an unlabelled tofu box
+                  next to the word "Orders", and the only entry to the scanner
+                  in the app. D-073's lesson, one surface over: do not pick a
+                  codepoint and hope. */}
+              <Text style={s.headerLink}>Scan</Text>
             </Pressable>
           ),
           headerRight: () => (

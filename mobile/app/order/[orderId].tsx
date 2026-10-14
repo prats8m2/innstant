@@ -49,8 +49,35 @@ export default function Order() {
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    /**
+     * Two flags, and the timer id is NOT used as either.
+     *
+     * The previous version armed the next poll in a `finally` with no notion
+     * of being paused, and the AppState handler cleared a timer id that had
+     * already fired. Two things followed, both on the one screen whose entire
+     * purpose is to be backgrounded and come back to:
+     *
+     *   · backgrounding DURING an in-flight read resumed a 5s poll that never
+     *     stopped, because the `finally` re-armed after the handler had
+     *     already cleared;
+     *   · foregrounding during one started a SECOND chained loop and
+     *     overwrote the tracked id, so the effective interval halved on every
+     *     cycle — a poll that compounds until the screen is closed.
+     */
+    let paused = false;
+    let inFlight = false;
+
+    const arm = () => {
+      if (cancelled || paused || !live.current) return;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { void read(); }, POLL_MS);
+    };
 
     const read = async () => {
+      // One request at a time, whatever asks. A foreground event arriving
+      // mid-read must not start a parallel chain.
+      if (cancelled || inFlight) return;
+      inFlight = true;
       try {
         const next = await api.getOrder(orderId);
         if (cancelled) return;
@@ -59,30 +86,33 @@ export default function Order() {
         live.current = next.isLive;
       } catch (failure) {
         if (cancelled) return;
-        // A failed poll is not a reason to blank a screen that is already
-        // showing a correct order. Only the FIRST read can fail visibly.
+        // A failed poll is not a reason to blank a screen already showing a
+        // correct order. Only the FIRST read can fail visibly.
         setOrder((current) => {
           if (!current) setError(onError(failure));
           return current;
         });
       } finally {
-        if (!cancelled && live.current) timer = setTimeout(read, POLL_MS);
+        inFlight = false;
+        arm();
       }
     };
 
     void read();
 
-    // Backgrounded apps do not poll. Coming back to the foreground reads
-    // immediately rather than waiting out the interval — somebody who opens
-    // the app to check on their food should not watch a stale screen for five
-    // seconds.
     const sub = AppState.addEventListener('change', (state) => {
       if (cancelled) return;
-      if (state === 'active' && live.current) {
+      if (state === 'active') {
+        paused = false;
+        // Read immediately rather than waiting out the interval — somebody
+        // opening the app to check on their food should not watch a stale
+        // screen for five seconds.
         if (timer) clearTimeout(timer);
         void read();
-      } else if (timer) {
-        clearTimeout(timer);
+      } else {
+        paused = true;
+        if (timer) clearTimeout(timer);
+        timer = undefined;
       }
     });
 

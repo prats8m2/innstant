@@ -114,6 +114,17 @@ export async function openVisit(tx: Tx, input: OpenVisitInput): Promise<Visit> {
     propertyId: input.propertyId,
     outletId: input.outletId,
     visitLinkId: input.visitLinkId ?? null,
+    /**
+     * WRITTEN, not merely returned. D-081.
+     *
+     * This was on the returned object and absent from the INSERT, so every
+     * visit created after 0009 would have taken NULL — and the account's
+     * history filters `link_kind = 'ONLINE'`, which would then have matched
+     * nothing, forever, rendering as "no orders yet" on a screen with no way
+     * to tell that from a bug. The migration's backfill covered existing rows
+     * and would have made it look briefly correct.
+     */
+    linkKind: input.linkKind ?? null,
     status: 'OPEN',
     fulfilment: input.fulfilment,
     tableLabel: input.fulfilment === 'DINE_IN' ? input.tableLabel!.trim() : null,
@@ -178,7 +189,12 @@ export async function findVisit(tx: Tx, visitId: string): Promise<Visit | null> 
     propertyId: row.propertyId,
     outletId: row.outletId,
     visitLinkId: row.visitLinkId,
-    linkKind: (found.linkKind as VisitLinkKind | null) ?? null,
+    // The visit's own copy first, the link's second. A visit opened before
+    // 0009 has NULL and its link still answers; a visit whose link was deleted
+    // has its own copy and no link. Either alone is wrong somewhere.
+    linkKind: (row.linkKind as VisitLinkKind | null)
+      ?? (found.linkKind as VisitLinkKind | null)
+      ?? null,
     status: row.status,
     fulfilment: row.fulfilment as VisitFulfilment,
     customerName: row.customerName,

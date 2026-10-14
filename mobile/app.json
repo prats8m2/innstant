@@ -25,6 +25,11 @@
               "scheme": "https",
               "host": "innstant.in",
               "pathPrefix": "/p"
+            },
+            {
+              "scheme": "https",
+              "host": "innstant.in",
+              "pathPrefix": "/r"
             }
           ],
           "category": [
@@ -34,7 +39,9 @@
         }
       ],
       "permissions": [
-        "android.permission.CAMERA",
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -43,7 +50,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Scan the code on your table to see the menu."
+          "cameraPermission": "Scan the code on your table to see the menu.",
+          "microphonePermission": false,
+          "recordAudioAndroidPermission": false
         }
       ]
     ],
@@ -56,6 +65,15 @@
         "projectId": "31795b06-72ad-4956-9c4d-5488da2cc60f"
       }
     },
-    "owner": "prats8m"
+    "owner": "prats8m",
+    "backgroundColor": "#101E33",
+    "splash": {
+      "backgroundColor": "#101E33",
+      "resizeMode": "contain"
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#101E33",
+      "barStyle": "light-content"
+    }
   }
 }

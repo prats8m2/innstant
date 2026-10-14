@@ -121,12 +121,42 @@ export default function Cart() {
   return (
     <Screen>
       <Stack.Screen options={{ title: 'Your order' }} />
+      {/*
+        `behavior` must be set on BOTH platforms. It was
+        `Platform.OS === 'ios' ? 'padding' : undefined`, and a
+        KeyboardAvoidingView with `behavior={undefined}` does nothing at all —
+        Android's correctness then rested on window resizing, which edge-to-edge
+        (default since SDK 54) no longer provides. The "Send to the kitchen"
+        footer is a sibling OUTSIDE the ScrollView, so the primary action of
+        the whole app sat under the keyboard.
+
+        The offset was a hardcoded 90, which was a guess and wrong twice over:
+        this screen is `presentation: 'modal'`, whose header height differs
+        from a card route's, and it differs again by device. It is 0 now
+        because the view is already mounted BELOW the header — the number it
+        was compensating for was never in this view's coordinate space.
+
+        `useHeaderHeight()` would be the principled source, but SDK 57 moved
+        off `@react-navigation` and does not re-export it. Not worth a
+        dependency for a number that should be zero.
+
+        NOT VERIFIED ON A DEVICE — see docs/STATUS.md. This is the fix the
+        code says is right; the keyboard is one of the things only a phone can
+        actually settle.
+      */}
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={0}
       >
-        <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={s.body}
+          keyboardShouldPersistTaps="handled"
+          // Lets iOS inset the scroll content for the keyboard on its own,
+          // which is what makes a field near the bottom of a long form
+          // reachable rather than merely not-covered.
+          automaticallyAdjustKeyboardInsets
+        >
           <Text style={s.where}>{where}</Text>
 
           {cart.lines.map((line) => (

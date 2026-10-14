@@ -47,6 +47,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await api.setToken(null);
     setSession(null);
     setCartState(null);
+    /**
+     * `dismissAll()` first. `replace()` swaps only the TOP route, so after a
+     * 401 the hardware back button returned to a menu running on a cleared
+     * token — and when the 401 landed on the cart, a modal route was being
+     * replaced by a card route in place.
+     */
+    router.dismissAll();
     router.replace('/');
   }, []);
 
@@ -89,6 +96,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // A brand-new visit has an empty cart by construction. Fetching one would
     // be a round trip to learn a thing we already know.
     setCartState(null);
+    // Without dismissAll the stack becomes [menu, menu] after a scan.
+    router.dismissAll();
     router.replace('/menu');
   }, []);
 

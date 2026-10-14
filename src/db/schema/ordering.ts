@@ -158,8 +158,18 @@ export const orders = pgTable('orders', {
   index('orders_kds_idx').on(t.outletId, t.status, t.placedAt),
   index('orders_stay_idx').on(t.stayId),
   index('orders_visit_idx').on(t.visitId),
-  // The account's "your orders", newest first. Partial, because the column is
-  // null for the large majority of rows and an index over those is dead weight.
+  /**
+   * The account's "your orders", newest first.
+   *
+   * 0009 creates this PARTIAL (`WHERE guest_id IS NOT NULL`) and DESC on
+   * `placed_at`, neither of which Drizzle can express here — the same
+   * situation as `guest_addresses_one_default_uq` and the
+   * one-active-stay-per-room index in 0002. Declared so the column is
+   * indexed in the model; defined in SQL so it is indexed correctly.
+   *
+   * `pnpm db:generate` WILL see a difference and offer to replace it with a
+   * non-partial ascending one. Do not accept that.
+   */
   index('orders_guest_idx').on(t.guestId, t.placedAt),
 ]);
 

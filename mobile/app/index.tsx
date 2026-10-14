@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import * as Linking from 'expo-linking';
 import { Button, Loading, Notice, Screen } from '@/components/ui';
 import { useSession } from '@/lib/session';
 import { DEFAULT_LINK_CODE } from '@/lib/api';
@@ -23,23 +22,27 @@ import { colors, radius, space, text as type } from '@/lib/theme';
  *
  * ─── What still overrides the default ──────────────────────────────────────
  *
- * A DEEP LINK — somebody tapped `innstant.in/p/{code}` for a specific table —
- * and a SCAN, reachable from the menu. Both call `open()` with their own code
- * and replace whatever this opened. A deep link that arrives while the default
- * is still loading wins: `claimed` below is what stops the slower default
- * landing on top of the table somebody actually scanned.
+ * A DEEP LINK and a SCAN, and neither of them passes through here any more.
+ *
+ * Expo Router owns the launch URL: a tap on `innstant.in/p/{code}` is routed
+ * to `/p/{code}` before any screen mounts, so this screen never sees it and
+ * the `Linking.getInitialURL()` that used to live here never ran for a cold
+ * launch. It is `app/p/[code].tsx` and `app/r/[code].tsx` that handle those
+ * now, which is also why a deep link cannot race the default: the router
+ * simply never comes here.
  */
 export default function Boot() {
   const { open, isLoading, session } = useSession();
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Set the instant anything commits to a code — a deep link, or the default.
+   * One attempt per mount.
    *
-   * Without it the two race: `getInitialURL()` resolves a table code while the
-   * default is mid-flight, both call `open()`, and the customer lands on
-   * whichever network call finished last. A ref rather than state because the
-   * effects below read it synchronously, before any re-render could deliver it.
+   * The effect below depends on `isLoading` and `session`, both of which move
+   * while a request is in flight — without this, a re-render fires a second
+   * `open()` against the same link and the customer lands on whichever
+   * finished last. A ref rather than state because the effect reads it
+   * synchronously, before a re-render could deliver it.
    */
   const claimed = useRef(false);
 
@@ -53,24 +56,6 @@ export default function Boot() {
       setError(failure instanceof Error ? failure.message : 'That did not work.');
     }
   }, [open]);
-
-  // A link that launched the app, or arrived while it was running. Checked
-  // BEFORE the default, so a tapped table link is never overtaken by it.
-  useEffect(() => {
-    void Linking.getInitialURL().then((url) => {
-      const code = url && extractCode(url);
-      if (code) void openCode(code);
-    });
-
-    const sub = Linking.addEventListener('url', ({ url }) => {
-      const code = extractCode(url);
-      // A deep link arriving while the app is OPEN replaces the current
-      // context deliberately — somebody sat down at a table and scanned.
-      if (code) { claimed.current = false; void openCode(code); }
-    });
-
-    return () => sub.remove();
-  }, [openCode]);
 
   useEffect(() => {
     if (isLoading) return;
