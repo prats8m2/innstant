@@ -38,6 +38,24 @@ const BASE_URL = (
  * jailbroken device, that is anything at all. `expo-secure-store` is the
  * Keychain on iOS and EncryptedSharedPreferences on Android.
  */
+/**
+ * Which restaurant this build opens on. D-080.
+ *
+ * Baked in at build time beside the API it talks to, and for the same reason:
+ * there is no runtime switch, so a build for a different property is a
+ * different build. An app whose first screen asked "which restaurant?" would
+ * be asking a question its own branding has already answered.
+ *
+ * Scanning a table tent or a room sticker overrides it — see the scan screen.
+ * The fallback is the demo link rather than empty, so a build that forgot to
+ * set it still opens onto something rather than onto an error.
+ */
+export const DEFAULT_LINK_CODE = (
+  process.env.EXPO_PUBLIC_DEFAULT_LINK
+  ?? Constants.expoConfig?.extra?.defaultLink
+  ?? 'the-kesari-order'
+) as string;
+
 const TOKEN_KEY = 'kesari.visit.token';
 
 let cached: string | null | undefined;

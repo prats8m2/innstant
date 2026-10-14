@@ -81,7 +81,7 @@ export default function Scan() {
             else void requestPermission();
           }}
         />
-        <Button label="Type it instead" tone="quiet" onPress={() => router.back()} />
+        <Button label="Go back" tone="quiet" onPress={() => router.back()} />
       </Screen>
     );
   }
@@ -105,7 +105,7 @@ export default function Scan() {
         <Text style={s.hint}>Point it at the code on your table</Text>
         {error ? <View style={s.error}><Notice>{error}</Notice></View> : null}
         <Pressable onPress={() => router.back()} style={s.cancel}>
-          <Text style={s.cancelText}>Type it instead</Text>
+          <Text style={s.cancelText}>Cancel</Text>
         </Pressable>
       </View>
     </Screen>

@@ -100,6 +100,23 @@ export default function Menu() {
       <Stack.Screen
         options={{
           title: session.property.name,
+          /*
+            Scan is HERE because the boot screen stopped being a screen anybody
+            sees (D-080): the app opens its own restaurant and lands on this
+            menu. Somebody who sits down at a table and wants their order to go
+            to that table needs a way to say so, and this is the only screen
+            they are reliably on.
+          */
+          headerLeft: () => (
+            <Pressable
+              onPress={() => router.push('/scan')}
+              hitSlop={12}
+              accessibilityLabel="Scan the code on your table"
+              style={{ paddingHorizontal: space[2] }}
+            >
+              <Text style={s.headerLink}>⌗</Text>
+            </Pressable>
+          ),
           headerRight: () => (
             <Pressable
               onPress={() => router.push('/orders')}
