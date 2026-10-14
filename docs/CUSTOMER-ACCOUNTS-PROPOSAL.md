@@ -1,9 +1,11 @@
 # Customer accounts, without breaking the anonymous scan
 
-A proposal, not a decision. Written because the two designs look like they
-collide and the collision is in a different place from where it appears.
+**DECIDED, 14 October 2026.** The three questions this document closed with
+have been answered. The answers are folded in: the "contested call" section is
+replaced by what was chosen, and one claim it made has been retracted.
 
----
+Written because the two designs look like they collide and the collision is in
+a different place from where it appears.
 
 ## The collision is not "anonymous versus logged in"
 
@@ -89,41 +91,65 @@ This is the single easiest mistake to make here and the most expensive one.
 
 ---
 
-## The property that falls out for free
+---
 
-`guests` is unique on `(tenant_id, phone)` — EXTENSION-POINTS §2, which made it
-tenant-scoped on purpose. Anonymous checkout already calls
-`upsertGuestByPhone()`.
+## What does NOT fall out for free — a retraction
 
-So an order placed anonymously on Tuesday is **already attached** to the guest
-row that a Thursday sign-in resolves to. History works retroactively with no
-backfill and no merge script. That is §2 paying for itself, four sessions after
-it was written down.
+An earlier draft claimed retroactive history was free: `guests` is unique on
+`(tenant_id, phone)`, anonymous checkout already calls `upsertGuestByPhone()`,
+so an order placed anonymously on Tuesday would already be attached to the
+guest row a Thursday sign-in resolves to.
+
+The linkage is real. **Showing it is not safe**, and the reason is the one that
+also rules out room-service orders.
+
+Anonymous checkout takes a phone number and **does not verify it**. Nothing
+stops somebody typing a stranger's number. If that order then surfaced in the
+stranger's history when they signed in by OTP, they would read its
+`destination_label` — which for a delivery is literally
+`Delivery · 12 MG Road, 2nd floor`.
+
+**A home address, leaked by a typo.**
+
+So history is orders placed **while a customer session was attached**. Verified
+identity, verified history. The cost is that orders placed before somebody made
+an account never appear — a real loss, and the honest consequence of not
+verifying a phone at anonymous checkout.
 
 ---
 
-## The one genuinely contested call
+## The scope of an account, decided
 
-**Should a customer who OTPs into a phone number see the room-service orders a
-hotel guest placed with that same number?**
+> **Account history = orders placed while signed in, through a DIRECT link.**
 
-*Yes* is defensible: OTP proves control of the number, the hotel recorded it as
-that guest's, so it is the same person.
+Three exclusions, each for its own reason:
 
-*No* is safer, and here is the concrete leak. Hotel phone numbers are typed by
-a front desk and arrive from a PMS; they are stale, mistyped and recycled. If
-one belongs to somebody else today, that person signs in and sees room-service
-orders — including `destination_label`, which reads **"Room 214"**. A wrong
-digit leaks a room number and what its occupant ate.
+| excluded | why |
+|---|---|
+| **Room service** (`IN_ROOM`, a stay) | hotel phone numbers are typed by a front desk — stale, mistyped, recycled. `destination_label` reads "Room 214". |
+| **Table orders** (a `TABLE` link) | a table order belongs to the table and the moment. Who ordered and who pays are routinely different people. |
+| **Anything placed signed-out** | the phone behind it was never verified. See the retraction above. |
 
-**Recommendation: account history shows VISIT orders only** — the orders placed
-through this app and the property links. Room-service orders stay visible
-inside the stay context, where D-012 already governs who may see them. One
-predicate (`visit_id IS NOT NULL`) and reversible later if the trust model
-changes.
+What remains is exactly the food-delivery relationship — which is what an
+account in this app *is*. Room service and table ordering keep working for
+everybody, signed in or not (#9); they simply do not accumulate into a personal
+history.
 
-Add `guests.phone_verified_at` regardless, so an OTP-verified number is
-distinguishable from a front-desk-typed one.
+### What that costs in the schema
+
+`orders.fulfilment` cannot express the rule alone: `TAKEAWAY` is produced by
+both a `COUNTER` link and an `ONLINE` one, and only the second counts. So:
+
+- **`visits.link_kind`** — denormalised from the link at `openVisit()`, which
+  already receives it. Without it the history query is a two-hop join through
+  `visit_links` to ask a question the visit should answer itself.
+- **`orders.guest_id`** — stamped only when a customer session was present at
+  placement, giving the column an honest meaning: *placed by a verified
+  account*. Analytics wanting "who sat at table 4" still have
+  `visits.guest_id`, which checkout sets regardless.
+
+History is then `WHERE guest_id = ? AND link_kind = 'ONLINE'`, served by
+`orders (guest_id, placed_at DESC)`.
 
 ---
 
@@ -134,7 +160,8 @@ distinguishable from a front-desk-typed one.
 | | |
 |---|---|
 | `guests.phone_verified_at` | nullable timestamptz |
-| `orders.guest_id` | nullable FK → guests, + index `(guest_id, placed_at DESC)` |
+| `orders.guest_id` | nullable FK → guests, + index `(guest_id, placed_at DESC)`. Stamped only when a customer session was present at placement. |
+| `visits.link_kind` | denormalised `visit_link_kind`, nullable. `openVisit()` already receives it. |
 | `customer_sessions` | tenant_id, guest_id, token_hash (unique), expires_at, revoked_at, last_seen_at, ip, user_agent |
 | `otp_challenges` | tenant_id, phone, code_hash, attempts, max_attempts, locked_until, expires_at, consumed_at, + index `(tenant_id, phone, created_at)` |
 | `guest_addresses` | tenant_id, guest_id, label, line, notes, is_default, archived_at |
@@ -178,6 +205,10 @@ New endpoints: `POST /auth/otp/request`, `POST /auth/otp/verify`,
 `GET /auth/me`, `POST /auth/logout`, `GET|PATCH /profile`,
 `GET|POST|PATCH|DELETE /addresses`, and `GET /orders?scope=account`.
 
+`GET /orders` keeps its current meaning — **this visit's** orders — so the
+shipped APK is unaffected. `?scope=account` is the new, additive behaviour and
+requires the customer token.
+
 ### App
 
 `mobile/lib/session.tsx` currently holds exactly one `ApiSession`, always a
@@ -188,26 +219,30 @@ which.
 
 ---
 
-## Tranches
+---
 
-**T1 — this.** Schema, `modules/customer`, the auth and account endpoints, the
-app's account screens and cart prefill. Delivers everything in the request
-except the room surface.
+## Scope
 
-**T2 — the room/stay surface in the app.** ~8 endpoints (amenities, service
-requests, checkout, folio, concierge) plus D-012's escalation redesigned for
-JSON, which the web currently does inline in a server action's return value.
-That last part is its own design problem and should not be rushed inside T1.
+**In:** schema 0009, `modules/customer`, the auth and account endpoints, the
+app's account screens, cart prefill from the profile, and history.
 
-The app shows room features as "scan the code in your room" until T2 lands,
-which is honest and is also what a guest would do anyway.
+**Out — explicitly, not deferred-and-forgotten:** the room/stay surface in the
+app. The ~8 endpoints behind it (amenities, service requests, checkout, folio,
+concierge) and D-012's escalation redesigned for JSON are a separate piece of
+work with a real design problem inside it, and the web already serves all of it
+today. A guest in a room scans the nightstand sticker and gets the web app,
+which is what that flow was built for — D-080's whole argument.
+
+The app's scan screen still reads a room QR (`extractCode` matches `/r/`), so
+somebody who scans one reaches something rather than nothing. What it does with
+it is a later question.
 
 ---
 
-## What needs deciding before implementation
+## The three questions, answered
 
-1. **Account history: visit orders only, or stay orders too?** Recommendation
-   above is visit-only, for the "Room 214" leak.
-2. **Two headers, or something else?** Recommendation is two, because it keeps
-   the shipped APK working.
-3. **Is T2 in or out of this build?** It roughly doubles the work.
+1. **Account history: room-service orders too?** — **No.** Direct-link orders
+   only, placed while signed in. Table orders excluded as well.
+2. **Two headers?** — **Yes.** `Authorization` keeps carrying the context, so
+   the APK already installed keeps working.
+3. **Room/stay surface in this build?** — **No.** Out of scope.
