@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '@/lib/api';
 import type { ApiCartLine, ApiFulfilment } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
+import { newIdempotencyKey } from '@/lib/ids';
 import { Button, Loading, Notice, Screen } from '@/components/ui';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
@@ -49,7 +50,7 @@ export default function Cart() {
    * A successful send navigates away and unmounts this, so the next order gets
    * a new one — which is correct: it is a different order.
    */
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(newIdempotencyKey);
 
   useEffect(() => { void refreshCart(); }, [refreshCart]);
 
