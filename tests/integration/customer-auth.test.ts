@@ -64,13 +64,13 @@ describe('customer sign-in', () => {
   });
 
   it('issues a session for the right code, and a guest row for a new number', async () => {
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
     expect(sent).toHaveLength(1);
     expect(sent[0]!.code).toMatch(/^\d{6}$/);
 
-    const verified = await scoped((tx) => verifyCode(tx, {
+    const verified = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code, name: 'Priya',
-    }));
+    });
 
     const session = await resolveCustomerSession(verified.token);
     expect(session?.guestId).toBe(verified.guestId);
@@ -88,10 +88,10 @@ describe('customer sign-in', () => {
       tenantId: a.tenantId, phone: PHONE, fullName: 'Anjali Menon',
     }));
 
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    const verified = await scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const verified = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code, name: 'anj',
-    }));
+    });
 
     // EXTENSION-POINTS §2 — one person, one row, no merge script later.
     expect(verified.guestId).toBe(existing);
@@ -103,10 +103,10 @@ describe('customer sign-in', () => {
   });
 
   it('a customer-set name never touches the desk’s copy', async () => {
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    const v = await scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const v = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code, name: 'Guest',
-    }));
+    });
 
     await scoped((tx) => updateProfile(tx, {
       tenantId: a.tenantId, guestId: v.guestId, name: 'Priya S', email: 'p@example.com',
@@ -122,51 +122,51 @@ describe('customer sign-in', () => {
 
   it('keeps at most one live code per number', async () => {
     for (let i = 0; i < 3; i += 1) {
-      await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
+      await requestCode({ tenantId: a.tenantId, phone: PHONE });
     }
     // Enforced by a partial unique index in 0009 — five simultaneously-valid
     // six-digit codes make every guess five times likelier to land.
     expect(await liveCodeHashCount('+919829054321')).toBe(1);
 
     // And only the newest works.
-    await expect(scoped((tx) => verifyCode(tx, {
+    await expect(verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code,
-    }))).rejects.toThrow(ValidationError);
+    })).rejects.toThrow(ValidationError);
 
-    const ok = await scoped((tx) => verifyCode(tx, {
+    const ok = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[2]!.code,
-    }));
+    });
     expect(ok.guestId).toBeTruthy();
   });
 
   it('locks out per PHONE across challenges, not per challenge', async () => {
     // The bug this guards: request → 5 wrong → request again → 5 more. 200
     // requests is 1,000 guesses, which is every six-digit code.
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
 
     for (let i = 0; i < 5; i += 1) {
-      await expect(scoped((tx) => verifyCode(tx, {
+      await expect(verifyCode({
         tenantId: a.tenantId, phone: PHONE, code: '000000',
-      }))).rejects.toThrow();
+      })).rejects.toThrow();
     }
 
     // A FRESH challenge must not reset the count.
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    await expect(scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    await expect(verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent.at(-1)!.code,
-    }))).rejects.toThrow(TooManyAttemptsError);
+    })).rejects.toThrow(TooManyAttemptsError);
   });
 
   it('answers a never-seen number exactly as a known one', async () => {
     // The whole point: this endpoint must not be an oracle for "does this
     // person have an account here".
-    const unknown = scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: '+91 90000 00001' }));
+    const unknown = requestCode({ tenantId: a.tenantId, phone: '+91 90000 00001' });
     await expect(unknown).resolves.toBeUndefined();
 
     await scoped((tx) => upsertGuestByPhone(tx, {
       tenantId: a.tenantId, phone: '+91 90000 00002', fullName: 'Known',
     }));
-    const known = scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: '+91 90000 00002' }));
+    const known = requestCode({ tenantId: a.tenantId, phone: '+91 90000 00002' });
     await expect(known).resolves.toBeUndefined();
 
     // And neither created a guest row — the row is made at VERIFY, after the
@@ -178,7 +178,7 @@ describe('customer sign-in', () => {
 
   it('throttles repeated sends to one number, silently', async () => {
     for (let i = 0; i < 8; i += 1) {
-      await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
+      await requestCode({ tenantId: a.tenantId, phone: PHONE });
     }
     // Five an hour. The caller is told nothing — saying "throttled" would say
     // the number is one somebody has been asking about.
@@ -186,20 +186,20 @@ describe('customer sign-in', () => {
   });
 
   it('a revoked session stops resolving, on one device and on all', async () => {
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    const v = await scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const v = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code,
-    }));
+    });
 
     const session = (await resolveCustomerSession(v.token))!;
     await scoped((tx) => revokeCustomerSession(tx, session.id));
     expect(await resolveCustomerSession(v.token)).toBeNull();
 
     // Sign out everywhere.
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    const again = await scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const again = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent.at(-1)!.code,
-    }));
+    });
     expect(await resolveCustomerSession(again.token)).not.toBeNull();
     await scoped((tx) => revokeAllCustomerSessions(tx, again.guestId));
     expect(await resolveCustomerSession(again.token)).toBeNull();
@@ -207,10 +207,10 @@ describe('customer sign-in', () => {
 
   it('a session from one tenant does not resolve in another', async () => {
     const b = await seedTenant(owner, TENANT_B, 'B');
-    await scoped((tx) => requestCode(tx, { tenantId: a.tenantId, phone: PHONE }));
-    const v = await scoped((tx) => verifyCode(tx, {
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const v = await verifyCode({
       tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code,
-    }));
+    });
 
     const session = await resolveCustomerSession(v.token);
     expect(session?.tenantId).toBe(a.tenantId);

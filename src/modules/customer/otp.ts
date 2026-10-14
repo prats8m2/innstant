@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 import { randomInt } from 'node:crypto';
-import { recordEvent, type Tx } from '@/db';
+import { withTenant, recordEvent, type Tx } from '@/db';
 import { otpChallenges } from '@/db/schema/customer';
 import { upsertGuestByPhone } from '@/modules/stay';
 import { hashToken } from '@/lib/tokens';
@@ -68,7 +68,7 @@ export interface RequestCodeInput {
  * is a number that cannot be dialled at all, which is a property of the string
  * the caller typed and not of our data.
  */
-export async function requestCode(tx: Tx, input: RequestCodeInput): Promise<void> {
+export async function requestCode(input: RequestCodeInput): Promise<void> {
   const phone = normalisePhone(input.phone);
   if (!isDialable(phone)) {
     throw new ValidationError('That phone number does not look right.');
@@ -77,60 +77,80 @@ export async function requestCode(tx: Tx, input: RequestCodeInput): Promise<void
   const sender = otpSender();
   assertSenderIsSafeFor(sender, process.env.NODE_ENV);
 
+  /**
+   * ─── The transaction decides and commits; the SMS is sent after it ───────
+   *
+   * Two reasons, and the second is D-038's rule.
+   *
+   * A send inside the transaction holds it open for a network round trip to a
+   * provider — 200ms+ of a row lock, per sign-in, at the mercy of somebody
+   * else's uptime. "A remote system cannot be inside our transaction" is
+   * exactly what the PMS outbox exists to avoid.
+   *
+   * And the failure modes are not symmetric. Committing then failing to send
+   * leaves a challenge nobody can answer, which costs one retry. Sending then
+   * rolling back leaves a code in somebody's hand that verifies against
+   * nothing, which is unrecoverable and looks like the product is broken.
+   */
   const hourAgo = new Date(Date.now() - 60 * 60_000);
 
-  // Two throttles. Per-phone stops somebody being texted repeatedly; per-IP
-  // stops a list of 100,000 numbers being pumped one request each, which no
-  // per-phone limit would ever see.
-  const recent = await tx.select({ n: sql<number>`count(*)::int` })
-    .from(otpChallenges)
-    .where(and(
-      eq(otpChallenges.tenantId, input.tenantId),
-      eq(otpChallenges.phone, phone),
-      gt(otpChallenges.createdAt, hourAgo),
-    ));
-
-  if ((recent[0]?.n ?? 0) >= MAX_SENDS_PER_PHONE_HOUR) {
-    // Silently. Telling the caller they are throttled tells them the number
-    // is one somebody has been asking about.
-    return;
-  }
-
-  if (input.ipAddress) {
-    const fromIp = await tx.select({ n: sql<number>`count(*)::int` })
+  const code = await withTenant({ tenantId: input.tenantId }, async (tx) => {
+    // Two throttles. Per-phone stops somebody being texted repeatedly;
+    // per-IP stops a list of 100,000 numbers being pumped one request each,
+    // which no per-phone limit would ever see.
+    const recent = await tx.select({ n: sql<number>`count(*)::int` })
       .from(otpChallenges)
       .where(and(
         eq(otpChallenges.tenantId, input.tenantId),
-        eq(otpChallenges.ipAddress, input.ipAddress),
+        eq(otpChallenges.phone, phone),
         gt(otpChallenges.createdAt, hourAgo),
       ));
-    if ((fromIp[0]?.n ?? 0) >= MAX_SENDS_PER_IP_HOUR) return;
-  }
 
-  // At most one live code per number — the partial unique index in 0009
-  // enforces it, and this is what keeps that insert legal. Superseding rather
-  // than consuming, so a verified challenge stays distinguishable from an
-  // abandoned one in the audit trail.
-  await tx.update(otpChallenges)
-    .set({ supersededAt: new Date() })
-    .where(and(
-      eq(otpChallenges.tenantId, input.tenantId),
-      eq(otpChallenges.phone, phone),
-      isNull(otpChallenges.consumedAt),
-      isNull(otpChallenges.supersededAt),
-    ));
+    // Silently. Telling the caller they are throttled tells them the number
+    // is one somebody has been asking about.
+    if ((recent[0]?.n ?? 0) >= MAX_SENDS_PER_PHONE_HOUR) return null;
 
-  const code = newCode();
+    if (input.ipAddress) {
+      const fromIp = await tx.select({ n: sql<number>`count(*)::int` })
+        .from(otpChallenges)
+        .where(and(
+          eq(otpChallenges.tenantId, input.tenantId),
+          eq(otpChallenges.ipAddress, input.ipAddress),
+          gt(otpChallenges.createdAt, hourAgo),
+        ));
+      if ((fromIp[0]?.n ?? 0) >= MAX_SENDS_PER_IP_HOUR) return null;
+    }
 
-  await tx.insert(otpChallenges).values({
-    tenantId: input.tenantId,
-    phone,
-    codeHash: hashToken(code),
-    maxAttempts: MAX_ATTEMPTS_PER_PHONE,
-    expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
-    ipAddress: input.ipAddress ?? null,
-    userAgent: input.userAgent ?? null,
+    // At most one live code per number — the partial unique index in 0009
+    // enforces it, and this is what keeps the insert below legal. Superseding
+    // rather than consuming, so a verified challenge stays distinguishable
+    // from an abandoned one in the audit trail.
+    await tx.update(otpChallenges)
+      .set({ supersededAt: new Date() })
+      .where(and(
+        eq(otpChallenges.tenantId, input.tenantId),
+        eq(otpChallenges.phone, phone),
+        isNull(otpChallenges.consumedAt),
+        isNull(otpChallenges.supersededAt),
+      ));
+
+    const fresh = newCode();
+
+    await tx.insert(otpChallenges).values({
+      tenantId: input.tenantId,
+      phone,
+      codeHash: hashToken(fresh),
+      maxAttempts: MAX_ATTEMPTS_PER_PHONE,
+      expiresAt: new Date(Date.now() + CODE_TTL_MINUTES * 60_000),
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+
+    return fresh;
   });
+
+  // Throttled. The caller is told nothing, which is the point.
+  if (!code) return;
 
   await sender.send({ phone, code, expiresInMinutes: CODE_TTL_MINUTES });
 }
@@ -160,116 +180,157 @@ export interface VerifiedCustomer extends IssuedCustomerSession {
  * that request was carefully built not to be: an attacker who can tell
  * "no challenge" from "wrong code" learns which numbers have been asked about.
  */
-export async function verifyCode(tx: Tx, input: VerifyCodeInput): Promise<VerifiedCustomer> {
+/**
+ * What the transaction decided. Never thrown from inside it.
+ *
+ * ─── Why this is an outcome and not an exception ───────────────────────────
+ *
+ * Because the attempt counter is a WRITE, and `withTenant()` rolls a
+ * transaction back when something throws out of it. An earlier version of this
+ * function incremented `attempts` and then threw "that code is not right" in
+ * the same transaction — so the increment was discarded every single time, the
+ * counter never moved off zero, and a six-digit code had **no brute-force
+ * protection at all**. It looked perfect from the outside: the right error
+ * reached the caller on every wrong guess.
+ *
+ * `answerChallenge()` in modules/access already carried this exact warning,
+ * written after the same bug was found there. Finding it twice is the argument
+ * for the shape both now share: **the transaction decides and COMMITS, and the
+ * throw happens after it.**
+ */
+type VerifyOutcome =
+  | { kind: 'OK'; issued: IssuedCustomerSession; guestId: string }
+  | { kind: 'WRONG' }
+  | { kind: 'LOCKED'; retryAfterSeconds: number };
+
+export async function verifyCode(input: VerifyCodeInput): Promise<VerifiedCustomer> {
   const phone = normalisePhone(input.phone);
-  const wrong = () => new ValidationError('That code is not right. Check it and try again.');
 
-  // Lockout counted per PHONE across challenges — see the note on
-  // MAX_ATTEMPTS_PER_PHONE.
-  const since = new Date(Date.now() - LOCKOUT_MINUTES * 60_000);
-  const recent = await tx.select({
-    attempts: otpChallenges.attempts,
-    lockedUntil: otpChallenges.lockedUntil,
-    consumedAt: otpChallenges.consumedAt,
-  }).from(otpChallenges)
-    .where(and(
-      eq(otpChallenges.tenantId, input.tenantId),
-      eq(otpChallenges.phone, phone),
-      gt(otpChallenges.createdAt, since),
-    ));
+  const outcome = await withTenant({ tenantId: input.tenantId }, async (tx): Promise<VerifyOutcome> => {
+    // Lockout counted per PHONE across challenges — see MAX_ATTEMPTS_PER_PHONE.
+    const since = new Date(Date.now() - LOCKOUT_MINUTES * 60_000);
+    const recent = await tx.select({
+      attempts: otpChallenges.attempts,
+      lockedUntil: otpChallenges.lockedUntil,
+      consumedAt: otpChallenges.consumedAt,
+    }).from(otpChallenges)
+      .where(and(
+        eq(otpChallenges.tenantId, input.tenantId),
+        eq(otpChallenges.phone, phone),
+        gt(otpChallenges.createdAt, since),
+      ));
 
-  const locked = recent.find((r) => r.lockedUntil && r.lockedUntil > new Date());
-  if (locked) {
-    throw new TooManyAttemptsError(
-      Math.ceil((locked.lockedUntil!.getTime() - Date.now()) / 1000),
-      'Too many tries. Wait a little and ask for a new code.',
-    );
-  }
+    const locked = recent.find((r) => r.lockedUntil && r.lockedUntil > new Date());
+    if (locked) {
+      return {
+        kind: 'LOCKED',
+        retryAfterSeconds: Math.ceil((locked.lockedUntil!.getTime() - Date.now()) / 1000),
+      };
+    }
 
-  // A successful verify forgives what came before it, the same way
-  // `assertNotLockedOut` does: somebody who eventually got in is not somebody
-  // under attack.
-  const spent = recent
-    .filter((r) => !r.consumedAt)
-    .reduce((sum, r) => sum + r.attempts, 0);
+    // A challenge that was successfully consumed is forgiven, the same way
+    // `assertNotLockedOut` forgives a succeeded attempt: somebody who
+    // eventually got in is not somebody under attack.
+    const spent = recent
+      .filter((r) => !r.consumedAt)
+      .reduce((sum, r) => sum + r.attempts, 0);
 
-  if (spent >= MAX_ATTEMPTS_PER_PHONE) {
-    const until = new Date(Date.now() + LOCKOUT_MINUTES * 60_000);
-    await tx.update(otpChallenges)
-      .set({ lockedUntil: until })
+    if (spent >= MAX_ATTEMPTS_PER_PHONE) {
+      const until = new Date(Date.now() + LOCKOUT_MINUTES * 60_000);
+      await tx.update(otpChallenges)
+        .set({ lockedUntil: until })
+        .where(and(
+          eq(otpChallenges.tenantId, input.tenantId),
+          eq(otpChallenges.phone, phone),
+          isNull(otpChallenges.consumedAt),
+        ));
+      return { kind: 'LOCKED', retryAfterSeconds: LOCKOUT_MINUTES * 60 };
+    }
+
+    const live = await tx.select().from(otpChallenges)
       .where(and(
         eq(otpChallenges.tenantId, input.tenantId),
         eq(otpChallenges.phone, phone),
         isNull(otpChallenges.consumedAt),
-      ));
-    throw new TooManyAttemptsError(LOCKOUT_MINUTES * 60, 'Too many tries. Wait a little and ask for a new code.');
-  }
+        isNull(otpChallenges.supersededAt),
+      ))
+      .orderBy(desc(otpChallenges.createdAt))
+      .limit(1);
 
-  const live = await tx.select().from(otpChallenges)
-    .where(and(
-      eq(otpChallenges.tenantId, input.tenantId),
-      eq(otpChallenges.phone, phone),
-      isNull(otpChallenges.consumedAt),
-      isNull(otpChallenges.supersededAt),
-    ))
-    .orderBy(desc(otpChallenges.createdAt))
-    .limit(1);
+    const challenge = live[0];
 
-  const challenge = live[0];
+    /**
+     * Every miss costs an attempt, including "there is no challenge at all" —
+     * which is why this increment comes before the three refusals below and
+     * why all three return the SAME outcome. Distinguishing "no challenge"
+     * from "wrong code" would make verify the oracle that `requestCode` is
+     * carefully built not to be.
+     */
+    if (challenge) {
+      await tx.update(otpChallenges)
+        .set({ attempts: challenge.attempts + 1 })
+        .where(eq(otpChallenges.id, challenge.id));
+    }
 
-  // Every miss costs an attempt, including "there is no challenge" — which is
-  // why the increment happens before any of the three refusals.
-  if (challenge) {
+    if (!challenge) return { kind: 'WRONG' };
+    if (challenge.expiresAt <= new Date()) return { kind: 'WRONG' };
+    if (hashToken(input.code.trim()) !== challenge.codeHash) return { kind: 'WRONG' };
+
     await tx.update(otpChallenges)
-      .set({ attempts: challenge.attempts + 1 })
+      .set({ consumedAt: new Date() })
       .where(eq(otpChallenges.id, challenge.id));
+
+    /**
+     * The guest row, found or made HERE — not at request.
+     *
+     * `(tenant_id, phone)` is unique (EXTENSION-POINTS §2), so somebody who
+     * ordered anonymously with this number, or stayed at the hotel, resolves
+     * to the row that already exists rather than to a second one. Their NAME
+     * is untouched: `upsertGuestByPhone` refuses to write over it, and a
+     * customer who wants a different one sets `display_name`.
+     */
+    const guestId = await upsertGuestByPhone(tx, {
+      tenantId: input.tenantId,
+      phone,
+      fullName: input.name?.trim() || 'Guest',
+    });
+
+    await markPhoneVerified(tx, guestId);
+
+    const issued = await issueCustomerSession(tx, {
+      tenantId: input.tenantId,
+      guestId,
+      method: 'OTP_SMS',
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+    });
+
+    await recordEvent(tx, {
+      tenantId: input.tenantId,
+      entityType: 'guest',
+      entityId: guestId,
+      eventType: 'customer.phone_verified',
+      actor: { kind: 'CUSTOMER', guestId },
+      // No phone number in the payload. `event_log` is read by staff screens;
+      // the number lives on the guest row, which is where it belongs.
+      payload: { method: 'OTP_SMS' },
+    });
+
+    return { kind: 'OK', issued, guestId };
+  });
+
+  // Committed. Now, and only now, is it safe to throw.
+  if (outcome.kind === 'LOCKED') {
+    throw new TooManyAttemptsError(
+      outcome.retryAfterSeconds,
+      'Too many tries. Wait a little and ask for a new code.',
+    );
+  }
+  if (outcome.kind === 'WRONG') {
+    throw new ValidationError('That code is not right. Check it and try again.');
   }
 
-  if (!challenge) throw wrong();
-  if (challenge.expiresAt <= new Date()) throw wrong();
-  if (hashToken(input.code.trim()) !== challenge.codeHash) throw wrong();
-
-  await tx.update(otpChallenges)
-    .set({ consumedAt: new Date() })
-    .where(eq(otpChallenges.id, challenge.id));
-
-  /**
-   * The guest row, found or made HERE — not at request.
-   *
-   * `(tenant_id, phone)` is unique (EXTENSION-POINTS §2), so somebody who
-   * ordered anonymously with this number, or stayed at the hotel, resolves to
-   * the row that already exists rather than to a second one. Their NAME is
-   * untouched: `upsertGuestByPhone` refuses to write over it, and a customer
-   * who wants a different one sets `display_name` through the profile.
-   */
-  const guestId = await upsertGuestByPhone(tx, {
-    tenantId: input.tenantId,
-    phone,
-    fullName: input.name?.trim() || 'Guest',
-  });
-
-  await markPhoneVerified(tx, guestId);
-
-  const issued = await issueCustomerSession(tx, {
-    tenantId: input.tenantId,
-    guestId,
-    method: 'OTP_SMS',
-    ipAddress: input.ipAddress ?? null,
-    userAgent: input.userAgent ?? null,
-  });
-
-  await recordEvent(tx, {
-    tenantId: input.tenantId,
-    entityType: 'guest',
-    entityId: guestId,
-    eventType: 'customer.phone_verified',
-    actor: { kind: 'CUSTOMER', guestId },
-    // No phone number in the payload. `event_log` is read by staff screens;
-    // the number lives on the guest row, which is where it belongs.
-    payload: { method: 'OTP_SMS' },
-  });
-
-  return { ...issued, guestId };
+  return { ...outcome.issued, guestId: outcome.guestId };
 }
 
 /**
