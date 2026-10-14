@@ -79,6 +79,20 @@ CREATE INDEX "orders_guest_idx" ON "orders" ("guest_id", "placed_at" DESC)
   WHERE "guest_id" IS NOT NULL;
 --> statement-breakpoint
 
+-- ── event_log learns a fourth kind of actor ────────────────────────────────
+--
+-- STAFF, GUEST and SYSTEM were the three things that could cause a status
+-- change. A signed-in customer is a fourth: not a staff member, and not a
+-- GUEST either — that kind means "a guest session", which is a CONTEXT, and
+-- the whole of D-081 is that identity and context are different.
+--
+-- `actor_kind` is text with a default, so the new value needs no migration of
+-- its own. The id does: putting a `customer_sessions` id into a column named
+-- `actor_guest_session_id` would be a lie that outlives everyone who knows
+-- about it.
+ALTER TABLE "event_log" ADD COLUMN "actor_guest_id" uuid;
+--> statement-breakpoint
+
 -- ── customer_sessions ───────────────────────────────────────────────────────
 -- No property_id. An account is tenant-wide exactly as `guests` is: somebody
 -- who orders from two properties in a group is one customer (EXTENSION-POINTS §2).

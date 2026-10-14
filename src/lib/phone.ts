@@ -1,6 +1,11 @@
 /**
  * One phone number, one row. D-081.
  *
+ * In `src/lib` rather than `modules/customer` because it is cross-cutting like
+ * money and dates: `modules/stay` owns `guests` and has to normalise before it
+ * writes, and a stay → customer → stay import cycle to reach one pure function
+ * is not a module boundary worth having.
+ *
  * ─── Why this exists ───────────────────────────────────────────────────────
  *
  * `guests` is unique on `(tenant_id, phone)` — EXTENSION-POINTS §2 — and that

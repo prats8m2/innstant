@@ -31,7 +31,15 @@ export interface EventInput {
 
   actor?:
     | { kind: 'STAFF'; staffUserId: string }
+    /** A guest SESSION — a context. Where somebody is ordering from. */
     | { kind: 'GUEST'; guestSessionId: string }
+    /**
+     * A signed-in CUSTOMER — an identity (D-081). Deliberately not 'GUEST':
+     * that kind means a context session, and conflating the two in the audit
+     * trail would make "who did this" unanswerable for exactly the actions
+     * an account can take.
+     */
+    | { kind: 'CUSTOMER'; guestId: string }
     | { kind: 'SYSTEM' };
 
   /** Anything needed to explain the row later. Keep it small and factual —
@@ -53,6 +61,7 @@ export async function recordEvent(tx: Tx, input: EventInput): Promise<void> {
     actorKind: actor.kind,
     actorStaffId: actor.kind === 'STAFF' ? actor.staffUserId : null,
     actorGuestSessionId: actor.kind === 'GUEST' ? actor.guestSessionId : null,
+    actorGuestId: actor.kind === 'CUSTOMER' ? actor.guestId : null,
     payload: input.payload ?? {},
   });
 }

@@ -3,6 +3,7 @@ import { recordEvent, type Tx } from '@/db';
 import { visits, visitLinks } from '@/db/schema/visit';
 import { upsertGuestByPhone } from '@/modules/stay';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
+import { normalisePhone, isDialable } from '@/lib/phone';
 
 /**
  * Opening a visit. D-079, and the exact counterpart of `createStay()`.
@@ -244,7 +245,10 @@ export interface VisitDetailsInput {
  */
 export async function setVisitDetails(tx: Tx, input: VisitDetailsInput): Promise<Visit> {
   const name = input.name.trim();
-  const phone = input.phone.trim();
+  // Normalised so the number stored here is the one a later sign-in resolves
+  // to — see `upsertGuestByPhone`. The visit keeps what they TYPED nowhere;
+  // what the kitchen rings is what this produces.
+  const phone = normalisePhone(input.phone);
 
   if (name.length < 2) throw new ValidationError('We need a name for the order.');
   if (name.length > 80) throw new ValidationError('That name is too long for a ticket.');
@@ -252,8 +256,7 @@ export async function setVisitDetails(tx: Tx, input: VisitDetailsInput): Promise
   // Deliberately permissive: +91, spaces, hyphens and brackets all appear on a
   // number somebody reads off their own phone. What matters is that there are
   // enough digits to dial.
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 7 || digits.length > 15) {
+  if (!isDialable(phone)) {
     throw new ValidationError('That phone number does not look right. The kitchen calls when it is ready.');
   }
 

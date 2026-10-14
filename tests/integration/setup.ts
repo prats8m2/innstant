@@ -141,6 +141,11 @@ const TENANT_SCOPED_TABLES = [
   // D-079 — order does not matter here either, but these reference `outlets`
   // and `guests`, so they are listed with the rows that do.
   'visits', 'visit_links',
+  // D-081. `customer_sessions` and `guest_addresses` cascade from `guests`,
+  // but they are listed anyway: this list only has to be COMPLETE, and
+  // relying on a cascade is relying on a schema detail a later migration
+  // could change without anybody thinking about this file.
+  'customer_sessions', 'otp_challenges', 'guest_addresses',
   'service_request_items', 'service_requests',
   'folio_lines', 'folios', 'payments',
   'checkout_requests',

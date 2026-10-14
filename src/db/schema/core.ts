@@ -37,6 +37,9 @@ export const eventLog = pgTable('event_log', {
   /** Who caused it. Exactly one of these is set, or neither for system events. */
   actorStaffId: uuid('actor_staff_id'),
   actorGuestSessionId: uuid('actor_guest_session_id'),
+  /** D-081 — a signed-in CUSTOMER, which is neither a staff member nor a
+   *  guest session. The account, not the context. */
+  actorGuestId: uuid('actor_guest_id'),
   actorKind: text('actor_kind').notNull().default('SYSTEM'),
 
   payload: jsonb('payload').notNull().default(sql`'{}'::jsonb`),

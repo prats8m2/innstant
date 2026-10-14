@@ -4,6 +4,7 @@ import { recordEvent } from '@/db';
 import { guests, guestPropertyProfiles, stays } from '@/db/schema/stay';
 import { findRoomAtProperty } from '@/modules/identity';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
+import { normalisePhone } from '@/lib/phone';
 import { notifyPms } from './pms/sync';
 
 /**
@@ -218,7 +219,17 @@ export async function upsertGuestByPhone(
   tx: Tx,
   input: { tenantId: string; phone: string; fullName: string },
 ): Promise<string> {
-  const phone = input.phone.trim();
+  /**
+   * NORMALISED, not trimmed. D-081.
+   *
+   * `trim()` leaves the inner spaces, so "98290 11111" was stored literally
+   * and a later sign-in normalising to "+919829011111" created a SECOND
+   * `guests` row — two accounts, two order histories and two separate buckets
+   * of five OTP attempts for one person. The unique index on
+   * `(tenant_id, phone)` is only worth anything if one human number always
+   * produces one string.
+   */
+  const phone = normalisePhone(input.phone);
 
   const existing = await tx
     .select({ id: guests.id })
@@ -240,7 +251,8 @@ async function findOrCreateGuest(
   tx: Tx,
   input: CreateStayInput,
 ): Promise<{ guestId: string; guestIsNew: boolean }> {
-  const phone = input.guest.phone?.trim() || null;
+  // Same rule as `upsertGuestByPhone` above: one human number, one row.
+  const phone = input.guest.phone ? normalisePhone(input.guest.phone) : null;
 
   if (phone) {
     const existing = await tx

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalisePhone, isDialable, formatPhone } from '@/modules/customer/phone';
+import { normalisePhone, isDialable, formatPhone } from '@/lib/phone';
 
 /**
  * One human number must always produce one string. D-081.
