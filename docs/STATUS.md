@@ -21,342 +21,105 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Production is CURRENT with this repo and carries property links and the
-mobile API.** Deployed 13 October 2026 from `fd7bc0a`.
+**Customer accounts are BUILT and PASSING but NOT DEPLOYED.** Production is on
+`328bbb0` with 9 migrations and knows nothing about them. The repo is on
+`dce47cb`.
 
-    https://innstant.in                            the site, /demo, the app
-    https://innstant.in/r/the-kesari-214           the demo room
-    https://innstant.in/p/the-kesari-table-4       a table tent (dine in)
-    https://innstant.in/p/the-kesari-counter       the till (takeaway)
-    https://innstant.in/p/the-kesari-order         a sent link (+ delivery)
-    https://innstant.in/admin                      staff console
-    https://innstant.in/api/v1/…                   the mobile contract
+The gap is one command, and it is deliberate rather than forgotten: applying
+`0009_customer_accounts.sql` to the live database is the one step in this
+session that was not run.
 
-`/api/health` reports **ok, 9/9 migrations**, latest `0008_property_links.sql`.
+    docs/DEPLOY-D081.md     the runbook. Four steps, migration first.
 
-Verified on the deployed site rather than from the upload line: a real DELIVERY
-order placed through the live `/api/v1` — open the link, read the menu
-(7 sections, 17 dishes), quick-add, place — came back `KE-1186 ₹1,207.50`,
-`Delivery · 12 MG Road, 2nd floor`, `Pay the rider when it arrives.`, and the
-timeline read "Packed · A rider brings it to you · They will call when they are
-outside". There is a `Deploy Check` order on the demo KDS as a result; it is
-demo data and harmless.
-
-The deploy ran migration-first, which is the order
-`docs/DEPLOY-D079-D080.md` explains: between the two steps production served
-old code on the new schema and reported `degraded` with
-`unknown: ["0008_property_links.sql"]`, which is the health check noticing the
-database was ahead of it. That resolved the moment the code landed.
-
-The demo was reseeded as part of this — **the stays had already expired on
-5 October**, so `/r/the-kesari-214` was answering 404 before today regardless
-of the deploy.
-
-### Pick up here
-
-**1 — The APK is built and points at production.** Built 13 October 2026 on
-EAS as `@prats8m/kesari-order`, profile `preview`, version 0.1.0 / versionCode 1.
-
-    ~/Downloads/kesari-order-preview.apk                        118 MB
-    https://expo.dev/artifacts/eas/Cd8OyISfaHNdskb_zrZjMGDdCyLP6FVb-C6O8jFTPSE.apk
-
-Verified by opening the archive rather than by trusting the build log: 5
-`classes*.dex` (an AAB has none, which is the mistake this profile exists to
-avoid), an APK Signing Block present — v2/v3, so there is deliberately no
-`META-INF/*.RSA` to find — and the Hermes bundle contains exactly one
-`https://innstant.in` with **zero** occurrences of `10.0.2.2` or
-`localhost:300x`. `EXPO_PUBLIC_API_URL` is compiled in; there is no runtime
-switch, so a build for a different server is a different build.
-
-Rebuild with:
-
-```bash
-cd mobile && EXPO_TOKEN="$(cat ../.eas-token)" \
-  eas build --platform android --profile preview
-```
-
-The `eas` and `railway` CLIs are both installed and both authenticated — EAS
-via the token in `.eas-token` (gitignored, 0600).
-
-**2 — The app has still not run on a device.** Nothing native is proven —
-safe-area insets, the keyboard on the checkout form, `expo-secure-store`
-actually persisting (it no-ops on the web target, so it has never been
-exercised), the camera, universal links.
-
-**3 — Universal links do not verify.** `app.json` declares
-`applinks:innstant.in` and an Android intent filter for `/p`, and nothing
-serves `/.well-known/apple-app-site-association` or
-`/.well-known/assetlinks.json`. Until they exist a tapped link opens the web
-app, which is a correct fallback. The Android file needs the APK's signing
-certificate fingerprint, so it cannot be written before the first build.
-
-**4 — `APP_URL` on Railway still names the railway subdomain**, not
-`innstant.in`. It is what printed sticker URLs are built from. Today's reseed
-passed `APP_URL` inline so the links above are right, but the next person who
-runs `pnpm demo:reset` without it gets railway.app URLs on the stickers.
-
-**5 — The demo expires again on 27 October** (`DEMO_STAY_NIGHTS` is 14). A
-scheduled reseed remains the single most persistent operational problem here.
-
-**6 — Two infrastructure disagreements**, still uninvestigated: `railway
-status` reports the service in `ams` rather than Singapore, which the site's
-Security section asserts to visitors; and the project has a PgBouncer service
-while CLAUDE.md #3 says there is none.
-
-### Open issues and decisions
-
-**The demo data expires.** `DEMO_STAY_NIGHTS` is 14 and the last reseed was
-13 October 2026 — **the seeded stays run out on 27 October 2026**. After that
-`/demo` shows its "the demo room isn't open" page until somebody runs
-`pnpm demo:reset`. The LINKS no longer break (D-070, they are
-`the-kesari-<room>` now and survive a reseed); it is the stay behind them that
-lapses. A cron would end this permanently and has not been built.
-
-**Your local dev server may not be talking to Railway.** A `next-server` on
-:3000 was observed holding a connection to a local Docker Postgres on
-`localhost:55432`, not to the Railway proxy — almost certainly a `DATABASE_URL`
-exported in the shell that launched it, which beats `.env`. Check with
-`echo $DATABASE_URL` in that terminal. Worth deciding deliberately: pointing
-local dev at production means `pnpm demo:reset` wipes the live demo.
-
-**`APP_URL` still says the railway subdomain**, not `innstant.in`. Both serve
-everything so nothing is broken, but `APP_URL` is what a printed sticker's URL
-is built from. Change it and reseed before any print run.
-
-**The mobile app has no push notifications**, which is the best single reason
-for it to exist — the one thing a PWA still cannot do on iOS. The tracking
-screen polls every 5s while an order is live and stops when it is not (D-080).
-Expo's push service plus a `device_tokens` table is the shape; it also needs a
-decision about what is worth waking somebody for, which is a product question
-rather than a session.
-
-**The app's order history is per VISIT and lasts six hours.** There is no
-account (D-080), so nothing ties an order to a phone after the visit closes.
-The empty state says so plainly. Phone + OTP is what would change it, and it
-needs an SMS provider — `OTP_SMS` is an enum value and a policy flag that
-`requireTier()` already advertises with nothing behind it.
-
-**A property link has no online payment.** A visit order is pay-at-the-counter
-or pay-the-rider, said plainly on the cart and on the tracking screen (D-079).
-There is no folio to settle — a visit has none, deliberately — so the order's
-own total is the record of what is owed. Razorpay has no keys on the deployment
-either way; when it is wired up it attaches to the ORDER, not to a folio that
-should not exist.
-
-**A visit's orders are not swept up anywhere.** `closeVisit()` exists and
-nothing calls it: a visit stays OPEN until its six-hour window lapses and the
-session stops resolving. Harmless — a lapsed session cannot order — but
-`/admin/links` "Ordering right now" counts visits that finished eating an hour
-ago. The same cron that would fix the demo reseed is the place for it.
-
-**The site's book-a-demo form does not submit.** It collects everything and
-hands over a `mailto:`, and says so on the page (D-062). A real endpoint needs
-somewhere to put a lead, which is the mail-provider decision below wearing a
-hat.
-
-**The logo strip reads as a customer list.** Six names — The Kesari, Aramaya,
-Node, Hôtel Verre, Deodar House, Stack — under "Designed for independent
-properties across India". They were the demo palettes the Themes section
-explained, and that section was removed. Replace them or drop the strip.
-
-**Two open design calls, both deliberately left alone:**
-
-- The guest theme's radii are sharp — `--radius-lg` is **4px** (D-050, part of
-  what stops the app looking like a template). The menu-card reference was
-  softer. Changing it softens every surface in the guest app at once, so it is
-  a theme decision, not a menu one.
-- A menu card's count sums **all variants** of that dish. One gentle and one
-  fiery reads as 2. Tracking only the default variant instead is a small
-  change (D-076).
-
-**Still needs somebody, not a session:**
-
-1. **A mail provider.** No self-service password reset without one, and no
-   home for a demo-request lead.
-2. **How a signed-out browser picks a tenant.** `STAFF_TENANT_ID` is the
-   stopgap in `admin/login/tenant.ts`; `DEMO_TENANT_ID` falls back to it.
-   Correct at one tenant, wrong at two. Changes the tenancy model, so
-   CLAUDE.md says ask.
-3. **Client onboarding stays out** — creating a tenant is above the tenant
-   boundary. `provisionTenant()` / `provisionProperty()` remain the way.
-4. **`role:manage`** — custom roles are assignable but not creatable.
-5. **Image upload and payments** are absent on the deployment: no R2 or
-   Razorpay keys. Everything else works.
-6. **No git remote.** `railway up` ships the working tree, so nothing is on
-   GitHub and CI has never run. P1's exit criterion is still unsigned.
+Until step 1 runs, an APK built from this tree 500s on every account screen —
+so the build order is migration, code, APK, and not any other order.
 
 ### What landed this session
 
-**A React Native app for the restaurant side, and the API under it (D-080).**
-`mobile/` is an Expo app — browse, order dine-in / takeaway / delivery, track
-it. Not the hotel guest app: a room guest scans a sticker and gets the web, and
-an App Store download in front of that is the wall D-012 exists to remove.
+D-081, customer accounts, in full: the decision, the schema, the domain, the
+API and the app screens.
 
-**The API was the work.** The guest surface had NO JSON endpoint of any kind —
-Server Components render HTML, Server Actions speak RSC, and a native client
-can call neither. `/api/v1` is eleven handlers, versioned from the first commit
-because a phone cannot be redeployed.
+The collision the user named — "earlier we designed customer with no login to
+scan the menu, but now we also need customers who log in and have order
+history, these two things collide" — turned out to be one credential doing two
+jobs. A `guest_sessions` row says WHERE you are: a room, or a table, scanned,
+anonymous, expiring at checkout. An account says WHO you are, and outlives
+every one of them. Making the first carry the second would have meant a
+session that is sometimes anonymous and sometimes not, and #9 dies the moment
+browsing waits on it.
 
-Auth is the same session row in a different envelope: the web's cookie value
-arrives as a bearer token and `resolveVisitSession()` parses it unchanged. Same
-revocation, same expiry. A JWT would have thrown that away.
+So there are two credentials, and the rule the whole design rests on is that
+**a customer session grants ZERO access to any context**. Signing in never
+raises a tier, never opens a room, never reveals a folio. `guest_sessions` is
+untouched — same CHECK, same tiers, same expiry, same D-012.
 
-Three things cross the wire that a domain type would not have carried — money
-pre-formatted (#5, one formatter), the order timeline already decided by
-`trackView()` (so the app does not reimplement a state machine), and
-`shortfall` computed server-side (so the app never owns the minimum-order
-rule).
+History is scoped exactly as the user specified: "only if a logged in user
+orders from the direct link, not from the table/room — no room/stay is out of
+this." `orders.guest_id` is stamped ONLY from the customer session, never from
+`visits.guest_id` (which comes from an unverified phone), and the history
+query is `guest_id = ? AND link_kind = 'ONLINE'`. A signed-in person ordering
+at a table tent gets their food and no history row, which was verified by
+doing it rather than by reading the query.
 
-**Four bugs, all found by using it rather than reading it:**
+`visits.link_kind` is denormalised for that rule, because `orders.fulfilment`
+cannot express it: TAKEAWAY is produced by both a COUNTER link and an ONLINE
+one, and only the second counts.
 
-- The order timeline was hotel-corridor copy — "On the way up", "Crossing the
-  courtyard", "No bell after 10" — shown to somebody awaiting a DELIVERY.
-  `trackView()` now takes the fulfilment. The web `/p` screen had it too.
-- `NotFoundError` had a FIXED `publicMessage`, so all thirty-odd throw sites
-  that wrote a specific sentence had it silently replaced by "That is no longer
-  available." The identical bug the comment on `ForbiddenError` describes
-  having already been found there — finding it twice is the argument for the
-  rule they now share.
-- `UnauthenticatedError` told guests to "Sign in to continue", a screen this
-  product does not have (#9).
-- `guestCredentialFrom(request)` read the cookie from Next's AMBIENT scope
-  rather than the request it was handed, and threw outright anywhere there is
-  no request scope.
+### What is verified, and how
 
-**The palette is a hand-kept copy** — RN has no custom properties and D-023
-removed the token generator. `tests/unit/mobile-theme.test.ts` reads both files
-and fails if either moves, including the two alphas that are `color-mix()` on
-the web and literal rgba in the app. 22 assertions.
+Four gates green: typecheck, lint, 412 unit tests, 15 customer-auth
+integration tests.
 
-**Driven end to end in a browser.** Expo's web target renders the real screens
-against the real API: open a link, add from the menu, choose a variant on the
-dish screen, fill the checkout, place a delivery order, watch the timeline, and
-find it in the orders list — eleven steps, zero console errors. Both native
-bundles build (iOS 1127 modules, Android 1271).
+The account flow was driven in a real browser end to end — sign in with a
+phone and a code, save an address, back to the menu, add a dish, cart
+prefilled with the name and number from the account, order placed, history
+shown. Seven steps, zero console errors, zero 4xx.
 
-Three toolchain things, each found by running it rather than reasoning about
-it: the app is NOT a pnpm workspace member (RN needs a flat `node_modules` and
-`nodeLinker` is workspace-wide, so enabling it would have relaxed the deployed
-web app's layout); pnpm 10 moved settings out of `.npmrc`, so the first attempt
-reported "Done in 31.2s" over an empty `node_modules`; and `react-native` has
-to be the version the SDK bundles (0.86.3), not `latest` — 0.87 removed a file
-`@expo/metro-config@57` still calls.
+That is also what found the four bugs in `dce47cb`, none of which were visible
+by reading:
 
-`/api/v1` answers cross-origin with a wildcard, which is safe precisely because
-a wildcard cannot carry credentials and this API authenticates by bearer.
+- `router.dismissAll()` on a stack with nothing to dismiss raises POP_TO_TOP
+  and paints an error overlay that swallows every tap underneath it.
+- The cart prefilled from `useState` initialisers only — right on a warm
+  navigation, wrong on a cold start, where the identity restore is a round
+  trip that deliberately does not gate the first paint. The screen mounted
+  before the account arrived and told somebody who was signed in to sign in.
+- A name typed at sign-in was dropped whenever the guest row already existed,
+  so somebody whose first sign-in offered no name was called "Guest" back to
+  them forever, including on the kitchen ticket.
+- A 422 logged as bare `code: VALIDATION` named no field. The context was
+  already on the error and simply never written down.
 
-**Not run on a device.** Nothing native is proven — insets, the keyboard, the
-keychain, the camera, universal links.
+An earlier bug, caught by a test rather than a browser, is the one worth
+remembering: `verifyCode()` incremented the attempt counter and then threw the
+refusal **inside the same transaction**, so Postgres rolled the increment back
+and there was no brute-force protection at all. `answerChallenge()` in
+`modules/access/escalation.ts` already carried a comment warning about exactly
+this, from the same bug being found there. Both now decide and commit first,
+and throw after.
 
+### Next
 
-**A property can be used without a room (D-079).** `/p/{code}` opens a VISIT —
-dine-in at a table tent, takeaway at a counter, delivery from a link somebody
-sends — and the orders land on the same kitchen rail as room service, beside
-"Room 214", reading "Courtyard 4" or "Delivery · 12 MG Road".
+1. `docs/DEPLOY-D081.md` step 1 — the migration. **Needs a human**: it was
+   blocked by the permission classifier, correctly, as a live-database write.
+2. Step 2 — `railway up`.
+3. Step 4 — the APK, from `.eas-token`.
 
-A visit is a SIBLING of a stay rather than a kind of one. The cheap answer was
-a stay against a virtual room, which would have left every query untouched and
-was rejected on three counts: the partial unique index permits one active stay
-per room, so two tables ordering at once is a constraint violation; a stay shows
-up on the room board, the occupancy count, the arrivals list and the checkout
-queue, and a person eating lunch is on none of those; and
-`scheduled_checkout_at` is NOT NULL and is what every session's expiry is
-computed from.
-
-`guest_sessions`, `carts` and `orders` keep `stay_id`, gain a nullable
-`visit_id`, and carry `CHECK (num_nonnulls(stay_id, visit_id) = 1)`. Two
-type-level decisions did the real work of keeping that honest: `GuestSession`
-became a discriminated union and `stayId: string` became `OrderContext` through
-the ordering module — both over nullable fields, so the ~20 call sites became
-compile errors rather than one runtime failure on a screen a guest is looking
-at.
-
-`orders.destination_label` snapshots where the tray goes (#6 applied to the
-destination). The KDS's room join became LEFT rather than being deleted:
-`room_number` survives as nullable because the front desk board keys on it, and
-an INNER join would have dropped every visit order off the kitchen display,
-silently, while the food was still ordered.
-
-No folio for a visit, deliberately. A folio is what a stay settles at checkout.
-
-**Two bugs the verification found, both real.** The demo seeder writes `orders`
-directly and so never snapshotted a destination — its two tickets rendered as a
-dash on a rail otherwise full of correct ones. And `notify.test.ts` asserts the
-payload's keys exactly, which is the point of that test; `visitId` joined the
-list.
-
-**Verified rather than assumed:** 0008 applied to the local container, 56 tables
-with RLS forced, 486 integration tests green, and all three fulfilments placed
-end to end through the real module path with the resulting tickets read back off
-the kitchen rail.
-
-
-**The front door now leads with the product, not with a calendar.** The hero's
-filled button was "Book a 20-minute demo" and `/demo` — the one link on the
-page that opens the real thing — was the outlined secondary beside it. They
-are swapped. The header's filled button is the live demo too (below 720px the
-two quiet links drop and it is the only thing left), and the dark band's
-`.ghostCta`, a 30%-white outline on navy, is gold like the closing block's.
-A line under the hero buttons answers the question a link like that provokes:
-no signup, no card.
-
-**And the page explains itself with marks now.** `site-icons.tsx` is the one
-place a copy string becomes a Lucide component, so `content.ts` stays JSX-free
-and the site's whole icon set is one reviewable list (D-073's argument, one
-surface over). What it bought, section by section: the three pillars' opening
-comma-lists are chips — Dinner, Amenities, The desk, Nearby — and their brand
-shapes are containers for a mark rather than solid blocks; every step in How
-it works has its surface's mark and a small screen-chip showing what is
-actually on that screen at that minute (`KE-1184 · 214  Accept · 00:12`),
-which is the half of each paragraph that used to narrate a button; the four
-revenue cards and the six security cards each lead with a mark.
-
-Net: body copy on `/` is down by about a third and nothing in the argument
-was dropped. There is no photography in the repo and none was invented —
-`public/` is still empty, and every picture on the page is built markup, which
-is the rule the hero's phone mock already followed.
-
-`pnpm quality` (D-078) — every validation this repo has on one page, with
-what each proves, a Run button, streamed output, and a result stamped with
-the tree it ran against so a stale green says so. Its own process on
-localhost:3999, never deployable, because it spawns build tooling. The
-environment checks are now shared with `pnpm status` rather than copied
-(`scripts/lib/project-checks.ts`); that command's output is unchanged.
-
-Two hazards it surfaced, both found by using it: pressing Build would have
-written into the dev server's `.next` (it uses its own distDir now, and
-restores the two files `next build` rewrites), and pressing Run on the
-integration suite would have provisioned test tenants into **production** —
-so that row names its target host and asks first.
-
-Skeleton loaders, finished (D-077). Eleven `loading.tsx` files, one per guest
-segment, each built against its own `page.tsx` so nothing moves when the
-content lands. The primitive gained `SkeletonHeading`, `SkeletonTotal` and
-`SkeletonStep`, and `SkeletonBar` now takes an optional title — real where the
-route knows it, a grey bar where the title is data.
-
-Found on the way: making `.screen` a flex column so the service screen could
-anchor its button to the bottom edge made every screen taller than the
-viewport shrink its own children, and the amenities bars overlapped the
-heading under them. Caught by screenshotting all eleven rather than by a test.
-
-### Previously
-
-The marketing site at `/` and the `/demo` door beside it (D-062, D-063);
-business-facing copy and page motion (D-067, D-068); the real logo artwork and
-`pnpm logo:build` (D-065); stable demo QR codes and a readable dead-link page
-(D-070); Plan my day, P4's read half (D-069); the amenities screen led by real
-demand (D-071); a bell that rings and four distinct tile icons (D-072);
-`lucide-react` and the CLAUDE.md rule behind it (D-073, D-074); menu cards with
-add/remove on each (D-075, D-076).
+Production still has **no SMS provider**. `ConsoleOtpSender` writes the code
+to the server log with the phone redacted, so signing in on production means
+reading `railway logs`. It fails loudly rather than quietly — the log line
+says NOT SENT — and it is the one thing between this feature and a real
+customer.
 
 **`pnpm status` re-derives all of this from the repo and the database.** If it
 disagrees with this file, it is right and this file is stale.
+
 
 ## Done
 
 | Session | Commit | What landed |
 |---|---|---|
+| P5 | `dce47cb` | Customer accounts (D-081). The collision between a menu nobody signs in to scan and an account that keeps order history, resolved by separating CONTEXT from IDENTITY into two credentials: `guest_sessions` says where you are and expires, `customer_sessions` says who you are and outlives every visit. A customer session grants zero access to any context — signing in never raises a tier — which is what keeps #9 true. OTP over a pluggable `OtpSender` whose only implementation writes to the log. History is ONLINE-link orders only, per the scope the user set, stamped from the identity token and never from the visit's unverified phone. Found `openVisit()` never writing `link_kind` at all, which would have shipped a permanently empty history that looked like it worked; and `verifyCode()` throwing its refusal inside the transaction that recorded the attempt, rolling back the counter and leaving no brute-force protection — the same bug `escalation.ts` already carried a warning about. Driving the screens in a browser found four more. |
 | P4 | `ceb14df` | A property can be used without a room (D-079). `/p/{code}` opens a VISIT — dine-in at a table tent, takeaway at a counter, delivery from a sent link — and the orders land on the same kitchen rail as room service. A visit is a SIBLING of a stay, not a stay against a virtual room: the partial unique index permits one per room, a stay shows up on four screens a diner is not on, and `scheduled_checkout_at` is NOT NULL. `GuestSession` became a discriminated union and `stayId` became `OrderContext`, so ~20 call sites were compile errors rather than one runtime failure. No folio for a visit, deliberately. Found the demo seeder never snapshotting a destination, rendering two dashes on a rail otherwise full of correct ones. |
 | P4 | `69e1685` | The front door leads with the product: `/demo` is the filled primary in the hero, the header and the dark band, and "Book a demo" is the outlined secondary everywhere. `site-icons.tsx` turns a copy string into a Lucide mark in one place, so the pillars' comma-lists are chips, every How-it-works step carries its surface's mark and a screen-chip of what is on that screen at that minute, and the revenue and security cards lead with one. Body copy on `/` down about a third; no photography invented, every picture is still built markup. |
 | P4 | `5018941` | `pnpm quality` — every validation on one page, runnable, with what each one proves and a result stamped with the tree it ran against. Its own loopback process, never deployable, because it spawns build tooling. Found two hazards a button makes worse than a command: Build writing into the dev server's `.next`, and the integration suite provisioning tenants into production (D-078). |
@@ -496,6 +259,29 @@ All 34 are in `.demo-seed.json`, and the desk copies any of them from
 ---
 
 ## Environment notes
+
+**SecureStore no-ops on the Expo web target.** Both tokens live in memory
+there, so a full page reload drops them and the app opens a fresh anonymous
+visit. That is a property of the harness, not of the app — but it means the
+browser cannot verify token PERSISTENCE, and a verification script has to
+navigate in-app rather than calling `page.goto()` between steps. It is also
+why `crypto.randomUUID()` shipped in the cart and crashed on a device: every
+check had been run against the web target, where that global exists and Hermes
+does not have it.
+
+**Do not amend a migration after it has been applied anywhere.** The runner
+records the filename, not a hash, so an amended file is silently skipped on a
+database that already has the old one. This cost a full integration run this
+session — 28 files failing on `column "actor_guest_id" does not exist`, from a
+file that visibly added it. It was only safe to fix by rolling back locally
+because 0009 was not yet deployed. Once it is, the next change is 0010.
+
+**The OTP code is in the dev server log, and the log is shared.** A
+verification script that greps the last code in the file will race its own
+request and pick up a stale one, which burns an attempt against a limit of
+five before a thirty-minute lockout. Count the codes before sending and wait
+for the count to rise.
+
 
 Things that cost time to rediscover.
 
