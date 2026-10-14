@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { httpStatusFor, publicPayloadFor, ValidationError } from '@/lib/errors';
+import { AppError, httpStatusFor, publicPayloadFor, ValidationError } from '@/lib/errors';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
 
@@ -85,7 +85,21 @@ export function apiHandler<T>(
       // 5xx is ours and gets the stack; 4xx is the client's and gets a line.
       // Logging a refused order at error level is how a log stops being read.
       if (status >= 500) log.error({ err: error }, 'api request failed');
-      else log.info({ status, code: payload.code }, 'api request refused');
+      else {
+        /**
+         * The refusal's DETAILS go in the line, not just its code.
+         *
+         * A 422 logged as bare `code: VALIDATION` says a client sent the wrong
+         * shape and nothing about which field — which is exactly the line you
+         * are staring at when a form fails once and will not fail again. The
+         * The context is already on the error (`parseBody` puts `{field, issue}`
+         * there); it was simply never written down. It is read off the ERROR
+         * and not off the payload on purpose — `publicPayloadFor()` withholds
+         * it from the client deliberately, and that should stay true.
+         */
+        const context = error instanceof AppError ? error.context : undefined;
+        log.info({ status, code: payload.code, context }, 'api request refused');
+      }
 
       return Response.json(payload, {
         status,

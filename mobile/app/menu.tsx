@@ -27,7 +27,7 @@ interface MenuSection {
 }
 
 export default function Menu() {
-  const { session, cart, setCart, refreshCart } = useSession();
+  const { session, customer, cart, setCart, refreshCart } = useSession();
   const onError = useApiError();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,13 +124,16 @@ export default function Menu() {
           ),
           headerRight: () => (
             <Pressable
-              onPress={() => router.push('/orders')}
+              onPress={() => router.push('/account')}
               hitSlop={12}
+              accessibilityLabel="Your account"
               // The padding is load-bearing: without it the label sits flush
               // against the screen edge and is clipped on a 390px viewport.
               style={{ paddingHorizontal: space[2] }}
             >
-              <Text style={s.headerLink}>Orders</Text>
+              {/* The word changes with the state, so somebody signed in can
+                  see that they are without opening anything. */}
+              <Text style={s.headerLink}>{customer ? customer.name.split(' ')[0] : 'Account'}</Text>
             </Pressable>
           ),
         }}

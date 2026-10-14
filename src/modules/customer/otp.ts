@@ -155,6 +155,15 @@ export async function requestCode(input: RequestCodeInput): Promise<void> {
   await sender.send({ phone, code, expiresInMinutes: CODE_TTL_MINUTES });
 }
 
+/**
+ * What goes in `full_name` when somebody signs in without offering one.
+ *
+ * Named rather than inlined because two places have to agree on it: the row
+ * is created with it, and the next sign-in recognises it as "no real name
+ * here" and so is free to record the one it was just given.
+ */
+const NO_NAME_GIVEN = 'Guest';
+
 export interface VerifyCodeInput {
   tenantId: string;
   phone: string;
@@ -292,8 +301,37 @@ export async function verifyCode(input: VerifyCodeInput): Promise<VerifiedCustom
     const guestId = await upsertGuestByPhone(tx, {
       tenantId: input.tenantId,
       phone,
-      fullName: input.name?.trim() || 'Guest',
+      fullName: input.name?.trim() || NO_NAME_GIVEN,
     });
+
+    /**
+     * The name they typed, when the row has no real one to protect.
+     *
+     * `upsertGuestByPhone()` leaves an existing `full_name` alone, which is
+     * right — that column belongs to the front desk, and somebody who is
+     * "Anjali Menon" on a folio has not renamed herself by typing "anj" into
+     * a takeaway form.
+     *
+     * But a row this flow created itself, for a sign-in that offered no name,
+     * holds the placeholder. Refusing the name on the NEXT sign-in left the
+     * app calling somebody "Guest" back to them — on the account screen, on
+     * the cart, and on the ticket the kitchen reads out — while the name they
+     * had just typed was dropped on the floor. That is the bug this closes.
+     *
+     * It writes `display_name`, never `full_name`, and only when both are
+     * absent. So the front desk's record is still untouched, and the sign-in
+     * screen's promise — "it never changes a name a hotel already has for
+     * you" — stays literally true.
+     */
+    const given = input.name?.trim();
+    if (given) {
+      await tx.execute(sql`
+        UPDATE guests SET display_name = ${given}, updated_at = now()
+        WHERE id = ${guestId}
+          AND display_name IS NULL
+          AND (full_name IS NULL OR full_name = ${NO_NAME_GIVEN})
+      `);
+    }
 
     await markPhoneVerified(tx, guestId);
 

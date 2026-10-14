@@ -3,6 +3,8 @@ import Constants from 'expo-constants';
 import type {
   ApiCart, ApiError, ApiMenu, ApiDishDetail, ApiOrder, ApiOrderSummary,
   ApiPlacedOrder, ApiSession, ApiPlaceOrderBody, ApiAddToCartBody, ApiQuickAddBody,
+  ApiCustomer, ApiAddress, ApiAddressBody, ApiMe, ApiSignedIn,
+  ApiRequestOtpResult, ApiUpdateProfileBody,
 } from '@contract';
 
 /**
@@ -58,30 +60,58 @@ export const DEFAULT_LINK_CODE = (
 
 const TOKEN_KEY = 'kesari.visit.token';
 
-let cached: string | null | undefined;
+/**
+ * The SECOND credential, stored separately. D-081.
+ *
+ * Two keys rather than one blob, because the two have genuinely different
+ * lifetimes and are cleared independently: a visit lapses after six hours and
+ * signing out must not take the context with it, while signing out must clear
+ * the customer and leave somebody able to carry on ordering anonymously (#9).
+ */
+const CUSTOMER_KEY = 'kesari.customer.token';
 
-export async function getToken(): Promise<string | null> {
-  if (cached !== undefined) return cached;
-  // SecureStore throws on a device with no keychain access rather than
-  // returning null, and a cold start that throws here would be a white screen.
-  try {
-    cached = await SecureStore.getItemAsync(TOKEN_KEY);
-  } catch {
-    cached = null;
-  }
-  return cached;
+/**
+ * One implementation for both, because the failure handling is the whole
+ * point of it and two copies would be two chances to get that wrong.
+ */
+function keychain(key: string) {
+  let cached: string | null | undefined;
+
+  return {
+    async get(): Promise<string | null> {
+      if (cached !== undefined) return cached;
+      // SecureStore THROWS on a device with no keychain access rather than
+      // returning null, and a cold start that threw here would be a white
+      // screen. It also no-ops entirely on the web target, which is why this
+      // path has never actually run on a device.
+      try {
+        cached = await SecureStore.getItemAsync(key);
+      } catch {
+        cached = null;
+      }
+      return cached;
+    },
+    async set(value: string | null): Promise<void> {
+      cached = value;
+      try {
+        if (value) await SecureStore.setItemAsync(key, value);
+        else await SecureStore.deleteItemAsync(key);
+      } catch {
+        // A device that cannot persist still works for this session — the
+        // in-memory copy holds it. Losing it on the next launch is a worse
+        // outcome than refusing to work now.
+      }
+    },
+  };
 }
 
-export async function setToken(token: string | null): Promise<void> {
-  cached = token;
-  try {
-    if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
-    else await SecureStore.deleteItemAsync(TOKEN_KEY);
-  } catch {
-    // A device that cannot persist it still works for this session — `cached`
-    // holds it. Losing it on next launch is worse than failing to order now.
-  }
-}
+const visitStore = keychain(TOKEN_KEY);
+const customerStore = keychain(CUSTOMER_KEY);
+
+export const getToken = visitStore.get;
+export const setToken = visitStore.set;
+export const getCustomerToken = customerStore.get;
+export const setCustomerToken = customerStore.set;
 
 /**
  * A refusal the server explained, carried with its status.
@@ -120,9 +150,9 @@ export class NetworkFailure extends Error {
 
 async function request<T>(
   path: string,
-  init: { method?: string; body?: unknown; auth?: boolean } = {},
+  init: { method?: string; body?: unknown; auth?: boolean; customer?: boolean } = {},
 ): Promise<T> {
-  const { method = 'GET', body, auth = true } = init;
+  const { method = 'GET', body, auth = true, customer = true } = init;
 
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -132,6 +162,21 @@ async function request<T>(
     // see src/lib/api-auth.ts for why the transport differs and the session
     // does not.
     if (token) headers.authorization = `Bearer ${token}`;
+  }
+  if (customer) {
+    /**
+     * Sent whenever we have it, on EVERY request — not only the account ones.
+     *
+     * Placing an order is the reason: the server stamps `orders.guest_id` from
+     * this header and nothing else, so an order placed without it never enters
+     * the customer's history. Attaching it only to `/auth/*` and `/profile`
+     * would make history silently incomplete in a way nothing would catch.
+     *
+     * It is harmless everywhere else — a customer token grants no access to
+     * any context (D-081), so a route that ignores it is unaffected.
+     */
+    const token = await getCustomerToken();
+    if (token) headers['x-customer-token'] = token;
   }
 
   let response: Response;
@@ -243,4 +288,75 @@ export type {
   ApiCart, ApiCartLine, ApiMenu, ApiMenuSection, ApiDish, ApiDishDetail,
   ApiModifierGroup, ApiOrder, ApiOrderSummary, ApiSession, ApiVisit,
   ApiFulfilment, ApiMoney, ApiTrackStep,
+} from '@contract';
+
+
+/* ── The account (D-081) ─────────────────────────────────────────────────── */
+
+/** Ask for a code. Always succeeds for a dialable number — it deliberately
+ *  does not report whether one was actually sent. */
+export function requestOtp(phone: string): Promise<ApiRequestOtpResult> {
+  return request<ApiRequestOtpResult>('/auth/otp/request', {
+    method: 'POST',
+    body: { phone },
+  });
+}
+
+/** Check the code and sign in. Stores the token before returning, so the very
+ *  next call already carries it. */
+export async function verifyOtp(
+  input: { phone: string; code: string; name?: string },
+): Promise<ApiSignedIn> {
+  const signedIn = await request<ApiSignedIn>('/auth/otp/verify', {
+    method: 'POST',
+    body: input,
+  });
+  await setCustomerToken(signedIn.token);
+  return signedIn;
+}
+
+/** The cold-start check for the customer half. Needs NO context token. */
+export function me(): Promise<ApiMe> {
+  return request<ApiMe>('/auth/me', { auth: false });
+}
+
+export async function signOut(): Promise<void> {
+  // Best effort: the local token is cleared whatever the server says, because
+  // a sign-out that appears not to work is worse than one the server has not
+  // caught up with. The row expires on its own regardless.
+  try {
+    await request<{ ok: true }>('/auth/logout', { method: 'POST', auth: false });
+  } catch {
+    // Already revoked, or offline.
+  }
+  await setCustomerToken(null);
+}
+
+export function updateProfile(body: ApiUpdateProfileBody): Promise<ApiCustomer> {
+  return request<ApiCustomer>('/profile', { method: 'PATCH', body, auth: false });
+}
+
+export function listAddresses(): Promise<ApiAddress[]> {
+  return request<ApiAddress[]>('/addresses', { auth: false });
+}
+
+export function createAddress(body: ApiAddressBody): Promise<ApiAddress> {
+  return request<ApiAddress>('/addresses', { method: 'POST', body, auth: false });
+}
+
+export function updateAddress(id: string, body: ApiAddressBody): Promise<ApiAddress> {
+  return request<ApiAddress>(`/addresses/${id}`, { method: 'PATCH', body, auth: false });
+}
+
+export function removeAddress(id: string): Promise<{ ok: true }> {
+  return request<{ ok: true }>(`/addresses/${id}`, { method: 'DELETE', auth: false });
+}
+
+/** This customer's orders, across every visit. Identity only. */
+export function listAccountOrders(): Promise<ApiOrderSummary[]> {
+  return request<ApiOrderSummary[]>('/orders?scope=account', { auth: false });
+}
+
+export type {
+  ApiCustomer, ApiAddress, ApiMe, ApiSignedIn,
 } from '@contract';

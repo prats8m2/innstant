@@ -100,6 +100,32 @@ describe('customer sign-in', () => {
     // out to; a customer who proved a phone number may not rewrite it.
     const row = await owner.query('SELECT full_name, display_name FROM guests WHERE id = $1', [existing]);
     expect(row.rows[0].full_name).toBe('Anjali Menon');
+    // Nor may it arrive by the side door: a real name on the row means the
+    // customer's own column stays empty too, or the app would show "anj" to
+    // somebody the hotel knows as Anjali Menon.
+    expect(row.rows[0].display_name).toBeNull();
+  });
+
+  it('records the name somebody types when the row has none to protect', async () => {
+    // The first sign-in offered no name, so the row holds the placeholder.
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const first = await verifyCode({ tenantId: a.tenantId, phone: PHONE, code: sent[0]!.code });
+    expect((await scoped((tx) => getProfile(tx, first.guestId)))?.name).toBe('Guest');
+
+    // They come back and type one. It has to stick — this is the name the
+    // account screen greets them with and the kitchen reads off the ticket,
+    // and dropping it left the app calling somebody "Guest" to their face.
+    await requestCode({ tenantId: a.tenantId, phone: PHONE });
+    const second = await verifyCode({
+      tenantId: a.tenantId, phone: PHONE, code: sent[1]!.code, name: 'Nikhil Rao',
+    });
+    expect(second.guestId).toBe(first.guestId);
+
+    const row = await owner.query('SELECT full_name, display_name FROM guests WHERE id = $1', [first.guestId]);
+    expect(row.rows[0].display_name).toBe('Nikhil Rao');
+    // Written to the customer's column, never the desk's.
+    expect(row.rows[0].full_name).toBe('Guest');
+    expect((await scoped((tx) => getProfile(tx, first.guestId)))?.name).toBe('Nikhil Rao');
   });
 
   it('a customer-set name never touches the desk’s copy', async () => {

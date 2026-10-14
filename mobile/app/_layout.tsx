@@ -54,6 +54,10 @@ export default function RootLayout() {
           <Stack.Screen name="cart" options={{ title: 'Your order', presentation: 'modal' }} />
           <Stack.Screen name="order/[orderId]" options={{ title: 'Your order' }} />
           <Stack.Screen name="orders" options={{ title: 'Orders' }} />
+          {/* D-081 — the account. None of it gates ordering (#9). */}
+          <Stack.Screen name="account/index" options={{ title: 'Account' }} />
+          <Stack.Screen name="account/sign-in" options={{ title: 'Sign in' }} />
+          <Stack.Screen name="account/addresses" options={{ title: 'Addresses' }} />
           {/* Deep links. The router owns the launch URL and routes to these
               before any screen mounts — see app/p/[code].tsx. */}
           <Stack.Screen name="p/[code]" options={{ headerShown: false }} />

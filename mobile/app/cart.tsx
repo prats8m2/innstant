@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
@@ -27,14 +27,69 @@ import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/t
  * exist on this path (D-079).
  */
 export default function Cart() {
-  const { session, cart, setCart, refreshCart } = useSession();
+  const { session, customer, addresses, cart, setCart, refreshCart } = useSession();
   const onError = useApiError();
   const insets = useSafeAreaInsets();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [addressNotes, setAddressNotes] = useState('');
+  /**
+   * Prefilled from the account when there is one. D-081.
+   *
+   * `useState`'s initialiser so the fields are right on the FIRST render when
+   * the account is already in hand — an effect alone would paint empty boxes
+   * and then fill them, which reads as the app losing what it knew about you.
+   *
+   * The initialiser is not SUFFICIENT, though, and assuming it was is what
+   * shipped this screen saying "Sign in to keep your orders" to somebody who
+   * was signed in. On a cold start the identity restore is a round trip that
+   * deliberately does not gate the first paint (#9 — browsing never waits on
+   * an account), so this screen can mount before `customer` arrives. The
+   * initialiser runs once, reads null, and the fields stay empty forever.
+   *
+   * So: initialiser for the warm path, effect below for the cold one.
+   *
+   * They stay editable. Somebody ordering for a colleague puts the colleague's
+   * name on it, and that does not change their account.
+   */
+  const [name, setName] = useState(() => customer?.name ?? '');
+  const [phone, setPhone] = useState(() => customer?.phone ?? '');
+  const defaultAddress = addresses.find((a) => a.isDefault) ?? addresses[0] ?? null;
+  const [pickedAddressId, setPickedAddressId] = useState<string | null>(
+    () => defaultAddress?.id ?? null,
+  );
+  const [address, setAddress] = useState(() => defaultAddress?.line ?? '');
+  const [addressNotes, setAddressNotes] = useState(() => defaultAddress?.notes ?? '');
+
+  /**
+   * Set the moment a human types in one of these, and never cleared.
+   *
+   * A late prefill must not overwrite what somebody has already put in the
+   * box. Checking "is the field still empty?" is not the same test: clearing
+   * a prefilled name to type a colleague's is a field that is briefly empty
+   * and emphatically touched, and refilling it under their cursor is worse
+   * than never filling it at all.
+   */
+  const touched = useRef({ name: false, phone: false, address: false });
+  // Named `onType`, not `type` — `type` is the typography token in this file.
+  const onType = <T,>(field: keyof typeof touched.current, set: (v: T) => void) => (v: T) => {
+    touched.current[field] = true;
+    set(v);
+  };
+
+  // The cold path. Fires when the restored account lands after this mounted.
+  useEffect(() => {
+    if (!customer) return;
+    if (!touched.current.name && customer.name) setName(customer.name);
+    if (!touched.current.phone && customer.phone) setPhone(customer.phone);
+  }, [customer]);
+
+  useEffect(() => {
+    if (touched.current.address || !defaultAddress) return;
+    setPickedAddressId(defaultAddress.id);
+    setAddress(defaultAddress.line);
+    setAddressNotes(defaultAddress.notes ?? '');
+    // The address itself, not the object — `defaultAddress` is rebuilt every
+    // render and depending on it would re-run this on every keystroke.
+  }, [defaultAddress?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [mode, setMode] = useState<ApiFulfilment>('TAKEAWAY');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -255,7 +310,7 @@ export default function Cart() {
             <Text style={s.label}>Name</Text>
             <TextInput
               value={name}
-              onChangeText={setName}
+              onChangeText={onType('name', setName)}
               placeholder="What shall we call out?"
               placeholderTextColor={colors.inkFaint}
               autoComplete="name"
@@ -269,7 +324,7 @@ export default function Cart() {
             <Text style={s.label}>Phone</Text>
             <TextInput
               value={phone}
-              onChangeText={setPhone}
+              onChangeText={onType('phone', setPhone)}
               placeholder="So the kitchen can call"
               placeholderTextColor={colors.inkFaint}
               // `phone-pad`, not `numeric`: it brings up the keypad, keeps a
@@ -284,33 +339,91 @@ export default function Cart() {
 
           {mode === 'DELIVERY' ? (
             <>
-              <View style={s.field}>
-                <Text style={s.label}>Where to</Text>
-                <TextInput
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Flat, building, street, landmark"
-                  placeholderTextColor={colors.inkFaint}
-                  multiline
-                  maxLength={400}
-                  style={[s.input, s.multiline]}
-                />
-              </View>
-              <View style={s.field}>
-                <Text style={s.label}>Anything the rider should know</Text>
-                <TextInput
-                  value={addressNotes}
-                  onChangeText={setAddressNotes}
-                  placeholder="Gate code, which floor, ring twice"
-                  placeholderTextColor={colors.inkFaint}
-                  maxLength={280}
-                  style={s.input}
-                />
-              </View>
+              {/*
+                Saved addresses, when there are any. A picker beats a text box
+                every time here: the address is the thing most likely to be
+                mistyped and the most expensive to get wrong, and somebody who
+                has ordered before has already typed it correctly once.
+              */}
+              {addresses.length > 0 ? (
+                <View style={s.field}>
+                  <Text style={s.label}>Deliver to</Text>
+                  {addresses.map((saved) => (
+                    <Pressable
+                      key={saved.id}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: pickedAddressId === saved.id }}
+                      onPress={() => {
+                        touched.current.address = true;
+                        setPickedAddressId(saved.id);
+                        setAddress(saved.line);
+                        setAddressNotes(saved.notes ?? '');
+                      }}
+                      style={[s.saved, pickedAddressId === saved.id && s.savedOn]}
+                    >
+                      <Text style={s.savedLabel}>{saved.label}</Text>
+                      <Text style={s.savedLine} numberOfLines={2}>{saved.line}</Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: pickedAddressId === null }}
+                    onPress={() => {
+                      touched.current.address = true;
+                      setPickedAddressId(null);
+                      setAddress('');
+                      setAddressNotes('');
+                    }}
+                    style={[s.saved, pickedAddressId === null && s.savedOn]}
+                  >
+                    <Text style={s.savedLabel}>Somewhere else</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {/* The free-text box, for a new address or for somebody with no
+                  account at all — which must keep working (#9). */}
+              {pickedAddressId === null ? (
+                <>
+                  <View style={s.field}>
+                    <Text style={s.label}>Where to</Text>
+                    <TextInput
+                      value={address}
+                      onChangeText={onType('address', setAddress)}
+                      placeholder="Flat, building, street, landmark"
+                      placeholderTextColor={colors.inkFaint}
+                      multiline
+                      maxLength={400}
+                      style={[s.input, s.multiline]}
+                    />
+                  </View>
+                  <View style={s.field}>
+                    <Text style={s.label}>Anything the rider should know</Text>
+                    <TextInput
+                      value={addressNotes}
+                      onChangeText={onType('address', setAddressNotes)}
+                      placeholder="Gate code, which floor, ring twice"
+                      placeholderTextColor={colors.inkFaint}
+                      maxLength={280}
+                      style={s.input}
+                    />
+                  </View>
+                </>
+              ) : null}
             </>
           ) : null}
 
           {error ? <Notice>{error}</Notice> : null}
+
+          {/* Offered, never required. Somebody who ignores this orders exactly
+              as they did before (#9). */}
+          {!customer ? (
+            <Pressable onPress={() => router.push('/account/sign-in')} style={s.signInRow}>
+              <Text style={s.signInText}>
+                Sign in to save this address and keep your orders
+              </Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
 
         <View style={[s.foot, { paddingBottom: insets.bottom + space[4] }]}>
@@ -411,6 +524,23 @@ const s = StyleSheet.create({
   modeOn: { borderColor: colors.accent, backgroundColor: colors.accentTint },
   modeTitle: { fontSize: type.sm, fontWeight: '600', color: colors.ink },
   modeSub: { fontSize: type.xs, color: colors.inkDim, marginTop: 2 },
+
+  saved: {
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingHorizontal: space[4],
+    paddingVertical: space[2],
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.card,
+  },
+  savedOn: { borderColor: colors.accent, backgroundColor: colors.accentTint },
+  savedLabel: { fontSize: type.sm, fontWeight: '600', color: colors.ink },
+  savedLine: { fontSize: type.xs, color: colors.inkDim, marginTop: 2 },
+
+  signInRow: { paddingVertical: space[3] },
+  signInText: { fontSize: type.sm, color: colors.accent, textAlign: 'center' },
 
   foot: {
     paddingHorizontal: space[5],

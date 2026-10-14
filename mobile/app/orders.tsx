@@ -3,26 +3,29 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import * as api from '@/lib/api';
 import type { ApiOrderSummary } from '@/lib/api';
-import { useApiError } from '@/lib/session';
+import { useApiError, useSession } from '@/lib/session';
 import { Button, Loading, Notice, Screen } from '@/components/ui';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
  * What this visit has ordered. D-080.
  *
- * ─── The honest limit of this screen ───────────────────────────────────────
+ * ─── Two scopes, chosen by whether somebody is signed in ───────────────────
  *
- * It is scoped to the VISIT, so it empties when the visit does — six hours,
- * or sooner if it is closed. There is no account behind this app (that was the
- * sign-in decision in D-080), so "your orders from last Tuesday" has nowhere
- * to come from: the server has them, and nothing ties them to this phone.
+ * Signed OUT it is scoped to the VISIT and empties when the visit does — six
+ * hours. Signed IN it is the account's own history, which spans every visit
+ * and needs no context at all (D-081).
  *
- * That is a real cost of the no-signup design and it is the thing phone-and-
- * OTP accounts would buy. The empty state says so plainly rather than
- * implying the orders were lost.
+ * What the account's history deliberately excludes: table orders and room
+ * service. A table order belongs to the table and the moment — who ordered
+ * and who pays are routinely different people — and room service belongs to
+ * the hotel relationship that the room sticker governs. The empty state says
+ * which list is being shown rather than letting somebody wonder where an
+ * order went.
  */
 export default function Orders() {
   const onError = useApiError();
+  const { customer } = useSession();
   const [orders, setOrders] = useState<ApiOrderSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,14 +36,15 @@ export default function Orders() {
     let cancelled = false;
     (async () => {
       try {
-        const loaded = await api.listOrders();
+        // Account history when there is an account; this visit's otherwise.
+        const loaded = customer ? await api.listAccountOrders() : await api.listOrders();
         if (!cancelled) { setOrders(loaded); setError(null); }
       } catch (failure) {
         if (!cancelled) setError(onError(failure));
       }
     })();
     return () => { cancelled = true; };
-  }, [onError]));
+  }, [onError, customer]));
 
   if (error && !orders) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
   if (!orders) return <Loading />;
@@ -51,10 +55,13 @@ export default function Orders() {
         <Stack.Screen options={{ title: 'Orders' }} />
         <Text style={s.emptyTitle}>Nothing ordered yet</Text>
         <Text style={s.emptyBody}>
-          Orders you place show up here while you are at the restaurant. They are
-          not kept after that — there is no account to keep them on.
+          {customer
+            ? 'Orders you place from here are kept on your account. Table and room-service orders stay with the table and the room.'
+            : 'Orders show up here while you are ordering. Sign in and they are kept after that.'}
         </Text>
-        <Button label="Back to the menu" tone="quiet" onPress={() => router.replace('/menu')} />
+        {customer
+          ? <Button label="Back to the menu" tone="quiet" onPress={() => router.replace('/menu')} />
+          : <Button label="Sign in" onPress={() => router.push('/account/sign-in')} />}
       </Screen>
     );
   }
