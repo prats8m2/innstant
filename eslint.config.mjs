@@ -19,7 +19,7 @@ import nextPlugin from '@next/eslint-plugin-next';
  * `tests/lint-boundary.test.ts` — it is not a hypothetical mistake.
  */
 const MODULES = [
-  'identity', 'stay', 'visit', 'catalog', 'ordering', 'requests',
+  'identity', 'stay', 'visit', 'customer', 'catalog', 'ordering', 'requests',
   'housekeeping', 'concierge', 'billing', 'notifications', 'access',
   // `demo` owns exactly one table, `demo_visitors`, and it is the only one in
   // the product with no tenant column — a name typed by a stranger on the

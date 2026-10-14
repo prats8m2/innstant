@@ -32,6 +32,16 @@ export const guests = pgTable('guests', {
   tenantId: tenantId(),
 
   phone: text('phone'),
+  /**
+   * When this number was proved by OTP, or null. D-081.
+   *
+   * A `guests` row is created three ways and only one of them proves
+   * anything: a front desk types a number off a passport, anonymous checkout
+   * takes whatever is typed into a form, and an OTP sign-in proves control of
+   * the handset. Without this column those are indistinguishable, and
+   * anything that trusts a phone number has no way to ask how it was learnt.
+   */
+  phoneVerifiedAt: ts('phone_verified_at'),
   email: text('email'),
   fullName: text('full_name').notNull(),
   preferredLanguage: text('preferred_language').notNull().default('en'),

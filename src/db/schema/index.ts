@@ -10,6 +10,7 @@ export * from './core';
 export * from './identity';
 export * from './stay';
 export * from './visit';
+export * from './customer';
 export * from './access';
 export * from './catalog';
 export * from './ordering';

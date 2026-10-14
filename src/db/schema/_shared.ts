@@ -106,3 +106,13 @@ export const visitLinkKind = pgEnum('visit_link_kind', ['TABLE', 'COUNTER', 'ONL
 /** A visit is OPEN while somebody is ordering against it. CLOSED once the
  *  last order is delivered or the link's session has lapsed. */
 export const visitStatus = pgEnum('visit_status', ['OPEN', 'CLOSED']);
+
+/**
+ * How a customer proved they are who they say. D-081.
+ *
+ * Only one method today. The enum exists so that adding email, or a passkey,
+ * is one value and one branch rather than the first-ever notion that a
+ * customer could be verified more than one way — the same reasoning as
+ * `stay_source` in EXTENSION-POINTS §3.
+ */
+export const customerAuthMethod = pgEnum('customer_auth_method', ['OTP_SMS']);

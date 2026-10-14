@@ -132,6 +132,21 @@ export const visits = pgTable('visits', {
    *  "which table tent actually gets used" is the question a GM asks first. */
   visitLinkId: uuid('visit_link_id').references(() => visitLinks.id, { onDelete: 'set null' }),
 
+  /**
+   * What KIND of link opened this, copied at `openVisit()`. D-081.
+   *
+   * Denormalised on purpose. The account's order history is DIRECT-link
+   * orders only, and `orders.fulfilment` cannot express that rule: TAKEAWAY
+   * is produced by both a COUNTER link and an ONLINE one, and only the second
+   * counts. Without this column the history query is a two-hop join through
+   * `visit_links` to ask a question the visit should be able to answer itself
+   * — and `visit_link_id` is ON DELETE SET NULL, so that join does not even
+   * survive a deleted link.
+   *
+   * Null for a visit staff opened at the counter with no link behind it.
+   */
+  linkKind: visitLinkKind('link_kind'),
+
   status: visitStatus('status').notNull().default('OPEN'),
   /** Never IN_ROOM — that belongs to a stay. The CHECK is in the migration;
    *  Drizzle cannot express it. */

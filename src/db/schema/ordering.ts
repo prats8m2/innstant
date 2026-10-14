@@ -4,7 +4,7 @@ import {
   pk, ts, createdAt, updatedAt, tenantId, propertyId, currency, orderStatus,
   fulfilmentMode,
 } from './_shared';
-import { stays } from './stay';
+import { stays, guests } from './stay';
 import { visits } from './visit';
 import { outlets, menuItems, modifierOptions } from './catalog';
 
@@ -102,6 +102,25 @@ export const orders = pgTable('orders', {
   fulfilment: fulfilmentMode('fulfilment').notNull().default('IN_ROOM'),
   destinationLabel: text('destination_label'),
 
+  /**
+   * Who placed it, when that was PROVED. D-081.
+   *
+   * Stamped only when a customer session was attached at placement — which
+   * gives the column one honest meaning, *placed by a verified account*,
+   * rather than two. It is deliberately NOT "whoever this visit belongs to":
+   * `visits.guest_id` already answers that, set at checkout from a phone
+   * number nobody verified.
+   *
+   * That distinction is the whole of why account history is safe. Anonymous
+   * checkout takes an unverified number; if a stranger's order appeared in
+   * somebody's history because a digit was mistyped, they would read its
+   * `destination_label` — which for a delivery is a home address.
+   *
+   * Nullable forever: most orders in this product are placed by people who
+   * never make an account, and #9 says that has to keep working.
+   */
+  guestId: uuid('guest_id').references(() => guests.id),
+
   /** #5 — every amount is minor units, and the currency is on the row. */
   subtotalMinor: integer('subtotal_minor').notNull().default(0),
   taxMinor: integer('tax_minor').notNull().default(0),
@@ -139,6 +158,9 @@ export const orders = pgTable('orders', {
   index('orders_kds_idx').on(t.outletId, t.status, t.placedAt),
   index('orders_stay_idx').on(t.stayId),
   index('orders_visit_idx').on(t.visitId),
+  // The account's "your orders", newest first. Partial, because the column is
+  // null for the large majority of rows and an index over those is dead weight.
+  index('orders_guest_idx').on(t.guestId, t.placedAt),
 ]);
 
 export const orderItems = pgTable('order_items', {
