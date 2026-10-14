@@ -342,3 +342,96 @@ export interface ApiPlacedOrder {
   /** True when this call found the order a previous attempt already placed. */
   wasAlreadyPlaced: boolean;
 }
+
+
+/* ── Customer accounts (D-081) ───────────────────────────────────────────── */
+
+/**
+ * The second credential.
+ *
+ * `Authorization: Bearer <context>` keeps meaning WHERE somebody is ordering
+ * from — a visit. This header means WHO THEY ARE, and the two are independent:
+ * a request may carry neither (anonymous browsing, #9), the context alone
+ * (today's behaviour), both (a signed-in customer at a table), or the customer
+ * alone (order history, before anything has been scanned).
+ *
+ * The context kept `Authorization` specifically so the APK already installed
+ * does not break. `/v1` is versioned because a client on somebody's phone
+ * cannot be redeployed, and that promise starts applying from the first
+ * shipped build rather than at the first convenient moment.
+ */
+export const CUSTOMER_TOKEN_HEADER = 'x-customer-token';
+
+export interface ApiCustomer {
+  /** `COALESCE(display_name, full_name)`. What they call themselves — never
+   *  what the front desk recorded, which a customer may not rewrite. */
+  name: string;
+  phone: string | null;
+  email: string | null;
+  /** Proved by OTP, as opposed to typed into a form by somebody. */
+  phoneVerified: boolean;
+}
+
+export interface ApiAddress {
+  id: string;
+  /** "Home", "Work", "Mum's". Theirs to choose. */
+  label: string;
+  /** One free-text line: an Indian address is a landmark and a floor as often
+   *  as a street. The rider reads it; nothing parses it. */
+  line: string;
+  notes: string | null;
+  isDefault: boolean;
+}
+
+/** `POST /api/v1/auth/otp/request`. */
+export interface ApiRequestOtpBody {
+  phone: string;
+}
+
+/**
+ * Always `{ sent: true }`, for every dialable number.
+ *
+ * It does NOT report whether a message was actually sent. A throttled number
+ * answers identically to a fresh one, and a number that has never ordered here
+ * answers identically to one that has — otherwise this endpoint tells anybody
+ * who asks whether a given person is a customer of this hotel group.
+ */
+export interface ApiRequestOtpResult {
+  sent: true;
+  /** How long the code is good for, so the screen can say so. */
+  expiresInMinutes: number;
+}
+
+/** `POST /api/v1/auth/otp/verify`. */
+export interface ApiVerifyOtpBody {
+  phone: string;
+  code: string;
+  /** Used only if this is a brand-new customer. Never overwrites a name the
+   *  front desk recorded. */
+  name?: string;
+}
+
+export interface ApiSignedIn {
+  /** Sent back as `X-Customer-Token` on every later request. */
+  token: string;
+  customer: ApiCustomer;
+  addresses: ApiAddress[];
+}
+
+/** `GET /api/v1/auth/me` — the cold-start check for the customer half. */
+export interface ApiMe {
+  customer: ApiCustomer;
+  addresses: ApiAddress[];
+}
+
+export interface ApiUpdateProfileBody {
+  name?: string;
+  email?: string | null;
+}
+
+export interface ApiAddressBody {
+  label: string;
+  line: string;
+  notes?: string | null;
+  isDefault?: boolean;
+}

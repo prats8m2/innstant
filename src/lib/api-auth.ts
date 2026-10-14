@@ -1,5 +1,7 @@
 import { GUEST_SESSION_COOKIE, resolveVisitSession } from '@/modules/access';
 import type { VisitGuestSession } from '@/modules/access';
+import { resolveCustomerSession, CUSTOMER_TOKEN_HEADER } from '@/modules/customer';
+import type { CustomerSession } from '@/modules/customer';
 import { UnauthenticatedError } from './errors';
 
 /**
@@ -108,3 +110,54 @@ export async function requireVisitSession(request: Request): Promise<VisitGuestS
   }
   return session;
 }
+
+
+/* ── The second credential (D-081) ───────────────────────────────────────── */
+
+/**
+ * The signed-in customer behind this request, or null.
+ *
+ * ─── Why a separate header and not the same one ────────────────────────────
+ *
+ * Because they are different questions with different lifetimes. The bearer in
+ * `Authorization` says WHERE somebody is ordering from and dies with that
+ * context — six hours for a table tent. This says WHO THEY ARE and lasts
+ * weeks. A request legitimately carries neither, either, or both.
+ *
+ * `Authorization` stayed with the context so that the APK already on
+ * somebody's phone keeps working unchanged. An installed client cannot be
+ * redeployed; that is the whole reason `/v1` is versioned, and the promise is
+ * worth nothing if it is not kept the first time it costs something.
+ */
+export async function customerSessionFrom(request: Request): Promise<CustomerSession | null> {
+  const token = request.headers.get(CUSTOMER_TOKEN_HEADER);
+  return resolveCustomerSession(token?.trim() || undefined);
+}
+
+/** The same, throwing — for the endpoints that are ABOUT the account. */
+export async function requireCustomerSession(request: Request): Promise<CustomerSession> {
+  const session = await customerSessionFrom(request);
+  if (!session) {
+    throw new UnauthenticatedError(
+      'no customer session on this request',
+      'Sign in to see this.',
+    );
+  }
+  return session;
+}
+
+/**
+ * A customer session NEVER widens what a context session may do.
+ *
+ * This function exists to be read rather than called: there is deliberately no
+ * helper anywhere that takes both credentials and returns a combined
+ * permission, because the moment one exists somebody will reach for it. A
+ * signed-in customer at a table has exactly the access that table has, and a
+ * signed-in customer in a hotel room has exactly the access that room sticker
+ * grants — which is what D-012 decides, from the stay, and not from anything
+ * in this file.
+ *
+ * Proving a phone number proves a phone number. It does not prove you are the
+ * person in 214.
+ */
+export const CUSTOMER_GRANTS_NO_CONTEXT_ACCESS = true;

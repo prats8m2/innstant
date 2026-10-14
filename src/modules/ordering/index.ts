@@ -13,7 +13,7 @@ export {
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
 export { placeOrder } from './place-order';
-export { getOrderForContext, listOrdersForContext } from './read-order';
+export { getOrderForContext, listOrdersForContext, listOrdersForCustomer } from './read-order';
 
 /**
  * D-079 — what an order belongs to. A stay (charged to a room) or a visit

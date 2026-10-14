@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import type { CurrencyCode } from '@/lib/money';
@@ -222,6 +222,77 @@ export async function listOrdersForContext(
       summary: mine
         .map((item) => (item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name))
         .join(' · '),
+    };
+  });
+}
+
+
+/**
+ * A customer's own order history, across every visit. D-081.
+ *
+ * ─── Two predicates, and both are the decision ─────────────────────────────
+ *
+ * `guest_id = ?` is "placed by this verified account" — the column is stamped
+ * only where a customer session was attached, never from the unverified phone
+ * on a visit.
+ *
+ * `link_kind = 'ONLINE'` is "through a direct link". A table order belongs to
+ * the table and the moment — who ordered and who pays are routinely different
+ * people — and room service belongs to the hotel relationship, which the room
+ * sticker governs. `orders.fulfilment` cannot express this on its own:
+ * TAKEAWAY is produced by both a COUNTER link and an ONLINE one, and only the
+ * second counts.
+ *
+ * Served by `orders (guest_id, placed_at DESC) WHERE guest_id IS NOT NULL`.
+ */
+export async function listOrdersForCustomer(
+  tx: Tx,
+  input: { guestId: string; limit?: number },
+): Promise<OrderSummary[]> {
+  const rows = await tx.execute<{
+    id: string; order_number: string; status: string; currency: string;
+    total_minor: number; placed_at: Date | null; promised_by_at: Date | null;
+    delivered_at: Date | null;
+    rejection_reason: string | null; cancellation_reason: string | null;
+  }>(sql`
+    SELECT o.id, o.order_number, o.status, o.currency, o.total_minor, o.placed_at,
+           o.promised_by_at, o.delivered_at, o.rejection_reason, o.cancellation_reason
+    FROM orders o
+    JOIN visits v ON v.id = o.visit_id
+    WHERE o.guest_id = ${input.guestId}
+      AND v.link_kind = 'ONLINE'
+      AND o.status <> 'DRAFT'
+    ORDER BY o.placed_at DESC NULLS LAST
+    LIMIT ${input.limit ?? 50}
+  `);
+
+  if (!rows.rows.length) return [];
+
+  const ids = rows.rows.map((r) => r.id);
+  const items = await tx.select({
+    orderId: orderItems.orderId,
+    name: orderItems.nameSnapshot,
+    quantity: orderItems.quantity,
+  }).from(orderItems)
+    .where(inArray(orderItems.orderId, ids))
+    .orderBy(asc(orderItems.createdAt));
+
+  return rows.rows.map((order) => {
+    const mine = items.filter((item) => item.orderId === order.id);
+    return {
+      id: order.id,
+      orderNumber: order.order_number,
+      status: order.status as OrderStatus,
+      currency: order.currency as CurrencyCode,
+      totalMinor: order.total_minor,
+      placedAt: order.placed_at ? new Date(order.placed_at) : null,
+      promisedByAt: order.promised_by_at ? new Date(order.promised_by_at) : null,
+      deliveredAt: order.delivered_at ? new Date(order.delivered_at) : null,
+      // The kitchen's own words when it stopped, shown verbatim — the same
+      // rule `listOrdersForContext` follows.
+      haltReason: order.rejection_reason ?? order.cancellation_reason ?? null,
+      summary: mine.map((i) => `${i.quantity}× ${i.name}`).join(' · '),
+      itemCount: mine.reduce((n, i) => n + i.quantity, 0),
     };
   });
 }

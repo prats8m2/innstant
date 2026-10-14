@@ -69,6 +69,21 @@ export interface PlaceOrderInput {
    * rather than a ticket sent to a table that does not exist.
    */
   fulfilment?: 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+  /**
+   * The signed-in customer, if there was one. D-081.
+   *
+   * Stamped onto the order as `guest_id`, and ONLY from here — deliberately
+   * not from `visits.guest_id`, which checkout sets from a phone number
+   * nobody verified. That distinction is the whole of why account history is
+   * safe: anonymous checkout takes whatever is typed, and if a stranger's
+   * order appeared in somebody's history because a digit was mistyped they
+   * would read its `destination_label`, which for a delivery is a home
+   * address.
+   *
+   * Null for the large majority of orders, because most people never make an
+   * account and #9 says that has to keep working.
+   */
+  customerGuestId?: string | null;
   /** Stable per attempt, minted by the screen. Two taps send the same key. */
   idempotencyKey: string;
 
@@ -230,6 +245,8 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
     tenantId: input.tenantId,
     propertyId: input.propertyId,
     ...contextColumns(input.context),
+    // Who placed it, when that was PROVED. See `customerGuestId` above.
+    guestId: input.customerGuestId ?? null,
     outletId: outlet.id,
     orderNumber,
     status: 'PLACED',

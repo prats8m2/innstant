@@ -1,10 +1,12 @@
 import { z } from 'zod';
 import {
-  placeOrder, listOrdersForContext, contextForSession, OPEN_TO_A_GUEST,
+  placeOrder, listOrdersForContext, listOrdersForCustomer,
+  contextForSession, OPEN_TO_A_GUEST,
 } from '@/modules/ordering';
 import { setVisitDetails, destinationLabelFor, VISIT_FULFILMENTS } from '@/modules/visit';
-import { requireVisitSession } from '@/lib/api-auth';
+import { requireVisitSession, customerSessionFrom, requireCustomerSession } from '@/lib/api-auth';
 import { apiHandler, parseBody, corsPreflight } from '../_lib/handler';
+import { withTenant } from '@/db';
 import { withVisitContext } from '../_lib/context';
 import { apiMoney, apiOrderSummary } from '../_lib/serialise';
 import type { ApiOrderSummary, ApiPlacedOrder } from '@/lib/api-contract';
@@ -55,6 +57,10 @@ export const POST = apiHandler('/api/v1/orders', async (request): Promise<ApiPla
     'We need a name and a number to send this — the kitchen calls when it is ready.',
   );
 
+  // The signed-in customer, if there is one. Optional throughout: ordering
+  // signed out must keep working exactly as it does (#9).
+  const customer = await customerSessionFrom(request);
+
   return withVisitContext(session, async (tx, ctx) => {
     /**
      * Identify FIRST, in this transaction. The destination label is built from
@@ -89,6 +95,15 @@ export const POST = apiHandler('/api/v1/orders', async (request): Promise<ApiPla
       guestSessionId: session.id,
       accessTier: session.accessTier,
       guestNotes: body.guestNotes ?? null,
+      /**
+       * Only from the CUSTOMER session, never from the visit.
+       *
+       * `visits.guest_id` is set at checkout from a phone number nobody
+       * verified; this is set from a token that proved one. Stamping the
+       * former would put a stranger's order into somebody's history the first
+       * time a digit was mistyped — and the order carries a delivery address.
+       */
+      customerGuestId: customer?.guestId ?? null,
     });
 
     return {
@@ -110,16 +125,32 @@ export const POST = apiHandler('/api/v1/orders', async (request): Promise<ApiPla
  * D-080 and the thing phone-and-OTP accounts would change.
  */
 export const GET = apiHandler('/api/v1/orders', async (request): Promise<ApiOrderSummary[]> => {
-  const session = await requireVisitSession(request);
+  /**
+   * Two scopes, and the default is the one the shipped APK already asks for.
+   *
+   * `?scope=account` is additive: an installed client that knows nothing about
+   * it keeps getting this visit's orders, which is the promise `/v1` makes.
+   */
+  const url = new URL(request.url);
+  const scope = url.searchParams.get('scope') === 'account' ? 'account' : 'visit';
 
+  if (scope === 'account') {
+    // No context needed. This is the state that proved identity could not live
+    // inside `guest_sessions`: signed in, having scanned nothing.
+    const customer = await requireCustomerSession(request);
+    const orders = await withTenant({ tenantId: customer.tenantId }, (tx) =>
+      listOrdersForCustomer(tx, { guestId: customer.guestId }));
+    return orders.map((order) =>
+      apiOrderSummary(order, OPEN_TO_A_GUEST.includes(order.status)));
+  }
+
+  const session = await requireVisitSession(request);
   return withVisitContext(session, async (tx) => {
     const orders = await listOrdersForContext(tx, { context: contextForSession(session) });
-    // `isLive` is what decides whether the app polls this order. The same
-    // list the web uses to split "happening now" from the history, so an app
-    // and a browser agree about which orders are still moving.
+    // `isLive` is what decides whether the app polls an order. The same list
+    // the web uses to split "happening now" from the history.
     return orders.map((order) => apiOrderSummary(order, OPEN_TO_A_GUEST.includes(order.status)));
   });
 });
 
-/** Preflight. See the note on `corsPreflight`. */
 export const OPTIONS = corsPreflight;
