@@ -168,18 +168,24 @@ export const duration = {
  *     @expo-google-fonts/marcellus @expo-google-fonts/mukta \
  *     @expo-google-fonts/dm-mono
  *
- * then fill in the names below — 'Marcellus_400Regular', 'Mukta_400Regular',
- * 'Mukta_600SemiBold', 'DMMono_400Regular', 'DMMono_500Medium' — and load them
- * with `useFonts` in `app/_layout.tsx`, holding the splash until they resolve.
- * Nothing else changes: every component asks for a face through `face()` and
- * none of them names a family.
+ * The names below are the real families, loaded with `useFonts` in
+ * `app/_layout.tsx`, which holds the splash until they resolve. Nothing in any
+ * component changed to turn them on: every style asks for a face through
+ * `face()` and none of them names a family, which is the whole reason the
+ * indirection exists.
+ *
+ * Roughly a megabyte of TTF in the APK, which is over CLAUDE.md's ask-first
+ * bar and was asked about. The answer was yes, and the reasoning is that this
+ * design is typography-led BECAUSE it has no photography — rendering it on the
+ * system face gives up the thing it was built around, to save under one per
+ * cent of a 118MB APK.
  */
 export const fonts: Record<FaceRole, string | undefined> = {
-  display: undefined,
-  body: undefined,
-  bodyMedium: undefined,
-  mono: undefined,
-  monoMedium: undefined,
+  display: 'Marcellus_400Regular',
+  body: 'Mukta_400Regular',
+  bodyMedium: 'Mukta_600SemiBold',
+  mono: 'DMMono_400Regular',
+  monoMedium: 'DMMono_500Medium',
 };
 
 export type FaceRole = 'display' | 'body' | 'bodyMedium' | 'mono' | 'monoMedium';

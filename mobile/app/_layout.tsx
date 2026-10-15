@@ -1,5 +1,11 @@
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFonts } from 'expo-font';
+import { Marcellus_400Regular } from '@expo-google-fonts/marcellus';
+import { Mukta_400Regular, Mukta_600SemiBold } from '@expo-google-fonts/mukta';
+import { DMMono_400Regular, DMMono_500Medium } from '@expo-google-fonts/dm-mono';
 /**
  * `initialWindowMetrics` makes the safe-area insets correct on the FIRST
  * frame. Without it they start at zero and arrive a frame or two later, so the
@@ -29,7 +35,45 @@ import { colors } from '@/lib/theme';
  */
 export { ErrorBoundary } from 'expo-router';
 
+/**
+ * Hold the splash until the faces are in memory.
+ *
+ * Without this the first frame paints on the system font and then reflows as
+ * each family resolves — on this design that is the 34pt arch headline
+ * changing shape under the reader, which is worse than a splash screen that
+ * lasts a few hundred milliseconds longer.
+ *
+ * `preventAutoHideAsync` is deliberately NOT awaited and its rejection is
+ * swallowed: it throws when the splash has already gone (a fast reload, a
+ * remount), and a module-scope throw here is a white screen on launch.
+ */
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
+  const [fontsReady, fontError] = useFonts({
+    Marcellus_400Regular,
+    Mukta_400Regular,
+    Mukta_600SemiBold,
+    DMMono_400Regular,
+    DMMono_500Medium,
+  });
+
+  /**
+   * Render on the system face rather than never rendering.
+   *
+   * A font that fails to load is a typeface problem; a splash that never
+   * lifts is the app being broken. `face()` already falls back to a weight
+   * when a family is missing, so the screen that appears is the one this
+   * shipped with yesterday — not an error.
+   */
+  const ready = fontsReady || Boolean(fontError);
+
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  if (!ready) return null;
+
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       {/* Light content, because the ground is indigo. Set here so a screen
