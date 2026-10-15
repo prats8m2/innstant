@@ -49,6 +49,10 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          {/* The landing. It draws its own 64pt top row — a wordmark and the
+              account corner — so there is no header to show, and a native one
+              above it would be a second title bar. */}
+          <Stack.Screen name="home" options={{ headerShown: false }} />
           <Stack.Screen name="menu" options={{ title: 'Menu' }} />
           <Stack.Screen name="dish/[itemId]" options={{ title: '' }} />
           <Stack.Screen name="cart" options={{ title: 'Your order', presentation: 'modal' }} />

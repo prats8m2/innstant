@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router, Stack } from 'expo-router';
 import { Button, Notice, Screen } from '@/components/ui';
 import { useSession } from '@/lib/session';
-import { extractCode } from './index';
+import { extractCode } from '@/lib/open-link';
 import { colors, radius, space, text as type } from '@/lib/theme';
 
 /**

@@ -68,6 +68,18 @@ export async function loadVisitContext(
       // and it WINS: a kitchen that has stopped is stopped whatever the
       // schedule says.
       isOpen: state.isOpen && outlet.isAcceptingOrders,
+      /*
+        The clock time a closed screen can print on its own — "Ordering opens
+        noon". Three conditions, all of them about not claiming an hour the
+        kitchen never promised: shut by the SCHEDULE (not by a manager's
+        switch, which has no reopening time attached), with a next window, and
+        that window TODAY — because "opens 7am" under a Tuesday evening is a
+        sentence about Wednesday wearing a clock time's clothes. Everything
+        else is already said in full by `openLine` above.
+      */
+      opensAt: !state.isOpen && outlet.isAcceptingOrders && state.nextOpen?.today
+        ? formatClock(state.nextOpen.opensAt)
+        : null,
     }),
     apiProperty: {
       id: session.propertyId,

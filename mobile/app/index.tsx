@@ -16,9 +16,9 @@ import { colors, radius, space, text as type } from '@/lib/theme';
  * branding has already answered — the same wall #9 exists to remove, just
  * moved to the front door.
  *
- * So: open `DEFAULT_LINK_CODE` and go straight to the menu. On a warm start a
- * stored session skips even that. What renders here is only ever the half
- * second before a redirect, or a failure worth explaining.
+ * So: open `DEFAULT_LINK_CODE` and go straight to the home screen. On a warm
+ * start a stored session skips even that. What renders here is only ever the
+ * half second before a redirect, or a failure worth explaining.
  *
  * ─── What still overrides the default ──────────────────────────────────────
  *
@@ -30,6 +30,14 @@ import { colors, radius, space, text as type } from '@/lib/theme';
  * launch. It is `app/p/[code].tsx` and `app/r/[code].tsx` that handle those
  * now, which is also why a deep link cannot race the default: the router
  * simply never comes here.
+ *
+ * ─── `extractCode` used to live here, and no longer does ───────────────────
+ *
+ * There were two verbatim copies of it — one here, one in `lib/open-link.ts` —
+ * and the scanner imported the one on a BOOT SCREEN. That made a screen
+ * nobody sees into a dependency of the camera, so rewriting this file broke
+ * the scanner at a distance. The lib copy is the one that survives, and it is
+ * the copy the deep-link routes already used.
  */
 export default function Boot() {
   const { open, isLoading, session } = useSession();
@@ -60,9 +68,9 @@ export default function Boot() {
   useEffect(() => {
     if (isLoading) return;
 
-    // A live session from a previous launch. Straight to the menu — a cold
-    // start should not cost a round trip to learn what it already knows.
-    if (session) { router.replace('/menu'); return; }
+    // A live session from a previous launch. Straight through — a cold start
+    // should not cost a round trip to learn what it already knows.
+    if (session) { router.replace('/home'); return; }
 
     void openCode(DEFAULT_LINK_CODE);
   }, [isLoading, session, openCode]);
@@ -92,29 +100,6 @@ export default function Boot() {
       <Button label="Scan a code instead" tone="quiet" onPress={() => router.push('/scan')} />
     </Screen>
   );
-}
-
-/**
- * The code out of whatever we were given.
- *
- * A full URL, a path, or a bare code — all three happen: the first from a deep
- * link, the second from a half-copied link, the third from reading a card
- * aloud. The shape check is the server's own (`resolveVisitLink`), kept in
- * step deliberately: a code this rejects would be rejected there anyway, and a
- * round trip to learn that is a second of somebody's evening.
- *
- * Room stickers (`/r/{code}`) are matched too, so a guest who scans the card on
- * a nightstand reaches the right place rather than nothing.
- */
-export function extractCode(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-
-  const fromPath = trimmed.match(/\/[pr]\/([A-Za-z0-9_-]+)/);
-  const candidate = fromPath ? fromPath[1]! : trimmed;
-
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(candidate)) return null;
-  return candidate;
 }
 
 const s = StyleSheet.create({

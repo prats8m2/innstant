@@ -99,3 +99,125 @@ export const TOUCH_MIN = 48;
  * the same set of places.
  */
 export const tabular = { fontVariant: ['tabular-nums' as const] };
+
+/**
+ * The same hue as `paper`, at zero alpha.
+ *
+ * The bottom bar's gradient fades the ground out rather than fading a
+ * different colour in: `rgba(16, 30, 51, 0)` IS `--paper` with the alpha
+ * removed, so content sliding under it loses opacity without shifting colour.
+ * Written once here because a gradient stop is still a colour, and a component
+ * holding `'rgba(16, 30, 51, 0)'` is a hardcoded hex wearing a hat.
+ *
+ * Not in the MAPPING of the drift test: there is no `--paper-transparent` on
+ * the web, because CSS can write `transparent` and get the same result without
+ * naming the hue. RN's gradient cannot — `transparent` is black at zero alpha
+ * on Android and the fade goes grey.
+ */
+export const paperTransparent = 'rgba(16, 30, 51, 0)';
+
+/**
+ * Motion, in milliseconds. The mirror of theme.css's `--dur-*`.
+ *
+ * Same argument as the palette: RN has no custom properties, so the web file
+ * cannot be read here and this is the hand-kept copy that
+ * `tests/unit/mobile-theme.test.ts` holds to it. It exists so that CLAUDE.md's
+ * "never hardcode a duration in a component" survives the crossing — a screen
+ * that animates writes `duration.mid`, not `240`.
+ *
+ * Where each one is spent on the home screen, which is the only screen that
+ * animates at all today:
+ *
+ *   · `fast`   — the quick-add button filling with saffron when the first one
+ *                lands in the cart.
+ *   · `mid`    — the bottom bar turning from "See the full menu" into
+ *                "View cart" on the first add.
+ *   · `slower` — a live order's progress segment filling.
+ *
+ * PRESSES are not in that list. The design specifies 180ms on them, and React
+ * Native's answer is `Pressable`'s pressed style, which swaps immediately —
+ * the design doc says either is fine, and an animated press state costs an
+ * `Animated.Value` per tappable row to make a 180ms fade nobody waits out.
+ *
+ * `base` and `slow` have no caller yet. They are here because the drift test
+ * checks the whole set, and a partial copy is the kind that rots.
+ */
+export const duration = {
+  fast: 180, base: 200, mid: 240, slow: 300, slower: 320,
+} as const;
+
+/**
+ * The three families the design is set in. D-080.
+ *
+ * ─── These are NOT installed yet, and that is deliberate ───────────────────
+ *
+ * CLAUDE.md says to ask before adding a dependency over ~50KB of SHIPPED
+ * bytes. Three Google font families — Marcellus, Mukta at two weights, DM Mono
+ * at two — are somewhere near a megabyte of TTF inside the APK, which is well
+ * over that bar and is a question for a person rather than a decision to take
+ * quietly in a commit.
+ *
+ * So every value below is `undefined` today, which React Native reads as the
+ * system face. The screen builds, lays out and behaves correctly; it simply is
+ * not set in the typefaces the design is drawn in, and the 34pt arch headline
+ * is the place that shows it most.
+ *
+ * ─── Turning them on is this file plus one effect ──────────────────────────
+ *
+ *   cd mobile && npx expo install expo-font expo-splash-screen \
+ *     @expo-google-fonts/marcellus @expo-google-fonts/mukta \
+ *     @expo-google-fonts/dm-mono
+ *
+ * then fill in the names below — 'Marcellus_400Regular', 'Mukta_400Regular',
+ * 'Mukta_600SemiBold', 'DMMono_400Regular', 'DMMono_500Medium' — and load them
+ * with `useFonts` in `app/_layout.tsx`, holding the splash until they resolve.
+ * Nothing else changes: every component asks for a face through `face()` and
+ * none of them names a family.
+ */
+export const fonts: Record<FaceRole, string | undefined> = {
+  display: undefined,
+  body: undefined,
+  bodyMedium: undefined,
+  mono: undefined,
+  monoMedium: undefined,
+};
+
+export type FaceRole = 'display' | 'body' | 'bodyMedium' | 'mono' | 'monoMedium';
+
+/** Deliberately a string union rather than RN's `TextStyle['fontWeight']`:
+ *  this file imports nothing, so the web's unit suite can read it. */
+type Weight = '400' | '500' | '600' | '700';
+
+/**
+ * A typeface, as a style fragment to spread into a `StyleSheet` entry.
+ *
+ * The weight is the half that matters while `fonts` is empty. A Google family
+ * carries its own weight in its NAME — `Mukta_600SemiBold` is a separate font
+ * file, not a 600 of one — so once the packages land the `fontWeight` here is
+ * dropped: setting both is what produces synthesised fake-bold on Android, on
+ * top of a face that is already semibold.
+ *
+ * Until then it is the only lever left, and it is what keeps a heading reading
+ * as a heading on the system face.
+ */
+export function face(role: FaceRole): { fontFamily?: string; fontWeight?: Weight } {
+  const family = fonts[role];
+  if (family) return { fontFamily: family };
+  return { fontWeight: FALLBACK_WEIGHT[role] };
+}
+
+/**
+ * What each role weighs when it is rendered on the system face.
+ *
+ * `display` is the one that is not a transcription. Marcellus is a 400-weight
+ * serif and reads as a display face because of its shapes; a system sans at
+ * 400 and 34pt reads as a paragraph that got large. 600 is the nearest thing
+ * to its presence that a weight can buy.
+ */
+const FALLBACK_WEIGHT: Record<FaceRole, Weight> = {
+  display: '600',
+  body: '400',
+  bodyMedium: '600',
+  mono: '400',
+  monoMedium: '600',
+};

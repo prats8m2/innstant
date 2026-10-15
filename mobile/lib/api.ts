@@ -5,6 +5,7 @@ import type {
   ApiPlacedOrder, ApiSession, ApiPlaceOrderBody, ApiAddToCartBody, ApiQuickAddBody,
   ApiCustomer, ApiAddress, ApiAddressBody, ApiMe, ApiSignedIn,
   ApiRequestOtpResult, ApiUpdateProfileBody,
+  ApiReorderSuggestion, ApiReorderResult,
 } from '@contract';
 
 /**
@@ -283,11 +284,36 @@ export function getOrder(orderId: string): Promise<ApiOrder> {
   return request<ApiOrder>(`/orders/${orderId}`);
 }
 
+/**
+ * "Same as last time" — the last delivered order, when the WHOLE of it can go
+ * back in a cart today.
+ *
+ * `{ reorder: null }` is the ordinary answer and the home screen draws nothing
+ * for it: a first visit, a rejected last order, or a dish off the menu tonight
+ * all look the same from here, and none of them is something a customer can
+ * act on from a storefront. The server decides it, because the server is where
+ * the menu is.
+ *
+ * Both credentials ride along by default, which is what makes this the
+ * ACCOUNT's last order when somebody is signed in and this visit's when they
+ * are not — the same branch `/orders` makes.
+ */
+export function getReorder(): Promise<ApiReorderSuggestion> {
+  return request<ApiReorderSuggestion>('/orders/reorder');
+}
+
+/** Puts that order's lines back in the cart and hands the cart back, so the
+ *  shared copy is replaced by one assignment rather than a refetch. */
+export function reorder(orderId: string): Promise<ApiReorderResult> {
+  return request<ApiReorderResult>('/orders/reorder', { method: 'POST', body: { orderId } });
+}
+
 /** Re-exported so screens import their types from one place. */
 export type {
   ApiCart, ApiCartLine, ApiMenu, ApiMenuSection, ApiDish, ApiDishDetail,
   ApiModifierGroup, ApiOrder, ApiOrderSummary, ApiSession, ApiVisit,
   ApiFulfilment, ApiMoney, ApiTrackStep,
+  ApiReorder, ApiReorderSuggestion, ApiReorderResult,
 } from '@contract';
 
 

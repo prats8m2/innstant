@@ -2721,3 +2721,43 @@ API surface that is now a public contract rather than an internal shape. The
 screens are the cheap half and will stay that way; `/api/v1` is the thing that
 has to be got right, because it is the thing that cannot be changed under a
 client already installed.
+
+### D-082 · Featured dishes are computed from the curated collections
+The home screen leads with three dishes under "Three to start with". Which
+three is **computed** — one from each curated collection that is showing right
+now, in collection order, topped up from the categories when fewer than three
+collections are on. `featuredDishes()` in `modules/catalog`, pure over the
+sections `getMenu()` already assembles, serialised as the additive
+`ApiMenu.featured`.
+
+**Not a flag.** D-071 refused one already, in those words: "the tempting
+answer is an `is_featured` column somebody ticks". It is still the tempting
+answer and still the wrong one — a list somebody has to maintain, maintained
+by the one person too close to the menu to pick for a stranger.
+
+**Not counted demand either, which is what D-071 chose for amenities.** The
+analogy breaks on what each strip is for. Amenities wanted the thing ninety
+guests a month actually ask for, and a towel is the right answer.
+`order_items.menu_item_id` would support the identical query here — and
+ranking a restaurant menu by sold quantity promotes masala chai at ₹180 and
+kesar lassi at ₹320, because the cheap repeat purchase always wins a count.
+True, and useless: "three to start with" is the place for the ₹1,150 dish.
+D-071's own second rule makes the same move in reverse — free before
+chargeable at equal demand, because a one-tap strip is a place to put a towel
+and not a place to sell wine. Featured dishes are the mirror case.
+
+**Why collections.** Unlike amenities, curation already exists here and already
+carries the editorial voice: a collection has an `editorial_note`, a
+`sort_order` and an availability window, and `getMenu()` already lets a
+collection beat an identically-named category because the collection is the
+curated one. Picking ACROSS collections rather than down one is the rule that
+matters — laal maas belongs to three sections on this menu, and taking the
+first three members of collection zero would have tagged all three "From the
+rooftop".
+
+**Cost:** the strip changes with the clock, so it cannot be screenshotted and
+signed off once — before 10pm it is two collections and a category, after 10pm
+it is three collections. That is the feature, not a defect, but it means
+"which three" is a question with a time in it. And a property that uses no
+collections gets the first dish of each category, which is a weaker answer
+than curation and the reason the fallback is second rather than first.

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable, ScrollView, SectionList, StyleSheet, Text, View,
 } from 'react-native';
-import { router, Stack, useFocusEffect } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '@/lib/api';
 import type { ApiDish, ApiMenu } from '@/lib/api';
@@ -27,7 +27,9 @@ interface MenuSection {
 }
 
 export default function Menu() {
-  const { session, customer, cart, setCart, refreshCart } = useSession();
+  /** Set by a contents row on the home screen — the section to open at. */
+  const { section: anchor } = useLocalSearchParams<{ section?: string }>();
+  const { session, cart, setCart, refreshCart } = useSession();
   const onError = useApiError();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,23 @@ export default function Menu() {
   /** The section shape the list renders — `blurb` included, or the header
    *  cannot read it. */
   const list = useRef<SectionList<ApiDish, MenuSection>>(null);
+  /**
+   * The rail, and the one chip that has to be brought into view.
+   *
+   * The designer's note on the contents rows is specific: a row deep-links the
+   * menu "scrolled to that section with the rail already tracking" — not a
+   * frame later. The rail cannot be scrolled to a chip that has not been laid
+   * out, and `onLayout` fires AFTER the native layout pass — which is after
+   * every effect on the commit that first rendered the chips. So the jump is
+   * made by the anchored chip itself, from its own `onLayout`, rather than by
+   * an effect reading measurements that do not exist yet.
+   */
+  const rail = useRef<ScrollView>(null);
+  /** One rail jump per arrival, for the same reason as `jumped` below. */
+  const railJumped = useRef(false);
+  /** One jump per arrival. Without it, every re-render of a focused screen
+   *  would yank somebody back to the anchor they have since scrolled past. */
+  const jumped = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,6 +77,26 @@ export default function Menu() {
    * they cannot cover: an order placed, which empties the cart server-side.
    */
   useFocusEffect(useCallback(() => { void refreshCart(); }, [refreshCart]));
+
+  /**
+   * Arrive at the section the home screen asked for.
+   *
+   * It runs once the menu is in hand, because neither the list nor the rail
+   * can be scrolled to a section that has not been laid out. `scrollToLocation`
+   * on a list of variable-height rows lands approximately and settles, which
+   * is the right behaviour for a jump to a section head.
+   */
+  useEffect(() => {
+    if (!menu || !anchor || jumped.current) return;
+
+    const index = menu.sections
+      .filter((section) => section.items.length > 0)
+      .findIndex((section) => section.id === anchor);
+    if (index < 0) return;
+
+    jumped.current = true;
+    list.current?.scrollToLocation({ sectionIndex: index, itemIndex: 0, viewPosition: 0 });
+  }, [menu, anchor]);
 
   /** How many of each dish are in the cart, summed ACROSS variants. */
   const inCart = useMemo(() => {
@@ -101,39 +140,30 @@ export default function Menu() {
         options={{
           title: session.property.name,
           /*
-            Scan is HERE because the boot screen stopped being a screen anybody
-            sees (D-080): the app opens its own restaurant and lands on this
-            menu. Somebody who sits down at a table and wants their order to go
-            to that table needs a way to say so, and this is the only screen
-            they are reliably on.
+            No `headerLeft` override any more, so the NATIVE back button is
+            here — and it goes to the home screen, which is what pushed this
+            one. A custom left slot replaces that button, which is how the menu
+            ended up with no way back at all once it stopped being the first
+            screen.
           */
-          headerLeft: () => (
+          headerRight: () => (
             <Pressable
               onPress={() => router.push('/scan')}
               hitSlop={12}
               accessibilityLabel="Scan the code on your table"
-              style={{ paddingHorizontal: space[2] }}
-            >
-              {/* The WORD, not a glyph. This was U+2317 (⌗), which is not in
-                  Roboto and has no Android fallback — an unlabelled tofu box
-                  next to the word "Orders", and the only entry to the scanner
-                  in the app. D-073's lesson, one surface over: do not pick a
-                  codepoint and hope. */}
-              <Text style={s.headerLink}>Scan</Text>
-            </Pressable>
-          ),
-          headerRight: () => (
-            <Pressable
-              onPress={() => router.push('/account')}
-              hitSlop={12}
-              accessibilityLabel="Your account"
               // The padding is load-bearing: without it the label sits flush
               // against the screen edge and is clipped on a 390px viewport.
               style={{ paddingHorizontal: space[2] }}
             >
-              {/* The word changes with the state, so somebody signed in can
-                  see that they are without opening anything. */}
-              <Text style={s.headerLink}>{customer ? customer.name.split(' ')[0] : 'Account'}</Text>
+              {/* The WORD, not a glyph. This was U+2317 (⌗), which is not in
+                  Roboto and has no Android fallback — an unlabelled tofu box,
+                  and the only entry to the scanner in the app. D-073's lesson,
+                  one surface over: do not pick a codepoint and hope.
+
+                  It moved from the left slot to this one when home took over
+                  the landing: the account is a 48pt corner on that screen now,
+                  one tap back, and the scanner has nowhere else to live. */}
+              <Text style={s.headerLink}>Scan</Text>
             </Pressable>
           ),
         }}
@@ -148,6 +178,7 @@ export default function Menu() {
         </Text>
 
         <ScrollView
+          ref={rail}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.rail}
@@ -155,6 +186,18 @@ export default function Menu() {
           {sections.map((section, index) => (
             <Pressable
               key={section.id}
+              // The anchored chip brings itself into view the moment it knows
+              // where it is, so a deep link from the home screen's contents
+              // list arrives with the rail already tracking rather than with
+              // it parked on section one. `space[5]` back from the chip's own
+              // edge, so it sits inside the gutter rather than flush against
+              // the screen edge.
+              onLayout={(event) => {
+                if (section.id !== anchor || railJumped.current) return;
+                railJumped.current = true;
+                const { x } = event.nativeEvent.layout;
+                rail.current?.scrollTo({ x: Math.max(0, x - space[5]), animated: false });
+              }}
               onPress={() => list.current?.scrollToLocation({
                 sectionIndex: index,
                 itemIndex: 0,

@@ -1,11 +1,14 @@
 import { formatMoney, money, type CurrencyCode, type Money } from '@/lib/money';
 import type {
-  ApiMoney, ApiDish, ApiMenuSection, ApiOutlet, ApiCart, ApiCartLine,
-  ApiOrder, ApiOrderSummary, ApiTrackStep, ApiVisit,
+  ApiMoney, ApiDish, ApiFeaturedDish, ApiMenuSection, ApiOutlet, ApiCart, ApiCartLine,
+  ApiOrder, ApiOrderSummary, ApiReorder, ApiTrackStep, ApiVisit,
 } from '@/lib/api-contract';
-import type { MenuDish, MenuSection, OutletMenu } from '@/modules/catalog';
-import type { Cart, CartLine, PlacedOrderDetail, OrderSummary } from '@/modules/ordering';
+import type { FeaturedDish, MenuDish, MenuSection, OutletMenu } from '@/modules/catalog';
+import type {
+  Cart, CartLine, PlacedOrderDetail, OrderSummary, ReorderableOrder,
+} from '@/modules/ordering';
 import type { TrackView, TrackEta } from '@/modules/ordering';
+import { orderStateFor, trackEta, trackProgress } from '@/modules/ordering';
 import type { Visit } from '@/modules/visit';
 
 /**
@@ -73,9 +76,21 @@ export function apiSection(section: MenuSection): ApiMenuSection {
   };
 }
 
+/**
+ * The featured strip, from the domain's own pick.
+ *
+ * The dishes are re-serialised rather than referenced by id into `sections`,
+ * which costs a few hundred bytes and buys a strip that renders from one field
+ * instead of from a lookup the app has to get right. `apiDish` is the same
+ * function `apiSection` uses, so the two views of a dish cannot drift.
+ */
+export function apiFeatured(entries: readonly FeaturedDish[]): ApiFeaturedDish[] {
+  return entries.map((entry) => ({ section: entry.section, dish: apiDish(entry.dish) }));
+}
+
 export function apiOutlet(
   outlet: OutletMenu['outlet'],
-  open: { line: string; isOpen: boolean },
+  open: { line: string; isOpen: boolean; opensAt: string | null },
 ): ApiOutlet {
   return {
     id: outlet.id,
@@ -85,6 +100,7 @@ export function apiOutlet(
     minimumOrder: apiMoney(outlet.minimumOrderMinor, outlet.currency),
     openLine: open.line,
     isOpen: open.isOpen,
+    opensAt: open.opensAt,
   };
 }
 
@@ -232,7 +248,25 @@ export function apiOrder(
   };
 }
 
+/**
+ * One order, as a list row and as the home screen's live card.
+ *
+ * The state machine's presentation half runs HERE too, for the same reason
+ * `apiOrder` runs it: a card that says "Being cooked" and draws three of five
+ * segments is reading the machine, and the only acceptable number of places
+ * that machine is implemented is one. `OrderSummary` already carries the
+ * stamps the lists select, so this costs no query and no second round trip —
+ * which is the point, because the alternative was `GET /orders/{id}` per live
+ * order just to learn one word.
+ */
 export function apiOrderSummary(order: OrderSummary, isLive: boolean): ApiOrderSummary {
+  const state = orderStateFor(order.status);
+  // The same three parts `apiOrder` sends, so a card and the tracking screen
+  // compose one sentence the same way — and null together when there is
+  // nothing honest to promise.
+  const eta = trackEta(order.status, order.promisedByAt, { deliveredAt: order.deliveredAt });
+  const progress = trackProgress(order.status);
+
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -242,6 +276,16 @@ export function apiOrderSummary(order: OrderSummary, isLive: boolean): ApiOrderS
     summary: order.summary,
     itemCount: order.itemCount,
     isLive,
+
+    statusLabel: state.label,
+    headline: state.short,
+
+    etaLabel: eta?.label ?? null,
+    etaFrom: iso(eta?.from ?? null),
+    etaTo: iso(eta?.to ?? null),
+
+    stepIndex: progress.index,
+    stepCount: progress.of,
   };
 }
 
@@ -254,4 +298,42 @@ export function apiOrderSummary(order: OrderSummary, isLive: boolean): ApiOrderS
  */
 export function paymentLineFor(fulfilment: ApiOrder['fulfilment']): string {
   return fulfilment === 'DELIVERY' ? 'Pay the rider when it arrives.' : 'Pay at the counter.';
+}
+
+/**
+ * The reorder block, for the home screen. D-080.
+ *
+ * `placedOn` is a DATE, not an instant: "12 Oct" is what the design prints
+ * beside the order number, and it is rendered in the PROPERTY's timezone like
+ * every other human-facing time in this product (CLAUDE.md "Dates"). An order
+ * placed at 00:30 in Udaipur belongs to that day there, not to the previous
+ * one in UTC.
+ *
+ * The lines themselves do not cross. The app shows one summary line and a
+ * button; what goes in the cart is decided server-side when the button is
+ * pressed, from the order, not from anything a client sends back.
+ */
+export function apiReorder(order: ReorderableOrder, timeZone: string): ApiReorder {
+  return {
+    orderId: order.orderId,
+    orderNumber: order.orderNumber,
+    placedOn: order.placedAt ? dayLabel(order.placedAt, timeZone) : '',
+    summary: order.summary,
+    total: apiMoney(order.totalMinor, order.currency),
+  };
+}
+
+/** "12 Oct", there. */
+function dayLabel(instant: Date, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      timeZone,
+    }).format(instant);
+  } catch {
+    // An unknown IANA zone throws rather than falling back, and a date one
+    // zone out is still better than a 500 on a storefront.
+    return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(instant);
+  }
 }

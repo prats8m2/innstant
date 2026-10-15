@@ -13,6 +13,10 @@ export {
 export type { Cart, CartLine, CartLineModifier, CartOutletConfig, AddToCartInput } from './cart';
 
 export { placeOrder } from './place-order';
+
+/** "Same as last time" — the home screen's reorder block (D-080). */
+export { lastReorderable, reorderIntoCart } from './reorder';
+export type { ReorderableOrder, ReorderLine } from './reorder';
 export { getOrderForContext, listOrdersForContext, listOrdersForCustomer } from './read-order';
 
 /**
@@ -42,12 +46,13 @@ export type { OrderStatus } from './transitions';
 export type { PlacedOrderDetail, PlacedOrderLine, OrderSummary } from './read-order';
 
 export {
-  trackView, trackEta, TRACK_STEPS, ETA_WINDOW_MINUTES,
+  trackView, trackEta, trackProgress, TRACK_STEPS, ETA_WINDOW_MINUTES,
   orderStateFor, OPEN_TO_A_GUEST,
 } from './track';
 export type { OrderState, OrderStateTone, TrackFulfilment } from './track';
 export type { TrackView, TrackStep, TrackStepKey, TrackStepState, TrackHalt, TrackEta, OrderStamps }
   from './track';
+export type { TrackProgress } from './track';
 export type { PlaceOrderInput, PlacedOrder } from './place-order';
 
 export { calculateTotals, lineTotal } from './totals';

@@ -348,6 +348,43 @@ export function trackView(
 }
 
 /**
+ * How far along, for something too small to draw the timeline.
+ *
+ * A home-screen card has room for five segments and no room for five titles.
+ * It gets a POSITION rather than a `TrackView` it would have to count: 1-based
+ * over `TRACK_STEPS`, and `of` so that the number of segments travels with the
+ * position instead of being assumed at the other end.
+ *
+ * That last part is the reason this exists as a function rather than as
+ * arithmetic in the serialiser. `TRACK_STEPS` is FIVE — ACCEPTED and PREPARING
+ * are one step on purpose, with the difference carried in the sub-line — and
+ * anything counting statuses instead would draw six and light the wrong one.
+ * An app holding either number is holding half a state machine.
+ *
+ * Zero for everything that is not on the timeline at all: the three halted
+ * statuses, which `trackView()` answers with a sentence rather than a
+ * progress diagram, and DRAFT, which never leaves `placeOrder()`.
+ */
+export interface TrackProgress {
+  index: number;
+  of: number;
+}
+
+export function trackProgress(status: OrderStatus): TrackProgress {
+  const of = TRACK_STEPS.length;
+  if (status === 'DRAFT') return { index: 0, of };
+  if (status === 'REJECTED' || status === 'CANCELLED' || status === 'DISPUTED') {
+    return { index: 0, of };
+  }
+  // `findIndex` returns -1 for a status with no step, which would read as a
+  // position rather than as an absence. There is no such status today and
+  // `track.test.ts` is exhaustive over ORDER_STATUSES so that there cannot be
+  // one tomorrow without this being looked at.
+  const found = indexOfStatus(status);
+  return { index: found < 0 ? 0 : found + 1, of };
+}
+
+/**
  * The promise at the top of the screen.
  *
  * A window, not a single minute, for as long as the answer is genuinely a

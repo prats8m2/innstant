@@ -40,6 +40,26 @@ function kesariPrimitives(): Map<string, string> {
   return found;
 }
 
+/**
+ * The numeric members of a named `export const X = { … } as const` block.
+ *
+ * Empty when the block is absent, rather than throwing: an assertion at
+ * collection time fails the whole FILE, which would take the palette tests
+ * above down with it and hide the drift they are here to name.
+ */
+function mobileNumbers(name: string): Map<string, number> {
+  const source = readFileSync(MOBILE_THEME, 'utf8');
+  const start = source.indexOf(`export const ${name}`);
+  const found = new Map<string, number>();
+  if (start < 0) return found;
+
+  const block = source.slice(start, source.indexOf('as const', start));
+  for (const match of block.matchAll(/(\w+):\s*(\d+)/g)) {
+    found.set(match[1]!, Number(match[2]));
+  }
+  return found;
+}
+
 function mobileColors(): Map<string, string> {
   const source = readFileSync(MOBILE_THEME, 'utf8');
   const block = source.slice(source.indexOf('export const colors'), source.indexOf('} as const'));
@@ -111,5 +131,62 @@ describe('the mobile palette tracks theme.css', () => {
     const ink = css.get('--ink')!;
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
     expect(app.get(mobileName)).toBe(`rgba(${r}, ${g}, ${b}, ${alpha})`);
+  });
+});
+
+
+/**
+ * The motion tokens have not drifted either. D-080.
+ *
+ * Same argument as the palette above, one axis over. RN has no custom
+ * properties, so `--dur-mid` cannot be consumed there and `mobile/lib/theme.ts`
+ * keeps numbers — which is the only reason a component is allowed to animate
+ * at all without hardcoding a duration, and the reason CLAUDE.md's rule about
+ * never writing one inline still holds on the app side.
+ *
+ * These live on `:root` rather than inside `[data-theme='kesari']`: motion is
+ * not a palette and does not change per property.
+ */
+function cssDurations(): Map<string, number> {
+  const css = readFileSync(THEME_CSS, 'utf8');
+  const found = new Map<string, number>();
+  for (const match of css.matchAll(/--dur-([\w-]+):\s*(\d+)ms;/g)) {
+    found.set(match[1]!, Number(match[2]));
+  }
+  return found;
+}
+
+describe('the mobile motion tokens track theme.css', () => {
+  const css = cssDurations();
+  const app = mobileNumbers('duration');
+
+  it('exports the durations at all', () => {
+    expect(app.size, 'mobile/lib/theme.ts has no `export const duration`').toBeGreaterThan(0);
+  });
+
+  it.each([
+    ['fast', 'fast'],
+    ['base', 'base'],
+    ['mid', 'mid'],
+    ['slow', 'slow'],
+    ['slower', 'slower'],
+  ])('%s matches --dur-%s', (mobileName, cssName) => {
+    const expected = css.get(cssName);
+    expect(expected, `--dur-${cssName} is missing from theme.css`).toBeDefined();
+    expect(
+      app.get(mobileName),
+      `mobile/lib/theme.ts duration.${mobileName} has drifted from --dur-${cssName}`,
+    ).toBe(expected);
+  });
+
+  /**
+   * And nothing invented. A duration in the app with no counterpart on the web
+   * is a motion decision made in one place and not the other, which is exactly
+   * what this file exists to catch for colour.
+   */
+  it('names no duration the web does not have', () => {
+    for (const name of app.keys()) {
+      expect(css.has(name), `duration.${name} has no --dur-${name} in theme.css`).toBe(true);
+    }
   });
 });

@@ -43,6 +43,17 @@ interface SessionState {
   cart: ApiCart | null;
   /** True until the cold-start checks have answered. */
   isLoading: boolean;
+  /**
+   * True until the IDENTITY has answered — a separate flag because it is a
+   * separate cold start, and it deliberately does not gate `isLoading`.
+   *
+   * It exists so that a screen with something to say ABOUT having no account
+   * can wait the one round trip before saying it. Without it, `customer ===
+   * null` conflates "signed out" with "not restored yet", and a signed-in
+   * person is told they have no account for as long as `me()` takes. Nothing
+   * may gate BROWSING on it (#9) — the menu renders either way.
+   */
+  isCustomerLoading: boolean;
   /** Open a link code — from a deep link, a scan, or typing. */
   open: (code: string) => Promise<void>;
   /** Replace the cart after a mutation returned a fresh one. */
@@ -65,6 +76,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [addresses, setAddresses] = useState<ApiAddress[]>([]);
   const [cart, setCartState] = useState<ApiCart | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCustomerLoading, setCustomerLoading] = useState(true);
 
   const end = useCallback(async () => {
     await api.setToken(null);
@@ -136,8 +148,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      if (!(await api.getCustomerToken())) return;
       try {
+        if (!(await api.getCustomerToken())) return;
         const mine = await api.me();
         if (cancelled) return;
         setCustomerState(mine.customer);
@@ -147,6 +159,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         if (error instanceof ApiFailure && error.isSessionGone) {
           await api.setCustomerToken(null);
         }
+      } finally {
+        // Answered either way — no token, a restored customer, or a lapsed
+        // one. The screens waiting on this are waiting to say something about
+        // NOT being signed in, and all three outcomes settle that question.
+        if (!cancelled) setCustomerLoading(false);
       }
     })();
 
@@ -159,11 +176,14 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // A brand-new visit has an empty cart by construction. Fetching one would
     // be a round trip to learn a thing we already know.
     setCartState(null);
-    // Without this the stack becomes [menu, menu] after a scan. Guarded for
+    // Without this the stack becomes [home, home] after a scan. Guarded for
     // the same reason as above — a boot with an empty stack has nothing to
     // dismiss, and asking anyway is an error overlay.
     if (router.canDismiss()) router.dismissAll();
-    router.replace('/menu');
+    // Home rather than the menu: the storefront is the app's first screen now,
+    // and the menu is what it opens into. A scan that landed straight on the
+    // list would skip the one page that says whether the kitchen is cooking.
+    router.replace('/home');
   }, []);
 
   const setCustomer = useCallback((next: ApiCustomer | null, saved?: ApiAddress[]) => {
@@ -210,6 +230,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     addresses,
     cart,
     isLoading,
+    isCustomerLoading,
     open,
     setCart: setCartState,
     refreshCart,
@@ -217,7 +238,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     refreshAccount,
     signOut,
     end,
-  }), [session, customer, addresses, cart, isLoading, open, refreshCart,
+  }), [session, customer, addresses, cart, isLoading, isCustomerLoading, open, refreshCart,
        setCustomer, refreshAccount, signOut, end]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

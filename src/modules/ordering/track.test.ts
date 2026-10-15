@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { trackView, TRACK_STEPS, orderStateFor, OPEN_TO_A_GUEST } from './track';
+import { trackView, trackProgress, TRACK_STEPS, orderStateFor, OPEN_TO_A_GUEST } from './track';
 import { ORDER_STATUSES, type OrderStatus } from './transitions';
 
 /**
@@ -124,6 +124,79 @@ describe('trackView', () => {
       'On the way up',
       'At your door',
     ]);
+  });
+});
+
+
+/**
+ * The same timeline, as a fraction — for a card with room for segments and no
+ * room for titles.
+ *
+ * Held to the standard the rest of this file holds `trackView()` and
+ * `orderStateFor()` to: EVERY member of `ORDER_STATUSES` gets an answer, and
+ * the answer is a position on the timeline or an honest zero. The failure this
+ * guards is quieter than a blank timeline — a card drawing four of five
+ * segments for an order the kitchen refused looks like progress.
+ */
+describe('trackProgress', () => {
+  it('answers for every status the machine can reach, in range', () => {
+    for (const status of ORDER_STATUSES) {
+      const { index, of } = trackProgress(status);
+      expect(of, `${status} reported the wrong step count`).toBe(TRACK_STEPS.length);
+      expect(index, `${status} is off the timeline`).toBeGreaterThanOrEqual(0);
+      expect(index, `${status} is past the end`).toBeLessThanOrEqual(TRACK_STEPS.length);
+    }
+  });
+
+  /**
+   * ACCEPTED and PREPARING are both 2, which is the decision this whole file
+   * exists to pin: they are ONE step with two sub-lines. A card that drew six
+   * segments — one per live status — would be a second, wrong copy of the
+   * state machine, which is why `stepCount` travels on the wire.
+   */
+  it('maps the five live statuses onto five steps, not six', () => {
+    expect(trackProgress('PLACED').index).toBe(1);
+    expect(trackProgress('ACCEPTED').index).toBe(2);
+    expect(trackProgress('PREPARING').index).toBe(2);
+    expect(trackProgress('READY').index).toBe(3);
+    expect(trackProgress('OUT_FOR_DELIVERY').index).toBe(4);
+  });
+
+  it('fills the bar once the food has been handed over', () => {
+    expect(trackProgress('DELIVERED').index).toBe(TRACK_STEPS.length);
+    expect(trackProgress('CLOSED').index).toBe(TRACK_STEPS.length);
+  });
+
+  /**
+   * Zero, not a partial bar. `trackView()` answers these three with a sentence
+   * instead of a timeline, and a card has to make the same choice — a halted
+   * order showing two of five segments reads as "still coming".
+   */
+  it('gives the halted statuses no progress at all', () => {
+    for (const status of ['REJECTED', 'CANCELLED', 'DISPUTED'] as const) {
+      expect(trackProgress(status).index, status).toBe(0);
+    }
+  });
+
+  it('gives the cart none either', () => {
+    // DRAFT never leaves placeOrder(); it is here so the record is exhaustive.
+    expect(trackProgress('DRAFT').index).toBe(0);
+  });
+
+  it('agrees with the timeline about which step is active', () => {
+    // The two views of the same position must not drift: wherever `trackView`
+    // lights a step, `trackProgress` is that step's 1-based index.
+    for (const status of ORDER_STATUSES) {
+      const steps = trackView(status).steps;
+      if (!steps) continue;
+      const active = steps.findIndex((step) => step.state === 'active');
+      const expected = active < 0
+        // Nothing active and every step done is the end of the line; nothing
+        // active and nothing done is DRAFT.
+        ? (steps.every((step) => step.state === 'done') ? steps.length : 0)
+        : active + 1;
+      expect(trackProgress(status).index, status).toBe(expected);
+    }
   });
 });
 

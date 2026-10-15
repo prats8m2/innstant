@@ -174,6 +174,24 @@ export interface OrderSummary {
   itemCount: number;
 }
 
+/**
+ * "2× Laal maas · Masala chai" — one line of prose for an order.
+ *
+ * The quantity is only worth saying when there is more than one: "1× Masala
+ * chai" is how a receipt talks, not how a person does.
+ *
+ * It is a function because the rule had TWO copies and they disagreed.
+ * `listOrdersForContext` elided the one; `listOrdersForCustomer` — the
+ * account-scoped list, which is exactly what a signed-in home screen reads —
+ * always wrote `${quantity}× ${name}`, so the same order read differently
+ * depending on which list a screen happened to ask for.
+ */
+function summaryLine(items: ReadonlyArray<{ name: string; quantity: number }>): string {
+  return items
+    .map((item) => (item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name))
+    .join(' · ');
+}
+
 export async function listOrdersForContext(
   tx: Tx,
   input: { context: OrderContext },
@@ -217,11 +235,7 @@ export async function listOrdersForContext(
       currency: order.currency as CurrencyCode,
       haltReason: rejectionReason ?? cancellationReason ?? null,
       itemCount: mine.reduce((n, item) => n + item.quantity, 0),
-      // The quantity is only worth saying when there is more than one — "1×
-      // Masala chai" is how a receipt talks, not how a person does.
-      summary: mine
-        .map((item) => (item.quantity > 1 ? `${item.quantity}× ${item.name}` : item.name))
-        .join(' · '),
+      summary: summaryLine(mine),
     };
   });
 }
@@ -291,7 +305,7 @@ export async function listOrdersForCustomer(
       // The kitchen's own words when it stopped, shown verbatim — the same
       // rule `listOrdersForContext` follows.
       haltReason: order.rejection_reason ?? order.cancellation_reason ?? null,
-      summary: mine.map((i) => `${i.quantity}× ${i.name}`).join(' · '),
+      summary: summaryLine(mine),
       itemCount: mine.reduce((n, i) => n + i.quantity, 0),
     };
   });

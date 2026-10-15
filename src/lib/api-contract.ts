@@ -75,6 +75,23 @@ export interface ApiOutlet {
   /** Today's state in the PROPERTY's timezone: "Open until 11:30pm". */
   openLine: string;
   isOpen: boolean;
+  /**
+   * When ordering starts again — "noon", "7am" — or null.
+   *
+   * Set ONLY when the kitchen is shut, opens again later the SAME day, and has
+   * not been stopped by hand. Those are the three conditions under which a
+   * bare clock time is the whole truth:
+   *
+   *   · a reopening on another day is a sentence, not a time, and `openLine`
+   *     already says it ("The kitchen opens Thursday at 7am");
+   *   · a manager who threw `isAcceptingOrders` mid-service has not said when
+   *     they will throw it back, and the week's schedule is not that answer.
+   *
+   * Null in every other case, and a screen that wants to print a time has
+   * nothing to print rather than a guess. Formatted in the PROPERTY's
+   * timezone by the one formatter that does it (`formatClock`).
+   */
+  opensAt: string | null;
 }
 
 export interface ApiProperty {
@@ -133,9 +150,39 @@ export interface ApiMenuSection {
   items: ApiDish[];
 }
 
+/**
+ * One entry of the home screen's featured strip.
+ *
+ * The SECTION LABEL travels with the dish because the strip tags each dish
+ * with where it came from — "Rajasthani classics", "Chef Bhairav" — and
+ * `ApiDish` carries no section of its own. An app walking `sections` to
+ * find the tag would be re-deriving a choice the server already made, and
+ * would get a different answer for a dish that appears in three of them.
+ *
+ * Chosen by `featuredDishes()` in modules/catalog, so the web home and the app
+ * cannot disagree and so the rule has a unit test. Not an `is_featured` column
+ * somebody ticks (D-071), and not a sales count — counting promotes ₹180 chai
+ * over the ₹1,150 dish, which is not what "three to start with" is a place for.
+ */
+export interface ApiFeaturedDish {
+  /** The `ApiMenuSection.label` this was taken from — the short form, which
+   *  is what an eyebrow over a dish name has room for. */
+  section: string;
+  dish: ApiDish;
+}
+
 export interface ApiMenu {
   outlet: ApiOutlet;
   sections: ApiMenuSection[];
+  /**
+   * Up to three dishes, already picked. Empty when the outlet has nothing
+   * available — the strip then renders nothing rather than an apology.
+   *
+   * Every dish here also appears in `sections`; this is a view of the same
+   * payload rather than extra inventory, which is why there is no second
+   * request for it.
+   */
+  featured: ApiFeaturedDish[];
 }
 
 export interface ApiModifierOption {
@@ -273,7 +320,19 @@ export interface ApiOrder {
   paymentLine: string;
 }
 
-/** `GET /api/v1/orders` — the list behind "your orders". */
+/**
+ * `GET /api/v1/orders` — the list behind "your orders", and the home screen's
+ * live-order card.
+ *
+ * ─── Why the last seven fields are here and not behind a second request ────
+ *
+ * A card that says "Being cooked · arriving between 9:29 and 9:41" used to
+ * cost `GET /orders` and then `GET /orders/{id}` for every live order, purely
+ * to learn one word and one sentence. They come off `orderStateFor()`,
+ * `trackEta()` and `trackProgress()` — the same functions the detail endpoint
+ * already runs, run once more in the serialiser — so the app still holds no
+ * copy of the order state machine, and the home screen is one request.
+ */
 export interface ApiOrderSummary {
   id: string;
   orderNumber: string;
@@ -284,6 +343,35 @@ export interface ApiOrderSummary {
   summary: string;
   itemCount: number;
   isLive: boolean;
+
+  /** The pill: "Being cooked". */
+  statusLabel: string;
+  /** The one-line headline over the card: "Your order is being cooked". */
+  headline: string;
+
+  /**
+   * The ETA, in the three parts `ApiOrder` already sends, so a card and the
+   * tracking screen render one sentence the same way.
+   *
+   * Null together when there is nothing honest to promise — a halted order, or
+   * one placed before the outlet had a prep time.
+   */
+  etaLabel: string | null;
+  etaFrom: string | null;
+  etaTo: string | null;
+
+  /**
+   * How far along, as a fraction a card draws as segments.
+   *
+   * `stepIndex` is 1-based and 0 for anything not on the timeline: a halted
+   * order, or a draft. `stepCount` is SENT rather than assumed, because the
+   * timeline has five steps and not the six a status enum would suggest —
+   * ACCEPTED and PREPARING are deliberately one step ("In the kitchen"), with
+   * the difference carried in the sub-line. An app that hardcoded either
+   * number would be holding half a state machine.
+   */
+  stepIndex: number;
+  stepCount: number;
 }
 
 /* ── Requests ────────────────────────────────────────────────────────────── */
@@ -341,6 +429,41 @@ export interface ApiPlacedOrder {
   total: ApiMoney;
   /** True when this call found the order a previous attempt already placed. */
   wasAlreadyPlaced: boolean;
+}
+
+/**
+ * "Same as last time" — the last delivered order, offered back. D-080.
+ *
+ * Sent ONLY when the whole order can be put in a cart again today: every dish
+ * still on the menu, still available against the property's clock, every
+ * modifier option still there. Null in every other case, and the block is not
+ * drawn — the designer's "Hidden if any line is now unavailable", decided on
+ * the server because that is where the menu is.
+ *
+ * `total` is what that order COST, not what it would cost now. It is a
+ * reminder of a past receipt (#6) and is labelled as one; the cart that
+ * `POST /api/v1/orders/reorder` fills is priced live, and the two are allowed
+ * to differ.
+ */
+export interface ApiReorder {
+  orderId: string;
+  orderNumber: string;
+  /** "12 Oct", in the PROPERTY's timezone. */
+  placedOn: string;
+  /** "2× Laal maas · Masala chai". */
+  summary: string;
+  total: ApiMoney;
+}
+
+/** `GET /api/v1/orders/reorder`. */
+export interface ApiReorderSuggestion {
+  reorder: ApiReorder | null;
+}
+
+/** `POST /api/v1/orders/reorder` — the cart, as it is now that the order is
+ *  in it. The app replaces its copy and opens the cart. */
+export interface ApiReorderResult {
+  cart: ApiCart;
 }
 
 

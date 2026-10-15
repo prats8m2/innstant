@@ -1,9 +1,9 @@
-import { getMenu } from '@/modules/catalog';
+import { getMenu, featuredDishes } from '@/modules/catalog';
 import { NotFoundError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
 import { apiHandler, corsPreflight } from '../_lib/handler';
 import { withVisitContext } from '../_lib/context';
-import { apiSection } from '../_lib/serialise';
+import { apiFeatured, apiSection } from '../_lib/serialise';
 import type { ApiMenu } from '@/lib/api-contract';
 
 /**
@@ -23,6 +23,14 @@ import type { ApiMenu } from '@/lib/api-contract';
  * cannot know its own sections until the last page lands, for a payload that
  * is a few tens of kilobytes. The server already assembles it in one read for
  * the web.
+ *
+ * ─── And `featured`, off the same read ─────────────────────────────────────
+ *
+ * The home screen's strip is three dishes that are already in `sections`, so
+ * it is a FIELD rather than an endpoint. A `/menu/featured` would be a second
+ * round trip, a second evaluation of the collection windows against the
+ * property's clock, and a second chance for the strip to lead with a dish the
+ * menu below it has stopped showing.
  *
  * CLAUDE.md #9 — browsing is never gated. A session is required because there
  * is no other way to know WHICH menu, not as a permission: the session this
@@ -48,6 +56,11 @@ export const GET = apiHandler('/api/v1/menu', async (request): Promise<ApiMenu> 
     return {
       outlet: ctx.apiOutlet,
       sections: menu.sections.map(apiSection),
+      // A view of the sections above, not a second read. The pick is made
+      // server-side so the app's home and the web's cannot disagree about what
+      // the restaurant is leading with — and so the rule has a test, which a
+      // choice made in a component would not.
+      featured: apiFeatured(featuredDishes(menu.sections)),
     };
   });
 });

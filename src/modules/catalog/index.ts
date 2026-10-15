@@ -7,6 +7,9 @@ export {
   getDish, getCartPricing, getOutletHours,
 } from './menu';
 export { outletOpenState, describeOpenState, isItemOnNow, hoursForDay } from './hours';
+/** "Three to start with" — computed from the curated collections, never a flag. */
+export { featuredDishes } from './featured';
+export type { FeaturedDish } from './featured';
 export type {
   OutletHoursDay, OutletOpenState, ItemAvailabilityWindow,
 } from './hours';

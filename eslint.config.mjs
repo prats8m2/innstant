@@ -93,6 +93,16 @@ export default tseslint.config(
       // React/runtime bundles, never edited, never shipped.
       'design/reference/decoded/**',
       /*
+       * The design exports themselves, and the browser runtime they ship with
+       * (`doc-page.js`, `image-slot.js`, `support.js`). Same case as the line
+       * above: vendored bundles written against `window`, `document` and
+       * `customElements`, read by a browser and by `pnpm design:decode`, never
+       * imported by anything under `src/`. Linting them against this config's
+       * Node globals reports 160-odd phantom `no-undef`s on code nobody here
+       * wrote or will edit.
+       */
+      'design/UX/**',
+      /*
        * The React Native app is its own package with its own toolchain
        * (D-080). It is typechecked by `mobile/tsconfig.json` and linted by
        * Expo's config, which knows about React Native's globals and its JSX
