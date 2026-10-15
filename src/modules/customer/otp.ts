@@ -47,10 +47,43 @@ const LOCKOUT_MINUTES = 30;
 const MAX_SENDS_PER_PHONE_HOUR = 5;
 const MAX_SENDS_PER_IP_HOUR = 20;
 
+/**
+ * The FIXED code, when one is configured. Demo only.
+ *
+ * `OTP_DEMO_CODE` turns every sign-in into the same code for every number, so
+ * the app can be demonstrated before an SMS provider exists. Read it plainly:
+ * **anybody who knows a phone number can sign in as that person.** For this
+ * property that is a name, a delivery address and an order history, which is
+ * a small blast radius and not a zero one.
+ *
+ * It is opt-in by an environment variable that is unset everywhere by default,
+ * it is announced on every send at warn level, and it is the kind of thing
+ * that gets left on by accident — so `senderFor()` refuses to pair it with
+ * silence, and the sign-in path says so in the log every single time.
+ *
+ * Delete this and the variable the day a real `OtpSender` lands.
+ */
+function demoCode(): string | null {
+  const raw = process.env.OTP_DEMO_CODE?.trim();
+  if (!raw) return null;
+  // A code the verify route's own schema would refuse is a misconfiguration
+  // that would otherwise present as "that code is not right", forever.
+  if (!/^\d{4,8}$/.test(raw)) {
+    throw new Error(
+      `OTP_DEMO_CODE must be 4-8 digits; got ${JSON.stringify(raw)}. ` +
+        'Unset it to go back to real random codes.',
+    );
+  }
+  return raw;
+}
+
 /** A code is six digits from a CSPRNG. `Math.random()` is not one, and this
- *  is the only secret standing between a phone number and an account. */
+ *  is the only secret standing between a phone number and an account.
+ *
+ *  Unless `OTP_DEMO_CODE` is set, in which case there is no secret at all and
+ *  the comment above is a description of what we gave up. See `demoCode()`. */
 function newCode(): string {
-  return String(randomInt(0, 10 ** CODE_LENGTH)).padStart(CODE_LENGTH, '0');
+  return demoCode() ?? String(randomInt(0, 10 ** CODE_LENGTH)).padStart(CODE_LENGTH, '0');
 }
 
 export interface RequestCodeInput {
