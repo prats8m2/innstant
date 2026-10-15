@@ -1,5 +1,6 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { test, expect, devices, type Locator, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { test, expect, devices, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 /**
  * The P0 smoke suite: the app boots, the database is migrated, and a printed
@@ -15,6 +16,8 @@ interface DemoSeed {
   qrCodes: Record<string, string>;
   /** Last four digits, for answering the one verification prompt (D-012). */
   guests: Record<string, { name: string; phoneLast4: string }>;
+  /** `/p/{code}` — the room-less ordering contexts (D-079). Keyed by kind. */
+  visitLinks: Record<'TABLE' | 'COUNTER' | 'ONLINE', string>;
 }
 
 const seedPath = '.demo-seed.json';
@@ -372,6 +375,112 @@ test.describe('the kitchen display', () => {
       .toContainText(/email and password/i, { timeout: 25_000 });
     await expect(page).toHaveURL(/\/admin\/login/);
   });
+
+  /**
+   * The board shipped with every ticket sliced and no button reachable.
+   *
+   * `.columnList` is a flex column and a flex child shrinks by default, so
+   * once there were more tickets than fit, the browser compressed the CARDS
+   * instead of scrolling the LIST — and `.ticket { overflow: hidden }` cut
+   * each one off mid-dish. Six tickets rendered at 51-63px against a natural
+   * 202-253px, with 0 of 3-4 buttons visible. On a phone they came out 5px
+   * tall, and the three columns drew on top of one another.
+   *
+   * Nothing threw: no console error, no failing request. The only symptom was
+   * a kitchen that could not accept an order.
+   *
+   * ─── Why this test places its own orders ───────────────────────────────
+   *
+   * The first version of it asserted against whatever the seed happened to
+   * leave on the board, and it PASSED with the bug deliberately put back —
+   * one or two tickets fit a column without being squashed, so the condition
+   * never arose. A regression test that passes either way is worse than none,
+   * because it reads as cover.
+   *
+   * So it fills the NEW column past the height of the viewport first. Six
+   * tickets at ~200pt against an 844pt phone is the shape the bug was found
+   * in, and it is the shape it is pinned at.
+   */
+  const TICKETS_TO_FILL_A_COLUMN = 6;
+
+  async function placeOrders(request: APIRequestContext, howMany: number): Promise<void> {
+    const code = seed!.visitLinks.ONLINE;
+
+    for (let i = 0; i < howMany; i += 1) {
+      const opened = await request.post('/api/v1/visits', { data: { code } });
+      const { token } = await opened.json();
+      const auth = { authorization: `Bearer ${token}` };
+
+      const menu = await (await request.get('/api/v1/menu', { headers: auth })).json();
+      const dish = menu.sections
+        .flatMap((section: { items: Array<{ id: string; canQuickAdd: boolean }> }) => section.items)
+        .find((item: { canQuickAdd: boolean }) => item.canQuickAdd);
+      if (!dish) throw new Error('the demo menu has nothing that can be added in one tap');
+
+      await request.post('/api/v1/cart/quick-add', {
+        headers: auth,
+        data: { menuItemId: dish.id, direction: 'add' },
+      });
+
+      await request.post('/api/v1/orders', {
+        headers: auth,
+        data: {
+          idempotencyKey: randomUUID(),
+          name: `Board filler ${i + 1}`,
+          phone: '9829000000',
+          fulfilment: 'TAKEAWAY',
+        },
+      });
+    }
+  }
+
+  for (const [label, width, height] of [
+    ['a kitchen tablet', 1280, 900],
+    ['a phone', 390, 844],
+  ] as const) {
+    test(`draws every ticket at full height with its buttons, on ${label}`, async ({ page, request }) => {
+      await placeOrders(request, TICKETS_TO_FILL_A_COLUMN);
+
+      await page.setViewportSize({ width, height });
+      await signInToKitchen(page);
+
+      const geometry = await page.evaluate(() => {
+        const cards = [...document.querySelectorAll('li')].filter((e) => /ticket/.test(e.className));
+        const boxes = cards.map((c) => c.getBoundingClientRect());
+
+        let overlaps = 0;
+        for (let i = 0; i < boxes.length; i += 1) {
+          for (let j = i + 1; j < boxes.length; j += 1) {
+            const a = boxes[i]!; const b = boxes[j]!;
+            if (a.left < b.right - 1 && b.left < a.right - 1
+              && a.top < b.bottom - 1 && b.top < a.bottom - 1) overlaps += 1;
+          }
+        }
+
+        return {
+          cards: cards.length,
+          // A card shorter than its own content has had its contents cut off.
+          // Measured, not asserted as "visible" — Playwright calls a 5px
+          // sliver visible, which is exactly what the bug produced.
+          clipped: cards.filter((c) => c.scrollHeight > Math.ceil(c.getBoundingClientRect().height) + 1).length,
+          overlaps,
+          // Every button must sit inside the card that owns it.
+          escaped: cards.reduce((n, c) => {
+            const r = c.getBoundingClientRect();
+            return n + [...c.querySelectorAll('button')]
+              .filter((b) => b.getBoundingClientRect().bottom > r.bottom + 1).length;
+          }, 0),
+          sideways: document.documentElement.scrollWidth > window.innerWidth + 1,
+        };
+      });
+
+      expect(geometry.cards).toBeGreaterThanOrEqual(TICKETS_TO_FILL_A_COLUMN);
+      expect(geometry.clipped).toBe(0);
+      expect(geometry.overlaps).toBe(0);
+      expect(geometry.escaped).toBe(0);
+      expect(geometry.sideways).toBe(false);
+    });
+  }
 
   test('shows an order the moment it is placed, on another device', async ({ browser }) => {
     const code = seed!.qrCodes['214'];

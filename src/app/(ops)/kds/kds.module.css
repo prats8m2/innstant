@@ -297,6 +297,27 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   animation: archIn var(--dur-mid) var(--ease-out) both;
+
+  /*
+   * Do NOT let a ticket shrink. This is the whole bug, and it is one word.
+   *
+   * `.columnList` is a flex column, and a flex item's default is
+   * `flex-shrink: 1` — so when more tickets arrive than fit, the browser
+   * compresses every CARD instead of scrolling the LIST. With `overflow:
+   * hidden` above, a compressed card silently slices its own contents.
+   *
+   * Six tickets on a 900px-tall screen rendered each card at 51-63px against
+   * a natural 202-253px, and every Accept / Ready / 86 button in the kitchen
+   * was below the cut: measured 0 of 3-4 visible per card. On a phone the
+   * cards came out 5px tall — a row of coloured slivers. The list had
+   * `overflow-y: auto` the whole time and never scrolled, because there was
+   * nothing overflowing: the children had given way instead.
+   *
+   * A kitchen display that cannot show its buttons is not degraded, it is
+   * unusable, and the failure is silent — no error, no console, just a board
+   * that looks like a rendering glitch.
+   */
+  flex: 0 0 auto;
 }
 
 .ticket[data-heat='soon'] { border-left-color: var(--status-attention-mark); }
@@ -637,7 +658,47 @@
  * unreadable ones — the same content, in the order it was already sorted.
  */
 @media (max-width: 900px) {
-  .columns { grid-template-columns: 1fr; overflow-y: auto; }
+  .columns {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    /* Rows take their content's height. Without this they inherit the
+       stretch-to-fit of the desktop board and each column is handed a third
+       of the screen whatever it holds. */
+    grid-auto-rows: min-content;
+    align-content: start;
+  }
+
   .column { min-height: 0; }
-  .columnList { overflow: visible; }
+
+  /*
+   * `flex: 0 0 auto` here, not just `overflow: visible`.
+   *
+   * On the desktop board the list is `flex: 1` with its own scrollbar, which
+   * is right: three columns, each scrolling independently, none of them
+   * moving the others. Switching only the overflow for one column left the
+   * list still flex-filling a box sized to the screen while its contents
+   * were free to escape it — so the three columns were drawn ON TOP OF each
+   * other, with "COOKING" and "Pass is clear." printing through the cards of
+   * the column above.
+   *
+   * Letting the list size to its content makes the column tall, the grid row
+   * tall, and `.columns` the single thing that scrolls — which is what the
+   * note above this media query always said it wanted.
+   */
+  .columnList { overflow: visible; flex: 0 0 auto; }
+
+  /*
+   * The bar wraps instead of running off the side.
+   *
+   * It is a single flex row of four things — outlet, the waiting klaxon, the
+   * 86 toggle and the clock stack — sized for a kitchen tablet. On a phone
+   * they measured 481px against a 390px viewport, so the clock and the live
+   * dot sat off-screen and the whole page scrolled sideways.
+   *
+   * Wrapping rather than hiding: a cook checking the board on their phone
+   * still wants the time and the count, and "11 new" is the number the
+   * klaxon is about.
+   */
+  .bar { flex-wrap: wrap; row-gap: var(--space-2); }
+  .barRight { margin-left: 0; width: 100%; justify-content: space-between; }
 }
