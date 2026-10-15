@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Mukta:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Gilda+Display&family=Karla:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&family=Bodoni+Moda:wght@400;500&family=Jost:wght@300;400;500;600&family=Space+Mono:wght@400;700&family=Newsreader:wght@300;400;500&family=Nunito+Sans:wght@400;600;700&family=Courier+Prime:wght@400;700&family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #0C0D0F; -webkit-font-smoothing: antialiased; }
+  a { color: #E9A227; text-decoration: none; }
+  a:hover { color: #F2B84B; }
+  * { -webkit-tap-highlight-color: transparent; }
+  @keyframes pulseDot { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+  }
+</style>
+</helmet>
+
+<div style="{{ rootStyle }}">
+
+  <div class="switcher" style="position: relative; z-index: 20; display: flex; gap: 6px; padding: 10px 12px; overflow-x: auto; scrollbar-width: none; background: var(--surface, #1B2B45); border-bottom: var(--border-w, 1px) solid var(--line, #2A3A55); transition: background-color var(--dur, 300ms) var(--ease), border-color var(--dur, 300ms) var(--ease);">
+    <sc-for list="{{ themes }}" as="t" hint-placeholder-count="6">
+      <button onClick="{{ t.pick }}" style="{{ t.chipStyle }}" style-focus="outline: 2px solid var(--accent); outline-offset: 2px;">
+        <span style="{{ t.dotStyle }}"></span>
+        <span style="{{ t.chipLabelStyle }}">{{ t.name }}</span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div class="screen" style="position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--bg, #101E33); transition: background-color var(--dur, 300ms) var(--ease);">
+
+    <div class="texture" style="position: absolute; inset: 0; pointer-events: none; z-index: 1; background: var(--tex-css, none); opacity: var(--tex-op, 0); transition: opacity var(--dur, 300ms) var(--ease);"></div>
+
+    <div class="scroll" style="position: absolute; inset: 0; z-index: 2; overflow-y: auto; overflow-x: hidden; padding: 20px 16px 108px 16px;">
+
+      <div class="identity" style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+        <div class="identity-name" style="font-family: var(--f-display, Marcellus), serif; font-weight: var(--display-w, 400); letter-spacing: var(--display-tr, 0); font-size: var(--fs-xl, 24px); line-height: 1.1; color: var(--ink, #E3E5DB); transition: color var(--dur, 300ms) var(--ease);">{{ property }}</div>
+        <div class="identity-room" style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 11px); letter-spacing: .1em; text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--accent-ink, #101E33); background: var(--accent, #E9A227); padding: 5px 9px; border-radius: var(--r-sm, 4px); white-space: nowrap; transition: background-color var(--dur, 300ms) var(--ease), color var(--dur, 300ms) var(--ease), border-radius var(--dur, 300ms) var(--ease);">Room 214</div>
+      </div>
+
+      <div class="greeting" style="font-family: var(--f-body, sans-serif); font-size: var(--fs-md, 15px); line-height: 1.5; color: var(--ink-muted, #8FA0B5); margin-top: 6px; transition: color var(--dur, 300ms) var(--ease);">Good evening, Anjali · Room 214</div>
+
+      <div class="hero" style="position: relative; display: flex; flex-direction: var(--hero-dir, column); gap: var(--hero-gap, 0); align-items: stretch; min-height: var(--hero-min-h, 0); margin-top: 18px; overflow: hidden; background: var(--hero-bg, transparent); border: var(--hero-border, 0); border-radius: var(--r-lg, 20px); transition: background-color var(--dur, 300ms) var(--ease), border-radius var(--dur, 300ms) var(--ease), min-height var(--dur, 300ms) var(--ease);">
+        <div class="hero-img" style="position: var(--hero-img-pos, absolute); inset: 0; display: var(--hero-img-display, block); width: var(--hero-img-w, 100%); height: var(--hero-img-h, 100%); flex: var(--hero-img-flex, 0 0 auto); aspect-ratio: var(--hero-ratio, 16/9); background: var(--img-ph, #16253E); border-radius: var(--hero-img-radius, 0); transition: width var(--dur, 300ms) var(--ease), border-radius var(--dur, 300ms) var(--ease);"></div>
+        <div class="hero-scrim" style="position: absolute; inset: 0; background: var(--scrim, none); opacity: var(--scrim-op, 0); transition: opacity var(--dur, 300ms) var(--ease);"></div>
+        <div class="hero-body" style="position: var(--hero-body-pos, relative); z-index: 2; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: var(--hero-body-just, flex-end); padding: var(--hero-body-pad, 18px);">
+          <div class="hero-kicker" style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 11px); letter-spacing: .14em; text-transform: uppercase; color: var(--hero-kicker-ink, #6E9C95); transition: color var(--dur, 300ms) var(--ease);">{{ heroKicker }}</div>
+          <div class="hero-title" style="font-family: var(--f-display, serif); font-weight: var(--display-w, 400); letter-spacing: var(--display-tr, 0); font-size: var(--fs-lg, 19px); line-height: 1.2; margin-top: 5px; color: var(--hero-ink, #E3E5DB); text-wrap: pretty; transition: color var(--dur, 300ms) var(--ease);">{{ heroTitle }}</div>
+        </div>
+      </div>
+
+      <div class="status" style="display: flex; align-items: center; gap: 10px; min-height: 52px; margin-top: 14px; padding: 0 14px; background: var(--surface-raised, #1B2B45); border: var(--border-w, 1px) solid var(--line, #2A3A55); border-radius: var(--r-md, 12px); transition: background-color var(--dur, 300ms) var(--ease), border-color var(--dur, 300ms) var(--ease), border-radius var(--dur, 300ms) var(--ease);">
+        <span class="status-dot" style="width: 8px; height: 8px; flex: 0 0 8px; border-radius: 999px; background: var(--positive, #6E9C95); animation: pulseDot 2.6s ease-in-out infinite; transition: background-color var(--dur, 300ms) var(--ease);"></span>
+        <span class="status-label" style="font-family: var(--f-body, sans-serif); font-size: var(--fs-sm, 13.5px); font-weight: 600; color: var(--ink, #E3E5DB); transition: color var(--dur, 300ms) var(--ease);">{{ statusLabel }}</span>
+        <span class="status-meta" style="margin-left: auto; font-family: var(--f-num, monospace); font-size: var(--fs-sm, 13px); font-variant-numeric: tabular-nums; color: var(--ink-muted, #8FA0B5); transition: color var(--dur, 300ms) var(--ease);">{{ statusMeta }}</span>
+      </div>
+
+      <div class="dests" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;">
+        <sc-for list="{{ dests }}" as="d" hint-placeholder-count="5">
+          <button style="{{ d.style }}" style-focus="outline: 2px solid var(--accent); outline-offset: 2px;">
+            <span style="{{ d.markStyle }}"></span>
+            <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px;">
+              <span style="font-family: var(--f-body, sans-serif); font-size: var(--fs-md, 15.5px); font-weight: 600; line-height: 1.2; color: var(--ink, #E3E5DB);">{{ d.title }}</span>
+              <span style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 10.5px); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted, #8FA0B5);">{{ d.sub }}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div class="rail-head" style="display: flex; align-items: baseline; justify-content: space-between; margin-top: 26px;">
+        <div style="font-family: var(--f-display, serif); font-weight: var(--display-w, 400); letter-spacing: var(--display-tr, 0); font-size: var(--fs-lg, 20px); color: var(--ink, #E3E5DB); transition: color var(--dur, 300ms) var(--ease);">{{ railTitle }}</div>
+        <div style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 10.5px); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted, #8FA0B5);">Tonight</div>
+      </div>
+
+      <div class="rail" style="display: flex; gap: 12px; margin: 12px -16px 0 -16px; padding: 0 16px 4px 16px; overflow-x: auto; scrollbar-width: none;">
+        <sc-for list="{{ rail }}" as="c" hint-placeholder-count="3">
+          <div style="{{ c.cardStyle }}">
+            <div style="{{ c.imgStyle }}"></div>
+            <div style="padding: 10px 12px 12px 12px;">
+              <div style="font-family: var(--f-body, sans-serif); font-size: var(--fs-sm, 14px); font-weight: 600; line-height: 1.25; color: var(--ink, #E3E5DB); text-wrap: pretty;">{{ c.title }}</div>
+              <div style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 11px); font-variant-numeric: tabular-nums; color: var(--ink-muted, #8FA0B5); margin-top: 4px;">{{ c.meta }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="checkout" style="display: flex; align-items: center; gap: 12px; min-height: 60px; margin-top: 22px; padding: 12px 14px; background: var(--surface, #1B2B45); border: var(--border-w, 1px) solid var(--line, #2A3A55); border-radius: var(--r-md, 12px); transition: background-color var(--dur, 300ms) var(--ease), border-color var(--dur, 300ms) var(--ease), border-radius var(--dur, 300ms) var(--ease);">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-family: var(--f-body, sans-serif); font-size: var(--fs-sm, 14px); font-weight: 600; color: var(--ink, #E3E5DB);">Checking out Thursday, 11am</div>
+          <div style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 11px); font-variant-numeric: tabular-nums; color: var(--ink-muted, #8FA0B5); margin-top: 3px;">{{ rateLine }}</div>
+        </div>
+        <button style="{{ lateBtnStyle }}" style-focus="outline: 2px solid var(--accent); outline-offset: 2px;">Request late checkout</button>
+      </div>
+    </div>
+
+    <div class="bottombar" style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; align-items: center; gap: 12px; padding: 12px 16px 16px 16px; background: var(--bar-bg, rgba(16,30,51,.94)); border-top: var(--border-w, 1px) solid var(--line, #2A3A55); backdrop-filter: blur(14px); transition: background-color var(--dur, 300ms) var(--ease), border-color var(--dur, 300ms) var(--ease);">
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-family: var(--f-num, monospace); font-size: var(--fs-xs, 10.5px); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-muted, #8FA0B5);">Folio so far</div>
+        <div style="font-family: var(--f-num, monospace); font-size: var(--fs-md, 16px); font-variant-numeric: tabular-nums; color: var(--ink, #E3E5DB); margin-top: 2px;">{{ folio }}</div>
+      </div>
+      <button style="{{ primaryStyle }}" style-focus="outline: 2px solid var(--ink); outline-offset: 3px;">{{ primaryLabel }}</button>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:900},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;heritage&quot;,&quot;coast&quot;,&quot;corporate&quot;,&quot;gallery&quot;,&quot;forest&quot;,&quot;transit&quot;],&quot;default&quot;:&quot;heritage&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Showcase&quot;}}">
+const inr = (n) => '\u20B9' + Number(n).toLocaleString('en-IN');
+
+const THEMES = [
+  {
+    themeKey: 'heritage', name: 'The Kesari', city: 'Udaipur',
+    color: { bg: '#101E33', surface: '#1B2B45', surfaceRaised: '#16253E', ink: '#E3E5DB', inkMuted: '#93A3B8', line: '#2B3C57', accent: '#E9A227', accentInk: '#101E33', positive: '#6E9C95', warning: '#D9A03C', critical: '#C4574A' },
+    type: { display: 'Marcellus', body: 'Mukta', numeric: 'DM Mono', displayWeight: 400, displayTracking: '0.01em', scaleRatio: 1.25 },
+    shape: { radiusSm: '4px', radiusMd: '12px', radiusLg: '20px', radiusPill: '999px', borderWidth: '1px' },
+    image: { heroRatio: '16/9', cardRatio: '4/3', scrim: 'linear-gradient(to top, rgba(8,15,26,.92) 0%, rgba(8,15,26,.55) 34%, rgba(8,15,26,0) 70%)', placeholderStyle: 'radial-gradient(circle at 50% 112%, rgba(233,162,39,.20) 0 20%, transparent 20.5%), radial-gradient(circle at 50% 112%, transparent 0 33%, rgba(227,229,219,.13) 33% 33.7%, transparent 34%), radial-gradient(circle at 50% 112%, transparent 0 48%, rgba(227,229,219,.09) 48% 48.7%, transparent 49%), #16253E' },
+    motion: { duration: '300ms', easing: 'cubic-bezier(.2,.8,.2,1)', spring: 0.4 },
+    texture: { type: 'grain', opacity: 0.05, css: 'repeating-linear-gradient(45deg, rgba(227,229,219,.5) 0 1px, transparent 1px 5px)' },
+    heroStyle: 'cinematic',
+    content: { heroKicker: 'Rooftop · Lake Pichola', heroTitle: 'The kitchen is open until 11:30', statusLabel: 'Order KE-1184 · on its way', statusMeta: '6 min', railTitle: 'While you are here', rate: 22000, folio: 8940, primary: 'Order dinner', rail: [['Laal maas on the rooftop', 'Until 11:00'], ['Aarti at Jagdish Temple', '7:15pm · 300 m'], ['Block-print at Bada Bazaar', 'Shuts 8pm · 1.2 km']] }
+  },
+  {
+    themeKey: 'coast', name: 'Aramaya', city: 'South Goa',
+    color: { bg: '#F7F2E7', surface: '#FFFFFF', surfaceRaised: '#F0E9DA', ink: '#2E3A33', inkMuted: '#5C6961', line: '#DFD5C2', accent: '#2F6B4F', accentInk: '#FFFFFF', positive: '#2F6B4F', warning: '#B4552F', critical: '#9E3A2C' },
+    type: { display: 'Gilda Display', body: 'Karla', numeric: 'IBM Plex Mono', displayWeight: 400, displayTracking: '0em', scaleRatio: 1.28 },
+    shape: { radiusSm: '6px', radiusMd: '14px', radiusLg: '22px', radiusPill: '999px', borderWidth: '1px' },
+    image: { heroRatio: '16/9', cardRatio: '4/3', scrim: 'linear-gradient(to top, rgba(28,40,32,.78) 0%, rgba(28,40,32,.30) 40%, rgba(28,40,32,0) 78%)', placeholderStyle: 'repeating-linear-gradient(0deg, rgba(47,107,79,.16) 0 2px, transparent 2px 11px), linear-gradient(160deg, #E4DAC4, #C9BCA0)' },
+    motion: { duration: '280ms', easing: 'cubic-bezier(.25,.9,.25,1)', spring: 0.5 },
+    texture: { type: 'grain', opacity: 0.05, css: 'repeating-linear-gradient(90deg, rgba(46,58,51,.45) 0 1px, transparent 1px 6px)' },
+    heroStyle: 'cinematic',
+    content: { heroKicker: 'Casuarina deck · low tide 6:40pm', heroTitle: 'Breakfast runs till 11. Come as you are.', statusLabel: 'Order AR-1184 · on its way', statusMeta: '6 min', railTitle: 'Around the property', rate: 18000, folio: 6420, primary: 'Order to the deck', rail: [['Shack lunch, forty steps', 'Open all day'], ['Kayaks at the creek', '7am · no charge'], ['Sunday market at Anjuna', '40 min drive']] }
+  },
+  {
+    themeKey: 'corporate', name: 'Node', city: 'Bengaluru',
+    color: { bg: '#F2F4F7', surface: '#FFFFFF', surfaceRaised: '#FFFFFF', ink: '#14181D', inkMuted: '#5B6672', line: '#D8DEE6', accent: '#1F5FD8', accentInk: '#FFFFFF', positive: '#0E7C58', warning: '#B4690E', critical: '#C2321F' },
+    type: { display: 'Archivo', body: 'IBM Plex Sans', numeric: 'Roboto Mono', displayWeight: 600, displayTracking: '-0.02em', scaleRatio: 1.2 },
+    shape: { radiusSm: '2px', radiusMd: '4px', radiusLg: '6px', radiusPill: '4px', borderWidth: '1px' },
+    image: { heroRatio: '16/9', cardRatio: '4/3', scrim: 'linear-gradient(to top, rgba(20,24,29,.70) 0%, rgba(20,24,29,0) 62%)', placeholderStyle: 'repeating-linear-gradient(90deg, rgba(31,95,216,.10) 0 1px, transparent 1px 12px), repeating-linear-gradient(0deg, rgba(31,95,216,.10) 0 1px, transparent 1px 12px), #E6EAF0' },
+    motion: { duration: '180ms', easing: 'cubic-bezier(.3,.7,.2,1)', spring: 0.15 },
+    texture: { type: 'none', opacity: 0, css: 'none' },
+    heroStyle: 'compact',
+    content: { heroKicker: 'Room 1408 · floor 14', heroTitle: 'Breakfast 6:30. Laundry back by 8pm.', statusLabel: 'Order ND-1184 · on its way', statusMeta: '6 min', railTitle: 'Set up tonight', rate: 7000, folio: 3480, primary: 'Order dinner', rail: [['Desk dinner in twenty minutes', 'Until 11pm'], ['Gym and laundry', 'Open 24h'], ['Cab to Whitefield', '35 min · ₹640']] }
+  },
+  {
+    themeKey: 'gallery', name: 'Hôtel Verre', city: 'Colaba',
+    color: { bg: '#211F1C', surface: '#2B2925', surfaceRaised: '#262420', ink: '#EDE8E0', inkMuted: '#9A948A', line: '#3B3830', accent: '#B08D3F', accentInk: '#1A1815', positive: '#7E9B6B', warning: '#C39A3A', critical: '#B15A45' },
+    type: { display: 'Bodoni Moda', body: 'Jost', numeric: 'Space Mono', displayWeight: 400, displayTracking: '-0.03em', scaleRatio: 1.33 },
+    shape: { radiusSm: '0px', radiusMd: '0px', radiusLg: '2px', radiusPill: '2px', borderWidth: '1px' },
+    image: { heroRatio: '4/5', cardRatio: '4/3', scrim: 'linear-gradient(to top, rgba(20,18,15,.86) 0%, rgba(20,18,15,.20) 52%, rgba(20,18,15,0) 88%)', placeholderStyle: 'linear-gradient(150deg, #3A3730 0%, #2C2A25 52%, #35322B 100%), repeating-linear-gradient(0deg, rgba(176,141,63,.12) 0 1px, transparent 1px 26px)' },
+    motion: { duration: '320ms', easing: 'cubic-bezier(.16,.84,.24,1)', spring: 0.2 },
+    texture: { type: 'none', opacity: 0, css: 'none' },
+    heroStyle: 'editorial',
+    content: { heroKicker: 'Floor 3 · on loan until October', heroTitle: 'The gallery stays open to guests until midnight.', statusLabel: 'Order HV-1184 · on its way', statusMeta: '6 min', railTitle: 'In the building', rate: 32000, folio: 14260, primary: 'Order dinner', rail: [['Kitchen tasting, eight courses', '8pm · ₹4,800'], ['Floor 3 hang, guests only', 'Until midnight'], ['Brass bar, ground floor', 'Until 1am']] }
+  },
+  {
+    themeKey: 'forest', name: 'Deodar House', city: 'Kasauli',
+    color: { bg: '#E8EBE5', surface: '#F5F7F2', surfaceRaised: '#EEF1EA', ink: '#27302A', inkMuted: '#5F6B60', line: '#D3D9CE', accent: '#8A6A43', accentInk: '#FBFBF8', positive: '#4C6B4A', warning: '#9C7A2E', critical: '#8E4436' },
+    type: { display: 'Newsreader', body: 'Nunito Sans', numeric: 'Courier Prime', displayWeight: 300, displayTracking: '-0.01em', scaleRatio: 1.15 },
+    shape: { radiusSm: '3px', radiusMd: '10px', radiusLg: '16px', radiusPill: '999px', borderWidth: '1px' },
+    image: { heroRatio: '3/2', cardRatio: '4/3', scrim: 'linear-gradient(to top, rgba(30,38,32,.68) 0%, rgba(30,38,32,0) 60%)', placeholderStyle: 'repeating-linear-gradient(103deg, rgba(138,106,67,.20) 0 2px, transparent 2px 9px), linear-gradient(180deg, #DCE1D7, #C8D0C2)' },
+    motion: { duration: '300ms', easing: 'cubic-bezier(.32,.72,.24,1)', spring: 0.3 },
+    texture: { type: 'grain', opacity: 0.06, css: 'repeating-linear-gradient(58deg, rgba(39,48,42,.4) 0 1px, transparent 1px 7px)' },
+    heroStyle: 'editorial',
+    content: { heroKicker: 'Pine deck · 14°C', heroTitle: 'No television. The valley starts at 6:10am.', statusLabel: 'Order DH-1184 · on its way', statusMeta: '6 min', railTitle: 'Tomorrow, if you like', rate: 22000, folio: 5180, primary: 'Order supper', rail: [['Silent walk to the ridge', '6:30am · 4 km'], ['Bath house, one slot left', '5pm · ₹2,200'], ['Kitchen table supper', '7:30pm · eight seats']] }
+  },
+  {
+    themeKey: 'transit', name: 'Stack', city: 'Aerocity',
+    color: { bg: '#101112', surface: '#1A1C1E', surfaceRaised: '#202325', ink: '#F2F3F0', inkMuted: '#8A9096', line: '#2C3033', accent: '#E4FF3F', accentInk: '#111300', positive: '#7BE08A', warning: '#FFC24A', critical: '#FF6B5A' },
+    type: { display: 'Space Grotesk', body: 'Manrope', numeric: 'JetBrains Mono', displayWeight: 700, displayTracking: '-0.03em', scaleRatio: 1.22 },
+    shape: { radiusSm: '8px', radiusMd: '14px', radiusLg: '22px', radiusPill: '999px', borderWidth: '1px' },
+    image: { heroRatio: '16/9', cardRatio: '1/1', scrim: 'linear-gradient(to top, rgba(8,9,10,.90) 0%, rgba(8,9,10,.30) 46%, rgba(8,9,10,0) 82%)', placeholderStyle: 'repeating-linear-gradient(135deg, rgba(228,255,63,.14) 0 8px, transparent 8px 20px), #1E2022' },
+    motion: { duration: '200ms', easing: 'cubic-bezier(.2,.9,.2,1)', spring: 0.55 },
+    texture: { type: 'none', opacity: 0, css: 'none' },
+    heroStyle: 'compact',
+    content: { heroKicker: 'Pod 812 · T3 in 22 min', heroTitle: 'Wake-up, laundry, 4am car. Set it now.', statusLabel: 'Order ST-1184 · on its way', statusMeta: '6 min', railTitle: 'Before you go', rate: 3200, folio: 1740, primary: 'Order food', rail: [['Counter service, ground floor', 'Open 24h'], ['Car to T3', '4:00am · ₹520'], ['Shower and go', '₹600 · 45 min']] }
+  }
+];
+
+const DESTS = [
+  { id: 'dining', title: 'Dining', sub: 'Order to the room', wide: true },
+  { id: 'amenities', title: 'Amenities', sub: 'Towels, laundry, cars' },
+  { id: 'service', title: 'Call for service', sub: 'Someone comes up' },
+  { id: 'stay', title: 'Your stay', sub: 'Folio and checkout' },
+  { id: 'nearby', title: 'Nearby', sub: 'Where the staff go' }
+];
+
+const HERO = {
+  cinematic: {
+    '--hero-dir': 'column', '--hero-gap': '0', '--hero-min-h': '208px',
+    '--hero-img-pos': 'absolute', '--hero-img-display': 'block', '--hero-img-w': '100%', '--hero-img-h': '100%', '--hero-img-flex': '0 0 auto', '--hero-img-radius': '0px',
+    '--hero-body-pos': 'relative', '--hero-body-just': 'flex-end', '--hero-body-pad': '18px',
+    '--scrim-op': '1', '--hero-bg': 'transparent', '--hero-border': '0'
+  },
+  editorial: {
+    '--hero-dir': 'row', '--hero-gap': '14px', '--hero-min-h': '0px',
+    '--hero-img-pos': 'relative', '--hero-img-display': 'block', '--hero-img-w': '42%', '--hero-img-h': 'auto', '--hero-img-flex': '0 0 42%', '--hero-img-radius': 'var(--r-sm)',
+    '--hero-body-pos': 'relative', '--hero-body-just': 'center', '--hero-body-pad': '16px 16px 16px 0',
+    '--scrim-op': '0', '--hero-bg': 'var(--surface)', '--hero-border': 'var(--border-w) solid var(--line)'
+  },
+  compact: {
+    '--hero-dir': 'column', '--hero-gap': '0', '--hero-min-h': '0px',
+    '--hero-img-pos': 'relative', '--hero-img-display': 'none', '--hero-img-w': '0%', '--hero-img-h': 'auto', '--hero-img-flex': '0 0 0%', '--hero-img-radius': '0px',
+    '--hero-body-pos': 'relative', '--hero-body-just': 'flex-start', '--hero-body-pad': '16px 16px 18px 16px',
+    '--scrim-op': '0', '--hero-bg': 'var(--surface)', '--hero-border': 'var(--border-w) solid var(--line)'
+  }
+};
+
+class Component extends DCLogic {
+  state = { key: null };
+
+  pick = (key) => () => this.setState({ key });
+
+  vars(t) {
+    const c = t.color, ty = t.type, sh = t.shape, im = t.image, mo = t.motion, tx = t.texture;
+    const r = ty.scaleRatio, base = 15;
+    const px = (n) => Math.round(n * 10) / 10 + 'px';
+    const o = {
+      '--bg': c.bg, '--surface': c.surface, '--surface-raised': c.surfaceRaised,
+      '--ink': c.ink, '--ink-muted': c.inkMuted, '--line': c.line,
+      '--accent': c.accent, '--accent-ink': c.accentInk,
+      '--positive': c.positive, '--warning': c.warning, '--critical': c.critical,
+      '--f-display': "'" + ty.display + "'", '--f-body': "'" + ty.body + "'", '--f-num': "'" + ty.numeric + "'",
+      '--display-w': ty.displayWeight, '--display-tr': ty.displayTracking,
+      '--fs-xs': px(Math.max(11, base / (r * r))), '--fs-sm': px(Math.max(12.5, base / r)), '--fs-md': px(base),
+      '--fs-lg': px(base * r), '--fs-xl': px(base * r * r), '--fs-display': px(base * r * r * r),
+      '--r-sm': sh.radiusSm, '--r-md': sh.radiusMd, '--r-lg': sh.radiusLg, '--r-pill': sh.radiusPill, '--border-w': sh.borderWidth,
+      '--hero-ratio': im.heroRatio, '--card-ratio': im.cardRatio,
+      '--scrim': im.scrim, '--img-ph': im.placeholderStyle,
+      '--dur': mo.duration, '--ease': mo.easing,
+      '--tex-css': tx.css, '--tex-op': String(tx.opacity),
+      '--bar-bg': c.surface,
+      '--hero-ink': t.heroStyle === 'cinematic' ? '#FFFFFF' : c.ink,
+      '--hero-kicker-ink': t.heroStyle === 'cinematic' ? 'rgba(255,255,255,.78)' : c.accent
+    };
+    Object.assign(o, HERO[t.heroStyle]);
+    return Object.keys(o).map(k => k + ':' + o[k]).join(';') + ';';
+  }
+
+  renderVals() {
+    const key = this.state.key || this.props.theme || 'heritage';
+    const t = THEMES.find(x => x.themeKey === key) || THEMES[0];
+    const c = t.color, k = t.content;
+    const trans = 'transition:background-color var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease),border-radius var(--dur) var(--ease);';
+
+    return {
+      rootStyle: 'width:390px;height:844px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden;position:relative;font-family:var(--f-body);color:var(--ink);' + this.vars(t),
+
+      themes: THEMES.map(x => {
+        const on = x.themeKey === key;
+        return {
+          key: x.themeKey, name: x.name, pick: this.pick(x.themeKey),
+          chipStyle: 'display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:var(--r-pill);cursor:pointer;white-space:nowrap;background:' + (on ? 'var(--accent)' : 'transparent') + ';border:var(--border-w) solid ' + (on ? 'transparent' : 'var(--line)') + ';' + trans,
+          dotStyle: 'width:9px;height:9px;border-radius:999px;flex:0 0 9px;background:' + x.color.accent + ';box-shadow:0 0 0 1px rgba(0,0,0,.18) inset;',
+          chipLabelStyle: 'font-family:var(--f-body);font-size:13px;font-weight:600;color:' + (on ? 'var(--accent-ink)' : 'var(--ink-muted)') + ';' + trans
+        };
+      }),
+
+      property: t.name, heroKicker: k.heroKicker, heroTitle: k.heroTitle,
+      statusLabel: k.statusLabel, statusMeta: k.statusMeta, railTitle: k.railTitle,
+      rateLine: inr(k.rate) + ' a night · room 214',
+      folio: inr(k.folio), primaryLabel: k.primary,
+
+      dests: DESTS.map(d => ({
+        key: d.id, title: d.title, sub: d.sub,
+        style: 'display:flex;align-items:center;gap:12px;min-height:64px;padding:12px 14px;text-align:left;cursor:pointer;background:var(--surface);border:var(--border-w) solid var(--line);border-radius:var(--r-md);grid-column:' + (d.wide ? 'span 2' : 'span 1') + ';' + trans,
+        markStyle: 'width:10px;height:26px;flex:0 0 10px;border-radius:var(--r-sm);background:' + (d.wide ? 'var(--accent)' : 'var(--line)') + ';' + trans
+      })),
+
+      rail: k.rail.map((row, i) => ({
+        key: 'r' + i, title: row[0], meta: row[1],
+        cardStyle: 'flex:0 0 210px;width:210px;background:var(--surface);border:var(--border-w) solid var(--line);border-radius:var(--r-md);overflow:hidden;' + trans,
+        imgStyle: 'width:100%;aspect-ratio:var(--card-ratio);background:var(--img-ph);'
+      })),
+
+      lateBtnStyle: 'min-height:44px;padding:0 14px;cursor:pointer;background:transparent;border:var(--border-w) solid var(--accent);border-radius:var(--r-sm);color:var(--accent);font-family:var(--f-body);font-size:13px;font-weight:700;white-space:nowrap;' + trans,
+      primaryStyle: 'min-height:52px;padding:0 22px;cursor:pointer;background:var(--accent);border:0;border-radius:var(--r-pill);color:var(--accent-ink);font-family:var(--f-body);font-size:16px;font-weight:700;white-space:nowrap;' + trans
+    };
+  }
+}
+
+</script>
+</body>
+</html>

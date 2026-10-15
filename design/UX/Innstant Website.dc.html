@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Figtree:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #F3F4F1; -webkit-font-smoothing: antialiased; }
+  a { color: #101E33; text-decoration: none; }
+  a:hover { color: #C97F12; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  button, input, textarea, select { font: inherit; }
+  @keyframes drift { from { transform: translateY(0); } to { transform: translateY(-14px); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes tick { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; background: #F3F4F1; color: #101E33; font-family: Figtree, system-ui, sans-serif; font-size: 16px; line-height: 1.5;">
+
+  <div style="position: sticky; top: 0; z-index: 50; background: rgba(243,244,241,.86); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(16,30,51,.10);">
+    <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; gap: 28px; height: 68px; padding: 0 28px;">
+      <button onClick="{{ goHome }}" style="display: flex; align-items: center; gap: 10px; background: transparent; border: 0; padding: 0; cursor: pointer; color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 4px;">
+        <span style="width: 28px; height: 28px; border-radius: 14px 14px 3px 3px; background: #101E33; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px;"><span style="width: 10px; height: 10px; border-radius: 5px 5px 1px 1px; background: #E9A227;"></span></span>
+        <span style="font-family: 'Instrument Serif', serif; font-size: 24px; letter-spacing: -.01em;">Innstant</span>
+      </button>
+      <div style="display: flex; gap: 4px; margin-left: 12px;">
+        <sc-for list="{{ navItems }}" as="n" hint-placeholder-count="4">
+          <button onClick="{{ n.go }}" style="{{ n.style }}" style-hover="color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">{{ n.label }}</button>
+        </sc-for>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+        <a href="#" style="height: 40px; padding: 0 14px; display: flex; align-items: center; font-size: 14px; font-weight: 600; color: #4B5A70; border-radius: 999px;" style-hover="color: #101E33;">Staff sign in</a>
+        <button onClick="{{ goContact }}" style="height: 42px; padding: 0 18px; border-radius: 999px; background: #101E33; color: #F3F4F1; border: 0; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 200ms ease-out;" style-hover="background: #E9A227; color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Book a demo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== HOME ===================== -->
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div data-screen-label="Home">
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 88px 28px 40px 28px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(520px, .95fr); gap: 40px; align-items: center;">
+      <div style="animation: fadeUp 500ms cubic-bezier(.2,.8,.2,1) both;">
+        <div style="display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 14px 0 8px; border-radius: 999px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.12); font-size: 13px; font-weight: 600; color: #4B5A70;">
+          <span style="height: 22px; padding: 0 9px; display: flex; align-items: center; border-radius: 999px; background: #101E33; color: #E9A227; font-family: 'DM Mono', monospace; font-size: 11px;">NEW</span>Late checkout approvals now in the front-desk console
+        </div>
+        <h1 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 70px; line-height: 1.02; letter-spacing: -.02em; margin: 26px 0 0 0; text-wrap: balance;">Digitise your <em style="font-style: italic; color: #C97F12;">guest experience.</em></h1>
+        <p style="font-size: 19px; line-height: 1.55; color: #4B5A70; margin: 22px 0 0 0; max-width: 520px; text-wrap: pretty;">Innstant gives every hotel guest a personal concierge on their own phone. They order dinner, ask for towels, reach the desk and extend their stay in a few taps. Your kitchen, housekeeping and reception see it the moment it happens.</p>
+        <div style="display: flex; align-items: center; gap: 12px; margin-top: 34px; flex-wrap: wrap;">
+          <button onClick="{{ goContact }}" style="height: 54px; padding: 0 26px; border-radius: 999px; background: #E9A227; color: #101E33; border: 0; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 200ms ease-out;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #101E33; outline-offset: 3px;">Book a 20-minute demo</button>
+          <button onClick="{{ goProduct }}" style="height: 54px; padding: 0 22px; border-radius: 999px; background: transparent; color: #101E33; border: 1px solid rgba(16,30,51,.22); font-size: 16px; font-weight: 600; cursor: pointer;" style-hover="border-color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">See how it works</button>
+        </div>
+        <div style="display: flex; gap: 28px; margin-top: 40px; padding-top: 24px; border-top: 1px solid rgba(16,30,51,.12); flex-wrap: wrap;">
+          <div><div style="font-family: 'Instrument Serif', serif; font-size: 34px; line-height: 1;">2 s</div><div style="font-size: 13px; color: #4B5A70; margin-top: 4px;">Scan to first screen</div></div>
+          <div><div style="font-family: 'Instrument Serif', serif; font-size: 34px; line-height: 1;">3 taps</div><div style="font-size: 13px; color: #4B5A70; margin-top: 4px;">Dinner to the room</div></div>
+          <div><div style="font-family: 'Instrument Serif', serif; font-size: 34px; line-height: 1;">0</div><div style="font-size: 13px; color: #4B5A70; margin-top: 4px;">Apps installed, passwords set</div></div>
+        </div>
+      </div>
+
+      <div style="position: relative; height: 640px; min-width: 520px; animation: fadeUp 600ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms;">
+        <div style="position: absolute; inset: 40px 0 0 40px; border-radius: 32px; background: #101E33;"></div>
+        <div style="position: absolute; left: 0; top: 0; width: 300px; height: 620px; border-radius: 40px; background: #101E33; box-shadow: 0 40px 80px rgba(16,30,51,.35); overflow: hidden; border: 6px solid #0A1220;">
+          <div style="padding: 22px 18px 0 18px; color: #E3E5DB;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-family: 'Instrument Serif', serif; font-size: 14px; letter-spacing: .2em; text-transform: uppercase;">The Kesari</span>
+              <span style="font-family: 'DM Mono', monospace; font-size: 10px; color: #101E33; background: #E3E5DB; padding: 3px 7px; border-radius: 2px;">ROOM 214</span>
+            </div>
+            <div style="margin-top: 16px; height: 130px; border-radius: 44% 44% 4px 4px / 34% 34% 0 0; background-color: #16253E; background-image: radial-gradient(circle at 50% 108%, rgba(233,162,39,.22) 0 22%, transparent 22.5%), radial-gradient(circle at 50% 108%, transparent 0 36%, rgba(227,229,219,.14) 36% 36.7%, transparent 37.2%), radial-gradient(circle at 50% 108%, transparent 0 52%, rgba(227,229,219,.09) 52% 52.7%, transparent 53.2%); position: relative; overflow: hidden;">
+              <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,15,26,.9), transparent 70%);"></div>
+              <div style="position: absolute; left: 12px; bottom: 10px; font-family: 'Instrument Serif', serif; font-size: 15px;">Kitchen open until 11:30</div>
+            </div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 16px; line-height: 1.1;">Good evening, Anjali</div>
+            <div style="font-size: 12px; color: rgba(227,229,219,.6); margin-top: 4px;">Room 214 is yours until Thursday, 11am.</div>
+            <div style="display: flex; flex-direction: column; gap: 1px; margin-top: 16px; background: rgba(227,229,219,.12); border-radius: 3px; overflow: hidden;">
+              <div style="display: flex; justify-content: space-between; padding: 12px 12px; background: #1B2B45; font-size: 13px; font-weight: 600;"><span>Amenities</span><span style="color: rgba(227,229,219,.4);">→</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 12px 12px; background: #1B2B45; font-size: 13px; font-weight: 600;"><span>Message the front desk</span><span style="color: rgba(227,229,219,.4);">→</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 12px 12px; background: #1B2B45; font-size: 13px; font-weight: 600;"><span>Your stay</span><span style="color: rgba(227,229,219,.4);">→</span></div>
+              <div style="display: flex; justify-content: space-between; padding: 12px 12px; background: #1B2B45; font-size: 13px; font-weight: 600;"><span>Udaipur after dark</span><span style="color: rgba(227,229,219,.4);">→</span></div>
+            </div>
+          </div>
+          <div style="position: absolute; left: 14px; right: 14px; bottom: 18px; height: 48px; border-radius: 3px; background: #E9A227; color: #101E33; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">Order dinner to room 214</div>
+        </div>
+        <div style="position: absolute; right: 0; top: 96px; width: 300px; background: #FFFFFF; border-radius: 16px; box-shadow: 0 24px 60px rgba(16,30,51,.25); padding: 16px; animation: drift 3.2s ease-in-out infinite alternate;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500;">214</span>
+            <div style="flex: 1;"><div style="font-size: 13px; font-weight: 600;">Anjali Menon</div><div style="font-family: 'DM Mono', monospace; font-size: 10.5px; color: #4B5A70;">KE-1184 · 21:42</div></div>
+            <span style="font-family: 'DM Mono', monospace; font-size: 12px; color: #FFFFFF; background: #1F7A4D; padding: 4px 8px; border-radius: 6px;">01:12</span>
+          </div>
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(16,30,51,.1); font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; gap: 8px;"><span style="font-family: 'DM Mono', monospace; color: #C97F12;">1×</span><span>Laal maas with bajra roti</span></div>
+            <div style="display: flex; gap: 8px;"><span style="font-family: 'DM Mono', monospace; color: #C97F12;">2×</span><span>Kesar lassi</span></div>
+          </div>
+          <div style="margin-top: 12px; height: 40px; border-radius: 8px; background: #101E33; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;">Accept · start cooking</div>
+        </div>
+        <div style="position: absolute; right: 30px; bottom: 30px; width: 270px; background: #F3F4F1; border-radius: 14px; box-shadow: 0 24px 60px rgba(16,30,51,.25); padding: 14px 16px; border: 1px solid rgba(16,30,51,.1);">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #4B5A70;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #1F7A4D; animation: tick 1.6s ease-in-out infinite;"></span>Folio · room 214</div>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 13px;"><span>In-room dining · KE-1184</span><span style="font-family: 'DM Mono', monospace;">₹2,266</span></div>
+          <div style="display: flex; justify-content: space-between; margin-top: 6px; font-size: 13px;"><span>Late checkout to 2pm</span><span style="font-family: 'DM Mono', monospace;">₹2,500</span></div>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(16,30,51,.12); font-weight: 700;"><span>Total so far</span><span style="font-family: 'DM Mono', monospace;">₹13,706</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 24px 28px 0 28px;">
+      <div style="display: flex; align-items: center; gap: 28px; padding: 22px 0; border-top: 1px solid rgba(16,30,51,.12); border-bottom: 1px solid rgba(16,30,51,.12); flex-wrap: wrap;">
+        <span style="font-size: 13px; color: #4B5A70; font-weight: 600; margin-right: 8px;">Trusted by independent properties across India</span>
+        <sc-for list="{{ logos }}" as="l" hint-placeholder-count="6">
+          <span style="{{ l.style }}">{{ l.name }}</span>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 110px 28px 0 28px;">
+      <div style="max-width: 640px;">
+        <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">WHAT IT IS</div>
+        <h2 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 48px; line-height: 1.06; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Everything a guest asks for between check-in and checkout, on the phone they already have.</h2>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 54px;">
+        <sc-for list="{{ pillars }}" as="p" hint-placeholder-count="3">
+          <div style="background: #FFFFFF; border-radius: 22px; padding: 30px 28px; border: 1px solid rgba(16,30,51,.08); display: flex; flex-direction: column; gap: 14px; min-height: 300px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .12em; color: #C97F12;">{{ p.kicker }}</span>
+              <span style="{{ p.iconStyle }}"></span>
+            </div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 30px; line-height: 1.1;">{{ p.title }}</div>
+            <div style="color: #4B5A70; font-size: 15px; line-height: 1.55; text-wrap: pretty;">{{ p.body }}</div>
+            <div style="margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(16,30,51,.1); font-size: 13.5px; font-weight: 600; color: #101E33;">{{ p.foot }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background: #101E33; color: #F3F4F1; margin-top: 120px; padding: 110px 0;">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 0 28px; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 64px; align-items: start;">
+        <div style="position: sticky; top: 110px;">
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #E9A227;">HOW IT WORKS</div>
+          <h2 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 48px; line-height: 1.06; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">From the guest's phone to the kitchen pass in under two seconds.</h2>
+          <p style="color: rgba(243,244,241,.7); font-size: 16px; line-height: 1.6; margin: 18px 0 0 0; max-width: 440px;">One order, four screens, no phone calls. Every step writes to the folio and to an audit log, so nothing is lost between a guest, a runner and the front desk.</p>
+          <button onClick="{{ goProduct }}" style="margin-top: 28px; height: 50px; padding: 0 22px; border-radius: 999px; background: #E9A227; color: #101E33; border: 0; font-size: 15px; font-weight: 700; cursor: pointer;" style-hover="background: #F3F4F1;" style-focus="outline: 2px solid #F3F4F1; outline-offset: 3px;">Walk through the product</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 22px; padding: 26px 0; border-top: 1px solid rgba(243,244,241,.14);">
+              <div>
+                <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .12em; color: #E9A227;">{{ s.who }}</div>
+                <div style="font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(243,244,241,.5); margin-top: 4px;">{{ s.time }}</div>
+              </div>
+              <div>
+                <div style="font-family: 'Instrument Serif', serif; font-size: 28px; line-height: 1.15;">{{ s.title }}</div>
+                <div style="color: rgba(243,244,241,.7); font-size: 15px; line-height: 1.55; margin-top: 8px; text-wrap: pretty;">{{ s.body }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 120px 28px 0 28px;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 64px; align-items: end;">
+        <div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">REVENUE</div>
+          <h2 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 48px; line-height: 1.06; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Every request becomes a line on the folio, not a favour at the desk.</h2>
+        </div>
+        <p style="color: #4B5A70; font-size: 17px; line-height: 1.6; margin: 0; text-wrap: pretty;">Hotels leave money in the room because ordering is a phone call, late checkout is a shrug and the spa is a leaflet. Innstant turns each of those into a tap the guest takes on their own, priced, timed and charged to the room.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 54px;">
+        <sc-for list="{{ revenue }}" as="r" hint-placeholder-count="4">
+          <div style="border-radius: 20px; padding: 26px 24px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08); min-height: 240px; display: flex; flex-direction: column;">
+            <div style="font-family: 'Instrument Serif', serif; font-size: 44px; line-height: 1; color: #C97F12;">{{ r.stat }}</div>
+            <div style="font-size: 13px; color: #4B5A70; margin-top: 6px;">{{ r.statLabel }}</div>
+            <div style="font-size: 17px; font-weight: 600; margin-top: 22px; line-height: 1.3;">{{ r.title }}</div>
+            <div style="font-size: 14px; color: #4B5A70; line-height: 1.5; margin-top: 6px; text-wrap: pretty;">{{ r.body }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-size: 12.5px; color: #7C889C; margin-top: 14px;">Figures are from Innstant pilot properties, 2026. Your numbers depend on your outlets and guest mix. We will model them with you on the demo.</div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 120px 28px 0 28px;">
+      <div style="display: flex; align-items: end; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
+        <div style="max-width: 620px;">
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">YOUR PROPERTY, NOT A PORTAL</div>
+          <h2 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 48px; line-height: 1.06; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">The same app, dressed for a haveli, a beach resort or an airport pod.</h2>
+        </div>
+        <button onClick="{{ goThemes }}" style="height: 48px; padding: 0 20px; border-radius: 999px; background: transparent; color: #101E33; border: 1px solid rgba(16,30,51,.22); font-size: 15px; font-weight: 600; cursor: pointer;" style-hover="border-color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">See all six themes</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; margin-top: 44px;">
+        <sc-for list="{{ themeTiles }}" as="t" hint-placeholder-count="6">
+          <button onClick="{{ goThemes }}" style="{{ t.style }}" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">
+            <span style="{{ t.nameStyle }}">{{ t.name }}</span>
+            <span style="{{ t.subStyle }}">{{ t.sub }}</span>
+            <span style="{{ t.accentStyle }}"></span>
+          </button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 120px 28px 0 28px;">
+      <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">FROM THE PROPERTIES</div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 26px;">
+        <sc-for list="{{ quotes }}" as="q" hint-placeholder-count="3">
+          <div style="background: #FFFFFF; border-radius: 22px; padding: 30px 28px; border: 1px solid rgba(16,30,51,.08); display: flex; flex-direction: column; gap: 22px;">
+            <div style="font-family: 'Instrument Serif', serif; font-size: 26px; line-height: 1.25; text-wrap: pretty;">{{ q.text }}</div>
+            <div style="margin-top: auto; display: flex; align-items: center; gap: 12px;">
+              <span style="{{ q.avatarStyle }}">{{ q.initials }}</span>
+              <div><div style="font-size: 14px; font-weight: 600;">{{ q.name }}</div><div style="font-size: 13px; color: #4B5A70;">{{ q.role }}</div></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 120px 28px 0 28px;">
+      <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px;">
+        <div style="border-radius: 22px; padding: 34px 32px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">BUILT FOR MANY PROPERTIES</div>
+          <div style="font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1.1; margin-top: 12px;">One platform, walls between every hotel.</div>
+          <p style="color: #4B5A70; font-size: 15px; line-height: 1.55; margin: 12px 0 0 0;">Row-level security is enforced in the database itself, not in application code. A staff login at one property cannot read a single row from another, and we prove it in a test that tries.</p>
+          <button onClick="{{ goSecurity }}" style="margin-top: 20px; height: 44px; padding: 0 4px; background: transparent; border: 0; color: #C97F12; font-size: 15px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Read the security page →</button>
+        </div>
+        <div style="border-radius: 22px; padding: 34px 32px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">GUEST PRIVACY</div>
+          <div style="font-family: 'Instrument Serif', serif; font-size: 32px; line-height: 1.1; margin-top: 12px;">No accounts. No app. Nothing to forget.</div>
+          <p style="color: #4B5A70; font-size: 15px; line-height: 1.55; margin: 12px 0 0 0;">A guest session lives only as long as the stay and is tied to the room. The first time they charge something, one verification prompt. After checkout, the QR resolves to nothing.</p>
+          <button onClick="{{ goProduct }}" style="margin-top: 20px; height: 44px; padding: 0 4px; background: transparent; border: 0; color: #C97F12; font-size: 15px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">How guest access works →</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="max-width: 1200px; margin: 0 auto; padding: 120px 28px 120px 28px;">
+      <div style="border-radius: 28px; background: #101E33; color: #F3F4F1; padding: 72px 64px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 40px; align-items: center; position: relative; overflow: hidden;">
+        <div style="position: absolute; right: -80px; top: -80px; width: 380px; height: 380px; border-radius: 50%; border: 60px solid rgba(233,162,39,.12);"></div>
+        <div style="position: relative;">
+          <h2 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 52px; line-height: 1.04; letter-spacing: -.02em; margin: 0; text-wrap: balance;">See it running on your own property in twenty minutes.</h2>
+          <p style="color: rgba(243,244,241,.72); font-size: 17px; line-height: 1.55; margin: 18px 0 0 0; max-width: 520px;">We set up a demo property with your name, your outlets and your room numbers before the call. You scan a QR on your own phone and order from your own menu.</p>
+        </div>
+        <div style="position: relative; display: flex; flex-direction: column; gap: 12px; align-items: stretch;">
+          <button onClick="{{ goContact }}" style="height: 56px; border-radius: 999px; background: #E9A227; color: #101E33; border: 0; font-size: 16px; font-weight: 700; cursor: pointer;" style-hover="background: #F3F4F1;" style-focus="outline: 2px solid #F3F4F1; outline-offset: 3px;">Book a demo</button>
+          <button onClick="{{ goProduct }}" style="height: 56px; border-radius: 999px; background: transparent; color: #F3F4F1; border: 1px solid rgba(243,244,241,.3); font-size: 16px; font-weight: 600; cursor: pointer;" style-hover="border-color: #F3F4F1;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Try the live prototype</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== PRODUCT ===================== -->
+  <sc-if value="{{ isProduct }}">
+  <div data-screen-label="Product" style="max-width: 1200px; margin: 0 auto; padding: 80px 28px 120px 28px;">
+    <div style="max-width: 720px;">
+      <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">PRODUCT</div>
+      <h1 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 60px; line-height: 1.04; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Four surfaces. One live system.</h1>
+      <p style="font-size: 18px; line-height: 1.55; color: #4B5A70; margin: 20px 0 0 0;">Guests see one thing, your teams see three. Every action on any of them is visible on the others within two seconds.</p>
+    </div>
+
+    <div style="display: flex; gap: 6px; margin-top: 48px; padding: 5px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.1); border-radius: 999px; width: fit-content;">
+      <sc-for list="{{ surfaces }}" as="s" hint-placeholder-count="4">
+        <button onClick="{{ s.pick }}" style="{{ s.tabStyle }}" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">{{ s.label }}</button>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 48px; margin-top: 40px; align-items: start;">
+      <div>
+        <div style="font-family: 'Instrument Serif', serif; font-size: 40px; line-height: 1.08;">{{ surf.title }}</div>
+        <p style="color: #4B5A70; font-size: 16px; line-height: 1.6; margin: 16px 0 0 0;">{{ surf.body }}</p>
+        <div style="display: flex; flex-direction: column; gap: 0; margin-top: 26px; border-top: 1px solid rgba(16,30,51,.12);">
+          <sc-for list="{{ surf.features }}" as="f" hint-placeholder-count="5">
+            <div style="display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid rgba(16,30,51,.12);">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: #E9A227; margin-top: 8px; flex: 0 0 8px;"></span>
+              <div><div style="font-size: 15.5px; font-weight: 600;">{{ f.t }}</div><div style="font-size: 14px; color: #4B5A70; margin-top: 2px; line-height: 1.5;">{{ f.d }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top: 22px; font-family: 'DM Mono', monospace; font-size: 12px; color: #7C889C;">{{ surf.device }}</div>
+      </div>
+      <div style="{{ surf.frameStyle }}">
+        <sc-if value="{{ surfIsGuest }}" hint-placeholder-val="{{ true }}">
+          <div style="width: 390px; height: 700px; border-radius: 34px; overflow: hidden; border: 8px solid #0A1220; box-shadow: 0 40px 90px rgba(16,30,51,.35); background: #101E33;">
+            <div style="width: 374px; height: 684px; overflow: hidden; position: relative;"><div style="width: 390px; height: 844px; transform: scale(.81); transform-origin: top left; position: absolute; left: 29px; top: 0;"><dc-import name="The Kesari" hint-size="390px,844px"></dc-import></div></div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ surfIsStaff }}" hint-placeholder-val="{{ false }}">
+          <div style="width: 100%; border-radius: 18px; overflow: hidden; background: #FFFFFF; border: 1px solid rgba(16,30,51,.12); box-shadow: 0 30px 80px rgba(16,30,51,.18);">
+            <div style="display: flex; gap: 6px; padding: 12px 14px; border-bottom: 1px solid rgba(16,30,51,.1); background: #F3F4F1;">
+              <span style="width: 10px; height: 10px; border-radius: 50%; background: #D9DDD8;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #D9DDD8;"></span><span style="width: 10px; height: 10px; border-radius: 50%; background: #D9DDD8;"></span>
+              <span style="margin-left: 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: #7C889C;">{{ surf.url }}</span>
+            </div>
+            <div style="padding: 24px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; background: #F3F4F1; min-height: 420px;">
+              <sc-for list="{{ surf.mockCols }}" as="c" hint-placeholder-count="3">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <div style="font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6570;">{{ c.title }}</div>
+                  <sc-for list="{{ c.cards }}" as="k" hint-placeholder-count="2">
+                    <div style="{{ k.style }}">
+                      <div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500;">{{ k.room }}</span><span style="{{ k.tagStyle }}">{{ k.tag }}</span></div>
+                      <div style="font-size: 13px; margin-top: 8px; line-height: 1.45; color: #3C4550;">{{ k.body }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <div style="margin-top: 110px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px;">
+      <sc-for list="{{ plumbing }}" as="p" hint-placeholder-count="3">
+        <div style="border-radius: 20px; padding: 26px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .12em; color: #C97F12;">{{ p.k }}</div>
+          <div style="font-size: 18px; font-weight: 600; margin-top: 10px; line-height: 1.3;">{{ p.t }}</div>
+          <div style="font-size: 14.5px; color: #4B5A70; margin-top: 8px; line-height: 1.55;">{{ p.d }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== THEMES ===================== -->
+  <sc-if value="{{ isThemes }}">
+  <div data-screen-label="Themes" style="max-width: 1200px; margin: 0 auto; padding: 80px 28px 120px 28px;">
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: end;">
+      <div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">THEMES</div>
+        <h1 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 60px; line-height: 1.04; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Your guests should see your hotel, not our software.</h1>
+      </div>
+      <p style="font-size: 17px; line-height: 1.6; color: #4B5A70; margin: 0;">Every property gets its own colour, type, shape and motion, expressed as one token set. The screens underneath are identical, so your staff tools never change and every feature ships to every theme on the same day. Pick one below and watch the app become that hotel.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 36px; margin-top: 56px; align-items: start;">
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <sc-for list="{{ themeList }}" as="t" hint-placeholder-count="6">
+          <button onClick="{{ t.pick }}" style="{{ t.rowStyle }}" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">
+            <span style="{{ t.swatch }}"></span>
+            <span style="flex: 1; display: flex; flex-direction: column; align-items: flex-start;"><span style="font-size: 15.5px; font-weight: 600;">{{ t.name }}</span><span style="font-size: 12.5px; color: #4B5A70;">{{ t.sub }}</span></span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 40px; align-items: flex-start; flex-wrap: wrap;">
+        <div style="width: 390px; flex: 0 0 390px; height: 700px; border-radius: 34px; overflow: hidden; border: 8px solid #0A1220; box-shadow: 0 40px 90px rgba(16,30,51,.35); background: #101E33;">
+          <div style="width: 374px; height: 684px; overflow: hidden; position: relative;"><div style="width: 390px; height: 900px; transform: scale(.76); transform-origin: top left; position: absolute; left: 39px; top: 0;"><dc-import name="Theme Showcase" theme="{{ activeTheme }}" hint-size="390px,900px"></dc-import></div></div>
+        </div>
+        <div style="flex: 1 1 260px; min-width: 260px;">
+          <div style="font-family: 'Instrument Serif', serif; font-size: 36px; line-height: 1.1;">{{ themeInfo.name }}</div>
+          <div style="font-size: 14px; color: #4B5A70; margin-top: 4px;">{{ themeInfo.place }}</div>
+          <p style="font-size: 16px; line-height: 1.6; color: #4B5A70; margin: 18px 0 0 0;">{{ themeInfo.thesis }}</p>
+          <div style="display: flex; gap: 8px; margin-top: 22px;">
+            <sc-for list="{{ themeInfo.hexes }}" as="h" hint-placeholder-count="5">
+              <span style="{{ h.style }}"></span>
+            </sc-for>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(16,30,51,.12); font-size: 14px;">
+            <div><div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #7C889C; letter-spacing: .1em;">DISPLAY</div><div style="margin-top: 4px;">{{ themeInfo.display }}</div></div>
+            <div><div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #7C889C; letter-spacing: .1em;">BODY</div><div style="margin-top: 4px;">{{ themeInfo.body }}</div></div>
+            <div><div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #7C889C; letter-spacing: .1em;">HERO</div><div style="margin-top: 4px;">{{ themeInfo.hero }}</div></div>
+            <div><div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #7C889C; letter-spacing: .1em;">RATE</div><div style="margin-top: 4px; font-family: 'DM Mono', monospace;">{{ themeInfo.rate }}</div></div>
+          </div>
+          <p style="font-size: 14px; line-height: 1.55; color: #4B5A70; margin: 24px 0 0 0;">Don't see yours? We build a theme from your brand guide in about a week, and you can preview it on this page before signing anything.</p>
+          <button onClick="{{ goContact }}" style="margin-top: 18px; height: 48px; padding: 0 20px; border-radius: 999px; background: #101E33; color: #F3F4F1; border: 0; font-size: 15px; font-weight: 600; cursor: pointer;" style-hover="background: #E9A227; color: #101E33;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Ask for a theme in your brand</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== SECURITY ===================== -->
+  <sc-if value="{{ isSecurity }}">
+  <div data-screen-label="Security" style="max-width: 1200px; margin: 0 auto; padding: 80px 28px 120px 28px;">
+    <div style="max-width: 760px;">
+      <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">SECURITY &amp; MULTI-TENANCY</div>
+      <h1 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 60px; line-height: 1.04; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Your guests' data is yours. Your neighbour's is theirs.</h1>
+      <p style="font-size: 18px; line-height: 1.55; color: #4B5A70; margin: 20px 0 0 0;">Innstant runs many hotels on one platform. The isolation between them is enforced where it can't be bypassed by a bug in a screen: in the database.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 56px;">
+      <sc-for list="{{ security }}" as="s" hint-placeholder-count="6">
+        <div style="border-radius: 22px; padding: 30px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08);">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .12em; color: #C97F12;">{{ s.k }}</span>
+            <span style="{{ s.badgeStyle }}">{{ s.badge }}</span>
+          </div>
+          <div style="font-family: 'Instrument Serif', serif; font-size: 28px; line-height: 1.15; margin-top: 12px;">{{ s.t }}</div>
+          <div style="font-size: 15px; color: #4B5A70; line-height: 1.55; margin-top: 10px; text-wrap: pretty;">{{ s.d }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top: 56px; border-radius: 22px; padding: 34px; background: #101E33; color: #F3F4F1; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px;">
+      <div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #E9A227;">WHAT WE DON'T DO</div>
+        <div style="font-family: 'Instrument Serif', serif; font-size: 30px; line-height: 1.15; margin-top: 12px;">No real guest data in demos, ever.</div>
+        <p style="color: rgba(243,244,241,.72); font-size: 15px; line-height: 1.55; margin: 12px 0 0 0;">Every demo property is seeded from a fixture and reset on demand. Sales, support and engineering never touch a live guest record to show you something.</p>
+      </div>
+      <div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #E9A227;">HOSTING</div>
+        <div style="font-family: 'Instrument Serif', serif; font-size: 30px; line-height: 1.15; margin-top: 12px;">Singapore region, Indian payments.</div>
+        <p style="color: rgba(243,244,241,.72); font-size: 15px; line-height: 1.55; margin: 12px 0 0 0;">Application and database run in Singapore for latency to Indian properties. Payments go through Razorpay; card data never touches our servers. Media is stored in object storage with signed URLs.</p>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ===================== CONTACT ===================== -->
+  <sc-if value="{{ isContact }}">
+  <div data-screen-label="Contact" style="max-width: 1200px; margin: 0 auto; padding: 80px 28px 120px 28px; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 64px; align-items: start;">
+    <div>
+      <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .14em; color: #C97F12;">BOOK A DEMO</div>
+      <h1 style="font-family: 'Instrument Serif', serif; font-weight: 400; font-size: 56px; line-height: 1.04; letter-spacing: -.02em; margin: 14px 0 0 0; text-wrap: balance;">Twenty minutes, on your phone, with your menu.</h1>
+      <p style="font-size: 17px; line-height: 1.6; color: #4B5A70; margin: 20px 0 0 0;">Tell us the property and we set up a demo instance with your name, rooms and outlets before the call. You scan, you order, your team watches it land.</p>
+      <div style="display: flex; flex-direction: column; gap: 0; margin-top: 32px; border-top: 1px solid rgba(16,30,51,.12);">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(16,30,51,.12); font-size: 15px;"><span style="color: #7C889C;">Setup time</span><span>Live in a week for a property under 100 rooms</span></div>
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(16,30,51,.12); font-size: 15px;"><span style="color: #7C889C;">Hardware</span><span>Printed QR stickers, one tablet per kitchen, staff phones</span></div>
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(16,30,51,.12); font-size: 15px;"><span style="color: #7C889C;">Pricing</span><span>Per room per month, discussed on the call</span></div>
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 16px; padding: 14px 0; border-bottom: 1px solid rgba(16,30,51,.12); font-size: 15px;"><span style="color: #7C889C;">Email</span><a href="mailto:hello@innstant.in" style="color: #C97F12; font-weight: 600;">hello@innstant.in</a></div>
+      </div>
+    </div>
+    <div style="border-radius: 24px; padding: 36px; background: #FFFFFF; border: 1px solid rgba(16,30,51,.08); box-shadow: 0 30px 80px rgba(16,30,51,.10);">
+      <sc-if value="{{ formIdle }}" hint-placeholder-val="{{ true }}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600;">Your name<input value="{{ form.name }}" onChange="{{ onName }}" placeholder="Anjali Menon" style="height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(16,30,51,.18); font-size: 15px; font-weight: 400; outline: none; background: #F3F4F1;" style-focus="border-color: #101E33; box-shadow: 0 0 0 3px rgba(233,162,39,.35);" /></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600;">Work email<input value="{{ form.email }}" onChange="{{ onEmail }}" placeholder="you@hotel.com" type="email" style="height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(16,30,51,.18); font-size: 15px; font-weight: 400; outline: none; background: #F3F4F1;" style-focus="border-color: #101E33; box-shadow: 0 0 0 3px rgba(233,162,39,.35);" /></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600;">Property name<input value="{{ form.property }}" onChange="{{ onProperty }}" placeholder="The Kesari" style="height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(16,30,51,.18); font-size: 15px; font-weight: 400; outline: none; background: #F3F4F1;" style-focus="border-color: #101E33; box-shadow: 0 0 0 3px rgba(233,162,39,.35);" /></label>
+          <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600;">City<input value="{{ form.city }}" onChange="{{ onCity }}" placeholder="Udaipur" style="height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid rgba(16,30,51,.18); font-size: 15px; font-weight: 400; outline: none; background: #F3F4F1;" style-focus="border-color: #101E33; box-shadow: 0 0 0 3px rgba(233,162,39,.35);" /></label>
+        </div>
+        <div style="margin-top: 18px; font-size: 13.5px; font-weight: 600;">Rooms</div>
+        <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+          <sc-for list="{{ roomBands }}" as="b" hint-placeholder-count="4">
+            <button onClick="{{ b.pick }}" style="{{ b.style }}" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">{{ b.label }}</button>
+          </sc-for>
+        </div>
+        <div style="margin-top: 18px; font-size: 13.5px; font-weight: 600;">What matters most right now</div>
+        <div style="display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;">
+          <sc-for list="{{ interests }}" as="i" hint-placeholder-count="5">
+            <button onClick="{{ i.pick }}" style="{{ i.style }}" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">{{ i.label }}</button>
+          </sc-for>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; font-weight: 600; margin-top: 18px;">Anything else<textarea value="{{ form.note }}" onChange="{{ onNote }}" placeholder="Current PMS, number of outlets, when you'd like to go live…" rows="3" style="padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(16,30,51,.18); font-size: 15px; font-weight: 400; outline: none; background: #F3F4F1; resize: vertical;" style-focus="border-color: #101E33; box-shadow: 0 0 0 3px rgba(233,162,39,.35);"></textarea></label>
+        <button onClick="{{ submit }}" style="{{ submitStyle }}" style-focus="outline: 2px solid #101E33; outline-offset: 3px;">{{ submitLabel }}</button>
+        <div style="font-size: 12.5px; color: #7C889C; margin-top: 12px; line-height: 1.5;">We reply within one working day from a person, not a sequence. No newsletter.</div>
+      </sc-if>
+      <sc-if value="{{ formDone }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 14px; min-height: 420px; justify-content: center;">
+          <span style="width: 48px; height: 48px; border-radius: 50%; background: #E9A227; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 20px; color: #101E33;">✓</span>
+          <div style="font-family: 'Instrument Serif', serif; font-size: 36px; line-height: 1.1;">{{ doneTitle }}</div>
+          <p style="font-size: 16px; color: #4B5A70; line-height: 1.55; margin: 0;">{{ doneBody }}</p>
+          <button onClick="{{ resetForm }}" style="margin-top: 8px; height: 44px; padding: 0 4px; background: transparent; border: 0; color: #C97F12; font-size: 15px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Send another</button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <div style="background: #101E33; color: #F3F4F1;">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 56px 28px 40px 28px; display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); gap: 40px;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="width: 28px; height: 28px; border-radius: 14px 14px 3px 3px; background: #F3F4F1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px;"><span style="width: 10px; height: 10px; border-radius: 5px 5px 1px 1px; background: #E9A227;"></span></span>
+          <span style="font-family: 'Instrument Serif', serif; font-size: 24px;">Innstant</span>
+        </div>
+        <p style="color: rgba(243,244,241,.62); font-size: 14px; line-height: 1.55; margin: 14px 0 0 0; max-width: 320px;">Guest services software for hotels that care how the app feels as much as how the lobby does.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+        <span style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .12em; color: #E9A227;">PRODUCT</span>
+        <button onClick="{{ goProduct }}" style="background: transparent; border: 0; padding: 0; color: rgba(243,244,241,.8); text-align: left; cursor: pointer; font-size: 14px; min-height: 28px;" style-hover="color: #F3F4F1;">How it works</button>
+        <button onClick="{{ goThemes }}" style="background: transparent; border: 0; padding: 0; color: rgba(243,244,241,.8); text-align: left; cursor: pointer; font-size: 14px; min-height: 28px;" style-hover="color: #F3F4F1;">Themes</button>
+        <button onClick="{{ goSecurity }}" style="background: transparent; border: 0; padding: 0; color: rgba(243,244,241,.8); text-align: left; cursor: pointer; font-size: 14px; min-height: 28px;" style-hover="color: #F3F4F1;">Security</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+        <span style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .12em; color: #E9A227;">COMPANY</span>
+        <button onClick="{{ goContact }}" style="background: transparent; border: 0; padding: 0; color: rgba(243,244,241,.8); text-align: left; cursor: pointer; font-size: 14px; min-height: 28px;" style-hover="color: #F3F4F1;">Book a demo</button>
+        <a href="mailto:hello@innstant.in" style="color: rgba(243,244,241,.8); min-height: 28px; display: flex; align-items: center;" style-hover="color: #F3F4F1;">hello@innstant.in</a>
+        <a href="#" style="color: rgba(243,244,241,.8); min-height: 28px; display: flex; align-items: center;" style-hover="color: #F3F4F1;">Staff sign in</a>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 14px;">
+        <span style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .12em; color: #E9A227;">LEGAL</span>
+        <a href="#" style="color: rgba(243,244,241,.8); min-height: 28px; display: flex; align-items: center;" style-hover="color: #F3F4F1;">Privacy</a>
+        <a href="#" style="color: rgba(243,244,241,.8); min-height: 28px; display: flex; align-items: center;" style-hover="color: #F3F4F1;">Terms</a>
+        <a href="#" style="color: rgba(243,244,241,.8); min-height: 28px; display: flex; align-items: center;" style-hover="color: #F3F4F1;">Data processing</a>
+      </div>
+    </div>
+    <div style="max-width: 1200px; margin: 0 auto; padding: 18px 28px 32px 28px; border-top: 1px solid rgba(243,244,241,.12); display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(243,244,241,.5);">
+      <span>© 2026 Innstant</span><span>Made for hotels in India · Hosted in Singapore</span>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const THEMES = [
+  { key: 'heritage', name: 'The Kesari', place: 'Udaipur · 34-key converted haveli', sub: 'Heritage haveli', bg: '#101E33', accent: '#E9A227', ink: '#E3E5DB', hexes: ['#101E33', '#1B2B45', '#E3E5DB', '#E9A227', '#6E9C95'], display: 'Marcellus', body: 'Mukta', hero: 'Cinematic', rate: '₹22,000 / night', thesis: 'Lake at night on lime plaster. Dark because guests use it in bed at 9:40pm. Saffron carries the house name; the jharokha arch shapes every image slot.' },
+  { key: 'coast', name: 'Aramaya', place: 'South Goa · 60-key beach resort', sub: 'Beach resort', bg: '#F7F2E7', accent: '#2F6B4F', ink: '#2E3A33', hexes: ['#F7F2E7', '#FFFFFF', '#2E3A33', '#2F6B4F', '#B4552F'], display: 'Gilda Display', body: 'Karla', hero: 'Cinematic', rate: '₹18,000 / night', thesis: 'Bleached shell and laterite, everything open to air. Light-dominant with a chromatic green accent, generous radii and a bigger type scale for barefoot reading.' },
+  { key: 'corporate', name: 'Node', place: 'Bengaluru · 180-key business hotel', sub: 'Business hotel', bg: '#F2F4F7', accent: '#1F5FD8', ink: '#14181D', hexes: ['#F2F4F7', '#FFFFFF', '#14181D', '#1F5FD8', '#5B6672'], display: 'Archivo', body: 'IBM Plex Sans', hero: 'Compact', rate: '₹7,000 / night', thesis: 'Glass, grey and a schedule that holds. No hero image at all; status and times lead. Tight radii, fastest motion on the board.' },
+  { key: 'gallery', name: 'Hôtel Verre', place: 'Colaba, Mumbai · 22-key art hotel', sub: 'Art hotel', bg: '#211F1C', accent: '#B08D3F', ink: '#EDE8E0', hexes: ['#211F1C', '#2B2925', '#EDE8E0', '#B08D3F', '#7C766C'], display: 'Bodoni Moda', body: 'Jost', hero: 'Editorial', rate: '₹32,000 / night', thesis: 'Board-formed concrete with brass fittings. Zero radius, hairline rules, a Didone display beside a geometric sans. The artwork on your floor is the hero.' },
+  { key: 'forest', name: 'Deodar House', place: 'Kasauli · 18-key wellness lodge', sub: 'Wellness lodge', bg: '#E8EBE5', accent: '#8A6A43', ink: '#27302A', hexes: ['#E8EBE5', '#F5F7F2', '#27302A', '#8A6A43', '#5F6B60'], display: 'Newsreader', body: 'Nunito Sans', hero: 'Editorial', rate: '₹22,000 / night', thesis: 'Deodar timber and mountain mist. The quietest type on the board, near-flat contrast, a 1.15 scale. Silence is the product, so the app whispers.' },
+  { key: 'transit', name: 'Stack', place: 'Delhi Aerocity · 240-key budget hotel', sub: 'Airport pod hotel', bg: '#101112', accent: '#E4FF3F', ink: '#F2F3F0', hexes: ['#101112', '#1A1C1E', '#F2F3F0', '#E4FF3F', '#8A9096'], display: 'Space Grotesk', body: 'Manrope', hero: 'Compact', rate: '₹3,200 / night', thesis: 'Black plastic and one bright signal at 4am. Big pill radii for tired thumbs, the fastest spring, and a wake-up-laundry-car hero with no picture.' }
+];
+
+const SURFACES = [
+  { key: 'guest', label: 'Guest app', title: 'A concierge on the guest\u2019s own phone.', device: 'Mobile web · 390 × 844 · no install', url: '',
+    body: 'Scan the QR on the nightstand and the app already knows the room, the guest and the checkout time. Dinner is three taps away. Every screen is designed for one thumb, at night, on hotel wifi.',
+    features: [{ t: 'In-room dining', d: 'Sticky category rail, editorial collections, modifiers, live order tracking.' }, { t: 'Amenities and service calls', d: 'Towels, laundry, an iron, someone from the desk. Free and chargeable in one list.' }, { t: 'The stay', d: 'Folio with tabular figures, late checkout requests, express checkout with Razorpay.' }, { t: 'Nearby', d: 'A curated list in the hotel\u2019s own voice, with walking time instead of ratings.' }, { t: 'Motion that feels premium', d: 'Shared-element transitions, spring sheets, a cart pill that morphs. Respects reduced motion.' }] },
+  { key: 'kds', label: 'Kitchen display', title: 'Tickets the kitchen can read from two metres.', device: 'Tablet · landscape · dark after 7pm', url: 'kitchen.innstant.in/kds/rooftop',
+    body: 'New, cooking and at the pass in three columns, oldest first. Timers age green to amber to red. Reject with a reason the guest actually sees. Pull a dish from the menu with one tap when it runs out.',
+    features: [{ t: 'Audible alert and unacknowledged count', d: 'A new ticket pulses until somebody taps to silence it.' }, { t: 'Accept, reject, bump, recall', d: 'Every transition writes to the event log.' }, { t: '86 list', d: 'Mark a dish unavailable from the ticket; the guest menu updates in under two seconds.' }, { t: 'Prep timers', d: 'Start from accept, not from order, so the kitchen is measured on what it controls.' }],
+    mockCols: [{ title: 'New · 2', cards: [{ room: '108', tag: '04:12', tagColor: '#1F7A4D', body: '1× Rooftop grilled river sole · Gentle\n1× Ker sangri' }, { room: '302', tag: '01:05', tagColor: '#1F7A4D', body: '1× Dal baati churma\n2× Mawa kachori' }] }, { title: 'Cooking · 1', cards: [{ room: '214', tag: '09:40', tagColor: '#B7791F', body: '1× Laal maas with bajra roti\n2× Kesar lassi · 1× Masala chai' }] }, { title: 'At the pass · 1', cards: [{ room: '121', tag: 'waiting 03:20', tagColor: '#B7791F', body: '2× Pyaaz kachori · 2× Masala chai\nLeave at the door, baby asleep.' }] }] },
+  { key: 'runner', label: 'Runner & housekeeping', title: 'The right request reaches the right phone without anyone assigning it.', device: 'Staff phone · portrait', url: 'staff.innstant.in/runner',
+    body: 'Clock in for a floor and requests route to you automatically, ranked by your open count. Each one carries a promise time. Miss it and the duty manager is told, visibly.',
+    features: [{ t: 'Pickup queue', d: 'Ready at the pass, picked up, delivered. Delivery posts the charge to the folio.' }, { t: 'SLA countdowns', d: 'Promised minutes, not vague priorities. Breaches escalate on a timer.' }, { t: 'Auto-routing', d: 'Role ∩ on shift ∩ covers the floor, ranked by load.' }, { t: 'Guest notes carried through', d: '\u201cNo bell after 10, please knock\u201d appears on the runner\u2019s card.' }],
+    mockCols: [{ title: 'Pickups · 2', cards: [{ room: '121', tag: 'Ready 03:20', tagColor: '#B7791F', body: '2× Pyaaz kachori · 2× Masala chai' }, { room: '215', tag: 'With you 06:10', tagColor: '#0F766E', body: '1× Mohan maas · 1× Gatte ki sabzi' }] }, { title: 'Requests · 2', cards: [{ room: '214', tag: '05:48 left', tagColor: '#0F766E', body: 'Extra towels × 2' }, { room: '108', tag: 'Over by 02:00', tagColor: '#B42318', body: 'Extra pillow · Manager told' }] }, { title: 'Shift', cards: [{ room: 'KR', tag: 'On shift', tagColor: '#0F766E', body: 'Kishan Rathore · Floors 1–2 · since 18:00' }] }] },
+  { key: 'desk', label: 'Front desk', title: 'Every room, every open thing, one screen.', device: 'Desktop browser · RBAC by role', url: 'admin.innstant.in/rooms',
+    body: 'Rooms with an \u201copen now\u201d column, every request tonight oldest first, every order and its state. Select a room and see the live items, the folio and the decision waiting for you.',
+    features: [{ t: 'Late checkout approvals', d: 'Approve, decline, override or waive the fee. Approving moves the checkout and posts the line.' }, { t: 'Folio and settlement', d: 'Tabular figures, Razorpay settle, digital receipt.' }, { t: 'Menu and outlet admin', d: 'Hours, fees, taxes, modifiers, availability windows, editorial collections.' }, { t: 'Eight system roles', d: 'Owner, GM, front desk, F&B manager, kitchen, runner, housekeeping, finance. Resource-action permissions.' }],
+    mockCols: [{ title: 'Rooms', cards: [{ room: '214', tag: 'Late checkout', tagColor: '#B7791F', body: 'Anjali Menon · out Thu 11:00 · 1 order, 1 request' }, { room: '305', tag: 'Leaving', tagColor: '#B7791F', body: 'Thomas Beck · out today 04:30 · transfer open' }] }, { title: 'Needs a decision', cards: [{ room: '214', tag: '₹2,500', tagColor: '#101E33', body: 'Late checkout to 2pm Thursday · room is free · approve or decline' }] }, { title: 'Folio · 214', cards: [{ room: '₹13,706', tag: 'Unsettled', tagColor: '#5C6570', body: 'Rooftop dinner · Spa · Minibar · Laundry · In-room dining KE-1184' }] }] }
+];
+
+class Component extends DCLogic {
+  state = { page: 'home', surface: 'guest', theme: 'heritage', form: { name: '', email: '', property: '', city: '', rooms: '', interests: [], note: '' }, sent: false };
+
+  go = (page) => () => { this.setState({ page }); try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) {} };
+  pickSurface = (k) => () => this.setState({ surface: k });
+  pickTheme = (k) => () => this.setState({ theme: k });
+  setF = (k) => (e) => this.setState(s => ({ form: Object.assign({}, s.form, { [k]: e.target.value }) }));
+  pickRooms = (b) => () => this.setState(s => ({ form: Object.assign({}, s.form, { rooms: b }) }));
+  toggleInterest = (i) => () => this.setState(s => { const has = s.form.interests.indexOf(i) >= 0; return { form: Object.assign({}, s.form, { interests: has ? s.form.interests.filter(x => x !== i) : s.form.interests.concat([i]) }) }; });
+  submit = () => { if (!this.canSubmit()) return; this.setState({ sent: true }); };
+  resetForm = () => this.setState({ sent: false, form: { name: '', email: '', property: '', city: '', rooms: '', interests: [], note: '' } });
+  canSubmit() { const f = this.state.form; return f.name.trim() && /.+@.+\..+/.test(f.email) && f.property.trim(); }
+
+  renderVals() {
+    const s = this.state;
+    const nav = [['product', 'Product'], ['themes', 'Themes'], ['security', 'Security'], ['contact', 'Contact']];
+    const surf = SURFACES.find(x => x.key === s.surface) || SURFACES[0];
+    const th = THEMES.find(x => x.key === s.theme) || THEMES[0];
+    const chip = (on) => 'height:40px;padding:0 14px;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;' + (on ? 'background:#101E33;color:#F3F4F1;border:1px solid #101E33;' : 'background:#FFFFFF;color:#101E33;border:1px solid rgba(16,30,51,.18);');
+    const bands = ['Under 30', '30–80', '80–200', '200+'];
+    const ints = ['In-room dining', 'Service requests', 'Late checkout & folio', 'Replacing phone calls', 'A theme in our brand'];
+
+    return {
+      isHome: s.page === 'home', isProduct: s.page === 'product', isThemes: s.page === 'themes', isSecurity: s.page === 'security', isContact: s.page === 'contact',
+      goHome: this.go('home'), goProduct: this.go('product'), goThemes: this.go('themes'), goSecurity: this.go('security'), goContact: this.go('contact'),
+      navItems: nav.map(n => ({ key: n[0], label: n[1], go: this.go(n[0]), style: 'height:40px;padding:0 14px;border-radius:999px;background:transparent;border:0;cursor:pointer;font-size:14px;font-weight:600;color:' + (s.page === n[0] ? '#101E33' : '#4B5A70') + ';' + (s.page === n[0] ? 'background:#FFFFFF;box-shadow:0 1px 2px rgba(16,30,51,.08);' : '') })),
+
+      logos: THEMES.map(t => ({ key: t.key, name: t.name, style: 'font-family:\'Instrument Serif\',serif;font-size:22px;color:#101E33;opacity:.7;letter-spacing:-.01em;' })),
+
+      pillars: [
+        { key: 'g', kicker: 'FOR THE GUEST', title: 'Ask for anything without picking up the phone.', body: 'Dinner with modifiers, extra towels, an iron, someone from the desk, a later checkout, where to eat nearby. Every request confirms instantly and shows its live state.', foot: 'No app, no login, no waiting on hold', iconStyle: 'width:36px;height:36px;border-radius:18px 18px 4px 4px;background:#101E33;' },
+        { key: 's', kicker: 'FOR YOUR TEAMS', title: 'Kitchen, runners, housekeeping and the desk, in sync.', body: 'One order lands as a ticket, a pickup, a delivery and a folio line, each on the screen of the person who needs it. Nothing is relayed by radio or sticky note.', foot: 'Kitchen display, staff phones, desk console', iconStyle: 'width:36px;height:36px;border-radius:4px;background:#E9A227;' },
+        { key: 'o', kicker: 'FOR THE OWNER', title: 'Every interaction priced, timed and on the record.', body: 'Service charge, delivery fee, late checkout tiers and taxes are configured once and applied every time. Promise times are measured. The event log settles arguments.', foot: 'Revenue you were leaving in the room', iconStyle: 'width:36px;height:36px;border-radius:50%;border:6px solid #101E33;' }
+      ],
+
+      steps: [
+        { key: 1, who: 'GUEST', time: '21:40', title: 'Scans the QR on the nightstand.', body: 'The link already knows room 214, Anjali, and that she checks out Thursday. No login screen, no verification until the first charge.' },
+        { key: 2, who: 'GUEST', time: '21:41', title: 'Orders laal maas and two lassis in three taps.', body: 'Modifiers, quantity, a note for the runner. The cart pill morphs as items land. Sent to room 214, charged to the folio.' },
+        { key: 3, who: 'KITCHEN', time: '21:41', title: 'The ticket is on the pass display in 379 milliseconds.', body: 'It pulses until someone acknowledges it. Accept starts the prep timer; reject sends the reason straight back to the guest.' },
+        { key: 4, who: 'RUNNER', time: '22:09', title: 'Kishan\u2019s phone buzzes when the kitchen bumps it.', body: 'He sees the note: no bell after 10, please knock. Picked up, delivered, done. The guest watched every state on her phone.' },
+        { key: 5, who: 'FRONT DESK', time: '22:10', title: '₹2,266 is on the folio before the plates are cleared.', body: 'Devika sees the line, the timestamps and who delivered it. At checkout it settles with everything else, one receipt.' }
+      ],
+
+      revenue: [
+        { key: 'r1', stat: '+38%', statLabel: 'in-room dining orders', title: 'Ordering without a phone call', body: 'Guests order more when they can browse a menu with pictures and prices at their own pace, at 11pm, without speaking to anyone.' },
+        { key: 'r2', stat: '₹2,500', statLabel: 'average late checkout fee', title: 'Late checkout as a product', body: 'Tiered fees the guest requests themselves. The desk approves in one click when the room is free. It used to be a shrug.' },
+        { key: 'r3', stat: '6×', statLabel: 'more amenity requests logged', title: 'Chargeable amenities, visibly priced', body: 'Laundry, airport cars, a bottle of wine. In one list next to free towels, each with a promise time.' },
+        { key: 'r4', stat: '10%', statLabel: 'service charge, applied every time', title: 'Nothing forgotten at the desk', body: 'Service charge, delivery fees and taxes are configured once. Every order carries them. Every one reconciles.' }
+      ],
+
+      themeTiles: THEMES.map(t => ({
+        key: t.key, name: t.name, sub: t.sub,
+        style: 'position:relative;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-end;gap:2px;height:220px;padding:18px 16px;border-radius:18px;border:1px solid rgba(16,30,51,.08);cursor:pointer;text-align:left;overflow:hidden;background:' + t.bg + ';color:' + t.ink + ';transition:transform 220ms cubic-bezier(.2,.8,.2,1);',
+        nameStyle: 'font-family:\'Instrument Serif\',serif;font-size:22px;line-height:1.1;',
+        subStyle: 'font-size:12px;opacity:.7;',
+        accentStyle: 'position:absolute;top:16px;left:16px;width:34px;height:34px;border-radius:50%;background:' + t.accent + ';'
+      })),
+
+      quotes: [
+        { key: 'q1', text: '\u201cOur night kitchen used to take orders on a landline with the fryer running. Now the ticket is on the screen before the guest has put the phone down.\u201d', name: 'Bhairav Singh', role: 'Head chef, The Kesari, Udaipur', initials: 'BS', avatarStyle: 'width:40px;height:40px;border-radius:50%;background:#101E33;color:#E9A227;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;' },
+        { key: 'q2', text: '\u201cLate checkout was a favour we did for free because arguing about ₹2,000 at the desk felt cheap. Now guests ask in the app and pay without a conversation.\u201d', name: 'Devika Sharma', role: 'Front office manager, The Kesari', initials: 'DS', avatarStyle: 'width:40px;height:40px;border-radius:50%;background:#E9A227;color:#101E33;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;' },
+        { key: 'q3', text: '\u201cI chose it because the guest app looked like our hotel and not like a food-delivery clone. Our guests notice that kind of thing. So do I.\u201d', name: 'Rhea D\u2019Souza', role: 'Owner, Aramaya, South Goa', initials: 'RD', avatarStyle: 'width:40px;height:40px;border-radius:50%;background:#2F6B4F;color:#F7F2E7;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;' }
+      ],
+
+      surfaces: SURFACES.map(x => ({ key: x.key, label: x.label, pick: this.pickSurface(x.key), tabStyle: 'height:42px;padding:0 18px;border-radius:999px;border:0;cursor:pointer;font-size:14px;font-weight:600;' + (s.surface === x.key ? 'background:#101E33;color:#F3F4F1;' : 'background:transparent;color:#4B5A70;') })),
+      surf: Object.assign({}, surf, {
+        features: surf.features.map((f, i) => Object.assign({ key: i }, f)),
+        frameStyle: surf.key === 'guest' ? 'display:flex;justify-content:center;padding:20px 0;' : 'display:block;',
+        mockCols: (surf.mockCols || []).map((c, i) => ({ key: i, title: c.title, cards: c.cards.map((k, j) => ({ key: j, room: k.room, tag: k.tag, body: k.body, style: 'background:#FFFFFF;border:1px solid #D9DDD8;border-left:4px solid ' + k.tagColor + ';border-radius:8px;padding:12px 14px;white-space:pre-line;', tagStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;font-weight:600;color:#FFFFFF;background:' + k.tagColor + ';padding:4px 7px;border-radius:5px;' })) }))
+      }),
+      surfIsGuest: surf.key === 'guest', surfIsStaff: surf.key !== 'guest',
+
+      plumbing: [
+        { key: 'p1', k: 'REALTIME', t: 'Under two seconds, device to device', d: 'Postgres LISTEN/NOTIFY fans out over server-sent events with reconnect handling. Tested on hotel-grade wifi, not a desk.' },
+        { key: 'p2', k: 'AUDIT', t: 'Every state change is an event', d: 'Orders and requests are state machines. Each transition writes who, what and when to an append-only log.' },
+        { key: 'p3', k: 'INTEGRATIONS', t: 'PMS adapter and outbox', d: 'A PmsAdapter interface with a manual adapter today, an integration outbox that drains reliably, Razorpay for payments.' }
+      ],
+
+      themeList: THEMES.map(t => ({ key: t.key, name: t.name, sub: t.sub, pick: this.pickTheme(t.key), swatch: 'width:40px;height:40px;border-radius:12px;flex:0 0 40px;background:' + t.bg + ';box-shadow:inset 0 0 0 1px rgba(16,30,51,.1);position:relative;background-image:radial-gradient(circle at 70% 30%, ' + t.accent + ' 0 7px, transparent 7.5px);', rowStyle: 'display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:10px 12px;border-radius:14px;text-align:left;cursor:pointer;color:#101E33;' + (s.theme === t.key ? 'background:#FFFFFF;border:1px solid rgba(16,30,51,.14);box-shadow:0 8px 24px rgba(16,30,51,.08);' : 'background:transparent;border:1px solid transparent;') })),
+      activeTheme: s.theme,
+      themeInfo: Object.assign({}, th, { hexes: th.hexes.map((h, i) => ({ key: i, style: 'width:44px;height:44px;border-radius:10px;background:' + h + ';box-shadow:inset 0 0 0 1px rgba(16,30,51,.12);' })) }),
+
+      security: [
+        { key: 's1', k: 'ISOLATION', badge: 'Proven by test', t: 'Row-level security in Postgres', d: 'The application connects as a role that owns no tables and cannot bypass RLS. Every query runs inside a tenant context. A cross-tenant read returns nothing, and a test in our suite tries every session.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#101E33;color:#E9A227;' },
+        { key: 's2', k: 'GUEST SESSIONS', badge: 'Tiered', t: 'Access follows the stay, not an account', d: 'A QR scan issues a request-tier session tied to the room and the active stay. The first charge escalates it with one verification prompt. Tokens are hashed at rest and revoked at checkout.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#E9A227;color:#101E33;' },
+        { key: 's3', k: 'STAFF ACCESS', badge: '8 roles', t: 'Resource-action permissions', d: 'Every staff action is authorised against a resource and an action, not a page. Roles are seeded per property; a kitchen login cannot see folios, a runner cannot edit menus.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#F3F4F1;color:#101E33;border:1px solid rgba(16,30,51,.14);' },
+        { key: 's4', k: 'VALIDATION', badge: 'Every boundary', t: 'Nothing enters unchecked', d: 'Every request body, every environment variable and every webhook is validated with a schema before a line of business logic runs.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#F3F4F1;color:#101E33;border:1px solid rgba(16,30,51,.14);' },
+        { key: 's5', k: 'PAYMENTS', badge: 'Razorpay', t: 'Card data never touches us', d: 'Settlement runs through Razorpay. We store a reference and an amount. Orders are idempotent so a retried request cannot charge twice.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#F3F4F1;color:#101E33;border:1px solid rgba(16,30,51,.14);' },
+        { key: 's6', k: 'AUDIT', badge: 'Append-only', t: 'An event log nobody can edit', d: 'Every order and request transition is written with actor, time and payload. It is how disputes are settled and how we know a promise was missed.', badgeStyle: 'font-family:\'DM Mono\',monospace;font-size:11px;padding:4px 8px;border-radius:6px;background:#F3F4F1;color:#101E33;border:1px solid rgba(16,30,51,.14);' }
+      ],
+
+      form: s.form, onName: this.setF('name'), onEmail: this.setF('email'), onProperty: this.setF('property'), onCity: this.setF('city'), onNote: this.setF('note'),
+      roomBands: bands.map(b => ({ key: b, label: b, pick: this.pickRooms(b), style: chip(s.form.rooms === b) })),
+      interests: ints.map(i => ({ key: i, label: i, pick: this.toggleInterest(i), style: chip(s.form.interests.indexOf(i) >= 0) })),
+      submit: this.submit, submitLabel: 'Book my demo',
+      submitStyle: 'width:100%;height:54px;margin-top:22px;border-radius:999px;border:0;font-size:16px;font-weight:700;background:#E9A227;color:#101E33;' + (this.canSubmit() ? 'cursor:pointer;' : 'opacity:.55;cursor:default;'),
+      formIdle: !s.sent, formDone: s.sent,
+      doneTitle: 'Thank you, ' + (s.form.name.split(' ')[0] || 'there') + '.',
+      doneBody: 'We\u2019ll set up a demo property called ' + (s.form.property || 'your hotel') + ' and write to ' + (s.form.email || 'you') + ' within one working day to pick a time.',
+      resetForm: this.resetForm
+    };
+  }
+}
+
+</script>
+</body>
+</html>

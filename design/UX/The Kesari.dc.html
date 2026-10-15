@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Mukta:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #0A1220; -webkit-font-smoothing: antialiased; }
+  a { color: #E9A227; text-decoration: none; }
+  a:hover { color: #F2B84B; }
+  * { -webkit-tap-highlight-color: transparent; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  @keyframes archIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+  @keyframes shimmer { from { background-position: -260px 0; } to { background-position: 260px 0; } }
+  @keyframes flow { from { background-position: 0 0; } to { background-position: 0 18px; } }
+  @keyframes breathe { 0% { transform: scale(1); opacity: .55; } 70% { transform: scale(2.6); opacity: 0; } 100% { transform: scale(2.6); opacity: 0; } }
+  @keyframes sweep { 0% { transform: translateX(-60%); } 100% { transform: translateX(160%); } }
+  @keyframes glow { 0%, 100% { opacity: .45; } 50% { opacity: .95; } }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 1ms !important; animation-delay: 0ms !important; transition-duration: 1ms !important; }
+  }
+</style>
+</helmet>
+
+<div style="width: 390px; height: 844px; margin: 0 auto; position: relative; overflow: hidden; background: #101E33; font-family: Mukta, system-ui, sans-serif; color: #E3E5DB;">
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+  <div style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;">
+    <div style="padding: 0 16px 140px 16px;">
+
+      <div style="display: flex; align-items: center; justify-content: space-between; height: 60px; animation: riseIn 300ms cubic-bezier(.2,.8,.2,1) both;">
+        <div style="font-family: Marcellus, serif; font-size: 17px; letter-spacing: .22em; text-transform: uppercase; color: #E3E5DB;">The Kesari</div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .1em; color: #101E33; background: #E3E5DB; padding: 5px 10px; border-radius: 2px;">ROOM 214</div>
+      </div>
+
+      <div style="position: relative; width: 358px; height: 180px; overflow: hidden; border-radius: 44% 44% 4px 4px / 30% 30% 0 0; background-color: #16253E; background-image: radial-gradient(circle at 50% 106%, rgba(233,162,39,.20) 0 20%, transparent 20.5%), radial-gradient(circle at 50% 106%, transparent 0 31%, rgba(227,229,219,.14) 31% 31.6%, transparent 32%), radial-gradient(circle at 50% 106%, transparent 0 44%, rgba(227,229,219,.10) 44% 44.6%, transparent 45%), radial-gradient(circle at 50% 106%, transparent 0 58%, rgba(227,229,219,.07) 58% 58.6%, transparent 59%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px); animation: archIn 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 60ms;">
+        <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,15,26,.92) 0%, rgba(8,15,26,.60) 30%, rgba(8,15,26,0) 66%);"></div>
+        <div style="position: absolute; left: 18px; right: 18px; bottom: 14px;">
+          <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: .16em; color: #6E9C95; text-transform: uppercase;">Rooftop · Lake Pichola</div>
+          <div style="font-family: Marcellus, serif; font-size: 19px; margin-top: 3px; color: #E3E5DB;">The kitchen is open until 11:30</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 26px; animation: riseIn 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 120ms;">
+        <div style="font-family: Marcellus, serif; font-size: 32px; line-height: 1.15; color: #E3E5DB;">Good evening, Anjali</div>
+        <div style="font-size: 15px; line-height: 1.5; color: rgba(227,229,219,.60); margin-top: 6px; text-wrap: pretty;">{{ stayLine }}</div>
+      </div>
+
+      <div style="margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; animation: riseIn 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 180ms;">
+        <sc-for list="{{ homeRows }}" as="row" hint-placeholder-count="4">
+          <button onClick="{{ row.go }}" style="display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; height: 108px; padding: 14px; background: #1B2B45; border: 1px solid rgba(227,229,219,.08); border-radius: 4px; text-align: left; cursor: pointer; font-family: Mukta, sans-serif; transition: background 200ms ease-out, border-color 200ms ease-out;" style-hover="background: #223353; border-color: rgba(233,162,39,.34);" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">
+            <div style="width: 18px; height: 22px; border: 1px solid rgba(233,162,39,.55); border-bottom: 0; border-radius: 9px 9px 0 0;"></div>
+            <div>
+              <div style="font-size: 15.5px; font-weight: 600; color: #E3E5DB; line-height: 1.2;">{{ row.title }}</div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(227,229,219,.42); margin-top: 5px;">{{ row.sub }}</div>
+            </div>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="margin-top: 16px; font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .1em; color: rgba(227,229,219,.30); text-transform: uppercase; animation: riseIn 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 240ms;">Charged to room 214</div>
+    </div>
+
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 16px 22px 16px; background: linear-gradient(to top, #101E33 58%, rgba(16,30,51,0)); animation: riseIn 320ms cubic-bezier(.2,.8,.2,1) both; animation-delay: 300ms;">
+      <button onClick="{{ goMenu }}" style="width: 100%; min-height: 58px; background: #E9A227; color: #101E33; border: 0; border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 17px; font-weight: 700; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #E3E5DB; outline-offset: 3px;">
+        <span>Order dinner to room 214</span>
+        <span style="font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 400; letter-spacing: .06em; opacity: .72;">{{ kitchenLine }}</span>
+      </button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isMenu }}">
+  <div style="position: absolute; inset: 0;">
+    <div onScroll="{{ onMenuScroll }}" ref="{{ setScroll }}" style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 118px 16px 150px 16px;">
+
+      <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <sc-for list="{{ skeletons }}" as="sk" hint-placeholder-count="3">
+            <div style="display: flex; gap: 14px; align-items: flex-start;">
+              <div style="width: 104px; height: 78px; flex: 0 0 104px; border-radius: 40% 40% 3px 3px / 26% 26% 0 0; background: linear-gradient(90deg, #1B2B45 0%, #243755 40%, #1B2B45 80%); background-size: 260px 100%; animation: shimmer 1.1s linear infinite;"></div>
+              <div style="flex: 1; padding-top: 4px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="height: 15px; width: 72%; border-radius: 2px; background: linear-gradient(90deg, #1B2B45 0%, #243755 40%, #1B2B45 80%); background-size: 260px 100%; animation: shimmer 1.1s linear infinite;"></div>
+                <div style="height: 11px; width: 92%; border-radius: 2px; background: #1B2B45;"></div>
+                <div style="height: 11px; width: 54%; border-radius: 2px; background: #1B2B45;"></div>
+                <div style="height: 13px; width: 62px; border-radius: 2px; background: rgba(233,162,39,.20);"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ready }}" hint-placeholder-val="{{ false }}">
+        <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="3">
+          <div data-sec="{{ sec.id }}" style="padding-bottom: 34px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px;">
+              <div style="font-family: Marcellus, serif; font-size: 24px; color: #E3E5DB;">{{ sec.title }}</div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(227,229,219,.35);">{{ sec.count }}</div>
+            </div>
+            <div style="font-size: 13.5px; line-height: 1.5; color: rgba(227,229,219,.55); max-width: 300px; margin-bottom: 18px; text-wrap: pretty;">{{ sec.blurb }}</div>
+
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+              <sc-for list="{{ sec.items }}" as="d" hint-placeholder-count="3">
+                <button onClick="{{ d.open }}" style="display: flex; gap: 14px; align-items: flex-start; width: 100%; padding: 0; background: transparent; border: 0; text-align: left; cursor: pointer; font-family: Mukta, sans-serif;" style-focus="outline: 2px solid #E9A227; outline-offset: 4px;">
+                  <div data-img="1" style="width: 104px; height: 78px; flex: 0 0 104px; overflow: hidden; border-radius: 40% 40% 3px 3px / 26% 26% 0 0; background-color: #16253E; background-image: radial-gradient(circle at 50% 108%, rgba(233,162,39,.20) 0 22%, transparent 22.5%), radial-gradient(circle at 50% 108%, transparent 0 36%, rgba(227,229,219,.13) 36% 37%, transparent 37.5%), radial-gradient(circle at 50% 108%, transparent 0 54%, rgba(227,229,219,.09) 54% 55%, transparent 55.5%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);"></div>
+                  <div style="flex: 1; min-width: 0; padding-top: 2px;">
+                    <div style="font-size: 16.5px; font-weight: 600; line-height: 1.25; color: #E3E5DB; text-wrap: pretty;">{{ d.name }}</div>
+                    <div style="font-size: 13px; line-height: 1.45; color: rgba(227,229,219,.55); margin-top: 3px; text-wrap: pretty;">{{ d.short }}</div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-top: 7px;">
+                      <span style="font-family: 'DM Mono', monospace; font-size: 14px; color: #E9A227;">{{ d.priceStr }}</span>
+                      <span style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: #6E9C95;">{{ d.tag }}</span>
+                    </div>
+                  </div>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .08em; color: rgba(227,229,219,.30); text-transform: uppercase; padding-bottom: 8px;">Chef Bhairav Singh · kitchen closes 11:30</div>
+      </sc-if>
+    </div>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; background: rgba(16,30,51,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(227,229,219,.12);">
+      <div style="display: flex; align-items: center; gap: 6px; height: 56px; padding: 0 8px;">
+        <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+        <div style="font-family: Marcellus, serif; font-size: 17px; letter-spacing: .04em;">In-room dining</div>
+        <div style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: #6E9C95; padding-right: 12px;">30–40 min</div>
+      </div>
+      <div ref="{{ setRail }}" style="position: relative; display: flex; gap: 8px; padding: 0 12px 12px 12px; overflow-x: auto; scrollbar-width: none;">
+        <div data-ind="1" style="position: absolute; top: 0; left: 12px; height: 34px; width: 0; border-radius: 17px; background: #E9A227; transition: transform 240ms cubic-bezier(.2,.8,.2,1), width 240ms cubic-bezier(.2,.8,.2,1);"></div>
+        <sc-for list="{{ cats }}" as="c" hint-placeholder-count="3">
+          <button data-cat="{{ c.id }}" onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isDish }}">
+  <div style="position: absolute; inset: 0;">
+    <div style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 236px 16px 150px 16px;">
+      <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #6E9C95;">{{ dish.tag }}</div>
+      <div style="font-family: Marcellus, serif; font-size: 28px; line-height: 1.15; margin-top: 6px; text-wrap: pretty;">{{ dish.name }}</div>
+      <div style="font-family: 'DM Mono', monospace; font-size: 16px; color: #E9A227; margin-top: 8px;">{{ dish.priceStr }}</div>
+      <div style="font-size: 15px; line-height: 1.55; color: rgba(227,229,219,.66); margin-top: 12px; text-wrap: pretty;">{{ dish.note }}</div>
+
+      <sc-for list="{{ modGroups }}" as="g" hint-placeholder-count="2">
+        <div style="margin-top: 26px;">
+          <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(227,229,219,.45);">{{ g.label }}</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+            <sc-for list="{{ g.options }}" as="o" hint-placeholder-count="3">
+              <button onClick="{{ o.pick }}" style="{{ o.style }}">{{ o.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+
+      <div style="margin-top: 26px; display: flex; align-items: center; gap: 16px;">
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: rgba(227,229,219,.45);">How many</div>
+        <div style="display: flex; align-items: center; gap: 2px; margin-left: auto; border: 1px solid rgba(227,229,219,.18); border-radius: 3px; overflow: hidden;">
+          <button onClick="{{ decQty }}" aria-label="One fewer" style="width: 46px; height: 46px; background: #1B2B45; border: 0; color: #E3E5DB; font-size: 20px; cursor: pointer; font-family: 'DM Mono', monospace;" style-hover="background: #243755;" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">−</button>
+          <div style="width: 48px; text-align: center; font-family: 'DM Mono', monospace; font-size: 16px;">{{ qty }}</div>
+          <button onClick="{{ incQty }}" aria-label="One more" style="width: 46px; height: 46px; background: #1B2B45; border: 0; color: #E3E5DB; font-size: 20px; cursor: pointer; font-family: 'DM Mono', monospace;" style-hover="background: #243755;" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">+</button>
+        </div>
+      </div>
+
+      <div style="margin-top: 26px; padding-top: 16px; border-top: 1px solid rgba(227,229,219,.12); font-size: 13.5px; line-height: 1.5; color: rgba(227,229,219,.50); text-wrap: pretty;">{{ dish.foot }}</div>
+    </div>
+
+    <div ref="{{ setHero }}" style="position: absolute; top: 0; left: 0; width: 390px; height: 220px; overflow: hidden; transform-origin: top left; border-radius: 0 0 4px 4px; background-color: #16253E; background-image: radial-gradient(circle at 50% 112%, rgba(233,162,39,.22) 0 18%, transparent 18.5%), radial-gradient(circle at 50% 112%, transparent 0 29%, rgba(227,229,219,.14) 29% 29.6%, transparent 30%), radial-gradient(circle at 50% 112%, transparent 0 42%, rgba(227,229,219,.10) 42% 42.6%, transparent 43%), radial-gradient(circle at 50% 112%, transparent 0 56%, rgba(227,229,219,.07) 56% 56.6%, transparent 57%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);">
+      <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,15,26,.92) 0%, rgba(8,15,26,.45) 34%, rgba(8,15,26,.30) 100%);"></div>
+      <button onClick="{{ backToMenu }}" aria-label="Back to the menu" style="position: absolute; top: 12px; left: 12px; width: 44px; height: 44px; border-radius: 50%; background: rgba(16,30,51,.72); backdrop-filter: blur(8px); border: 1px solid rgba(227,229,219,.20); color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; cursor: pointer;" style-hover="background: rgba(16,30,51,.92);" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">←</button>
+    </div>
+
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 16px 84px 16px; background: linear-gradient(to top, #101E33 62%, rgba(16,30,51,0));">
+      <button onClick="{{ addToCart }}" style="width: 100%; min-height: 58px; background: #E9A227; color: #101E33; border: 0; border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #E3E5DB; outline-offset: 3px;">
+        <span>Add to order</span>
+        <span style="font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500;">{{ addTotal }}</span>
+      </button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isNearby }}">
+  <div style="position: absolute; inset: 0; overflow: hidden;">
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; z-index: 20; background: rgba(16,30,51,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(227,229,219,.10);">
+      <div style="height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 8px;">
+        <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+        <div style="font-family: Marcellus, serif; font-size: 17px;">Nearby</div>
+        <button onClick="{{ toggleMode }}" style="{{ modeBtnStyle }}">{{ modeBtnLabel }}</button>
+      </div>
+      <div style="{{ catRailStyle }}">
+        <sc-for list="{{ nearCats }}" as="c" hint-placeholder-count="6">
+          <button onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="{{ shelfStyle }}">
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <sc-for list="{{ places }}" as="p" hint-placeholder-count="7">
+          <div style="{{ p.cardStyle }}">
+            <div onPointerDown="{{ p.down }}" style="{{ p.gripStyle }}" aria-hidden="true">
+              <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+              <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+              <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+            </div>
+            <div style="{{ p.imgStyle }}">
+              <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,15,26,.72) 0%, rgba(8,15,26,.10) 52%, rgba(8,15,26,0) 100%);"></div>
+              <div style="{{ p.tagStyle }}">{{ p.tag }}</div>
+            </div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; align-items: baseline; gap: 10px;">
+                <div style="{{ p.nameStyle }}">{{ p.name }}</div>
+                <div style="margin-left: auto;">
+                  <button onClick="{{ p.add }}" style="{{ p.addStyle }}" aria-label="Add to tomorrow's plan">{{ p.addLabel }}</button>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                <span style="font-family: 'DM Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums; color: #E3E5DB; letter-spacing: .02em;">{{ p.dist }}</span>
+                <span style="width: 3px; height: 3px; border-radius: 50%; background: rgba(227,229,219,.34);"></span>
+                <span style="font-family: 'DM Mono', monospace; font-size: 13px; color: #6E9C95;">{{ p.travel }}</span>
+                <span style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(227,229,219,.38); margin-left: auto;">{{ p.meta }}</span>
+              </div>
+              <div style="{{ p.noteStyle }}">{{ p.note }}</div>
+            </div>
+          </div>
+        </sc-for>
+        <div style="{{ shelfFootStyle }}">{{ shelfFoot }}</div>
+      </div>
+    </div>
+
+    <div ref="{{ setPlan }}" style="{{ drawerStyle }}">
+      <div style="padding: 14px 18px 10px 18px; display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid rgba(227,229,219,.10);">
+        <div style="font-family: Marcellus, serif; font-size: 21px;">Tomorrow</div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: rgba(227,229,219,.42);">{{ planMeta }}</div>
+        <div style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 12px; color: #6E9C95;">{{ planTravel }}</div>
+      </div>
+
+      <div ref="{{ setPlanList }}" style="flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 8px 14px;">
+        <sc-if value="{{ planEmpty }}" hint-placeholder-val="{{ true }}">
+          <div style="height: 100%; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed rgba(227,229,219,.20); border-radius: 5px; padding: 20px; text-align: center;">
+            <div style="width: 26px; height: 32px; border: 1px solid rgba(233,162,39,.45); border-bottom: 0; border-radius: 13px 13px 0 0;"></div>
+            <div style="font-size: 14.5px; color: rgba(227,229,219,.58); text-wrap: pretty;">Drag a place down here to start tomorrow, or tap the plus on any card.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ planFull }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{ planItems }}" as="i" hint-placeholder-count="2">
+              <div data-plan="{{ i.idx }}" style="{{ i.rowStyle }}">
+                <div onPointerDown="{{ i.down }}" style="display: flex; flex-direction: column; gap: 3px; width: 44px; height: 44px; align-items: center; justify-content: center; cursor: grab; touch-action: none; flex: 0 0 44px;" aria-hidden="true">
+                  <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+                  <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+                  <div style="width: 14px; height: 1px; background: rgba(227,229,219,.40);"></div>
+                </div>
+                <div style="font-family: 'DM Mono', monospace; font-size: 12px; color: #E9A227; width: 18px; flex: 0 0 18px;">{{ i.n }}</div>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 600; line-height: 1.2;">{{ i.name }}</div>
+                  <div style="font-family: 'DM Mono', monospace; font-size: 11.5px; color: rgba(227,229,219,.50); margin-top: 2px;">{{ i.legLine }}</div>
+                </div>
+                <button onClick="{{ i.remove }}" aria-label="Remove from plan" style="width: 44px; height: 44px; background: transparent; border: 0; color: rgba(227,229,219,.45); font-family: 'DM Mono', monospace; font-size: 15px; cursor: pointer; border-radius: 3px; flex: 0 0 44px;" style-hover="color: #E3E5DB; background: rgba(227,229,219,.07);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">×</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="padding: 12px 16px 18px 16px; border-top: 1px solid rgba(227,229,219,.10); display: flex; flex-direction: column; gap: 8px;">
+        <button onClick="{{ savePlan }}" style="{{ saveStyle }}">{{ saveLabel }}</button>
+        <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .05em; color: rgba(227,229,219,.34); text-align: center;">{{ planFoot }}</div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isAmen }}">
+  <div style="position: absolute; inset: 0;">
+    <div style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 74px 16px 116px 16px;">
+      <div style="font-size: 14px; line-height: 1.5; color: rgba(227,229,219,.55); margin-bottom: 20px; text-wrap: pretty;">Ask for as much as you like. Anything with a price says so before you send it.</div>
+      <div style="display: flex; flex-direction: column; gap: 1px; background: rgba(227,229,219,.10);">
+        <sc-for list="{{ amenities }}" as="a" hint-placeholder-count="8">
+          <div style="background: #101E33; padding: 16px 2px 16px 2px;">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 16.5px; font-weight: 600; line-height: 1.25;">{{ a.name }}</div>
+                <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: rgba(227,229,219,.40); margin-top: 4px;">{{ a.eta }}</div>
+              </div>
+              <div style="{{ a.priceStyle }}">{{ a.priceLabel }}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-top: 12px;">
+              <div style="font-family: 'DM Mono', monospace; font-size: 11.5px; color: rgba(227,229,219,.42);">{{ a.hint }}</div>
+              <div style="margin-left: auto;">
+                <sc-if value="{{ a.isStep }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; align-items: center; border: 1px solid rgba(227,229,219,.16); border-radius: 3px;">
+                    <button onClick="{{ a.dec }}" aria-label="One fewer" style="width: 46px; height: 44px; background: transparent; border: 0; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; cursor: pointer;" style-hover="background: rgba(227,229,219,.07);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">−</button>
+                    <span style="{{ a.qtyStyle }}">{{ a.qtyLabel }}</span>
+                    <button onClick="{{ a.inc }}" aria-label="One more" style="width: 46px; height: 44px; background: transparent; border: 0; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; cursor: pointer;" style-hover="background: rgba(227,229,219,.07);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">+</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ a.isTap }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ a.toggle }}" style="{{ a.tapStyle }}">{{ a.tapLabel }}</button>
+                </sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: rgba(227,229,219,.30); padding: 18px 0 4px 0;">Housekeeping desk, third courtyard · all night</div>
+    </div>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: rgba(16,30,51,.94); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(227,229,219,.10);">
+      <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+      <div style="font-family: Marcellus, serif; font-size: 17px;">Amenities</div>
+    </div>
+
+    <div ref="{{ setPill }}" style="position: absolute; left: 16px; right: 16px; bottom: 18px; z-index: 40;">
+      <sc-if value="{{ noRequests }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 18px; border-radius: 23px; background: #1B2B45; border: 1px solid rgba(227,229,219,.14);">
+          <div style="width: 7px; height: 7px; border-radius: 50%; background: #6E9C95; animation: glow 2.8s ease-in-out infinite;"></div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .05em; color: rgba(227,229,219,.62);">Housekeeping is awake</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ hasRequests }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ sendRequests }}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 0 20px; border-radius: 29px; background: #E3E5DB; border: 0; cursor: pointer; font-family: Mukta, sans-serif; box-shadow: 0 10px 30px rgba(8,15,26,.55); text-align: left;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 16px; font-weight: 700; color: #101E33; line-height: 1.2;">{{ sendLine }}</div>
+            <div style="font-family: 'DM Mono', monospace; font-size: 11px; color: #4A5A73; margin-top: 2px;">{{ chargeLine }}</div>
+          </div>
+          <span style="width: 42px; height: 42px; flex: 0 0 42px; border-radius: 21px; background: #E9A227; color: #101E33; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 16px;">→</span>
+        </button>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isService }}">
+  <div style="position: absolute; inset: 0;">
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 8px;">
+      <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+      <div style="font-family: Marcellus, serif; font-size: 17px;">Service</div>
+    </div>
+
+    <div style="position: absolute; top: 56px; left: 0; right: 0; bottom: 0; padding: 0 16px 24px 16px; display: flex; flex-direction: column;">
+
+      <div style="position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+        <div style="position: absolute; width: 240px; height: 300px; border-radius: 120px 120px 6px 6px; border: 1px solid rgba(227,229,219,.14); background: radial-gradient(120% 80% at 50% 100%, rgba(233,162,39,.13), rgba(233,162,39,0) 62%);"></div>
+        <div style="position: absolute; width: 176px; height: 226px; border-radius: 88px 88px 5px 5px; border: 1px solid rgba(227,229,219,.10);"></div>
+        <div style="position: absolute; width: 112px; height: 152px; border-radius: 56px 56px 4px 4px; border: 1px solid rgba(233,162,39,.30); animation: glow 4.2s ease-in-out infinite;"></div>
+        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 40%; background: linear-gradient(90deg, rgba(233,162,39,0), rgba(233,162,39,.07), rgba(233,162,39,0)); animation: sweep 11s ease-in-out infinite;"></div>
+
+        <sc-if value="{{ serviceIdle }}" hint-placeholder-val="{{ true }}">
+          <div style="position: relative; text-align: center; padding: 0 30px;">
+            <div style="font-family: Marcellus, serif; font-size: 27px; line-height: 1.25; text-wrap: pretty;">Someone comes up to room 214</div>
+            <div style="font-size: 14.5px; line-height: 1.5; color: rgba(227,229,219,.52); margin-top: 10px; text-wrap: pretty;">One tap. No queue, no call, no reason needed.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ serviceSent }}" hint-placeholder-val="{{ false }}">
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center;">
+            <div style="width: 84px; height: 84px; border-radius: 46% 46% 4px 4px / 34% 34% 0 0; background-color: #22354F; background-image: radial-gradient(circle at 50% 110%, rgba(233,162,39,.22) 0 26%, transparent 26.5%), radial-gradient(circle at 50% 110%, transparent 0 46%, rgba(227,229,219,.12) 46% 47.4%, transparent 48%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);"></div>
+            <div style="font-family: Marcellus, serif; font-size: 26px; margin-top: 16px;">Ravi is on his way</div>
+            <div style="display: flex; align-items: center; gap: 9px; margin-top: 10px;">
+              <span style="position: relative; width: 9px; height: 9px;">
+                <span style="position: absolute; inset: 0; border-radius: 50%; background: #6E9C95; animation: breathe 2.6s cubic-bezier(.2,.8,.2,1) infinite;"></span>
+                <span style="position: absolute; inset: 0; border-radius: 50%; background: #6E9C95;"></span>
+              </span>
+              <span style="font-family: 'DM Mono', monospace; font-size: 14px; color: #E3E5DB; letter-spacing: .04em;">{{ serviceEta }}</span>
+            </div>
+            <div style="font-size: 13.5px; color: rgba(227,229,219,.48); margin-top: 12px; max-width: 260px; text-wrap: pretty;">{{ serviceNoteEcho }}</div>
+          </div>
+        </sc-if>
+      </div>
+
+      <sc-if value="{{ serviceIdle }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <input value="{{ serviceNote }}" onChange="{{ onNote }}" placeholder="Add a note, if it helps" aria-label="Note for the person coming up" style="width: 100%; box-sizing: border-box; min-height: 52px; padding: 0 16px; background: #1B2B45; border: 1px solid rgba(227,229,219,.14); border-radius: 3px; color: #E3E5DB; font-family: Mukta, sans-serif; font-size: 15.5px; outline: none;" style-focus="border-color: #E9A227; outline: 2px solid rgba(233,162,39,.35); outline-offset: 1px;" />
+          <button onClick="{{ callService }}" style="width: 100%; min-height: 62px; background: #E9A227; color: #101E33; border: 0; border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 18px; font-weight: 700;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #E3E5DB; outline-offset: 3px;">Send someone up</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ serviceSent }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ cancelService }}" style="width: 100%; min-height: 52px; background: transparent; color: rgba(227,229,219,.62); border: 1px solid rgba(227,229,219,.16); border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 15.5px; font-weight: 600;" style-hover="color: #E3E5DB; border-color: rgba(227,229,219,.32);" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Never mind, cancel it</button>
+      </sc-if>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isStay }}">
+  <div style="position: absolute; inset: 0;">
+    <div style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 74px 16px 120px 16px;">
+
+      <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #6E9C95;">Checking out</div>
+      <div style="font-family: Marcellus, serif; font-size: 32px; line-height: 1.15; margin-top: 5px;">Thursday, 11am</div>
+      <div style="font-size: 14px; color: rgba(227,229,219,.55); margin-top: 6px;">Two nights left. Room 214, lake side.</div>
+
+      <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 8px;">
+        <sc-for list="{{ stayOptions }}" as="s" hint-placeholder-count="3">
+          <button onClick="{{ s.pick }}" style="{{ s.style }}">
+            <span style="display: flex; flex-direction: column; align-items: flex-start; gap: 3px;">
+              <span style="font-size: 16px; font-weight: 600; line-height: 1.2;">{{ s.title }}</span>
+              <span style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: rgba(227,229,219,.42);">{{ s.sub }}</span>
+            </span>
+            <span style="{{ s.priceStyle }}">{{ s.price }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="margin-top: 34px; display: flex; align-items: baseline; justify-content: space-between;">
+        <div style="font-family: Marcellus, serif; font-size: 22px;">Room folio</div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: rgba(227,229,219,.38);">Room 214 · unsettled</div>
+      </div>
+
+      <div style="margin-top: 14px; border-top: 1px solid rgba(227,229,219,.14);">
+        <sc-for list="{{ folio }}" as="f" hint-placeholder-count="4">
+          <div style="display: flex; align-items: baseline; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(227,229,219,.08);">
+            <span style="font-family: 'DM Mono', monospace; font-size: 11.5px; color: rgba(227,229,219,.40); width: 46px; flex: 0 0 46px;">{{ f.date }}</span>
+            <span style="flex: 1; min-width: 0; font-size: 15px; line-height: 1.3;">{{ f.name }}</span>
+            <span style="font-family: 'DM Mono', monospace; font-size: 14px; font-variant-numeric: tabular-nums; color: #E3E5DB;">{{ f.amount }}</span>
+          </div>
+        </sc-for>
+        <div style="display: flex; align-items: baseline; gap: 12px; padding: 16px 0 0 0;">
+          <span style="flex: 1; font-family: 'DM Mono', monospace; font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: rgba(227,229,219,.55);">Total so far</span>
+          <span style="font-family: 'DM Mono', monospace; font-size: 19px; font-variant-numeric: tabular-nums; color: #E9A227;">{{ folioTotal }}</span>
+        </div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .06em; color: rgba(227,229,219,.32); margin-top: 8px;">Room and taxes settle at checkout. Nothing here is charged yet.</div>
+      </div>
+
+      <button onClick="{{ checkOutNow }}" style="width: 100%; min-height: 52px; margin-top: 26px; background: transparent; border: 1px solid rgba(227,229,219,.16); border-radius: 3px; color: rgba(227,229,219,.68); font-family: Mukta, sans-serif; font-size: 15.5px; font-weight: 600; cursor: pointer;" style-hover="color: #E3E5DB; border-color: rgba(227,229,219,.32);" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">Check out now</button>
+    </div>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: rgba(16,30,51,.94); backdrop-filter: blur(14px);">
+      <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+      <div style="font-family: Marcellus, serif; font-size: 17px;">Your stay</div>
+    </div>
+
+    <sc-if value="{{ stayPicked }}" hint-placeholder-val="{{ false }}">
+      <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 16px; background: linear-gradient(to top, #101E33 64%, rgba(16,30,51,0));">
+        <button onClick="{{ requestStay }}" style="width: 100%; min-height: 58px; background: #E9A227; color: #101E33; border: 0; border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 17px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 10px;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #E3E5DB; outline-offset: 3px;">
+          <span>{{ stayCta }}</span>
+          <span style="font-family: 'DM Mono', monospace; font-size: 15px; font-variant-numeric: tabular-nums;">{{ stayCtaPrice }}</span>
+        </button>
+      </div>
+    </sc-if>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ isTrack }}">
+  <div style="position: absolute; inset: 0;">
+    <div style="position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 56px 16px 132px 16px;">
+
+      <div style="position: relative; overflow: hidden; border-radius: 30% 30% 4px 4px / 16% 16% 0 0; background-color: #16253E; background-image: radial-gradient(circle at 50% 128%, rgba(233,162,39,.20) 0 22%, transparent 22.5%), radial-gradient(circle at 50% 128%, transparent 0 38%, rgba(227,229,219,.11) 38% 38.7%, transparent 39%), repeating-linear-gradient(45deg, rgba(227,229,219,.03) 0 1px, transparent 1px 5px); padding: 22px 18px 20px 18px;">
+        <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; background: linear-gradient(90deg, rgba(233,162,39,0), rgba(233,162,39,.10), rgba(233,162,39,0)); animation: sweep 9s ease-in-out infinite;"></div>
+        <div style="position: relative;">
+          <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: #6E9C95;">Arriving between</div>
+          <div style="font-family: Marcellus, serif; font-size: 38px; line-height: 1.1; margin-top: 4px; letter-spacing: .01em;">{{ etaRange }}</div>
+          <div style="font-size: 14px; color: rgba(227,229,219,.58); margin-top: 6px; text-wrap: pretty;">{{ etaNote }}</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 26px; display: flex; flex-direction: column;">
+        <sc-for list="{{ steps }}" as="st" hint-placeholder-count="5">
+          <div data-stage="{{ st.idx }}" style="display: flex; gap: 14px; min-height: 62px;">
+            <div style="position: relative; width: 18px; flex: 0 0 18px; display: flex; flex-direction: column; align-items: center;">
+              <div style="position: relative; width: 10px; height: 10px; margin-top: 5px; flex: 0 0 10px;">
+                <div style="{{ st.haloStyle }}"></div>
+                <div data-dot="1" style="{{ st.dotStyle }}"></div>
+              </div>
+              <div style="{{ st.lineStyle }}"></div>
+            </div>
+            <div style="flex: 1; min-width: 0; padding-bottom: 18px;">
+              <div style="display: flex; align-items: baseline; gap: 10px;">
+                <div style="{{ st.titleStyle }}">{{ st.title }}</div>
+                <div style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(227,229,219,.38);">{{ st.time }}</div>
+              </div>
+              <div style="{{ st.subStyle }}">{{ st.sub }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ runnerAssigned }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 14px; background: #1B2B45; border: 1px solid rgba(227,229,219,.10); border-radius: 4px; margin-top: 4px;">
+          <div style="width: 54px; height: 54px; flex: 0 0 54px; border-radius: 46% 46% 3px 3px / 34% 34% 0 0; background-color: #22354F; background-image: radial-gradient(circle at 50% 110%, rgba(233,162,39,.22) 0 26%, transparent 26.5%), radial-gradient(circle at 50% 110%, transparent 0 46%, rgba(227,229,219,.12) 46% 47.4%, transparent 48%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 16px; font-weight: 600;">Kishan Rathore</div>
+            <div style="font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: rgba(227,229,219,.45); margin-top: 3px;">Floor runner · third courtyard</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <button onClick="{{ toggleSummary }}" style="display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; margin-top: 12px; padding: 0 14px; background: transparent; border: 1px solid rgba(227,229,219,.12); border-radius: 4px; cursor: pointer; font-family: Mukta, sans-serif; text-align: left;" style-hover="border-color: rgba(227,229,219,.26);" style-focus="outline: 2px solid #E9A227; outline-offset: 2px;">
+        <span style="font-size: 15px; font-weight: 600; color: #E3E5DB;">Your order</span>
+        <span style="font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(227,229,219,.48);">{{ orderMeta }}</span>
+        <span style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(227,229,219,.48);">{{ summaryChevron }}</span>
+      </button>
+
+      <sc-if value="{{ summaryOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 14px; border: 1px solid rgba(227,229,219,.12); border-top: 0; border-radius: 0 0 4px 4px; margin-top: -1px; display: flex; flex-direction: column; gap: 12px;">
+          <sc-for list="{{ orderLines }}" as="l" hint-placeholder-count="2">
+            <div style="display: flex; gap: 12px; align-items: baseline;">
+              <span style="font-family: 'DM Mono', monospace; font-size: 12.5px; color: rgba(227,229,219,.45);">{{ l.qty }}</span>
+              <span style="flex: 1; font-size: 14.5px; line-height: 1.3; text-wrap: pretty;">{{ l.name }}</span>
+              <span style="font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(227,229,219,.62);">{{ l.lineTotal }}</span>
+            </div>
+          </sc-for>
+          <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid rgba(227,229,219,.10); font-family: 'DM Mono', monospace; font-size: 13.5px;">
+            <span style="color: rgba(227,229,219,.62);">Charged to room 214</span>
+            <span style="color: #E9A227;">{{ orderTotal }}</span>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: rgba(16,30,51,.94); backdrop-filter: blur(14px);">
+      <button onClick="{{ goHome }}" aria-label="Back to room home" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; border-radius: 3px;" style-hover="background: rgba(227,229,219,.08);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">←</button>
+      <div style="font-family: Marcellus, serif; font-size: 17px;">Order to room 214</div>
+      <div style="margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(227,229,219,.40); padding-right: 12px;">{{ orderRef }}</div>
+    </div>
+
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 20px 16px; background: linear-gradient(to top, #101E33 64%, rgba(16,30,51,0));">
+      <button onClick="{{ messageKitchen }}" style="display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 56px; background: #1B2B45; color: #E3E5DB; border: 1px solid rgba(233,162,39,.42); border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 16.5px; font-weight: 700;" style-hover="background: #223353;" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #6E9C95; animation: glow 2.8s ease-in-out infinite;"></span>
+        <span>Message the kitchen</span>
+      </button>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ showPill }}">
+    <div ref="{{ setPill }}" style="position: absolute; left: 16px; right: 16px; bottom: 18px; z-index: 40;">
+      <sc-if value="{{ cartEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 18px; border-radius: 23px; background: #1B2B45; border: 1px solid rgba(227,229,219,.14);">
+          <div style="width: 7px; height: 7px; border-radius: 50%; background: #6E9C95;"></div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: .06em; color: rgba(227,229,219,.62);">{{ kitchenLine }}</div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ cartFull }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ openCart }}" style="display: flex; align-items: center; gap: 12px; width: 100%; height: 58px; padding: 0 8px 0 18px; border-radius: 29px; background: #E3E5DB; border: 0; cursor: pointer; font-family: Mukta, sans-serif; box-shadow: 0 10px 30px rgba(8,15,26,.55);" style-focus="outline: 2px solid #E9A227; outline-offset: 3px;">
+          <div ref="{{ setCount }}" style="font-family: 'DM Mono', monospace; font-size: 13px; color: #E3E5DB; background: #101E33; min-width: 26px; height: 26px; border-radius: 13px; display: flex; align-items: center; justify-content: center;">{{ cartCount }}</div>
+          <div style="font-size: 16px; font-weight: 700; color: #101E33;">Review order</div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+            <span style="font-family: 'DM Mono', monospace; font-size: 15px; color: #101E33;">{{ cartTotal }}</span>
+            <span style="width: 42px; height: 42px; border-radius: 21px; background: #E9A227; color: #101E33; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 16px;">→</span>
+          </div>
+        </button>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ sheetOpen }}">
+    <div style="position: absolute; inset: 0; z-index: 60;">
+      <div ref="{{ setScrim }}" onClick="{{ closeCart }}" style="position: absolute; inset: 0; background: rgba(6,11,20,.62); backdrop-filter: blur(3px);"></div>
+      <div ref="{{ setSheet }}" style="position: absolute; left: 0; right: 0; bottom: 0; max-height: 620px; background: #16253E; border-radius: 18px 18px 0 0; border-top: 1px solid rgba(227,229,219,.14); display: flex; flex-direction: column;">
+        <div onPointerDown="{{ dragStart }}" onPointerMove="{{ dragMove }}" onPointerUp="{{ dragEnd }}" onPointerCancel="{{ dragEnd }}" style="padding: 12px 0 6px 0; display: flex; justify-content: center; cursor: grab; touch-action: none;">
+          <div style="width: 44px; height: 4px; border-radius: 2px; background: rgba(227,229,219,.30);"></div>
+        </div>
+        <div style="padding: 8px 18px 0 18px; display: flex; align-items: baseline; justify-content: space-between;">
+          <div style="font-family: Marcellus, serif; font-size: 22px;">Your order</div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6E9C95;">To room 214</div>
+        </div>
+
+        <div style="overflow-y: auto; padding: 18px 18px 8px 18px; display: flex; flex-direction: column; gap: 18px;">
+          <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="1">
+            <div style="display: flex; gap: 12px; align-items: flex-start;">
+              <div style="width: 56px; height: 56px; flex: 0 0 56px; border-radius: 46% 46% 3px 3px / 34% 34% 0 0; background-color: #1B2B45; background-image: radial-gradient(circle at 50% 108%, rgba(233,162,39,.20) 0 24%, transparent 24.5%), radial-gradient(circle at 50% 108%, transparent 0 44%, rgba(227,229,219,.12) 44% 45.4%, transparent 46%), repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);"></div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 15.5px; font-weight: 600; line-height: 1.25; text-wrap: pretty;">{{ l.name }}</div>
+                <div style="font-size: 12.5px; color: rgba(227,229,219,.52); margin-top: 2px; text-wrap: pretty;">{{ l.mods }}</div>
+                <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                  <div style="display: flex; align-items: center; border: 1px solid rgba(227,229,219,.16); border-radius: 3px;">
+                    <button onClick="{{ l.dec }}" aria-label="One fewer" style="width: 44px; height: 40px; background: transparent; border: 0; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; cursor: pointer;" style-hover="background: rgba(227,229,219,.07);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">−</button>
+                    <span style="width: 34px; text-align: center; font-family: 'DM Mono', monospace; font-size: 14px;">{{ l.qty }}</span>
+                    <button onClick="{{ l.inc }}" aria-label="One more" style="width: 44px; height: 40px; background: transparent; border: 0; color: #E3E5DB; font-family: 'DM Mono', monospace; font-size: 17px; cursor: pointer;" style-hover="background: rgba(227,229,219,.07);" style-focus="outline: 2px solid #E9A227; outline-offset: -2px;">+</button>
+                  </div>
+                  <span style="font-family: 'DM Mono', monospace; font-size: 14px; color: #E9A227; margin-left: auto;">{{ l.lineTotal }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="padding: 14px 18px 22px 18px; border-top: 1px solid rgba(227,229,219,.12); display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(227,229,219,.60);">
+            <span>Subtotal</span><span>{{ cartTotal }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(227,229,219,.60);">
+            <span>Service, 10%</span><span>{{ serviceStr }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-family: 'DM Mono', monospace; font-size: 16px; color: #E3E5DB;">
+            <span>Charged to room 214</span><span>{{ grandStr }}</span>
+          </div>
+          <button onClick="{{ placeOrder }}" style="width: 100%; min-height: 56px; background: #E9A227; color: #101E33; border: 0; border-radius: 3px; cursor: pointer; font-family: Mukta, sans-serif; font-size: 17px; font-weight: 700;" style-hover="background: #F2B84B;" style-focus="outline: 2px solid #E3E5DB; outline-offset: 3px;">{{ sendLabel }}</button>
+          <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .06em; color: rgba(227,229,219,.38); text-align: center;">Nothing is charged to a card. It goes on your folio.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 70; background: #6E9C95; color: #08101C; border-radius: 3px; padding: 14px 16px; font-size: 14.5px; font-weight: 600; box-shadow: 0 12px 30px rgba(8,15,26,.5);">{{ toastText }}</div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;lateNightMode&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Service state&quot;},&quot;showSkeleton&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;skeletonMs&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:620,&quot;min&quot;:0,&quot;max&quot;:2000,&quot;step&quot;:20,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+const RM = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE = 'cubic-bezier(.2,.8,.2,1)';
+const SPRING = 'cubic-bezier(.34,1.45,.64,1)';
+const inr = (n) => '\u20B9' + Number(n).toLocaleString('en-IN');
+
+const DISHES = {
+  sole:  { name: 'Rooftop grilled river sole', price: 1420, tag: 'Rooftop', short: 'Grilled over coals, lime and kachri.', note: 'Whole river sole, scored and grilled over coals on the rooftop, finished with lime and kachri. Served with a salt-baked potato.', foot: 'Cooked to order on the rooftop grill. About 35 minutes, and it travels down covered.' },
+  mohan: { name: 'Mohan maas', price: 1280, tag: 'Chef', short: 'Mutton braised in milk, cardamom, cashew.', note: 'Mutton braised slowly in milk with green cardamom and cashew. Mild and rich. The Mewar court version, not the Delhi one.', foot: 'Contains dairy and cashew. Tell us in a message if that matters.' },
+  laal:  { name: 'Laal maas with bajra roti', price: 1150, tag: 'Chef', short: 'Mathania chillies, mutton on the bone, ghee.', note: 'Mutton on the bone with Mathania chillies, garlic and ghee, cooked down for four hours. It is genuinely hot. Two bajra rotis come with it.', foot: 'The heat is the dish. Ask for gentle and the chef will use fewer chillies, not different ones.' },
+  ker:   { name: 'Ker sangri', price: 620, tag: 'Chef', short: 'Desert berries and beans, soured in buttermilk.', note: 'Desert ker berries and sangri beans, soaked overnight, soured in buttermilk and tempered with red chilli and ajwain.', foot: 'Vegetarian. The desert dish people either love or find too sour, so order it alongside something.' },
+  gatte: { name: 'Gatte ki sabzi', price: 580, tag: 'Chef', short: 'Gram-flour dumplings in a yoghurt curry.', note: 'Gram-flour dumplings simmered in a yoghurt curry, tempered with mustard seed and asafoetida.', foot: 'Vegetarian. Comes with steamed rice.' },
+  dal:   { name: 'Dal baati churma', price: 740, tag: 'Chef', short: 'Five lentils, tandoor baati, jaggery churma.', note: 'Five lentils, wheat baati baked in the tandoor and cracked open with ghee, churma with jaggery. Enough for two people.', foot: 'Vegetarian, and large. Two guests share this comfortably.' },
+  mawa:  { name: 'Mawa kachori', price: 380, tag: 'After 10pm', short: 'Reduced milk and nuts, cardamom syrup.', note: 'Fried pastry filled with reduced milk and nuts, soaked in cardamom syrup. Two pieces.', foot: 'Best warm. If you are ordering it for later, we send the syrup separately.' },
+  pyaaz: { name: 'Udaipur-style pyaaz kachori', price: 260, tag: 'After 10pm', short: 'Flaky, spiced onion, two pieces.', note: 'Flaky kachori stuffed with spiced onion, made to the recipe the kitchen brought from Bapu Bazaar. Two pieces, with tamarind chutney.', foot: 'Vegetarian. The late-night order most guests repeat.' },
+  lassi: { name: 'Kesar lassi', price: 320, tag: 'After 10pm', short: 'Thick curd, saffron, pistachio.', note: 'Thick set curd whisked with saffron and sugar, topped with pistachio. Served cold in a clay tumbler.', foot: 'The clay tumbler is yours to keep or leave. Housekeeping takes it either way.' },
+  chai:  { name: 'Masala chai', price: 180, tag: 'After 10pm', short: 'Ginger, cardamom, black pepper.', note: 'Ginger, green cardamom and black pepper, brewed to order. A pot serves two cups.', foot: 'Available all night, including after the kitchen closes.' }
+};
+
+const SECTIONS = [
+  { id: 'rooftop', title: 'From the rooftop', label: 'Rooftop', blurb: 'Cooked upstairs on the coal grill, sent down covered. The rooftop stops taking orders at 11:00.', ids: ['sole', 'mohan', 'laal'] },
+  { id: 'late', title: 'After 10pm', label: 'After 10pm', blurb: 'The short list the kitchen keeps going once the main service ends.', ids: ['pyaaz', 'mawa', 'lassi', 'chai'] },
+  { id: 'chef', title: "Chef Bhairav's table", label: 'Chef Bhairav', blurb: 'What Bhairav Singh cooks for the staff meal, put on the menu because guests kept asking.', ids: ['laal', 'ker', 'gatte', 'dal'] }
+];
+
+const SWEET = { mawa: 1, lassi: 1, chai: 1 };
+
+const AMENITIES = [
+  { id: 'towels', name: 'Extra towels', eta: 'Usually 12 minutes', kind: 'step', unit: '' },
+  { id: 'pillow', name: 'Extra pillow', eta: 'Usually 12 minutes', kind: 'step', unit: '' },
+  { id: 'slippers', name: 'Slippers', eta: 'Usually 10 minutes', kind: 'step', unit: '' },
+  { id: 'iron', name: 'Iron and board', eta: 'Usually 15 minutes', kind: 'tap' },
+  { id: 'sewing', name: 'Sewing kit', eta: 'Usually 15 minutes', kind: 'tap' },
+  { id: 'laundry', name: 'Laundry', eta: 'Collected before 10pm, back by 9am', kind: 'step', price: 450, per: 'per kg', unit: 'kg' },
+  { id: 'minibar', name: 'Minibar restock', eta: 'Usually 20 minutes', kind: 'tap', priceText: 'Charged as used' },
+  { id: 'transfer', name: 'Airport transfer', eta: 'The desk calls to fix the time', kind: 'tap', price: 1800, per: 'one way' }
+];
+
+const PLACES = [
+  { id: 'palace', name: 'City Palace', cat: 'Landmarks', dist: '400 m', travel: '6 min walk', mins: 6, mode: 'walk', meta: 'Opens 9:30am', note: 'Go at opening, before the coaches from Jaipur. Ask a guard for the Zenana courtyard, it is quiet and nobody points you there.' },
+  { id: 'jagdish', name: 'Jagdish Temple', cat: 'Landmarks', dist: '300 m', travel: '4 min walk', mins: 4, mode: 'walk', meta: 'Aarti 7:15pm', note: 'Straight up the road from our gate. Loud, crowded and worth it at the evening aarti.' },
+  { id: 'bagore', name: 'Bagore Ki Haveli', cat: 'Evening', dist: '550 m', travel: '8 min walk', mins: 8, mode: 'walk', meta: 'Show 7pm', note: 'The dance show at 7pm. We hold two seats most nights, tell Devika before 4pm and they are yours.' },
+  { id: 'ambrai', name: 'Ambrai', cat: 'Eat and drink', dist: '900 m', travel: '12 min walk', mins: 12, mode: 'walk', tag: 'Partner · 10% off', meta: 'Book by 6pm', note: 'Lakeside table with the palace lit up behind it. Our partner, so ten per cent comes off if you book through us.' },
+  { id: 'lassi', name: 'Baba Lassi', cat: 'Eat and drink', dist: '600 m', travel: '8 min walk', mins: 8, mode: 'walk', tag: 'Cash only', meta: 'Shuts at 9pm', note: 'One thing, done properly since 1972. Carry a hundred rupees, they will not take a card.' },
+  { id: 'bazaar', name: 'Bada Bazaar', cat: 'Shopping', dist: '1.2 km', travel: '16 min walk', mins: 16, mode: 'walk', meta: 'Shuts by 8pm', note: 'Block-print textiles. Walk two shops in before you buy, the first three are set up for people who do not.' },
+  { id: 'sajjan', name: 'Sajjangarh Monsoon Palace', cat: 'Further out', dist: '9 km', travel: '25 min drive', mins: 25, mode: 'drive', meta: 'Car ₹900 return', note: 'Only worth the trip for sunset. We can have a car at the gate at 5:40pm and it waits for you.' }
+];
+
+const NEAR_CATS = ['All', 'Landmarks', 'Eat and drink', 'Evening', 'Shopping', 'Further out'];
+
+const STAY_OPTIONS = [
+  { id: 'two', title: 'Late checkout, 2pm', sub: 'Three extra hours', price: 2500 },
+  { id: 'six', title: 'Late checkout, 6pm', sub: 'The room is yours all day', price: 5000 },
+  { id: 'night', title: 'Stay Thursday night', sub: 'Same room, lake side', price: 18500 }
+];
+
+const FOLIO = [
+  { date: '26 Aug', name: 'Rooftop dinner, two', amount: 3860 },
+  { date: '27 Aug', name: 'Spa, 60 minutes', amount: 3200 },
+  { date: '27 Aug', name: 'Minibar', amount: 1180 },
+  { date: '28 Aug', name: 'Laundry, 1.5 kg', amount: 700 }
+];
+
+const STAGES = [
+  { title: 'Order received', sub: 'The front desk has it on the board.' },
+  { title: 'In the kitchen', sub: 'Bhairav has started cooking.' },
+  { title: 'Plated and covered', sub: 'Tray set, waiting on a runner.' },
+  { title: 'On the way up', sub: 'Kishan is crossing the third courtyard.' },
+  { title: 'At your door', sub: 'He will knock. No bell after 10.' }
+];
+
+const fmtTime = (d) => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).replace(/\s?([ap])m/i, (m, p) => p.toLowerCase() + 'm');
+
+class Component extends DCLogic {
+  state = { screen: 'home', dishId: null, cart: [], sheet: false, activeCat: 'rooftop', loading: false, qty: 1, mods: {}, toast: '', stage: 0, order: null, eta: '', summaryOpen: false, reqs: {}, serviceState: 'idle', serviceNote: '', serviceEta: '4 min away', stayChoice: null, nearMode: 'browse', nearCat: 'All', plan: [] };
+
+  setScroll = (el) => { this.scrollEl = el; };
+  setRail = (el) => { this.railEl = el; this.updateRail(); };
+  setHero = (el) => { this.heroEl = el; };
+  setPill = (el) => { this.pillEl = el; };
+  setCount = (el) => { this.countEl = el; };
+  setSheet = (el) => { this.sheetEl = el; if (el) this.springSheetIn(); };
+  setScrim = (el) => { this.scrimEl = el; };
+
+  updateRail() {
+    const r = this.railEl;
+    if (!r) return;
+    const el = r.querySelector('[data-cat="' + this.state.activeCat + '"]');
+    const ind = r.querySelector('[data-ind]');
+    if (el && ind) {
+      ind.style.width = el.offsetWidth + 'px';
+      ind.style.transform = 'translateX(' + (el.offsetLeft - 12) + 'px)';
+    }
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if (this.state.activeCat !== prevState.activeCat || this.state.screen !== prevState.screen || this.state.loading !== prevState.loading) {
+      requestAnimationFrame(() => this.updateRail());
+    }
+    if (this.state.screen === 'dish' && prevState.screen !== 'dish') this.flipHero();
+    if (this.state.screen === 'track' && this.state.stage !== prevState.stage) this.announceStage();
+  }
+
+  announceStage() {
+    if (RM()) return;
+    requestAnimationFrame(() => {
+      const row = document.querySelector('[data-stage="' + this.state.stage + '"]');
+      if (!row) return;
+      row.animate([
+        { opacity: .3, transform: 'translateY(10px)' },
+        { opacity: 1, transform: 'none' }
+      ], { duration: 300, easing: EASE });
+      const dot = row.querySelector('[data-dot]');
+      if (dot) dot.animate([{ transform: 'scale(.4)' }, { transform: 'scale(1)' }], { duration: 320, easing: SPRING });
+    });
+  }
+
+  flipHero() {
+    const from = this._flipFrom;
+    this._flipFrom = null;
+    const el = this.heroEl;
+    if (!el || !from || RM()) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left - to.left, dy = from.top - to.top;
+    const sx = from.width / to.width, sy = from.height / to.height;
+    el.animate([
+      { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + sx + ',' + sy + ')', borderRadius: '40% 40% 3px 3px / 26% 26% 0 0' },
+      { transform: 'none', borderRadius: '0 0 4px 4px' }
+    ], { duration: 300, easing: EASE });
+  }
+
+  springSheetIn() {
+    if (!this.sheetEl) return;
+    const d = RM() ? 1 : 320;
+    this.sheetEl.animate([{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }], { duration: d, easing: SPRING });
+    if (this.scrimEl) this.scrimEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: d, easing: EASE });
+  }
+
+  openCart = () => this.setState({ sheet: true });
+
+  closeCart = () => {
+    const el = this.sheetEl;
+    if (!el || RM()) { this.setState({ sheet: false }); return; }
+    const start = el.style.transform || 'translateY(0)';
+    if (this.scrimEl) this.scrimEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: EASE });
+    el.animate([{ transform: start }, { transform: 'translateY(100%)' }], { duration: 220, easing: 'cubic-bezier(.4,0,.9,.4)' })
+      .onfinish = () => this.setState({ sheet: false });
+  };
+
+  dragStart = (e) => { e.currentTarget.setPointerCapture(e.pointerId); this._drag = { y: e.clientY, dy: 0 }; };
+  dragMove = (e) => {
+    if (!this._drag || !this.sheetEl) return;
+    const dy = Math.max(0, e.clientY - this._drag.y);
+    this._drag.dy = dy;
+    this.sheetEl.style.transform = 'translateY(' + dy + 'px)';
+  };
+  dragEnd = () => {
+    if (!this._drag) return;
+    const dy = this._drag.dy;
+    this._drag = null;
+    if (dy > 90) { this.closeCart(); return; }
+    const el = this.sheetEl;
+    if (!el) return;
+    el.style.transform = 'translateY(0)';
+    if (!RM()) el.animate([{ transform: 'translateY(' + dy + 'px)' }, { transform: 'translateY(0)' }], { duration: 300, easing: SPRING });
+  };
+
+  goHome = () => this.setState({ screen: 'home', sheet: false });
+
+  goMenu = () => {
+    const ms = this.props.skeletonMs ?? 620;
+    const skip = this.props.showSkeleton === false;
+    this.setState({ screen: 'menu', loading: !skip, activeCat: this.sectionOrder()[0].id });
+    if (!skip) setTimeout(() => this.setState({ loading: false }), ms);
+    if (this.scrollEl) this.scrollEl.scrollTop = 0;
+  };
+
+  backToMenu = () => this.setState({ screen: 'menu' });
+
+  openDish = (id, e) => {
+    const img = e && e.currentTarget && e.currentTarget.querySelector('[data-img]');
+    this._flipFrom = img ? img.getBoundingClientRect() : null;
+    this.setState({ screen: 'dish', dishId: id, qty: 1, mods: {} });
+  };
+
+  sectionOrder() {
+    const late = this.props.lateNightMode;
+    if (!late) return SECTIONS;
+    const l = SECTIONS.filter(s => s.id === 'late');
+    return l.concat(SECTIONS.filter(s => s.id !== 'late'));
+  }
+
+  jumpTo = (id) => {
+    this.setState({ activeCat: id });
+    const c = this.scrollEl;
+    if (!c) return;
+    const el = c.querySelector('[data-sec="' + id + '"]');
+    if (el) c.scrollTo({ top: el.offsetTop - 128, behavior: RM() ? 'auto' : 'smooth' });
+  };
+
+  onMenuScroll = (e) => {
+    const c = e.currentTarget;
+    const secs = Array.prototype.slice.call(c.querySelectorAll('[data-sec]'));
+    let a = this.state.activeCat;
+    for (let i = 0; i < secs.length; i++) {
+      if (secs[i].offsetTop - c.scrollTop <= 170) a = secs[i].getAttribute('data-sec');
+    }
+    if (a !== this.state.activeCat) this.setState({ activeCat: a });
+  };
+
+  modGroupsFor(id) {
+    const sweet = !!SWEET[id];
+    const g1 = sweet
+      ? { id: 'serve', label: 'Serve it', options: [{ id: 'warm', label: 'Warm' }, { id: 'cold', label: 'Cold' }] }
+      : { id: 'spice', label: 'Chilli', options: [{ id: 'gentle', label: 'Gentle' }, { id: 'chef', label: 'As the chef makes it' }, { id: 'fiery', label: 'Extra fiery' }] };
+    const g2 = { id: 'add', label: 'Add', options: [{ id: 'none', label: 'Nothing' }].concat(
+      id === 'laal' ? [{ id: 'roti', label: 'Extra bajra roti', extra: 90 }] :
+      sweet ? [{ id: 'two', label: 'Make it two', extra: DISHES[id].price }] :
+      [{ id: 'ghee', label: 'Extra ghee', extra: 60 }, { id: 'rice', label: 'Steamed rice', extra: 140 }]) };
+    return [g1, g2];
+  }
+
+  defaultMods(id) {
+    const gs = this.modGroupsFor(id);
+    return { [gs[0].id]: gs[0].options[SWEET[id] ? 0 : 1].id, add: 'none' };
+  }
+
+  pickMod = (gid, oid) => this.setState(s => ({ mods: Object.assign({}, this.defaultMods(s.dishId), s.mods, { [gid]: oid }) }));
+
+  incQty = () => this.setState(s => ({ qty: Math.min(9, s.qty + 1) }));
+  decQty = () => this.setState(s => ({ qty: Math.max(1, s.qty - 1) }));
+
+  currentExtras() {
+    const id = this.state.dishId;
+    if (!id) return 0;
+    const mods = Object.assign({}, this.defaultMods(id), this.state.mods);
+    const gs = this.modGroupsFor(id);
+    let x = 0;
+    gs.forEach(g => { const o = g.options.find(o => o.id === mods[g.id]); if (o && o.extra) x += o.extra; });
+    return x;
+  }
+
+  modLabels(id, mods) {
+    const gs = this.modGroupsFor(id);
+    return gs.map(g => {
+      const o = g.options.find(o => o.id === mods[g.id]);
+      return o && o.id !== 'none' ? o.label : null;
+    }).filter(Boolean).join(' · ');
+  }
+
+  addToCart = () => {
+    const id = this.state.dishId;
+    const mods = Object.assign({}, this.defaultMods(id), this.state.mods);
+    const key = id + ':' + JSON.stringify(mods);
+    const unit = DISHES[id].price + this.currentExtras();
+    this.setState(s => {
+      const cart = s.cart.slice();
+      const i = cart.findIndex(l => l.key === key);
+      if (i >= 0) cart[i] = Object.assign({}, cart[i], { qty: cart[i].qty + s.qty });
+      else cart.push({ key, id, qty: s.qty, unit, mods: this.modLabels(id, mods) });
+      return { cart, screen: 'menu', toast: 'Added to your order' };
+    }, () => {
+      this.bumpPill();
+      clearTimeout(this._t);
+      this._t = setTimeout(() => this.setState({ toast: '' }), 2000);
+    });
+  };
+
+  bumpPill() {
+    if (RM()) return;
+    requestAnimationFrame(() => {
+      if (this.pillEl) this.pillEl.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.055)' }, { transform: 'scale(1)' }],
+        { duration: 300, easing: SPRING });
+      if (this.countEl) this.countEl.animate(
+        [{ transform: 'translateY(9px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1 }],
+        { duration: 260, easing: SPRING });
+    });
+  }
+
+  changeQty = (key, d) => this.setState(s => ({
+    cart: s.cart.map(l => l.key === key ? Object.assign({}, l, { qty: l.qty + d }) : l).filter(l => l.qty > 0)
+  }), () => { if (!this.state.cart.length) this.setState({ sheet: false }); });
+
+  placeOrder = () => {
+    const now = new Date();
+    const lines = this.state.cart.map(l => ({
+      key: l.key, name: DISHES[l.id].name, qty: String(l.qty), lineTotal: inr(l.unit * l.qty)
+    }));
+    const sub = this.state.cart.reduce((a, l) => a + l.unit * l.qty, 0);
+    const total = sub + Math.round(sub * 0.1);
+    const from = new Date(now.getTime() + 30 * 60000);
+    const to = new Date(now.getTime() + 42 * 60000);
+    const spacing = [0, 6, 13, 21, 27];
+    this._times = spacing.map(m => fmtTime(new Date(now.getTime() + m * 60000)));
+    this._etas = [
+      fmtTime(from) + ' – ' + fmtTime(to),
+      fmtTime(from) + ' – ' + fmtTime(to),
+      fmtTime(new Date(now.getTime() + 32 * 60000)) + ' – ' + fmtTime(new Date(now.getTime() + 38 * 60000)),
+      fmtTime(new Date(now.getTime() + 33 * 60000)) + ' – ' + fmtTime(new Date(now.getTime() + 36 * 60000)),
+      fmtTime(new Date(now.getTime() + 34 * 60000))
+    ];
+    this.setState({
+      cart: [], sheet: false, screen: 'track', summaryOpen: false, stage: 0,
+      order: {
+        lines, total: inr(total), count: lines.reduce((a, l) => a + Number(l.qty), 0),
+        ref: '#' + (2100 + Math.floor(Math.random() * 90)),
+        lead: (this.state.cart.slice().sort((a, b) => b.unit - a.unit)[0] || {}).id
+      },
+      eta: fmtTime(from) + ' – ' + fmtTime(to)
+    });
+    this.runStages();
+  };
+
+  runStages() {
+    this.clearStages();
+    this._stageT = [];
+    for (let i = 1; i < STAGES.length; i++) {
+      this._stageT.push(setTimeout(() => {
+        this.setState({ stage: i, eta: (this._etas && this._etas[i]) || this.state.eta });
+      }, i * 7000));
+    }
+  }
+
+  clearStages() { (this._stageT || []).forEach(clearTimeout); this._stageT = []; }
+  componentWillUnmount() { this.clearStages(); clearTimeout(this._t); }
+
+  toggleSummary = () => this.setState(s => ({ summaryOpen: !s.summaryOpen }));
+
+  go = (screen) => () => this.setState({ screen: screen, sheet: false });
+
+  bumpReq = (id, d) => this.setState(s => {
+    const reqs = Object.assign({}, s.reqs);
+    const n = Math.max(0, Math.min(9, (reqs[id] || 0) + d));
+    if (n === 0) delete reqs[id]; else reqs[id] = n;
+    return { reqs };
+  }, () => this.bumpPill());
+
+  sendRequests = () => {
+    const n = Object.keys(this.state.reqs).length;
+    this.setState({ reqs: {}, toast: n === 1 ? 'Requested. Housekeeping is on it.' : 'Requested. Housekeeping is on it.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2600);
+  };
+
+  setPlan = (el) => { this.planEl = el; };
+  setPlanList = (el) => { this.planListEl = el; };
+
+  toggleMode = () => this.setState(s => ({ nearMode: s.nearMode === 'plan' ? 'browse' : 'plan' }));
+  pickNearCat = (c) => this.setState({ nearCat: c });
+
+  addToPlan = (id) => this.setState(s => ({
+    plan: s.plan.indexOf(id) >= 0 ? s.plan.filter(x => x !== id) : s.plan.concat([id]),
+    nearMode: s.plan.indexOf(id) >= 0 ? s.nearMode : 'plan'
+  }));
+
+  cardDown = (id) => (e) => {
+    if (this.state.nearMode !== 'plan' || this.state.plan.indexOf(id) >= 0) return;
+    e.preventDefault();
+    this._pd = { id, x: e.clientX, y: e.clientY, label: (PLACES.find(p => p.id === id) || {}).name, ghost: null };
+    window.addEventListener('pointermove', this.cardMove);
+    window.addEventListener('pointerup', this.cardUp);
+  };
+
+  cardMove = (e) => {
+    const d = this._pd;
+    if (!d) return;
+    if (!d.ghost && Math.abs(e.clientY - d.y) + Math.abs(e.clientX - d.x) > 8) {
+      const g = document.createElement('div');
+      g.textContent = d.label;
+      g.setAttribute('style', 'position:fixed;z-index:99;pointer-events:none;background:#E3E5DB;color:#101E33;font-family:Mukta,sans-serif;font-size:14px;font-weight:700;padding:10px 14px;border-radius:22px;box-shadow:0 12px 26px rgba(6,11,20,.55);transform:translate(-50%,-50%);');
+      document.body.appendChild(g);
+      d.ghost = g;
+    }
+    if (d.ghost) {
+      e.preventDefault();
+      d.ghost.style.left = e.clientX + 'px';
+      d.ghost.style.top = e.clientY + 'px';
+      const over = this.overPlan(e.clientY);
+      d.ghost.style.background = over ? '#E9A227' : '#E3E5DB';
+      if (this.planEl) this.planEl.style.borderTopColor = over ? '#E9A227' : 'rgba(227,229,219,.14)';
+    }
+  };
+
+  overPlan(y) {
+    if (!this.planEl) return false;
+    const r = this.planEl.getBoundingClientRect();
+    return y >= r.top && y <= r.bottom;
+  }
+
+  cardUp = (e) => {
+    const d = this._pd;
+    window.removeEventListener('pointermove', this.cardMove);
+    window.removeEventListener('pointerup', this.cardUp);
+    this._pd = null;
+    if (!d) return;
+    if (this.planEl) this.planEl.style.borderTopColor = 'rgba(227,229,219,.14)';
+    if (d.ghost) {
+      const drop = this.overPlan(e.clientY);
+      d.ghost.remove();
+      if (drop) { this.addToPlan(d.id); this.bumpPlan(); }
+    }
+  };
+
+  bumpPlan() {
+    if (RM() || !this.planEl) return;
+    this.planEl.animate([{ transform: 'translateY(0)' }, { transform: 'translateY(-6px)' }, { transform: 'translateY(0)' }], { duration: 300, easing: SPRING });
+  }
+
+  planDown = (idx) => (e) => {
+    e.preventDefault();
+    this._rd = { idx, y: e.clientY };
+    window.addEventListener('pointermove', this.planMove);
+    window.addEventListener('pointerup', this.planUp);
+  };
+
+  planMove = (e) => {
+    const d = this._rd;
+    if (!d || !this.planListEl) return;
+    const rows = Array.prototype.slice.call(this.planListEl.querySelectorAll('[data-plan]'));
+    if (!rows.length) return;
+    let target = d.idx;
+    rows.forEach((r, i) => {
+      const b = r.getBoundingClientRect();
+      if (e.clientY > b.top && e.clientY < b.bottom) target = i;
+    });
+    if (target !== d.idx) {
+      const from = d.idx;
+      d.idx = target;
+      this.setState(s => {
+        const plan = s.plan.slice();
+        const [m] = plan.splice(from, 1);
+        plan.splice(target, 0, m);
+        return { plan };
+      });
+    }
+  };
+
+  planUp = () => {
+    this._rd = null;
+    window.removeEventListener('pointermove', this.planMove);
+    window.removeEventListener('pointerup', this.planUp);
+  };
+
+  savePlan = () => {
+    if (!this.state.plan.length) return;
+    this.setState({ toast: 'Saved. A printed copy will be at the desk by 8am.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2800);
+  };
+
+  onNote = (e) => this.setState({ serviceNote: e.target.value });
+
+  callService = () => {
+    this.setState({ serviceState: 'sent', serviceEta: '4 min away' });
+    clearTimeout(this._svc);
+    this._svc = setTimeout(() => this.setState({ serviceEta: '2 min away' }), 8000);
+  };
+
+  cancelService = () => {
+    clearTimeout(this._svc);
+    this.setState({ serviceState: 'idle', toast: 'Cancelled. Ravi has been told.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2400);
+  };
+
+  pickStay = (id) => this.setState(s => ({ stayChoice: s.stayChoice === id ? null : id }));
+
+  requestStay = () => {
+    const o = STAY_OPTIONS.find(o => o.id === this.state.stayChoice);
+    this.setState({ stayChoice: null, toast: 'Requested. The desk confirms within the hour.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 2800);
+  };
+
+  checkOutNow = () => {
+    this.setState({ toast: 'Folio sent to your email. Leave the key in the room.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 3000);
+  };
+
+  messageKitchen = () => {
+    this.setState({ toast: 'The kitchen has your message. Bhairav will reply here.' });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 3000);
+  };
+
+  renderVals() {
+    const s = this.state;
+    const late = this.props.lateNightMode;
+    const subtotal = s.cart.reduce((a, l) => a + l.unit * l.qty, 0);
+    const count = s.cart.reduce((a, l) => a + l.qty, 0);
+    const service = Math.round(subtotal * 0.1);
+
+    const catBase = 'display:flex;align-items:center;height:34px;padding:0 15px;border-radius:17px;border:1px solid rgba(227,229,219,.18);background:transparent;position:relative;z-index:1;white-space:nowrap;cursor:pointer;font-family:Mukta,sans-serif;font-size:13.5px;font-weight:600;transition:color 200ms ease-out;';
+    const order = this.sectionOrder();
+
+    const cats = order.map(sec => ({
+      id: sec.id, label: sec.label,
+      go: () => this.jumpTo(sec.id),
+      style: catBase + (s.activeCat === sec.id ? 'color:#101E33;border-color:transparent;' : 'color:rgba(227,229,219,.72);')
+    }));
+
+    const sections = order.map(sec => ({
+      id: sec.id, title: sec.title, blurb: sec.blurb,
+      count: sec.ids.length + ' dishes',
+      items: sec.ids.map(id => {
+        const d = DISHES[id];
+        return { key: sec.id + '-' + id, name: d.name, short: d.short, tag: d.tag, priceStr: inr(d.price), open: (e) => this.openDish(id, e) };
+      })
+    }));
+
+    const dish = s.dishId ? Object.assign({}, DISHES[s.dishId], { priceStr: inr(DISHES[s.dishId].price) }) : { name: '', note: '', tag: '', priceStr: '', foot: '' };
+    const mods = s.dishId ? Object.assign({}, this.defaultMods(s.dishId), s.mods) : {};
+    const chipBase = 'min-height:44px;padding:0 16px;border-radius:3px;cursor:pointer;font-family:Mukta,sans-serif;font-size:14.5px;font-weight:600;transition:background 180ms ease-out,border-color 180ms ease-out;';
+    const modGroups = s.dishId ? this.modGroupsFor(s.dishId).map(g => ({
+      label: g.label,
+      options: g.options.map(o => ({
+        key: g.id + '-' + o.id,
+        label: o.extra ? o.label + '  +' + inr(o.extra) : o.label,
+        pick: () => this.pickMod(g.id, o.id),
+        style: chipBase + (mods[g.id] === o.id
+          ? 'background:rgba(233,162,39,.16);border:1px solid #E9A227;color:#E9A227;'
+          : 'background:#1B2B45;border:1px solid rgba(227,229,219,.14);color:rgba(227,229,219,.80);')
+      }))
+    })) : [];
+
+    const times = this._times || [];
+    const lead = s.order && s.order.lead && DISHES[s.order.lead] ? DISHES[s.order.lead].name : null;
+    const steps = STAGES.map((st, i) => {
+      const sub = (i === 1 && lead) ? 'Bhairav has started your ' + lead.toLowerCase() + '.' : st.sub;
+      const done = i < s.stage, active = i === s.stage;
+      const last = i === STAGES.length - 1;
+      return {
+        key: 'st' + i, idx: String(i), title: st.title, sub: sub,
+        time: (done || active) ? (times[i] || '') : '',
+        dotStyle: 'position:absolute;inset:0;border-radius:50%;' + (active
+          ? 'background:#E9A227;'
+          : done ? 'background:rgba(233,162,39,.55);' : 'background:transparent;border:1px solid rgba(227,229,219,.22);'),
+        haloStyle: active
+          ? 'position:absolute;inset:0;border-radius:50%;background:#E9A227;animation:breathe 2.6s cubic-bezier(.2,.8,.2,1) infinite;'
+          : 'display:none;',
+        lineStyle: last ? 'display:none;' : 'width:1px;flex:1;margin:4px 0;' + (active
+          ? 'background-image:repeating-linear-gradient(180deg,rgba(233,162,39,.85) 0 5px,rgba(233,162,39,0) 5px 9px);background-size:1px 18px;animation:flow 1.1s linear infinite;'
+          : done ? 'background:rgba(233,162,39,.35);' : 'background:rgba(227,229,219,.12);'),
+        titleStyle: 'font-size:16px;font-weight:600;line-height:1.25;transition:color 240ms ease-out;color:' + (active ? '#E3E5DB' : done ? 'rgba(227,229,219,.62)' : 'rgba(227,229,219,.34)') + ';',
+        subStyle: 'font-size:13.5px;line-height:1.45;margin-top:2px;text-wrap:pretty;color:' + (active ? 'rgba(227,229,219,.62)' : done ? 'rgba(227,229,219,.38)' : 'rgba(227,229,219,.24)') + ';'
+      };
+    });
+    const o = s.order;
+
+    const chipPaid = 'font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:.03em;color:#E9A227;background:rgba(233,162,39,.12);border:1px solid rgba(233,162,39,.45);border-radius:2px;padding:5px 9px;white-space:nowrap;';
+    const chipFree = 'font-family:\'DM Mono\',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6E9C95;padding:6px 0;white-space:nowrap;';
+    const tapBase = 'min-height:44px;padding:0 18px;border-radius:3px;cursor:pointer;font-family:Mukta,sans-serif;font-size:14.5px;font-weight:600;transition:background 180ms ease-out,border-color 180ms ease-out,color 180ms ease-out;';
+
+    let reqCharge = 0, reqAsUsed = false;
+    Object.keys(s.reqs).forEach(id => {
+      const a = AMENITIES.find(a => a.id === id);
+      if (!a) return;
+      if (a.price) reqCharge += a.price * s.reqs[id];
+      if (a.priceText) reqAsUsed = true;
+    });
+    const reqCount = Object.keys(s.reqs).length;
+
+    const amenities = AMENITIES.map(a => {
+      const q = s.reqs[a.id] || 0;
+      const paid = !!(a.price || a.priceText);
+      return {
+        key: a.id, name: a.name, eta: a.eta,
+        priceLabel: a.priceText ? a.priceText : a.price ? inr(a.price) + ' ' + a.per : 'No charge',
+        priceStyle: paid ? chipPaid : chipFree,
+        isStep: a.kind === 'step', isTap: a.kind === 'tap',
+        qtyLabel: a.unit ? q + ' ' + a.unit : String(q),
+        qtyStyle: 'display:inline-block;min-width:' + (a.unit ? '54px' : '40px') + ';text-align:center;font-family:\'DM Mono\',monospace;font-size:14px;font-variant-numeric:tabular-nums;color:' + (q ? '#E9A227' : 'rgba(227,229,219,.40)') + ';',
+        tapLabel: q ? 'Added' : 'Ask for it',
+        tapStyle: tapBase + (q
+          ? 'background:rgba(233,162,39,.16);border:1px solid #E9A227;color:#E9A227;'
+          : 'background:#1B2B45;border:1px solid rgba(227,229,219,.14);color:rgba(227,229,219,.80);'),
+        hint: q && a.price ? inr(a.price * q) + ' to room 214' : q && a.priceText ? 'Charged as used' : '',
+        inc: () => this.bumpReq(a.id, 1), dec: () => this.bumpReq(a.id, -1),
+        toggle: () => this.bumpReq(a.id, q ? -1 : 1)
+      };
+    });
+
+    const stayOptions = STAY_OPTIONS.map(op => {
+      const on = s.stayChoice === op.id;
+      return {
+        key: op.id, title: op.title, sub: op.sub, price: inr(op.price),
+        pick: () => this.pickStay(op.id),
+        style: 'display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:64px;padding:0 16px;border-radius:4px;cursor:pointer;text-align:left;font-family:Mukta,sans-serif;color:#E3E5DB;transition:background 200ms ease-out,border-color 200ms ease-out;background:' + (on ? 'rgba(233,162,39,.10)' : '#1B2B45') + ';border:1px solid ' + (on ? '#E9A227' : 'rgba(227,229,219,.10)') + ';',
+        priceStyle: 'font-family:\'DM Mono\',monospace;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap;color:' + (on ? '#E9A227' : 'rgba(227,229,219,.70)') + ';'
+      };
+    });
+    const picked = STAY_OPTIONS.find(op => op.id === s.stayChoice);
+
+    const plan = s.nearMode === 'plan';
+    const EZ = 'cubic-bezier(.2,.8,.2,1)';
+    const slot = 'background-color:#16253E;background-image:radial-gradient(circle at 50% 112%, rgba(233,162,39,.20) 0 20%, transparent 20.5%),radial-gradient(circle at 50% 112%, transparent 0 34%, rgba(227,229,219,.13) 34% 34.7%, transparent 35%),radial-gradient(circle at 50% 112%, transparent 0 50%, rgba(227,229,219,.09) 50% 50.7%, transparent 51%),repeating-linear-gradient(45deg, rgba(227,229,219,.035) 0 1px, transparent 1px 5px);';
+
+    const visible = PLACES.filter(p => s.nearCat === 'All' || p.cat === s.nearCat);
+    const places = visible.map(p => {
+      const on = s.plan.indexOf(p.id) >= 0;
+      return {
+        key: p.id, name: p.name, dist: p.dist, travel: p.travel, meta: p.meta, note: p.note, tag: p.tag || '',
+        down: this.cardDown(p.id), add: () => this.addToPlan(p.id),
+        cardStyle: 'display:flex;transition:padding 300ms ' + EZ + ',background 260ms ease-out,border-color 260ms ease-out;' + (plan
+          ? 'flex-direction:row;align-items:center;gap:10px;padding:8px 10px 8px 0;background:#1B2B45;border:1px solid ' + (on ? 'rgba(233,162,39,.40)' : 'rgba(227,229,219,.08)') + ';border-radius:4px;touch-action:pan-y;'
+          : 'flex-direction:column;gap:0;padding:0;background:transparent;border:1px solid transparent;'),
+        gripStyle: plan
+          ? 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:38px;height:44px;flex:0 0 38px;cursor:grab;touch-action:none;'
+          : 'display:none;',
+        imgStyle: 'position:relative;overflow:hidden;flex:0 0 auto;transition:width 320ms ' + EZ + ',height 320ms ' + EZ + ',border-radius 320ms ' + EZ + ';' + slot + (plan
+          ? 'width:46px;height:46px;border-radius:46% 46% 3px 3px / 34% 34% 0 0;'
+          : 'width:100%;height:136px;border-radius:34% 34% 4px 4px / 22% 22% 0 0;margin-bottom:12px;'),
+        tagStyle: (p.tag && !plan)
+          ? 'position:absolute;left:10px;top:10px;font-family:\'DM Mono\',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#101E33;background:#E9A227;padding:4px 7px;border-radius:2px;'
+          : 'display:none;',
+        nameStyle: plan ? 'font-size:15px;font-weight:600;line-height:1.2;' : 'font-family:Marcellus,serif;font-size:21px;line-height:1.15;',
+        noteStyle: 'overflow:hidden;color:rgba(227,229,219,.62);font-size:14.5px;line-height:1.5;text-wrap:pretty;transition:max-height 300ms ' + EZ + ',opacity 220ms ease-out,margin-top 300ms ' + EZ + ';' + (plan ? 'max-height:0;opacity:0;margin-top:0;' : 'max-height:120px;opacity:1;margin-top:8px;'),
+        addLabel: plan ? (on ? '−' : '+') : (on ? 'In plan' : 'Add'),
+        addStyle: 'min-height:44px;border-radius:3px;cursor:pointer;font-family:Mukta,sans-serif;font-weight:600;transition:background 200ms ease-out,border-color 200ms ease-out,color 200ms ease-out;' + (plan ? 'width:44px;font-family:\'DM Mono\',monospace;font-size:17px;' : 'padding:0 16px;font-size:14px;') + (on
+          ? 'background:rgba(233,162,39,.16);border:1px solid #E9A227;color:#E9A227;'
+          : 'background:#1B2B45;border:1px solid rgba(227,229,219,.14);color:rgba(227,229,219,.80);')
+      };
+    });
+
+    const nearCats = NEAR_CATS.map(c => ({
+      key: c, label: c, pick: () => this.pickNearCat(c),
+      style: 'display:flex;align-items:center;height:34px;padding:0 15px;border-radius:17px;white-space:nowrap;cursor:pointer;font-family:Mukta,sans-serif;font-size:13.5px;font-weight:600;transition:background 200ms ease-out,color 200ms ease-out;' + (s.nearCat === c
+        ? 'background:#E9A227;border:1px solid transparent;color:#101E33;'
+        : 'background:transparent;border:1px solid rgba(227,229,219,.18);color:rgba(227,229,219,.72);')
+    }));
+
+    const planPlaces = s.plan.map(id => PLACES.find(p => p.id === id)).filter(Boolean);
+    const walkMins = planPlaces.filter(p => p.mode === 'walk').reduce((a, p) => a + p.mins, 0);
+    const driveMins = planPlaces.filter(p => p.mode === 'drive').reduce((a, p) => a + p.mins, 0);
+    const travelBits = [];
+    if (walkMins) travelBits.push(walkMins + ' min walking');
+    if (driveMins) travelBits.push(driveMins + ' min by car');
+
+    return {
+      isNearby: s.screen === 'nearby',
+      places, nearCats,
+      modeBtnLabel: plan ? 'Done' : (s.plan.length ? 'Plan · ' + s.plan.length : 'Plan tomorrow'),
+      modeBtnStyle: 'margin-left:auto;min-height:44px;padding:0 16px;border-radius:22px;cursor:pointer;font-family:\'DM Mono\',monospace;font-size:12px;letter-spacing:.06em;transition:background 220ms ease-out,color 220ms ease-out;' + (plan
+        ? 'background:#E9A227;border:1px solid transparent;color:#101E33;'
+        : 'background:transparent;border:1px solid rgba(233,162,39,.45);color:#E9A227;'),
+      toggleMode: this.toggleMode, setPlan: this.setPlan, setPlanList: this.setPlanList, savePlan: this.savePlan,
+      catRailStyle: 'display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;transition:max-height 300ms ' + EZ + ',opacity 220ms ease-out,padding 300ms ' + EZ + ';' + (plan
+        ? 'max-height:0;opacity:0;padding:0 12px;pointer-events:none;'
+        : 'max-height:60px;opacity:1;padding:0 12px 12px 12px;'),
+      shelfStyle: 'position:absolute;left:0;right:0;top:0;overflow-y:auto;overflow-x:hidden;transition:bottom 340ms ' + EZ + ',padding 320ms ' + EZ + ';' + (plan
+        ? 'bottom:392px;padding:66px 16px 16px 16px;'
+        : 'bottom:0;padding:118px 16px 30px 16px;'),
+      shelfFoot: s.nearCat === 'All'
+        ? 'Seven places the staff actually send people to. No ratings, because none of us read them.'
+        : visible.length + (visible.length === 1 ? ' place' : ' places') + ' in ' + s.nearCat.toLowerCase() + '. Distance is from our gate.',
+      shelfFootStyle: 'font-size:13px;line-height:1.5;color:rgba(227,229,219,.34);text-wrap:pretty;transition:opacity 240ms ease-out,max-height 300ms ' + EZ + ';overflow:hidden;' + (plan ? 'max-height:0;opacity:0;' : 'max-height:80px;opacity:1;'),
+      drawerStyle: 'position:absolute;left:0;right:0;bottom:0;height:392px;z-index:30;display:flex;flex-direction:column;background:#16253E;border-top:1px solid rgba(227,229,219,.14);border-radius:16px 16px 0 0;box-shadow:0 -18px 44px rgba(6,11,20,.5);transition:transform 360ms cubic-bezier(.34,1.24,.64,1),border-color 200ms ease-out;transform:' + (plan ? 'translateY(0);' : 'translateY(100%);'),
+      planEmpty: planPlaces.length === 0, planFull: planPlaces.length > 0,
+      planMeta: planPlaces.length ? planPlaces.length + (planPlaces.length === 1 ? ' stop' : ' stops') : 'Nothing yet',
+      planTravel: travelBits.join(' · '),
+      planItems: planPlaces.map((p, i) => ({
+        key: p.id, idx: String(i), n: String(i + 1), name: p.name,
+        legLine: p.dist + ' · ' + p.travel + ' from the hotel',
+        down: this.planDown(i), remove: () => this.addToPlan(p.id),
+        rowStyle: 'display:flex;align-items:center;gap:6px;padding:4px 4px 4px 0;background:#1B2B45;border:1px solid rgba(227,229,219,.08);border-radius:4px;'
+      })),
+      saveLabel: planPlaces.length ? 'Save tomorrow\u2019s plan' : 'Add a place to save a plan',
+      saveStyle: 'width:100%;min-height:52px;border:0;border-radius:3px;font-family:Mukta,sans-serif;font-size:16.5px;font-weight:700;transition:background 200ms ease-out;' + (planPlaces.length
+        ? 'background:#E9A227;color:#101E33;cursor:pointer;'
+        : 'background:#22354F;color:rgba(227,229,219,.34);cursor:default;'),
+      planFoot: s.plan.indexOf('sajjan') >= 0 ? 'A car for Sajjangarh can be at the gate at 5:40pm.' : 'Drag the handle to reorder your day.',
+      isAmen: s.screen === 'amenities', isService: s.screen === 'service', isStay: s.screen === 'stay',
+      amenities, noRequests: reqCount === 0, hasRequests: reqCount > 0,
+      sendLine: 'Send ' + reqCount + (reqCount === 1 ? ' request' : ' requests'),
+      chargeLine: reqCharge ? 'Adds ' + inr(reqCharge) + ' to room 214' : reqAsUsed ? 'Minibar charged as used' : 'No charge',
+      sendRequests: this.sendRequests,
+      serviceIdle: s.serviceState === 'idle', serviceSent: s.serviceState === 'sent',
+      serviceNote: s.serviceNote, onNote: this.onNote, callService: this.callService, cancelService: this.cancelService,
+      serviceEta: s.serviceEta,
+      serviceNoteEcho: s.serviceNote ? 'Your note: ' + s.serviceNote : 'He is coming from the third courtyard.',
+      stayOptions, stayPicked: !!picked,
+      stayCta: picked ? (picked.id === 'night' ? 'Add Thursday night' : 'Request ' + picked.title.replace('Late checkout, ', '') + ' checkout') : '',
+      stayCtaPrice: picked ? inr(picked.price) : '',
+      requestStay: this.requestStay, checkOutNow: this.checkOutNow,
+      folio: FOLIO.map(f => ({ key: f.date + f.name, date: f.date, name: f.name, amount: inr(f.amount) })),
+      folioTotal: inr(FOLIO.reduce((a, f) => a + f.amount, 0)),
+      isHome: s.screen === 'home', isMenu: s.screen === 'menu', isDish: s.screen === 'dish', isTrack: s.screen === 'track',
+      steps, etaRange: s.eta,
+      etaNote: s.stage >= 4 ? 'He is at your door.' : s.stage === 3 ? 'Kishan has left the kitchen. A few minutes now.' : s.stage === 2 ? 'Plated. The window is as tight as it gets.' : s.stage === 1 ? 'Cooking to order. We will narrow this once it is plated.' : 'The kitchen is confirming the order.',
+      runnerAssigned: s.stage >= 3,
+      orderMeta: o ? o.count + (o.count === 1 ? ' item · ' : ' items · ') + o.total : '',
+      orderTotal: o ? o.total : '', orderLines: o ? o.lines : [], orderRef: o ? o.ref : '',
+      summaryOpen: s.summaryOpen, summaryChevron: s.summaryOpen ? '−' : '+',
+      toggleSummary: this.toggleSummary, messageKitchen: this.messageKitchen,
+      stayLine: late ? 'Room 214 until Thursday. The night kitchen is on.' : 'Room 214 until Thursday. Dinner runs until 11:30.',
+      kitchenLine: late ? 'Night kitchen until 2am' : 'Kitchen open until 11:30pm',
+      homeRows: [
+        { key: 'amen', title: 'Amenities', sub: 'Towels · laundry · transfer', go: this.go('amenities') },
+        { key: 'staff', title: 'Call for service', sub: 'Someone comes up', go: this.go('service') },
+        { key: 'stay', title: 'Your stay', sub: 'Out Thursday, 11am', go: this.go('stay') },
+        { key: 'city', title: 'Nearby', sub: 'Seven places we vouch for', go: this.go('nearby') }
+      ],
+      goMenu: this.goMenu, goHome: this.goHome, backToMenu: this.backToMenu,
+      onMenuScroll: this.onMenuScroll, setScroll: this.setScroll, setRail: this.setRail, setHero: this.setHero,
+      setPill: this.setPill, setCount: this.setCount, setSheet: this.setSheet, setScrim: this.setScrim,
+      loading: s.loading, ready: !s.loading,
+      skeletons: [{ key: 'a' }, { key: 'b' }, { key: 'c' }],
+      cats, sections, dish, modGroups, qty: s.qty,
+      addTotal: inr((DISHES[s.dishId] ? DISHES[s.dishId].price + this.currentExtras() : 0) * s.qty),
+      incQty: this.incQty, decQty: this.decQty, addToCart: this.addToCart,
+      showPill: (s.screen === 'menu' || s.screen === 'dish') && !s.sheet,
+      cartEmpty: count === 0, cartFull: count > 0,
+      cartCount: String(count), cartTotal: inr(subtotal),
+      openCart: this.openCart, closeCart: this.closeCart, sheetOpen: s.sheet,
+      cartLines: s.cart.map(l => ({
+        key: l.key, name: DISHES[l.id].name, mods: l.mods || 'As it comes', qty: String(l.qty),
+        lineTotal: inr(l.unit * l.qty),
+        inc: () => this.changeQty(l.key, 1), dec: () => this.changeQty(l.key, -1)
+      })),
+      serviceStr: inr(service), grandStr: inr(subtotal + service),
+      sendLabel: 'Send to room 214 · ' + inr(subtotal + service),
+      placeOrder: this.placeOrder,
+      dragStart: this.dragStart, dragMove: this.dragMove, dragEnd: this.dragEnd,
+      toast: !!s.toast, toastText: s.toast
+    };
+  }
+}
+
+</script>
+</body>
+</html>

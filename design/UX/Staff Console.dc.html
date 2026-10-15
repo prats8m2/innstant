@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Red+Hat+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #1A1C1E; -webkit-font-smoothing: antialiased; }
+  a { color: #0F766E; text-decoration: none; }
+  a:hover { color: #115E59; }
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+  button { font: inherit; }
+  @keyframes ping { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(2.2); opacity: 0; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; transition-duration: 1ms !important; } }
+</style>
+</helmet>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 56px; padding: 48px; font-family: 'Public Sans', system-ui, sans-serif; color: #16191B;">
+
+  <!-- ============ KITCHEN DISPLAY ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; color: #C9CED3;">
+      <span style="font-size: 14px; font-weight: 600;">Kitchen display</span>
+      <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; color: #7F8A94;">1194 × 834 · counter tablet · {{ kdsModeLabel }}</span>
+    </div>
+
+    <div data-screen-label="KDS" style="{{ kdsRootStyle }}">
+      <div style="height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 20px; background: var(--k-surface); border-bottom: 1px solid var(--k-line);">
+        <div style="display: flex; flex-direction: column;">
+          <span style="font-size: 15px; font-weight: 700; color: var(--k-ink);">Rooftop kitchen</span>
+          <span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; letter-spacing: .06em; color: var(--k-muted);">THE KESARI · CLOSES 23:30</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px;">
+          <sc-if value="{{ kdsHasUnacked }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ ackAll }}" style="display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px; border-radius: 8px; border: 0; cursor: pointer; background: var(--k-critical); color: #FFFFFF; font-weight: 700; font-size: 14px;" style-focus="outline: 2px solid var(--k-ink); outline-offset: 2px;">
+              <span style="position: relative; width: 10px; height: 10px;">
+                <span style="position: absolute; inset: 0; border-radius: 50%; background: #FFFFFF; animation: ping 1.4s ease-out infinite;"></span>
+                <span style="position: absolute; inset: 0; border-radius: 50%; background: #FFFFFF;"></span>
+              </span>
+              <span>{{ unackedLabel }}</span>
+              <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; opacity: .85;">tap to silence</span>
+            </button>
+          </sc-if>
+          <sc-if value="{{ kdsAllAcked }}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--k-line); color: var(--k-muted); font-size: 13px; font-weight: 600;">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--k-positive);"></span>All tickets seen
+            </div>
+          </sc-if>
+        </div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 14px;">
+          <button onClick="{{ toggle86 }}" style="{{ btn86Style }}" style-focus="outline: 2px solid var(--k-accent); outline-offset: 2px;">{{ label86 }}</button>
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <span style="font-family: 'Red Hat Mono', monospace; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--k-ink); line-height: 1;">{{ clock }}</span>
+            <span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: var(--k-muted); margin-top: 3px;">{{ kdsSummary }}</span>
+          </div>
+        </div>
+      </div>
+
+      <sc-if value="{{ show86 }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--k-raised); border-bottom: 1px solid var(--k-line); flex-wrap: wrap;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--k-muted); margin-right: 4px;">Unavailable tonight</span>
+          <sc-for list="{{ unavailableList }}" as="u" hint-placeholder-count="1">
+            <button onClick="{{ u.restore }}" style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--k-line); background: var(--k-surface); color: var(--k-ink); font-size: 13px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid var(--k-accent); outline-offset: 2px;">
+              <span>{{ u.name }}</span><span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: var(--k-accent);">put back</span>
+            </button>
+          </sc-for>
+          <sc-if value="{{ none86 }}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: var(--k-muted);">Everything on the menu is available. Tap 86 on any ticket line to pull a dish.</span></sc-if>
+        </div>
+      </sc-if>
+
+      <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; padding: 14px 20px 20px 20px;">
+        <sc-for list="{{ kdsCols }}" as="col" hint-placeholder-count="3">
+          <div style="display: flex; flex-direction: column; min-height: 0; gap: 10px;">
+            <div style="display: flex; align-items: baseline; gap: 8px; padding: 0 2px;">
+              <span style="font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--k-muted);">{{ col.title }}</span>
+              <span style="font-family: 'Red Hat Mono', monospace; font-size: 13px; color: var(--k-muted);">{{ col.count }}</span>
+              <span style="margin-left: auto; font-size: 12px; color: var(--k-muted);">{{ col.hint }}</span>
+            </div>
+            <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin;">
+              <sc-for list="{{ col.tickets }}" as="t" hint-placeholder-count="2">
+                <div style="{{ t.cardStyle }}">
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px 14px; border-bottom: 1px solid var(--k-line);">
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 22px; font-weight: 600; color: var(--k-ink); line-height: 1;">{{ t.room }}</span>
+                    <div style="display: flex; flex-direction: column; min-width: 0;">
+                      <span style="font-size: 13px; font-weight: 600; color: var(--k-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ t.guest }}</span>
+                      <span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: var(--k-muted);">{{ t.id }} · {{ t.placed }}</span>
+                    </div>
+                    <div style="{{ t.ageStyle }}">{{ t.age }}</div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; padding: 6px 0;">
+                    <sc-for list="{{ t.items }}" as="it" hint-placeholder-count="2">
+                      <div style="display: flex; align-items: flex-start; gap: 10px; padding: 7px 14px;">
+                        <span style="font-family: 'Red Hat Mono', monospace; font-size: 16px; font-weight: 600; color: var(--k-accent); width: 26px; flex: 0 0 26px;">{{ it.qty }}</span>
+                        <div style="flex: 1; min-width: 0;">
+                          <div style="{{ it.nameStyle }}">{{ it.name }}</div>
+                          <div style="font-size: 12.5px; color: var(--k-muted); margin-top: 2px; line-height: 1.4;">{{ it.mods }}</div>
+                        </div>
+                        <sc-if value="{{ it.can86 }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ it.mark86 }}" aria-label="Mark unavailable" style="height: 32px; padding: 0 9px; border-radius: 6px; border: 1px solid var(--k-line); background: transparent; color: var(--k-muted); font-family: 'Red Hat Mono', monospace; font-size: 12px; cursor: pointer;" style-hover="border-color: var(--k-critical); color: var(--k-critical);" style-focus="outline: 2px solid var(--k-accent); outline-offset: 1px;">86</button>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ t.hasNote }}" hint-placeholder-val="{{ false }}">
+                      <div style="margin: 4px 14px 6px 14px; padding: 8px 10px; border-radius: 6px; background: var(--k-noteBg); color: var(--k-ink); font-size: 13px; line-height: 1.4;">{{ t.note }}</div>
+                    </sc-if>
+                  </div>
+                  <sc-if value="{{ t.isRejecting }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding: 10px 14px 14px 14px; border-top: 1px solid var(--k-line); display: flex; flex-direction: column; gap: 8px;">
+                      <span style="font-size: 12.5px; font-weight: 600; color: var(--k-muted);">Why? The guest sees this.</span>
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                        <sc-for list="{{ t.reasons }}" as="r" hint-placeholder-count="4">
+                          <button onClick="{{ r.pick }}" style="{{ r.style }}" style-focus="outline: 2px solid var(--k-accent); outline-offset: 1px;">{{ r.label }}</button>
+                        </sc-for>
+                      </div>
+                      <div style="display: flex; gap: 8px; margin-top: 2px;">
+                        <button onClick="{{ t.cancelReject }}" style="flex: 1; height: 44px; border-radius: 8px; border: 1px solid var(--k-line); background: transparent; color: var(--k-ink); font-weight: 600; font-size: 14px; cursor: pointer;" style-focus="outline: 2px solid var(--k-accent); outline-offset: 2px;">Keep it</button>
+                        <button onClick="{{ t.confirmReject }}" style="{{ t.confirmRejectStyle }}" style-focus="outline: 2px solid var(--k-ink); outline-offset: 2px;">Reject order</button>
+                      </div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ t.showActions }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; gap: 8px; padding: 8px 14px 14px 14px;">
+                      <sc-if value="{{ t.isNew }}" hint-placeholder-val="{{ true }}">
+                        <button onClick="{{ t.reject }}" style="height: 48px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--k-line); background: transparent; color: var(--k-ink); font-weight: 600; font-size: 14px; cursor: pointer;" style-hover="border-color: var(--k-critical); color: var(--k-critical);" style-focus="outline: 2px solid var(--k-accent); outline-offset: 2px;">Reject</button>
+                        <button onClick="{{ t.accept }}" style="flex: 1; height: 48px; border-radius: 8px; border: 0; background: var(--k-accent); color: var(--k-accentInk); font-weight: 700; font-size: 15px; cursor: pointer;" style-focus="outline: 2px solid var(--k-ink); outline-offset: 2px;">Accept · start cooking</button>
+                      </sc-if>
+                      <sc-if value="{{ t.isPreparing }}" hint-placeholder-val="{{ false }}">
+                        <button onClick="{{ t.bump }}" style="flex: 1; height: 48px; border-radius: 8px; border: 0; background: var(--k-accent); color: var(--k-accentInk); font-weight: 700; font-size: 15px; cursor: pointer;" style-focus="outline: 2px solid var(--k-ink); outline-offset: 2px;">Ready for pickup</button>
+                      </sc-if>
+                      <sc-if value="{{ t.isReady }}" hint-placeholder-val="{{ false }}">
+                        <div style="flex: 1; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 12px; border-radius: 8px; border: 1px dashed var(--k-line); color: var(--k-muted); font-size: 13px; font-weight: 600;">
+                          <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--k-warning); animation: blink 1.6s ease-in-out infinite;"></span>{{ t.waitLabel }}
+                        </div>
+                        <button onClick="{{ t.recall }}" style="height: 48px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--k-line); background: transparent; color: var(--k-ink); font-weight: 600; font-size: 14px; cursor: pointer;" style-focus="outline: 2px solid var(--k-accent); outline-offset: 2px;">Recall</button>
+                      </sc-if>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ col.empty }}" hint-placeholder-val="{{ false }}">
+                <div style="flex: 1; min-height: 140px; display: flex; align-items: center; justify-content: center; border: 1px dashed var(--k-line); border-radius: 10px; color: var(--k-muted); font-size: 13px; text-align: center; padding: 20px;">{{ col.emptyText }}</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RUNNER / HOUSEKEEPING PHONE ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; color: #C9CED3;">
+      <span style="font-size: 14px; font-weight: 600;">Runner &amp; housekeeping</span>
+      <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; color: #7F8A94;">390 × 844 · staff phone</span>
+    </div>
+
+    <div data-screen-label="Runner" style="width: 390px; height: 844px; border-radius: 28px; overflow: hidden; background: #F3F4F2; position: relative; display: flex; flex-direction: column; box-shadow: 0 30px 80px rgba(0,0,0,.45);">
+      <div style="padding: 18px 16px 12px 16px; background: #FFFFFF; border-bottom: 1px solid #D9DDD8;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; background: #E9EBE8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #16191B;">KR</div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 700;">Kishan Rathore</div>
+            <div style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570; letter-spacing: .04em;">{{ shiftLine }}</div>
+          </div>
+          <button onClick="{{ toggleClock }}" style="{{ clockBtnStyle }}" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">{{ clockBtnLabel }}</button>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: 14px; padding: 4px; background: #E9EBE8; border-radius: 10px;">
+          <button onClick="{{ tabPickups }}" style="{{ tabPickupsStyle }}" style-focus="outline: 2px solid #0F766E; outline-offset: 1px;">Pickups <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; opacity: .8;">{{ pickupCount }}</span></button>
+          <button onClick="{{ tabRequests }}" style="{{ tabRequestsStyle }}" style-focus="outline: 2px solid #0F766E; outline-offset: 1px;">Requests <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; opacity: .8;">{{ requestCount }}</span></button>
+        </div>
+      </div>
+
+      <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 24px 16px; display: flex; flex-direction: column; gap: 10px;">
+        <sc-if value="{{ clockedOut }}" hint-placeholder-val="{{ false }}">
+          <div style="padding: 18px 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #D9DDD8; text-align: center;">
+            <div style="font-size: 15px; font-weight: 700;">You are off shift</div>
+            <div style="font-size: 13.5px; color: #5C6570; margin-top: 4px; line-height: 1.45;">Nothing routes to you. Clock in to take pickups and requests for your floors.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showPickups }}" hint-placeholder-val="{{ true }}">
+          <sc-for list="{{ pickups }}" as="p" hint-placeholder-count="2">
+            <div style="{{ p.cardStyle }}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-family: 'Red Hat Mono', monospace; font-size: 24px; font-weight: 600; line-height: 1;">{{ p.room }}</span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ p.guest }}</div>
+                  <div style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570;">{{ p.id }} · {{ p.itemsCount }}</div>
+                </div>
+                <span style="{{ p.badgeStyle }}">{{ p.badge }}</span>
+              </div>
+              <div style="font-size: 13px; color: #3C4550; line-height: 1.45; margin-top: 8px;">{{ p.summary }}</div>
+              <sc-if value="{{ p.hasNote }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: #FEF6E4; color: #5A4300; font-size: 13px; line-height: 1.4;">{{ p.note }}</div>
+              </sc-if>
+              <button onClick="{{ p.act }}" style="{{ p.actStyle }}" style-focus="outline: 2px solid #16191B; outline-offset: 2px;">{{ p.actLabel }}</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noPickups }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 28px 16px; border-radius: 12px; border: 1px dashed #C9CED3; text-align: center; color: #5C6570; font-size: 13.5px; line-height: 1.45;">Nothing waiting at the pass. You will feel a buzz when the kitchen bumps a ticket.</div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ showRequests }}" hint-placeholder-val="{{ false }}">
+          <sc-for list="{{ reqCards }}" as="r" hint-placeholder-count="3">
+            <div style="{{ r.cardStyle }}">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-family: 'Red Hat Mono', monospace; font-size: 24px; font-weight: 600; line-height: 1;">{{ r.room }}</span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 14.5px; font-weight: 600;">{{ r.title }}</div>
+                  <div style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570;">{{ r.meta }}</div>
+                </div>
+                <div style="{{ r.slaStyle }}">{{ r.sla }}</div>
+              </div>
+              <sc-if value="{{ r.escalated }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #B42318;"><span style="width: 8px; height: 8px; border-radius: 50%; background: #B42318;"></span>Promise missed · manager told</div>
+              </sc-if>
+              <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: #FEF6E4; color: #5A4300; font-size: 13px; line-height: 1.4;">{{ r.note }}</div>
+              </sc-if>
+              <button onClick="{{ r.act }}" style="{{ r.actStyle }}" style-focus="outline: 2px solid #16191B; outline-offset: 2px;">{{ r.actLabel }}</button>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noRequests }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 28px 16px; border-radius: 12px; border: 1px dashed #C9CED3; text-align: center; color: #5C6570; font-size: 13.5px; line-height: 1.45;">No open requests on floors 1–2.</div>
+          </sc-if>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RECEPTION DESKTOP ============ -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: baseline; gap: 12px; color: #C9CED3;">
+      <span style="font-size: 14px; font-weight: 600;">Reception</span>
+      <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; color: #7F8A94;">1440 × 900 · desk browser</span>
+    </div>
+
+    <div data-screen-label="Reception" style="width: 1440px; height: 900px; border-radius: 12px; overflow: hidden; background: #F3F4F2; display: grid; grid-template-columns: 216px 1fr; box-shadow: 0 30px 80px rgba(0,0,0,.45);">
+      <div style="background: #FFFFFF; border-right: 1px solid #D9DDD8; display: flex; flex-direction: column; padding: 18px 12px;">
+        <div style="padding: 4px 10px 18px 10px;">
+          <div style="font-size: 15px; font-weight: 700;">The Kesari</div>
+          <div style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570; letter-spacing: .04em; margin-top: 2px;">UDAIPUR · 34 ROOMS</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+            <button onClick="{{ n.go }}" style="{{ n.style }}" style-focus="outline: 2px solid #0F766E; outline-offset: -2px;">
+              <span>{{ n.label }}</span>
+              <span style="{{ n.countStyle }}">{{ n.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top: auto; padding: 12px 10px; border-top: 1px solid #D9DDD8;">
+          <div style="font-size: 13px; font-weight: 600;">Devika Sharma</div>
+          <div style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570; margin-top: 2px;">FRONT DESK · NIGHT</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; min-width: 0;">
+        <div style="height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 24px; background: #FFFFFF; border-bottom: 1px solid #D9DDD8;">
+          <div style="font-size: 17px; font-weight: 700;">{{ recTitle }}</div>
+          <div style="font-size: 13px; color: #5C6570;">{{ recSubtitle }}</div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #D9DDD8; color: #5C6570; font-size: 13px; width: 260px;">Search room, guest or order</div>
+            <span style="font-family: 'Red Hat Mono', monospace; font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 600;">{{ clock }}</span>
+          </div>
+        </div>
+
+        <div style="flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 440px;">
+          <div style="min-width: 0; overflow-y: auto; padding: 20px 24px;">
+
+            <sc-if value="{{ recRooms }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+                <sc-for list="{{ roomFilters }}" as="f" hint-placeholder-count="4">
+                  <button onClick="{{ f.pick }}" style="{{ f.style }}" style-focus="outline: 2px solid #0F766E; outline-offset: 1px;">{{ f.label }}</button>
+                </sc-for>
+              </div>
+              <div style="background: #FFFFFF; border: 1px solid #D9DDD8; border-radius: 10px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 72px 1.4fr 1fr 1fr 1.6fr 120px; gap: 12px; padding: 10px 16px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #5C6570; border-bottom: 1px solid #D9DDD8;">
+                  <span>Room</span><span>Guest</span><span>Status</span><span>Checkout</span><span>Open now</span><span style="text-align: right;">Folio</span>
+                </div>
+                <sc-for list="{{ roomRows }}" as="r" hint-placeholder-count="8">
+                  <button onClick="{{ r.select }}" style="{{ r.style }}" style-hover="background: #F7F8F6;" style-focus="outline: 2px solid #0F766E; outline-offset: -2px;">
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 15px; font-weight: 600;">{{ r.room }}</span>
+                    <span style="font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ r.guest }}</span>
+                    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px;"><span style="{{ r.dotStyle }}"></span>{{ r.status }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 13px; color: #3C4550;">{{ r.checkout }}</span>
+                    <span style="{{ r.openStyle }}">{{ r.open }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right;">{{ r.folio }}</span>
+                  </button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ recRequests }}" hint-placeholder-val="{{ false }}">
+              <div style="background: #FFFFFF; border: 1px solid #D9DDD8; border-radius: 10px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 72px 1.4fr 1fr 1fr 140px; gap: 12px; padding: 10px 16px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #5C6570; border-bottom: 1px solid #D9DDD8;">
+                  <span>Room</span><span>Request</span><span>Assigned to</span><span>State</span><span style="text-align: right;">Promise</span>
+                </div>
+                <sc-for list="{{ reqRows }}" as="q" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 72px 1.4fr 1fr 1fr 140px; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #EEF0ED; font-size: 14px;">
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 15px; font-weight: 600;">{{ q.room }}</span>
+                    <span style="font-weight: 500;">{{ q.title }}</span>
+                    <span style="color: #3C4550;">{{ q.assignee }}</span>
+                    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px;"><span style="{{ q.dotStyle }}"></span>{{ q.state }}</span>
+                    <span style="{{ q.slaStyle }}">{{ q.sla }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ recOrders }}" hint-placeholder-val="{{ false }}">
+              <div style="background: #FFFFFF; border: 1px solid #D9DDD8; border-radius: 10px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 110px 72px 1.6fr 1fr 120px; gap: 12px; padding: 10px 16px; font-size: 11.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #5C6570; border-bottom: 1px solid #D9DDD8;">
+                  <span>Order</span><span>Room</span><span>Items</span><span>State</span><span style="text-align: right;">Total</span>
+                </div>
+                <sc-for list="{{ orderRows }}" as="o" hint-placeholder-count="5">
+                  <div style="display: grid; grid-template-columns: 110px 72px 1.6fr 1fr 120px; gap: 12px; align-items: center; padding: 14px 16px; border-bottom: 1px solid #EEF0ED; font-size: 14px;">
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 13px;">{{ o.id }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 15px; font-weight: 600;">{{ o.room }}</span>
+                    <span style="color: #3C4550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ o.items }}</span>
+                    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px;"><span style="{{ o.dotStyle }}"></span>{{ o.state }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 13.5px; font-variant-numeric: tabular-nums; text-align: right;">{{ o.total }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="border-left: 1px solid #D9DDD8; background: #FFFFFF; overflow-y: auto; display: flex; flex-direction: column;">
+            <div style="padding: 20px 22px 16px 22px; border-bottom: 1px solid #D9DDD8;">
+              <div style="display: flex; align-items: baseline; gap: 12px;">
+                <span style="font-family: 'Red Hat Mono', monospace; font-size: 30px; font-weight: 600; line-height: 1;">{{ sel.room }}</span>
+                <div>
+                  <div style="font-size: 16px; font-weight: 700;">{{ sel.guest }}</div>
+                  <div style="font-size: 13px; color: #5C6570; margin-top: 2px;">{{ sel.stayLine }}</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #D9DDD8; background: #FFFFFF; font-weight: 600; font-size: 13px; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Message guest</button>
+                <button style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #D9DDD8; background: #FFFFFF; font-weight: 600; font-size: 13px; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Reprint QR</button>
+                <button style="height: 40px; padding: 0 14px; border-radius: 8px; border: 1px solid #D9DDD8; background: #FFFFFF; font-weight: 600; font-size: 13px; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Check out</button>
+              </div>
+            </div>
+
+            <sc-if value="{{ sel.hasLate }}" hint-placeholder-val="{{ true }}">
+              <div style="{{ lateBoxStyle }}">
+                <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                  <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6570;">Needs a decision</span>
+                  <span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570;">{{ lateAsked }}</span>
+                </div>
+                <div style="font-size: 15px; font-weight: 600; margin-top: 6px;">{{ lateTitle }}</div>
+                <div style="font-size: 13px; color: #3C4550; margin-top: 3px; line-height: 1.45;">{{ lateDetail }}</div>
+
+                <sc-if value="{{ latePending }}" hint-placeholder-val="{{ true }}">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">
+                    <span style="font-size: 13px; color: #5C6570;">Fee</span>
+                    <sc-if value="{{ feeLocked }}" hint-placeholder-val="{{ true }}">
+                      <span style="font-family: 'Red Hat Mono', monospace; font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600;">{{ lateFeeStr }}</span>
+                      <button onClick="{{ editFee }}" style="height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #D9DDD8; background: #FFFFFF; font-size: 12.5px; font-weight: 600; color: #0F766E; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Override</button>
+                    </sc-if>
+                    <sc-if value="{{ feeEditing }}" hint-placeholder-val="{{ false }}">
+                      <span style="font-family: 'Red Hat Mono', monospace; font-size: 15px;">₹</span>
+                      <input value="{{ feeDraft }}" onChange="{{ onFeeDraft }}" aria-label="Override fee in rupees" inputMode="numeric" style="width: 110px; height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid #0F766E; font-family: 'Red Hat Mono', monospace; font-size: 15px; outline: none;" />
+                      <button onClick="{{ waiveFee }}" style="height: 36px; padding: 0 10px; border-radius: 6px; border: 1px solid #D9DDD8; background: #FFFFFF; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Waive</button>
+                    </sc-if>
+                  </div>
+                  <div style="display: flex; gap: 8px; margin-top: 14px;">
+                    <button onClick="{{ declineLate }}" style="height: 44px; padding: 0 16px; border-radius: 8px; border: 1px solid #D9DDD8; background: #FFFFFF; font-weight: 600; font-size: 14px; cursor: pointer;" style-hover="border-color: #B42318; color: #B42318;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Decline</button>
+                    <button onClick="{{ approveLate }}" style="flex: 1; height: 44px; border-radius: 8px; border: 0; background: #0F766E; color: #FFFFFF; font-weight: 700; font-size: 14px; cursor: pointer;" style-hover="background: #115E59;" style-focus="outline: 2px solid #16191B; outline-offset: 2px;">{{ approveLabel }}</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ lateDecided }}" hint-placeholder-val="{{ false }}">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 13.5px; font-weight: 600;">
+                    <span style="{{ lateResultDot }}"></span><span>{{ lateResult }}</span>
+                    <button onClick="{{ undoLate }}" style="margin-left: auto; height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid #D9DDD8; background: #FFFFFF; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-focus="outline: 2px solid #0F766E; outline-offset: 2px;">Undo</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <div style="padding: 16px 22px 8px 22px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6570;">Live in this room</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px;">
+                <sc-for list="{{ sel.live }}" as="l" hint-placeholder-count="2">
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #F3F4F2; font-size: 13.5px;">
+                    <span style="{{ l.dotStyle }}"></span>
+                    <span style="flex: 1; font-weight: 500;">{{ l.title }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; color: #5C6570;">{{ l.meta }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ sel.quiet }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding: 10px 12px; border-radius: 8px; border: 1px dashed #D9DDD8; font-size: 13px; color: #5C6570;">Nothing open. Quiet room.</div>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="padding: 12px 22px 24px 22px;">
+              <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6570;">Folio</span>
+                <span style="font-family: 'Red Hat Mono', monospace; font-size: 11px; color: #5C6570;">UNSETTLED · ROOM AND TAXES AT CHECKOUT</span>
+              </div>
+              <div style="margin-top: 10px; border-top: 1px solid #D9DDD8;">
+                <sc-for list="{{ sel.folio }}" as="f" hint-placeholder-count="4">
+                  <div style="display: grid; grid-template-columns: 58px 1fr auto; gap: 12px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid #EEF0ED;">
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 12px; color: #5C6570;">{{ f.date }}</span>
+                    <span style="font-size: 13.5px;">{{ f.name }}</span>
+                    <span style="font-family: 'Red Hat Mono', monospace; font-size: 13.5px; font-variant-numeric: tabular-nums;">{{ f.amount }}</span>
+                  </div>
+                </sc-for>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0 0 0;">
+                  <span style="font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5C6570;">Total so far</span>
+                  <span style="font-family: 'Red Hat Mono', monospace; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums;">{{ sel.total }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;kdsMode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;auto&quot;,&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;auto&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Kitchen display&quot;}}">
+const inr = (n) => '\u20B9' + Number(n).toLocaleString('en-IN');
+const pad = (n) => (n < 10 ? '0' : '') + n;
+const hm = (ms) => { const d = new Date(ms); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const mmss = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); };
+
+const T0 = Date.now();
+const ago = (m) => T0 - m * 60000;
+
+const REJECT_REASONS = ['Out of stock', 'Kitchen closed', 'Cannot do that modifier', 'Other'];
+
+const SEED_TICKETS = [
+  { id: 'KE-1182', room: '215', guest: 'Marcus Lindqvist', placedAt: ago(31), state: 'picked', acked: true, startedAt: ago(30), readyAt: ago(9), pickedAt: ago(6), runner: 'Kishan', total: 2046, items: [{ name: 'Mohan maas', qty: 1, mods: 'As the chef makes it' }, { name: 'Gatte ki sabzi', qty: 1, mods: 'Steamed rice' }] },
+  { id: 'KE-1183', room: '121', guest: 'Priya Nair', placedAt: ago(17), state: 'ready', acked: true, startedAt: ago(16), readyAt: ago(3), total: 968, items: [{ name: 'Udaipur-style pyaaz kachori', qty: 2, mods: 'Make it two' }, { name: 'Masala chai', qty: 2, mods: 'Warm' }], note: 'Leave at the door, baby asleep.' },
+  { id: 'KE-1184', room: '214', guest: 'Anjali Menon', placedAt: ago(11), state: 'preparing', acked: true, startedAt: ago(9), total: 2266, items: [{ name: 'Laal maas with bajra roti', qty: 1, mods: 'As the chef makes it · Extra bajra roti' }, { name: 'Kesar lassi', qty: 2, mods: 'Cold' }, { name: 'Masala chai', qty: 1, mods: 'Warm' }], note: 'No bell after 10, please knock.' },
+  { id: 'KE-1185', room: '108', guest: 'Farah & Omar Haddad', placedAt: ago(4), state: 'new', acked: false, total: 2244, items: [{ name: 'Rooftop grilled river sole', qty: 1, mods: 'Gentle' }, { name: 'Ker sangri', qty: 1, mods: 'Steamed rice' }] },
+  { id: 'KE-1186', room: '302', guest: 'Sunita & Vikram Rao', placedAt: ago(1), state: 'new', acked: false, total: 1650, items: [{ name: 'Dal baati churma', qty: 1, mods: 'Extra ghee' }, { name: 'Mawa kachori', qty: 2, mods: 'Warm' }] }
+];
+
+const SEED_REQUESTS = [
+  { id: 'RQ-2201', room: '214', title: 'Extra towels × 2', type: 'Housekeeping', raisedAt: ago(6), promiseMin: 12, state: 'assigned', assignee: 'Kishan Rathore' },
+  { id: 'RQ-2202', room: '108', title: 'Extra pillow', type: 'Housekeeping', raisedAt: ago(14), promiseMin: 12, state: 'assigned', assignee: 'Kishan Rathore', escalated: true, note: 'Firm one if you have it.' },
+  { id: 'RQ-2199', room: '121', title: 'Iron and board', type: 'Housekeeping', raisedAt: ago(22), promiseMin: 15, state: 'done', assignee: 'Meera Joshi', doneAt: ago(8) },
+  { id: 'RQ-2203', room: '305', title: 'Airport transfer · 4:30am', type: 'Front desk', raisedAt: ago(40), promiseMin: 60, state: 'open', assignee: 'Unassigned' }
+];
+
+const ROOMS = [
+  { room: '101', guest: '', status: 'vacant', sub: 'Clean', checkout: '—', folio: 0 },
+  { room: '102', guest: 'Rohan Iyer', status: 'occupied', checkout: 'Sat 11:00', folio: 4210, since: 'Wed' },
+  { room: '108', guest: 'Farah & Omar Haddad', status: 'occupied', checkout: 'Fri 11:00', folio: 6980, since: 'Mon' },
+  { room: '121', guest: 'Priya Nair', status: 'occupied', checkout: 'Sat 11:00', folio: 2380, since: 'Thu' },
+  { room: '214', guest: 'Anjali Menon', status: 'occupied', checkout: 'Thu 11:00', folio: 8940, since: 'Mon', folioLines: [['26 Aug', 'Rooftop dinner, two', 3860], ['27 Aug', 'Spa, 60 minutes', 3200], ['27 Aug', 'Minibar', 1180], ['28 Aug', 'Laundry, 1.5 kg', 700]] },
+  { room: '215', guest: 'Marcus Lindqvist', status: 'occupied', checkout: 'Fri 11:00', folio: 12640, since: 'Sun' },
+  { room: '216', guest: '', status: 'dirty', sub: 'Needs housekeeping', checkout: '—', folio: 0 },
+  { room: '302', guest: 'Sunita & Vikram Rao', status: 'occupied', checkout: 'Thu 11:00', folio: 5320, since: 'Tue' },
+  { room: '304', guest: '', status: 'vacant', sub: 'Inspected', checkout: '—', folio: 0 },
+  { room: '305', guest: 'Thomas Beck', status: 'leaving', checkout: 'Today 04:30', folio: 3180, since: 'Wed' }
+];
+
+class Component extends DCLogic {
+  state = {
+    now: Date.now(), tickets: SEED_TICKETS, unavailable: [], rejecting: null, rejectReason: null, show86: false,
+    requests: SEED_REQUESTS, clockedIn: true, runnerTab: 'pickups',
+    recSection: 'rooms', roomFilter: 'All', selectedRoom: '214',
+    late: { state: 'pending', option: '2pm', fee: 2500, askedAt: ago(9) }, feeEditing: false, feeDraft: '2500'
+  };
+
+  componentDidMount() { this._tick = setInterval(() => this.setState({ now: Date.now() }), 1000); }
+  componentWillUnmount() { clearInterval(this._tick); }
+
+  kdsDark() {
+    const m = this.props.kdsMode || 'auto';
+    if (m === 'dark') return true;
+    if (m === 'light') return false;
+    const h = new Date(this.state.now).getHours();
+    return h >= 19 || h < 7;
+  }
+
+  upd(id, patch) { this.setState(s => ({ tickets: s.tickets.map(t => t.id === id ? Object.assign({}, t, patch) : t) })); }
+
+  ackAll = () => this.setState(s => ({ tickets: s.tickets.map(t => Object.assign({}, t, { acked: true })) }));
+  toggle86 = () => this.setState(s => ({ show86: !s.show86 }));
+  mark86 = (name) => this.setState(s => ({ unavailable: s.unavailable.indexOf(name) >= 0 ? s.unavailable : s.unavailable.concat([name]), show86: true }));
+  restore86 = (name) => this.setState(s => ({ unavailable: s.unavailable.filter(n => n !== name) }));
+
+  accept = (id) => this.upd(id, { state: 'preparing', acked: true, startedAt: Date.now() });
+  bump = (id) => this.upd(id, { state: 'ready', readyAt: Date.now() });
+  recall = (id) => this.upd(id, { state: 'preparing', readyAt: null });
+  startReject = (id) => this.setState({ rejecting: id, rejectReason: null });
+  cancelReject = () => this.setState({ rejecting: null, rejectReason: null });
+  pickReason = (r) => this.setState({ rejectReason: r });
+  confirmReject = (id) => { if (!this.state.rejectReason) return; this.upd(id, { state: 'rejected', acked: true, reason: this.state.rejectReason }); this.setState({ rejecting: null, rejectReason: null }); };
+
+  pickup = (id) => this.upd(id, { state: 'picked', runner: 'Kishan', pickedAt: Date.now() });
+  deliver = (id) => this.upd(id, { state: 'delivered', deliveredAt: Date.now() });
+
+  toggleClock = () => this.setState(s => ({ clockedIn: !s.clockedIn }));
+  setTab = (t) => () => this.setState({ runnerTab: t });
+
+  reqAct = (id) => this.setState(s => ({
+    requests: s.requests.map(r => {
+      if (r.id !== id) return r;
+      if (r.state === 'assigned') return Object.assign({}, r, { state: 'onway' });
+      if (r.state === 'onway') return Object.assign({}, r, { state: 'done', doneAt: Date.now() });
+      return r;
+    })
+  }));
+
+  goSection = (k) => () => this.setState({ recSection: k });
+  pickFilter = (f) => () => this.setState({ roomFilter: f });
+  selectRoom = (r) => () => this.setState({ selectedRoom: r });
+
+  editFee = () => this.setState(s => ({ feeEditing: true, feeDraft: String(s.late.fee) }));
+  onFeeDraft = (e) => this.setState({ feeDraft: e.target.value.replace(/[^0-9]/g, '') });
+  waiveFee = () => this.setState({ feeDraft: '0' });
+  approveLate = () => this.setState(s => ({ late: Object.assign({}, s.late, { state: 'approved', fee: s.feeEditing ? Number(s.feeDraft || 0) : s.late.fee, decidedAt: Date.now() }), feeEditing: false }));
+  declineLate = () => this.setState(s => ({ late: Object.assign({}, s.late, { state: 'declined', decidedAt: Date.now() }), feeEditing: false }));
+  undoLate = () => this.setState(s => ({ late: Object.assign({}, s.late, { state: 'pending', fee: 2500 }), feeEditing: false, feeDraft: '2500' }));
+
+  renderVals() {
+    const s = this.state, now = s.now;
+    const dark = this.kdsDark();
+    const K = dark
+      ? { bg: '#121517', surface: '#1B1F23', raised: '#22272C', line: '#2E343A', ink: '#EEF1F0', muted: '#9AA4AE', accent: '#2DD4BF', accentInk: '#08201C', positive: '#34D399', warning: '#FBBF24', critical: '#EF6B5E', noteBg: '#3A3117' }
+      : { bg: '#F3F4F2', surface: '#FFFFFF', raised: '#E9EBE8', line: '#D9DDD8', ink: '#16191B', muted: '#5C6570', accent: '#0F766E', accentInk: '#FFFFFF', positive: '#1F7A4D', warning: '#B7791F', critical: '#B42318', noteBg: '#FEF6E4' };
+    const kvars = Object.keys(K).map(k => '--k-' + k + ':' + K[k]).join(';') + ';';
+
+    const ageColor = (mins) => mins < 8 ? K.positive : mins < 14 ? K.warning : K.critical;
+    const unacked = s.tickets.filter(t => t.state === 'new' && !t.acked).length;
+
+    const mkTicket = (t) => {
+      const ref = t.state === 'preparing' ? (t.startedAt || t.placedAt) : t.placedAt;
+      const mins = (now - ref) / 60000;
+      const col = t.state === 'ready' ? K.warning : ageColor(mins);
+      const fresh = t.state === 'new' && !t.acked;
+      const items = t.items.map((it, i) => ({
+        key: t.id + i, qty: it.qty + '×', name: it.name, mods: it.mods || 'As it comes',
+        nameStyle: 'font-size:15px;font-weight:600;line-height:1.3;color:var(--k-ink);' + (s.unavailable.indexOf(it.name) >= 0 ? 'text-decoration:line-through;opacity:.55;' : ''),
+        can86: t.state !== 'ready' && s.unavailable.indexOf(it.name) < 0,
+        mark86: () => this.mark86(it.name)
+      }));
+      return {
+        key: t.id, id: t.id, room: t.room, guest: t.guest, placed: hm(t.placedAt), items,
+        age: (t.state === 'ready' ? 'waiting ' : '') + mmss(now - (t.state === 'ready' ? t.readyAt : ref)),
+        ageStyle: 'margin-left:auto;font-family:\'Red Hat Mono\',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:6px;color:' + (dark ? '#0F1214' : '#FFFFFF') + ';background:' + col + ';',
+        cardStyle: 'background:var(--k-surface);border-radius:10px;border:1px solid ' + (fresh ? K.critical : 'var(--k-line)') + ';border-left:4px solid ' + col + ';overflow:hidden;' + (fresh ? 'box-shadow:0 0 0 3px ' + K.critical + '33;' : ''),
+        hasNote: !!t.note, note: t.note || '',
+        isNew: t.state === 'new', isPreparing: t.state === 'preparing', isReady: t.state === 'ready',
+        isRejecting: s.rejecting === t.id, showActions: s.rejecting !== t.id,
+        waitLabel: 'At the pass · runner pinged',
+        accept: () => this.accept(t.id), bump: () => this.bump(t.id), recall: () => this.recall(t.id),
+        reject: () => this.startReject(t.id), cancelReject: this.cancelReject, confirmReject: () => this.confirmReject(t.id),
+        confirmRejectStyle: 'flex:1;height:44px;border-radius:8px;border:0;font-weight:700;font-size:14px;color:#FFFFFF;background:' + K.critical + ';' + (s.rejectReason ? 'cursor:pointer;' : 'opacity:.45;cursor:default;'),
+        reasons: REJECT_REASONS.map(r => ({
+          key: r, label: r, pick: () => this.pickReason(r),
+          style: 'height:40px;padding:0 10px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;text-align:left;' + (s.rejectReason === r ? 'background:var(--k-ink);color:var(--k-surface);border:1px solid var(--k-ink);' : 'background:transparent;color:var(--k-ink);border:1px solid var(--k-line);')
+        }))
+      };
+    };
+
+    const byAge = (a, b) => a.placedAt - b.placedAt;
+    const newT = s.tickets.filter(t => t.state === 'new').sort(byAge);
+    const prepT = s.tickets.filter(t => t.state === 'preparing').sort(byAge);
+    const readyT = s.tickets.filter(t => t.state === 'ready').sort(byAge);
+
+    const kdsCols = [
+      { key: 'new', title: 'New', count: String(newT.length), hint: 'oldest first', tickets: newT.map(mkTicket), empty: !newT.length, emptyText: 'No new orders. Guests see the kitchen as open until 23:30.' },
+      { key: 'prep', title: 'Cooking', count: String(prepT.length), hint: 'timer from accept', tickets: prepT.map(mkTicket), empty: !prepT.length, emptyText: 'Nothing on the fire.' },
+      { key: 'ready', title: 'At the pass', count: String(readyT.length), hint: 'waiting for a runner', tickets: readyT.map(mkTicket), empty: !readyT.length, emptyText: 'Pass is clear.' }
+    ];
+
+    const pickable = s.tickets.filter(t => t.state === 'ready' || t.state === 'picked').sort(byAge);
+    const pickups = pickable.map(t => {
+      const picked = t.state === 'picked';
+      return {
+        key: t.id, id: t.id, room: t.room, guest: t.guest, itemsCount: t.items.reduce((a, i) => a + i.qty, 0) + ' items',
+        summary: t.items.map(i => i.qty + '× ' + i.name).join(' · '),
+        hasNote: !!t.note, note: t.note || '',
+        badge: picked ? 'With you · ' + mmss(now - (t.pickedAt || t.readyAt || t.placedAt)) : 'Ready · ' + mmss(now - (t.readyAt || t.placedAt)),
+        badgeStyle: 'font-family:\'Red Hat Mono\',monospace;font-size:11.5px;font-weight:600;padding:5px 8px;border-radius:6px;white-space:nowrap;' + (picked ? 'background:#E0F2F0;color:#0F766E;' : 'background:#FEF6E4;color:#7A5200;'),
+        cardStyle: 'padding:14px;border-radius:12px;background:#FFFFFF;border:1px solid ' + (picked ? '#0F766E' : '#D9DDD8') + ';',
+        act: () => picked ? this.deliver(t.id) : this.pickup(t.id),
+        actLabel: picked ? 'Delivered to ' + t.room : 'Picked up from the pass',
+        actStyle: 'width:100%;height:52px;margin-top:12px;border-radius:10px;border:0;font-weight:700;font-size:15px;cursor:pointer;' + (picked ? 'background:#0F766E;color:#FFFFFF;' : 'background:#16191B;color:#FFFFFF;')
+      };
+    });
+
+    const slaOf = (r) => {
+      const due = r.raisedAt + r.promiseMin * 60000;
+      const left = due - now;
+      const breached = left < 0;
+      return { left, breached, text: r.state === 'done' ? 'Done ' + hm(r.doneAt) : (breached ? 'Over by ' + mmss(-left) : mmss(left) + ' left') };
+    };
+    const mine = s.requests.filter(r => r.assignee === 'Kishan Rathore' && r.state !== 'done');
+    const reqCards = mine.map(r => {
+      const sla = slaOf(r);
+      const onway = r.state === 'onway';
+      return {
+        key: r.id, room: r.room, title: r.title, meta: r.id + ' · asked ' + hm(r.raisedAt) + ' · promised ' + r.promiseMin + ' min',
+        sla: sla.text,
+        slaStyle: 'font-family:\'Red Hat Mono\',monospace;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;padding:5px 8px;border-radius:6px;white-space:nowrap;' + (sla.breached ? 'background:#FCE8E6;color:#B42318;' : sla.left < 4 * 60000 ? 'background:#FEF6E4;color:#7A5200;' : 'background:#E0F2F0;color:#0F766E;'),
+        escalated: sla.breached || !!r.escalated, hasNote: !!r.note, note: r.note || '',
+        cardStyle: 'padding:14px;border-radius:12px;background:#FFFFFF;border:1px solid ' + (sla.breached ? '#B42318' : onway ? '#0F766E' : '#D9DDD8') + ';',
+        act: () => this.reqAct(r.id),
+        actLabel: onway ? 'Done · handed over in ' + r.room : 'On my way',
+        actStyle: 'width:100%;height:52px;margin-top:12px;border-radius:10px;border:0;font-weight:700;font-size:15px;cursor:pointer;' + (onway ? 'background:#0F766E;color:#FFFFFF;' : 'background:#16191B;color:#FFFFFF;')
+      };
+    });
+
+    const tabBase = 'flex:1;height:40px;border-radius:8px;border:0;font-weight:600;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;';
+    const showPick = s.clockedIn && s.runnerTab === 'pickups';
+    const showReq = s.clockedIn && s.runnerTab === 'requests';
+
+    const filters = ['All', 'Occupied', 'Leaving today', 'Vacant'];
+    const roomsF = ROOMS.filter(r => s.roomFilter === 'All' || (s.roomFilter === 'Occupied' && r.status === 'occupied') || (s.roomFilter === 'Leaving today' && r.status === 'leaving') || (s.roomFilter === 'Vacant' && (r.status === 'vacant' || r.status === 'dirty')));
+    const openFor = (room) => {
+      const o = s.tickets.filter(t => t.room === room && ['new', 'preparing', 'ready', 'picked'].indexOf(t.state) >= 0).length;
+      const q = s.requests.filter(r => r.room === room && r.state !== 'done').length;
+      const l = room === '214' && s.late.state === 'pending' ? 1 : 0;
+      return { o, q, l, n: o + q + l };
+    };
+    const statusDot = (st) => 'width:8px;height:8px;border-radius:50%;background:' + (st === 'occupied' ? '#0F766E' : st === 'leaving' ? '#B7791F' : st === 'dirty' ? '#B42318' : '#9AA4AE') + ';';
+    const roomRows = roomsF.map(r => {
+      const op = openFor(r.room);
+      const on = s.selectedRoom === r.room;
+      return {
+        key: r.room, room: r.room, guest: r.guest || r.sub, status: r.status === 'occupied' ? 'In house' : r.status === 'leaving' ? 'Leaving today' : r.status === 'dirty' ? 'Needs housekeeping' : 'Vacant',
+        checkout: r.checkout, folio: r.folio ? inr(r.folio) : '—',
+        open: op.n ? [op.o ? op.o + ' order' + (op.o > 1 ? 's' : '') : null, op.q ? op.q + ' request' + (op.q > 1 ? 's' : '') : null, op.l ? 'late checkout' : null].filter(Boolean).join(', ') : '—',
+        openStyle: 'font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' + (op.l ? 'color:#B7791F;font-weight:600;' : 'color:#3C4550;'),
+        dotStyle: statusDot(r.status), select: this.selectRoom(r.room),
+        style: 'display:grid;grid-template-columns:72px 1.4fr 1fr 1fr 1.6fr 120px;gap:12px;align-items:center;width:100%;min-height:52px;padding:0 16px;text-align:left;border:0;border-bottom:1px solid #EEF0ED;cursor:pointer;color:#16191B;background:' + (on ? '#E0F2F0' : '#FFFFFF') + ';' + (on ? 'box-shadow:inset 3px 0 0 #0F766E;' : '')
+      };
+    });
+
+    const reqRows = s.requests.slice().sort((a, b) => a.raisedAt - b.raisedAt).map(r => {
+      const sla = slaOf(r);
+      return {
+        key: r.id, room: r.room, title: r.title, assignee: r.assignee,
+        state: r.state === 'done' ? 'Done' : r.state === 'onway' ? 'On the way' : r.state === 'assigned' ? 'Assigned' : 'Unassigned',
+        dotStyle: 'width:8px;height:8px;border-radius:50%;background:' + (r.state === 'done' ? '#9AA4AE' : r.state === 'open' ? '#B42318' : '#0F766E') + ';',
+        sla: sla.text,
+        slaStyle: 'font-family:\'Red Hat Mono\',monospace;font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right;font-weight:600;color:' + (r.state === 'done' ? '#5C6570' : sla.breached ? '#B42318' : '#0F766E') + ';'
+      };
+    });
+
+    const stLabel = { new: 'New', preparing: 'Cooking', ready: 'At the pass', picked: 'On the way', delivered: 'Delivered', rejected: 'Rejected' };
+    const orderRows = s.tickets.slice().sort((a, b) => b.placedAt - a.placedAt).map(t => ({
+      key: t.id, id: t.id, room: t.room, items: t.items.map(i => i.qty + '× ' + i.name).join(', '),
+      state: stLabel[t.state] + (t.state === 'rejected' && t.reason ? ' · ' + t.reason : ''),
+      dotStyle: 'width:8px;height:8px;border-radius:50%;background:' + (t.state === 'rejected' ? '#B42318' : t.state === 'delivered' ? '#9AA4AE' : t.state === 'new' ? '#B7791F' : '#0F766E') + ';',
+      total: inr(t.total)
+    }));
+
+    const selR = ROOMS.find(r => r.room === s.selectedRoom) || ROOMS[4];
+    const live = [];
+    s.tickets.filter(t => t.room === selR.room && ['new', 'preparing', 'ready', 'picked'].indexOf(t.state) >= 0).forEach(t => live.push({ key: t.id, title: 'Order ' + t.id + ' · ' + stLabel[t.state].toLowerCase(), meta: mmss(now - t.placedAt), dotStyle: 'width:8px;height:8px;border-radius:50%;background:#0F766E;' }));
+    s.requests.filter(r => r.room === selR.room && r.state !== 'done').forEach(r => { const sla = slaOf(r); live.push({ key: r.id, title: r.title + ' · ' + (r.state === 'onway' ? 'on the way' : r.assignee), meta: sla.text, dotStyle: 'width:8px;height:8px;border-radius:50%;background:' + (sla.breached ? '#B42318' : '#B7791F') + ';' }); });
+    const folioLines = (selR.folioLines || (selR.folio ? [['—', 'Room charges to date', selR.folio]] : [])).map((f, i) => ({ key: 'f' + i, date: f[0], name: f[1], amount: inr(f[2]) }));
+    let total = (selR.folioLines || []).reduce((a, f) => a + f[2], 0) || selR.folio;
+    if (selR.room === '214' && s.late.state === 'approved' && s.late.fee > 0) { folioLines.push({ key: 'late', date: 'Today', name: 'Late checkout to ' + s.late.option, amount: inr(s.late.fee) }); total += s.late.fee; }
+    s.tickets.filter(t => t.room === selR.room && t.state === 'delivered').forEach(t => { folioLines.push({ key: t.id, date: 'Today', name: 'In-room dining · ' + t.id, amount: inr(t.total) }); total += t.total; });
+
+    const late = s.late;
+    const feeNow = s.feeEditing ? Number(s.feeDraft || 0) : late.fee;
+    const navItems = [
+      { k: 'rooms', label: 'Rooms', count: String(ROOMS.filter(r => openFor(r.room).n).length) },
+      { k: 'requests', label: 'Requests', count: String(s.requests.filter(r => r.state !== 'done').length) },
+      { k: 'orders', label: 'Orders', count: String(s.tickets.filter(t => ['new', 'preparing', 'ready', 'picked'].indexOf(t.state) >= 0).length) },
+      { k: 'stays', label: 'Arrivals & departures', count: '3' },
+      { k: 'menu', label: 'Menu & outlets', count: '' }
+    ];
+    const secTitle = { rooms: 'Rooms', requests: 'Requests', orders: 'Orders', stays: 'Arrivals & departures', menu: 'Menu & outlets' };
+
+    return {
+      clock: hm(now), kdsModeLabel: (this.props.kdsMode || 'auto') === 'auto' ? (dark ? 'auto · night' : 'auto · day') : this.props.kdsMode,
+      kdsRootStyle: 'width:1194px;height:834px;border-radius:18px;overflow:hidden;display:flex;flex-direction:column;background:var(--k-bg);color:var(--k-ink);box-shadow:0 30px 80px rgba(0,0,0,.45);transition:background-color 300ms ease-out;' + kvars,
+      kdsHasUnacked: unacked > 0, kdsAllAcked: unacked === 0,
+      unackedLabel: unacked + (unacked === 1 ? ' new ticket' : ' new tickets'), ackAll: this.ackAll,
+      kdsSummary: newT.length + ' new · ' + prepT.length + ' cooking · ' + readyT.length + ' at pass',
+      toggle86: this.toggle86, show86: s.show86,
+      label86: s.unavailable.length ? '86 list · ' + s.unavailable.length : '86 list',
+      btn86Style: 'height:44px;padding:0 14px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;font-family:\'Red Hat Mono\',monospace;' + (s.unavailable.length ? 'background:' + K.critical + ';color:#FFFFFF;border:0;' : 'background:transparent;color:var(--k-ink);border:1px solid var(--k-line);'),
+      unavailableList: s.unavailable.map(n => ({ key: n, name: n, restore: () => this.restore86(n) })), none86: !s.unavailable.length,
+      kdsCols,
+
+      shiftLine: s.clockedIn ? 'ON SHIFT · FLOORS 1–2 · SINCE 18:00' : 'OFF SHIFT · FLOORS 1–2',
+      toggleClock: this.toggleClock, clockBtnLabel: s.clockedIn ? 'Clock out' : 'Clock in',
+      clockBtnStyle: 'height:44px;padding:0 14px;border-radius:10px;font-weight:600;font-size:13.5px;cursor:pointer;' + (s.clockedIn ? 'background:#FFFFFF;border:1px solid #D9DDD8;color:#16191B;' : 'background:#0F766E;border:0;color:#FFFFFF;'),
+      tabPickups: this.setTab('pickups'), tabRequests: this.setTab('requests'),
+      tabPickupsStyle: tabBase + (s.runnerTab === 'pickups' ? 'background:#FFFFFF;color:#16191B;box-shadow:0 1px 2px rgba(0,0,0,.08);' : 'background:transparent;color:#5C6570;'),
+      tabRequestsStyle: tabBase + (s.runnerTab === 'requests' ? 'background:#FFFFFF;color:#16191B;box-shadow:0 1px 2px rgba(0,0,0,.08);' : 'background:transparent;color:#5C6570;'),
+      pickupCount: String(pickable.length), requestCount: String(mine.length),
+      clockedOut: !s.clockedIn, showPickups: showPick, showRequests: showReq,
+      pickups, noPickups: !pickable.length, reqCards, noRequests: !mine.length,
+
+      nav: navItems.map(n => ({
+        key: n.k, label: n.label, count: n.count, go: this.goSection(n.k),
+        style: 'display:flex;align-items:center;justify-content:space-between;width:100%;height:40px;padding:0 10px;border-radius:8px;border:0;text-align:left;font-size:14px;font-weight:600;cursor:pointer;' + (s.recSection === n.k ? 'background:#E0F2F0;color:#0F766E;' : 'background:transparent;color:#16191B;'),
+        countStyle: 'font-family:\'Red Hat Mono\',monospace;font-size:12px;color:' + (s.recSection === n.k ? '#0F766E' : '#5C6570') + ';' + (n.count ? '' : 'display:none;')
+      })),
+      recTitle: secTitle[s.recSection], recSubtitle: s.recSection === 'rooms' ? '34 rooms · ' + ROOMS.filter(r => r.status === 'occupied' || r.status === 'leaving').length + ' of 10 shown in house' : s.recSection === 'requests' ? 'Every request tonight, oldest first' : s.recSection === 'orders' ? 'In-room dining tonight' : 'Coming in P3',
+      recRooms: s.recSection === 'rooms', recRequests: s.recSection === 'requests', recOrders: s.recSection === 'orders',
+      roomFilters: filters.map(f => ({ key: f, label: f, pick: this.pickFilter(f), style: 'height:36px;padding:0 14px;border-radius:999px;font-size:13px;font-weight:600;cursor:pointer;' + (s.roomFilter === f ? 'background:#16191B;color:#FFFFFF;border:1px solid #16191B;' : 'background:#FFFFFF;color:#16191B;border:1px solid #D9DDD8;') })),
+      roomRows, reqRows, orderRows,
+
+      sel: {
+        room: selR.room, guest: selR.guest || (selR.status === 'dirty' ? 'Vacant, needs housekeeping' : 'Vacant'),
+        stayLine: selR.guest ? 'In since ' + selR.since + ' · out ' + (selR.room === '214' && late.state === 'approved' ? 'Thu ' + (late.option === '2pm' ? '14:00' : late.option) : selR.checkout) : 'No active stay',
+        hasLate: selR.room === '214', live, quiet: !live.length, folio: folioLines, total: total ? inr(total) : '—'
+      },
+      lateBoxStyle: 'margin:16px 22px 0 22px;padding:14px 16px;border-radius:10px;border:1px solid ' + (late.state === 'pending' ? '#B7791F' : '#D9DDD8') + ';background:' + (late.state === 'pending' ? '#FFFBF2' : '#F3F4F2') + ';',
+      lateAsked: 'asked ' + hm(late.askedAt) + ' from the app',
+      lateTitle: 'Late checkout to 2pm on Thursday',
+      lateDetail: 'Room 214 is not on Thursday\u2019s arrivals list, so the room is free. Approving moves checkout and posts the fee to the folio.',
+      latePending: late.state === 'pending', lateDecided: late.state !== 'pending',
+      feeLocked: !s.feeEditing, feeEditing: s.feeEditing, lateFeeStr: inr(late.fee), feeDraft: s.feeDraft,
+      editFee: this.editFee, onFeeDraft: this.onFeeDraft, waiveFee: this.waiveFee,
+      approveLabel: feeNow > 0 ? 'Approve · charge ' + inr(feeNow) : 'Approve · no charge',
+      approveLate: this.approveLate, declineLate: this.declineLate, undoLate: this.undoLate,
+      lateResult: late.state === 'approved' ? 'Approved ' + hm(late.decidedAt) + ' · checkout now Thu 14:00' + (late.fee > 0 ? ' · ' + inr(late.fee) + ' posted' : ' · fee waived') : 'Declined ' + hm(late.decidedAt) + ' · guest told in the app',
+      lateResultDot: 'width:8px;height:8px;border-radius:50%;background:' + (late.state === 'approved' ? '#0F766E' : '#B42318') + ';'
+    };
+  }
+}
+
+</script>
+</body>
+</html>
