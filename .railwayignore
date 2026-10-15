@@ -1,0 +1,22 @@
+# What `railway up` must NOT carry to the builder.
+#
+# `railway up` ships the working tree, not a commit (there is still no git
+# remote), so everything tracked goes over the wire on every deploy. None of
+# the below is read at runtime or at build time by `pnpm build`.
+#
+# This file exists because an upload timed out: committing the design exports
+# put 7MB of PNG and vendored browser bundles into a payload that until then
+# had been source only. The deploy FAILED while the health check stayed green
+# on the previous release, which is a failure mode worth knowing about — a
+# timed-out `railway up` exits 0.
+
+# Design sources: exports, their browser runtime, fonts for the web build are
+# in src/, not here. Read by humans and by `pnpm design:decode`.
+design/
+
+# The Expo app is built by EAS, never by Railway.
+mobile/
+
+# Local-only.
+*.apk
+.eas-token
