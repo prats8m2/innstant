@@ -200,64 +200,22 @@ disagrees with this file, it is right and this file is stale.
 
 ## Demo credentials (seeded, never real — D-018)
 
-`pnpm demo:reset` wipes and reseeds The Kesari and prints these. Password for
-every staff account is `kesari-demo-2026`.
+**Moved to `docs/DEMO-ACCESS.md`** — staff logins, the room and property
+links, the per-room verification digits, the demo OTP, and a five-minute demo
+path. Verified against the live database rather than against the seeder.
 
-**The room links below are now stable** (D-070). They used to be random and
-therefore reissued by every `demo:reset`, which broke every link anyone had
-written down — including this table, twice in a week. The demo property's
-codes are `the-kesari-<room>` and survive a reseed, a wipe, and a rebuild of
-the database. Real properties still get random codes and always will; a
-sticker is a capability URL.
+Two things this section got wrong while it lived here, both corrected there:
+the verification digits are per-stay (the last four of that guest's phone), not
+`1111` everywhere; and demo QR codes stopped being regenerated on reset at
+D-070.
 
-**The seeded stays run 14 nights** (`DEMO_STAY_NIGHTS`), so the demo still
-needs a reseed roughly fortnightly — the LINK no longer breaks, but the stay
-behind it expires. Last reseed: 13 October 2026, stays out 27 October. A
-scheduled reseed is still the real fix.
+The things that still belong in a status file:
 
-**The three property links (D-079) have no stay behind them and never expire
-for that reason.** They open a visit on the spot:
-
-| Link | Kind | What it does |
-|---|---|---|
-| `/p/the-kesari-table-4` | TABLE | Dine in. The ticket reads "Courtyard 4"; nobody types a table number. |
-| `/p/the-kesari-counter` | COUNTER | Takeaway. The kitchen calls a name. |
-| `/p/the-kesari-order` | ONLINE | The customer picks collection or delivery; delivery asks for an address. |
-
-Staff make, copy, reprint and revoke these at `/admin/links`.
-
-A room link whose stay has ended now renders a page saying so, with a way back
-to `/demo`, instead of a blank browser 404.
-
-| Role | Email |
-|---|---|
-| PROPERTY_ADMIN | gm@thekesari.example |
-| FRONT_DESK | frontdesk@thekesari.example |
-| F_AND_B_MANAGER | fnb@thekesari.example |
-| KITCHEN | kitchen@thekesari.example |
-| RUNNER | runner@thekesari.example |
-| HOUSEKEEPING | housekeeping@thekesari.example |
-
-Demo tenant id is fixed at `deadbeef-0000-4000-8000-000000000001` so it is
-identifiable in a shared database.
-
-**QR codes are regenerated on every reset — re-read them from the seeder
-output, never cache one.** This note is here because it was ignored: a link
-copied before the last `demo:reset` 404'd, and the 404 was correct. An unknown
-code, a revoked sticker and an empty room all return the same 404 on purpose, so
-somebody scanning from a corridor learns nothing from which it was.
-
-The occupied rooms at the time of writing, on the deployment:
-
-| Room | Link |
-|---|---|
-| 214 | https://innstant.in/r/the-kesari-214 |
-| 105 | https://innstant.in/r/the-kesari-105 |
-| 210 | https://innstant.in/r/the-kesari-210 |
-| 301 | https://innstant.in/r/the-kesari-301 |
-
-All 34 are in `.demo-seed.json`, and the desk copies any of them from
-`/admin/rooms`. Verification digits, where a charge prompts for them: `1111`.
+- Password for every seeded staff account: `kesari-demo-2026`.
+- Tenant id is fixed at `deadbeef-0000-4000-8000-000000000001`.
+- **The seeded stays expire 27 October 2026** and need a `pnpm demo:reset`
+  after that, or every `/r/*` link renders "this stay has ended". The three
+  `/p/*` links have no stay behind them and never expire.
 
 ---
 
