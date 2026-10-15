@@ -21,6 +21,21 @@ import { colors, face, space, tabular, text as type } from '@/lib/theme';
 export function StatusStrip({ outlet }: { outlet: ApiOutlet }) {
   const open = outlet.isOpen;
 
+  /**
+   * A minimum of zero is not a minimum, so the column goes rather than
+   * rendering "Minimum ₹0".
+   *
+   * This is still the "nothing else is claimed" rule, not an exception to it:
+   * ₹0 is the strip claiming a condition on ordering that the kitchen has not
+   * set. The design's mock had a ₹500 minimum, so the case never appeared on
+   * the canvas — the live demo outlet has none, which is how it surfaced.
+   *
+   * Compared against the MINOR units, never the formatted string: "₹0" is one
+   * rendering of zero out of several, and a currency whose symbol or grouping
+   * differs would quietly start showing the column again.
+   */
+  const hasMinimum = outlet.minimumOrder.minor > 0;
+
   return (
     <View style={s.strip}>
       <View style={s.first}>
@@ -45,10 +60,12 @@ export function StatusStrip({ outlet }: { outlet: ApiOutlet }) {
         </Text>
       </View>
 
-      <View style={s.column}>
-        <Text style={s.label}>Minimum</Text>
-        <Text style={[s.value, tabular]}>{outlet.minimumOrder.text}</Text>
-      </View>
+      {hasMinimum ? (
+        <View style={s.column}>
+          <Text style={s.label}>Minimum</Text>
+          <Text style={[s.value, tabular]}>{outlet.minimumOrder.text}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
