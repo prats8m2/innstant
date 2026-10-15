@@ -102,9 +102,39 @@ There is still **no git remote**, so `railway up` ships the working tree.
 
 ```bash
 git status --short        # must be empty
-git log --oneline -1      # dce47cb or later
-railway up
+git log --oneline -1
+railway up --service kesari --ci
 ```
+
+### `railway up` exits 0 when it fails
+
+It did, on 15 October: the upload timed out, the CLI printed
+`operation timed out` and **exited 0**, and `/api/health` stayed green the
+whole time because the PREVIOUS release was still serving. Nothing in the
+exit code or the health check said anything was wrong.
+
+So do not treat a finished `railway up` as a deploy. Check two things:
+
+```bash
+railway deployment list | head -3        # newest row must read SUCCESS
+```
+
+and then prove the NEW code is actually answering, by asking for something
+only it has:
+
+```bash
+TOKEN=$(curl -s -X POST https://innstant.in/api/v1/visits \
+  -H 'content-type: application/json' -d '{"code":"the-kesari-order"}' \
+  | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+curl -s https://innstant.in/api/v1/menu -H "authorization: Bearer $TOKEN" \
+  | python3 -c 'import sys,json;print("featured:", len(json.load(sys.stdin).get("featured") or []))'
+```
+
+Pick the probe carefully. `GET /api/v1/orders/reorder` looks like a good one
+and is not: on the OLD code it matches `/orders/[orderId]` with an orderId of
+"reorder" and answers **422**, not 404, so a route that does not exist yet
+returns a plausible-looking status. A field that is present or absent cannot
+be faked that way.
 
 Then:
 
