@@ -125,23 +125,40 @@ curl -s -X POST https://innstant.in/api/v1/auth/otp/request \
   -d '{"phone":"9829011111"}'
 ```
 
-The last returns `{"sent":true,"expiresInMinutes":10}`.
+On a DEV machine the last call returns `{"sent":true,"expiresInMinutes":10}`.
+**On production it returns 500, and that is correct.** See below.
 
-### Where the code actually goes
+### Customer sign-in does not work on production yet, by design
 
-**There is no SMS provider configured in production.** `OtpSender` is a
-pluggable interface and the only implementation is `ConsoleOtpSender`, which
-writes the code to the server log at `warn` level with the phone redacted:
+`assertSenderIsSafeFor()` in `modules/customer/otp-sender.ts` refuses to issue
+a code when the environment is production and the sender is the console one:
 
 ```
-OTP NOT SENT — no SMS provider configured. The code is in this log line.
+Refusing to issue an OTP in production with the console sender: the code would
+be written to the server log. Configure SMS_PROVIDER_KEY and a real OtpSender
+before enabling customer sign-in.
 ```
 
-So on production today, signing in requires reading `railway logs`. That is
-fine for a demo and is **not** fine for anybody real, and it is the one thing
-standing between this feature and a customer using it. It fails loudly rather
-than quietly on purpose: the log line says NOT SENT, and nothing anywhere
-pretends a message went out.
+So `POST /api/v1/auth/otp/request` answers **500** on production and the
+guest-facing message says nothing about why. Everything else about accounts is
+deployed and correct — `/auth/me`, `/addresses` and `/orders?scope=account`
+all answer 401 rather than 404, which is the route existing and refusing,
+not the route being absent.
+
+The guard fires when a code is about to be generated rather than at startup.
+A process that boots fine and then silently logs everybody's one-time password
+is worse than one that refuses the first sign-in with a message naming the
+problem.
+
+**An earlier draft of this file said signing in on production meant reading
+`railway logs`. That was wrong** — the code does not permit it, and it should
+not. Reading it here would have cost a confused debugging session against a
+500 that is working as intended.
+
+To actually enable sign-in, implement `OtpSender` against a real provider
+(MSG91 and Twilio both fit the interface as written), set `SMS_PROVIDER_KEY`,
+and select it in `senderFor()`. Nothing else about the feature changes: the
+interface exists precisely so this is the only edit.
 
 ## 3. Reseed — NOT needed
 

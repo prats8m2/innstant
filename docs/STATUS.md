@@ -21,95 +21,74 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Customer accounts are BUILT and PASSING but NOT DEPLOYED.** Production is on
-`328bbb0` with 9 migrations and knows nothing about them. The repo is on
-`dce47cb`.
+**Production is CURRENT with this repo.** Deployed 15 October 2026 from
+`29f3442`, migration first. `/api/health` reads **ok, 10/10**, latest
+`0009_customer_accounts.sql`.
 
-The gap is one command, and it is deliberate rather than forgotten: applying
-`0009_customer_accounts.sql` to the live database is the one step in this
-session that was not run.
+    https://innstant.in                            the site, /demo
+    https://innstant.in/r/the-kesari-214/home      the demo room
+    https://innstant.in/p/the-kesari-table-4/menu  a table tent (dine in)
+    https://innstant.in/p/the-kesari-counter/menu  the till (takeaway)
+    https://innstant.in/p/the-kesari-order/menu    a sent link (+ delivery)
+    https://innstant.in/admin/login                staff console
+    https://innstant.in/api/v1/…                   the mobile contract
 
-    docs/DEPLOY-D081.md     the runbook. Four steps, migration first.
+The schema matches local exactly: 60 public tables, 59 with RLS enabled AND
+forced, checked against `pg_class` on production rather than inferred from the
+migration count. The only unforced table is `__drizzle_migrations`, which is
+the ledger and belongs to the owner role.
 
-Until step 1 runs, an APK built from this tree 500s on every account screen —
-so the build order is migration, code, APK, and not any other order.
+Verified against the live site, not from the deploy log: a visit opened on
+`the-kesari-order`, the menu read back 7 sections and 17 dishes, a delivery
+order placed as **KE-1188 ₹1,207.50**, `destination_label` snapshotted as
+"Delivery · 44 Lake Palace Road, Udaipur", one `order.placed` row in
+`event_log` going DRAFT → PLACED (#7), and the same idempotency key posted
+twice returned the same order rather than a second dinner (#8).
 
-### What landed this session
+`openVisit()` is writing `link_kind` in production — 42 ONLINE visits in the
+fifteen minutes after the deploy. That was the silent bug found this session;
+without it the account's order history would have shipped permanently empty
+while looking like it worked.
 
-D-081, customer accounts, in full: the decision, the schema, the domain, the
-API and the app screens.
+### THE ONE THING THAT DOES NOT WORK: customer sign-in
 
-The collision the user named — "earlier we designed customer with no login to
-scan the menu, but now we also need customers who log in and have order
-history, these two things collide" — turned out to be one credential doing two
-jobs. A `guest_sessions` row says WHERE you are: a room, or a table, scanned,
-anonymous, expiring at checkout. An account says WHO you are, and outlives
-every one of them. Making the first carry the second would have meant a
-session that is sometimes anonymous and sometimes not, and #9 dies the moment
-browsing waits on it.
+`POST /api/v1/auth/otp/request` answers **500 on production, deliberately.**
+`assertSenderIsSafeFor()` refuses to issue a code when the environment is
+production and the only configured sender is the console one, because the code
+would land in the server log.
 
-So there are two credentials, and the rule the whole design rests on is that
-**a customer session grants ZERO access to any context**. Signing in never
-raises a tier, never opens a room, never reveals a folio. `guest_sessions` is
-untouched — same CHECK, same tiers, same expiry, same D-012.
+Everything else about accounts is deployed and correct. `/auth/me`,
+`/addresses` and `/orders?scope=account` all answer **401** rather than 404 —
+the route existing and refusing, not the route being absent.
 
-History is scoped exactly as the user specified: "only if a logged in user
-orders from the direct link, not from the table/room — no room/stay is out of
-this." `orders.guest_id` is stamped ONLY from the customer session, never from
-`visits.guest_id` (which comes from an unverified phone), and the history
-query is `guest_id = ? AND link_kind = 'ONLINE'`. A signed-in person ordering
-at a table tent gets their food and no history row, which was verified by
-doing it rather than by reading the query.
+So the feature is complete, tested and shipped, and **nobody can sign in until
+a real SMS provider is configured.** That is one implementation of `OtpSender`
+plus `SMS_PROVIDER_KEY`; the interface exists so that this is the only edit.
 
-`visits.link_kind` is denormalised for that rule, because `orders.fulfilment`
-cannot express it: TAKEAWAY is produced by both a COUNTER link and an ONLINE
-one, and only the second counts.
+An earlier draft of `DEPLOY-D081.md` claimed signing in on production meant
+reading `railway logs`. It does not and must not — the guard refuses outright.
+That claim is corrected in the runbook.
 
-### What is verified, and how
+### Known cosmetic gap
 
-Four gates green: typecheck, lint, 412 unit tests, 15 customer-auth
-integration tests.
-
-The account flow was driven in a real browser end to end — sign in with a
-phone and a code, save an address, back to the menu, add a dish, cart
-prefilled with the name and number from the account, order placed, history
-shown. Seven steps, zero console errors, zero 4xx.
-
-That is also what found the four bugs in `dce47cb`, none of which were visible
-by reading:
-
-- `router.dismissAll()` on a stack with nothing to dismiss raises POP_TO_TOP
-  and paints an error overlay that swallows every tap underneath it.
-- The cart prefilled from `useState` initialisers only — right on a warm
-  navigation, wrong on a cold start, where the identity restore is a round
-  trip that deliberately does not gate the first paint. The screen mounted
-  before the account arrived and told somebody who was signed in to sign in.
-- A name typed at sign-in was dropped whenever the guest row already existed,
-  so somebody whose first sign-in offered no name was called "Guest" back to
-  them forever, including on the kitchen ticket.
-- A 422 logged as bare `code: VALIDATION` named no field. The context was
-  already on the error and simply never written down.
-
-An earlier bug, caught by a test rather than a browser, is the one worth
-remembering: `verifyCode()` incremented the attempt counter and then threw the
-refusal **inside the same transaction**, so Postgres rolled the increment back
-and there was no brute-force protection at all. `answerChallenge()` in
-`modules/access/escalation.ts` already carried a comment warning about exactly
-this, from the same bug being found there. Both now decide and commit first,
-and throw after.
+One `visits` row created in the 47-second window between the migration and the
+code deploy has `link_kind` NULL where its link says ONLINE — the old code
+wrote the row without knowing the column existed. It has no orders attached and
+affects nothing. The fix is the migration's own backfill statement re-run; it
+was blocked as a production data write and is not worth escalating.
 
 ### Next
 
-1. `docs/DEPLOY-D081.md` step 1 — the migration. **Needs a human**: it was
-   blocked by the permission classifier, correctly, as a live-database write.
-2. Step 2 — `railway up`.
-3. Step 4 — the APK, from `.eas-token`.
-
-Production still has **no SMS provider**. `ConsoleOtpSender` writes the code
-to the server log with the phone redacted, so signing in on production means
-reading `railway logs`. It fails loudly rather than quietly — the log line
-says NOT SENT — and it is the one thing between this feature and a real
-customer.
+1. **An SMS provider.** The only thing between accounts and a real customer.
+2. **A git remote.** `pnpm status` flags this red: there is none, so CI never
+   runs and `railway up` ships the WORKING TREE rather than a commit. An
+   uncommitted edit deploys silently. This has been carried for four sessions.
+3. **Accounts on the web guest flow.** They are mobile-only today. `/p/*`
+   ordering in a browser has no sign-in and no history. The API is
+   surface-agnostic, so this is screens rather than architecture — and it was
+   never decided, it is just where the work stopped.
+4. Fonts (`design/fonts/` is empty, and a hotel deployment is commercial use)
+   and a pilot property. Both decisions rather than code.
 
 **`pnpm status` re-derives all of this from the repo and the database.** If it
 disagrees with this file, it is right and this file is stale.
