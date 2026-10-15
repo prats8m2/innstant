@@ -22,73 +22,97 @@ notes. A stale status file is worse than none.
 ## Now
 
 **Production is CURRENT with this repo.** Deployed 15 October 2026 from
-`29f3442`, migration first. `/api/health` reads **ok, 10/10**, latest
-`0009_customer_accounts.sql`.
+`2bbdec7`. `/api/health` reads **ok, 10/10**, latest `0009_customer_accounts.sql`
+— no new migration this round, by design.
 
-    https://innstant.in                            the site, /demo
-    https://innstant.in/r/the-kesari-214/home      the demo room
-    https://innstant.in/p/the-kesari-table-4/menu  a table tent (dine in)
-    https://innstant.in/p/the-kesari-counter/menu  the till (takeaway)
-    https://innstant.in/p/the-kesari-order/menu    a sent link (+ delivery)
-    https://innstant.in/admin/login                staff console
-    https://innstant.in/api/v1/…                   the mobile contract
+Verified against the live site rather than the deploy log:
 
-The schema matches local exactly: 60 public tables, 59 with RLS enabled AND
-forced, checked against `pg_class` on production rather than inferred from the
-migration count. The only unforced table is `__drizzle_migrations`, which is
-the ledger and belongs to the owner role.
+    featured            Laal maas · Mohan maas · Ker sangri   (picked across collections)
+    POST /auth/otp/verify with 0000                           signs in
+    GET  /orders        KE-1190 · With the kitchen · step 1 of 5
 
-Verified against the live site, not from the deploy log: a visit opened on
-`the-kesari-order`, the menu read back 7 sections and 17 dishes, a delivery
-order placed as **KE-1188 ₹1,207.50**, `destination_label` snapshotted as
-"Delivery · 44 Lake Palace Road, Udaipur", one `order.placed` row in
-`event_log` going DRAFT → PLACED (#7), and the same idempotency key posted
-twice returned the same order rather than a second dinner (#8).
+### What landed
 
-`openVisit()` is writing `link_kind` in production — 42 ONLINE visits in the
-fifteen minutes after the deploy. That was the silent bug found this session;
-without it the account's order history would have shipped permanently empty
-while looking like it worked.
+The round-1 home screen from `design/UX/Kesari Ordering.dc.html`. The app used
+to open onto a flat menu list that read like a PDF; it opens onto a storefront
+now — arch, status strip, three featured dishes, a contents list, and a sticky
+bar that cross-fades to the cart on first add.
 
-### THE ONE THING THAT DOES NOT WORK: customer sign-in
+The three design states are not three screens with a switch. They are three
+independent facts — `outlet.isOpen`, whether an order is live, whether somebody
+is signed in — so all eight combinations render, including the ones the design
+never drew.
 
-`POST /api/v1/auth/otp/request` answers **500 on production, deliberately.**
-`assertSenderIsSafeFor()` refuses to issue a code when the environment is
-production and the only configured sender is the console one, because the code
-would land in the server log.
+The three typefaces are installed and loading. Until this session every style
+asked for a face through `face(role)` and got a weight back, so the screen
+rendered on the system sans: right layout, wrong voice. A megabyte of TTF was
+over CLAUDE.md's ask-first bar and was asked about; the answer was yes, because
+a typography-led design that has no photography gives up its whole idea on the
+system face, to save under one per cent of a 118MB APK.
 
-Everything else about accounts is deployed and correct. `/auth/me`,
-`/addresses` and `/orders?scope=account` all answer **401** rather than 404 —
-the route existing and refusing, not the route being absent.
+Customer sign-in works on production for the first time, through
+`OTP_DEMO_CODE=0000`. Read that plainly: **anybody who knows a phone number can
+sign in as that person.** It is opt-in, it announces itself at warn level on
+every send, and the sender that pairs with it refuses to write the code down.
+It is deleted the day a real `OtpSender` lands — see "Next".
 
-So the feature is complete, tested and shipped, and **nobody can sign in until
-a real SMS provider is configured.** That is one implementation of `OtpSender`
-plus `SMS_PROVIDER_KEY`; the interface exists so that this is the only edit.
+### Three failure modes found this session, all worth keeping
 
-An earlier draft of `DEPLOY-D081.md` claimed signing in on production meant
-reading `railway logs`. It does not and must not — the guard refuses outright.
-That claim is corrected in the runbook.
+**`railway up` exits 0 when it fails.** The upload timed out, the CLI printed
+`operation timed out`, returned 0, and `/api/health` stayed green the whole
+time because the previous release was still serving. Every available signal
+said the deploy had worked. Only `railway deployment list` said FAILED.
+`DEPLOY-D081.md` now carries the check.
 
-### Known cosmetic gap
+**A route that does not exist can answer with a plausible status.** `GET
+/api/v1/orders/reorder` looked like a good probe for the new code and is not:
+on the OLD code it matches `/orders/[orderId]` with an orderId of "reorder",
+fails UUID validation and answers **422**. Probe for a FIELD — `featured` is
+present or absent and cannot be imitated by a neighbour.
 
-One `visits` row created in the 47-second window between the migration and the
-code deploy has `link_kind` NULL where its link says ONLINE — the old code
-wrote the row without knowing the column existed. It has no orders attached and
-affects nothing. The fix is the migration's own backfill statement re-run; it
-was blocked as a production data write and is not worth escalating.
+**Committing the design exports broke deploys.** `railway up` ships the working
+tree, so 7MB of PNG went into every upload. `.railwayignore` now excludes
+`design/` and `mobile/`, neither of which is read at runtime or by `pnpm build`.
+
+### Known gaps, written down rather than discovered later
+
+- **The live-order headline is not the design's.** The design asks for a
+  per-status voice — "On the stove.", "He is at your door." The card reuses
+  `track.ts`'s existing copy instead: "Order with the kitchen". That is
+  defensible (one source of truth, so the card and the tracking screen cannot
+  drift) and it is not what was drawn. Fixing it properly means changing the
+  `short` strings in `track.ts`, which changes the tracking screen too — a
+  product decision, not a refactor.
+- **`+` vs `Choose` never shows its second branch.** All 17 live dishes are
+  `canQuickAdd`, so "Choose" renders only once a dish has a required modifier
+  with no default.
+- **One `visits` row has a NULL `link_kind`**, written in the 47-second window
+  between migration 0009 and its code deploy. No orders attached.
+- **Reorder was deferred in the plan and built anyway.** It is sound — it reads
+  PAST the snapshot deliberately, because #6 governs receipts and a reorder is
+  a NEW order priced against today's menu — but the scope call is worth knowing.
 
 ### Next
 
-1. **An SMS provider.** The only thing between accounts and a real customer.
-2. **A git remote.** `pnpm status` flags this red: there is none, so CI never
-   runs and `railway up` ships the WORKING TREE rather than a commit. An
-   uncommitted edit deploys silently. This has been carried for four sessions.
-3. **Accounts on the web guest flow.** They are mobile-only today. `/p/*`
-   ordering in a browser has no sign-in and no history. The API is
-   surface-agnostic, so this is screens rather than architecture — and it was
-   never decided, it is just where the work stopped.
-4. Fonts (`design/fonts/` is empty, and a hotel deployment is commercial use)
-   and a pilot property. Both decisions rather than code.
+1. **A real SMS provider**, which deletes `OTP_DEMO_CODE`. Research is in this
+   session's history: at demo volume the DLT registration (₹5,000 one-time,
+   ₹2,500/yr) dominates the per-SMS price, and the crossover against a no-DLT
+   route is about 190 OTPs/month. We need a transactional SMS API, NOT a
+   verification service — Twilio Verify, MSG91's widget and Firebase all own
+   the OTP lifecycle, and adopting one means deleting `otp_challenges`, the
+   lockout and the 15 tests that cover them.
+2. **Images.** R2 over Railway Buckets, because Railway's are private-only and
+   presigned URLs cannot be cached by a CDN or survive a cached menu. Schema is
+   already ready (`menu_items.image_url`, `.blurhash`,
+   `order_items.image_url_snapshot`). Store the KEY, not the URL — #6 means a
+   past receipt breaks the day the domain changes. And #6 also means a replaced
+   image can never be deleted.
+3. **Round 2 of the design** — cart, dish, orders, account. The brief in
+   `design/MOBILE-APP-BRIEF.md` is written around "there is no photography";
+   if images land first, rewrite it photo-led before running it.
+4. **A git remote.** Still none, so CI never runs and `railway up` ships the
+   working tree rather than a commit. An uncommitted edit deploys silently.
+   Carried for five sessions now.
 
 **`pnpm status` re-derives all of this from the repo and the database.** If it
 disagrees with this file, it is right and this file is stale.
