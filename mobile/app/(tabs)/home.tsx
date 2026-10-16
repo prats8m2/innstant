@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
+} from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Moon, User } from 'lucide-react-native';
 import * as api from '@/lib/api';
 import type { ApiMenu, ApiOrderSummary, ApiReorder } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
-import { Loading, Notice, Screen } from '@/components/ui';
+import { Notice, Screen } from '@/components/ui';
+import { HomeSkeleton } from '@/components/skeleton';
 import { Arch } from '@/components/arch';
 import { StatusStrip } from '@/components/status-strip';
 import { FeaturedRow } from '@/components/featured-row';
@@ -14,6 +17,8 @@ import { ContentsRow } from '@/components/contents-row';
 import { LiveOrderCard } from '@/components/live-order-card';
 import { ReorderRow } from '@/components/reorder-row';
 import { HomeBottomBar } from '@/components/home-bottom-bar';
+import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
+import { tapAdd } from '@/lib/haptics';
 import { HOME_COPY } from '@/lib/copy';
 import { distinctDishCount, greetingFor, initialOf, padCount, toRoman } from '@/lib/format';
 import {
@@ -93,6 +98,18 @@ export default function Home() {
   const [orders, setOrders] = useState<ApiOrderSummary[] | null>(null);
   const [reorder, setReorder] = useState<ApiReorder | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  /** The same sheet the menu raises. A featured dish with a required choice
+   *  opens it here rather than pushing the screen, so the two entries into
+   *  the same decision look the same. */
+  const sheet = useRef<DishSheetHandle>(null);
+
+  /** Whose orders this screen is showing — the account's across visits, or
+   *  this visit's own (D-081). The poll and the pull both read through it so
+   *  the branch is made in one place. */
+  const fetchOrders = useCallback(() => (
+    customer ? api.listAccountOrders() : api.listOrders()
+  ), [customer]);
 
   /**
    * The menu and the cart, re-read whenever this screen comes back.
@@ -154,10 +171,7 @@ export default function Home() {
       if (cancelled || inFlight) return;
       inFlight = true;
       try {
-        // The account's history when there is an account, this visit's
-        // otherwise — the same choice the orders screen makes, for the same
-        // reason (D-081).
-        const loaded = customer ? await api.listAccountOrders() : await api.listOrders();
+        const loaded = await fetchOrders();
         if (cancelled) return;
         setOrders(loaded);
         live = loaded.some((order) => order.isLive);
@@ -196,7 +210,7 @@ export default function Home() {
       if (timer) clearTimeout(timer);
       sub.remove();
     };
-  }, [customer, onError]));
+  }, [fetchOrders, onError]));
 
   /**
    * "Same as last time", re-asked whenever this screen comes back.
@@ -238,9 +252,43 @@ export default function Home() {
     return counts;
   }, [cart]);
 
+  /**
+   * Everything on the page, re-read at once.
+   *
+   * `allSettled` rather than `all`, and only the MENU's failure is shown.
+   * The three reads have the same standing here as they do in the focus
+   * effects above: the menu is what this page is, and the order card and the
+   * reorder block are ornaments. A failed reorder read must not throw away a
+   * menu that arrived, and must not put a red notice over a screen whose
+   * content is fine.
+   */
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    const [loadedMenu, loadedOrders, suggestion] = await Promise.allSettled([
+      api.getMenu(),
+      fetchOrders(),
+      api.getReorder(),
+    ]);
+    void refreshCart();
+
+    if (loadedMenu.status === 'fulfilled') {
+      setMenu(loadedMenu.value);
+      setError(null);
+    } else {
+      setError(onError(loadedMenu.reason));
+    }
+    if (loadedOrders.status === 'fulfilled') setOrders(loadedOrders.value);
+    if (suggestion.status === 'fulfilled') setReorder(suggestion.value.reorder);
+
+    setRefreshing(false);
+  }, [fetchOrders, onError, refreshCart]);
+
   const add = useCallback(async (menuItemId: string) => {
     try {
       setCart(await api.quickAdjust({ menuItemId, direction: 'add' }));
+      // After the round trip, not on the tap: it means the dish is in the
+      // cart, not that the button was pressed.
+      tapAdd();
       setError(null);
     } catch (failure) {
       // "That dish is off the menu tonight" is the kitchen's sentence and is
@@ -262,6 +310,9 @@ export default function Home() {
     try {
       const result = await api.reorder(orderId);
       setCart(result.cart);
+      // A whole order went into the cart. That is the same event as an add
+      // and gets the same tap, not a louder one.
+      tapAdd();
       setError(null);
       router.push('/cart');
     } catch (failure) {
@@ -271,7 +322,9 @@ export default function Home() {
   };
 
   if (error && !menu) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
-  if (!menu || !session) return <Loading label="Opening the menu" />;
+  // The storefront's own shape — well, status strip, three featured rows and
+  // the contents list — rather than a spinner on an empty ground.
+  if (!menu || !session) return <Screen><HomeSkeleton /></Screen>;
 
   const outlet = menu.outlet;
   const open = outlet.isOpen;
@@ -293,6 +346,18 @@ export default function Home() {
       <ScrollView
         contentContainerStyle={{ paddingBottom: BAR_CLEARANCE + insets.bottom }}
         showsVerticalScrollIndicator={false}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            // The spinner lands on the hero well, which is the darkest
+            // surface in the app — hence the explicit colours. Left to the
+            // platform it is a black ring on near-black.
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.card}
+          />
+        )}
       >
         {/* The hero well — the only surface in the app darker than the ground. */}
         <View
@@ -397,7 +462,7 @@ export default function Home() {
                   dish={entry.dish}
                   quantity={inCart.get(entry.dish.id) ?? 0}
                   onAdd={() => add(entry.dish.id)}
-                  onChoose={() => router.push(`/dish/${entry.dish.id}`)}
+                  onChoose={() => sheet.current?.open(entry.dish.id)}
                 />
               ))}
             </View>
@@ -459,6 +524,9 @@ export default function Home() {
         onBrowse={() => router.push('/menu')}
         onCart={() => router.push('/cart')}
       />
+
+      {/* LAST, so it draws over the sticky bar rather than under it. */}
+      <DishSheet ref={sheet} />
     </Screen>
   );
 }

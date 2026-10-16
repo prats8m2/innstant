@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import * as api from '@/lib/api';
 import type { ApiOrderSummary } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
-import { Button, Loading, Notice, Screen } from '@/components/ui';
+import { Button, Notice, Screen } from '@/components/ui';
+import { OrdersSkeleton } from '@/components/skeleton';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -28,6 +29,12 @@ export default function Orders() {
   const { customer } = useSession();
   const [orders, setOrders] = useState<ApiOrderSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** Account history when there is an account; this visit's otherwise. */
+  const read = useCallback(() => (
+    customer ? api.listAccountOrders() : api.listOrders()
+  ), [customer]);
 
   // On focus rather than on mount: somebody lands here, opens an order,
   // watches it reach the kitchen, and comes back. A list that only loaded once
@@ -36,18 +43,45 @@ export default function Orders() {
     let cancelled = false;
     (async () => {
       try {
-        // Account history when there is an account; this visit's otherwise.
-        const loaded = customer ? await api.listAccountOrders() : await api.listOrders();
+        const loaded = await read();
         if (!cancelled) { setOrders(loaded); setError(null); }
       } catch (failure) {
         if (!cancelled) setError(onError(failure));
       }
     })();
     return () => { cancelled = true; };
-  }, [onError, customer]));
+  }, [onError, read]));
+
+  /**
+   * Pull to refresh.
+   *
+   * This screen is where somebody checks whether the kitchen has started
+   * their food, and it does not poll — the tracking screen behind a row does
+   * that, at five seconds. Pulling is the gesture people already use to ask
+   * "and now?", and it saves the alternative they currently use, which is
+   * leaving the tab and coming back.
+   */
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      setOrders(await read());
+      setError(null);
+    } catch (failure) {
+      setError(onError(failure));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [onError, read]);
 
   if (error && !orders) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
-  if (!orders) return <Loading />;
+  if (!orders) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Orders' }} />
+        <OrdersSkeleton />
+      </Screen>
+    );
+  }
 
   if (orders.length === 0) {
     return (
@@ -73,6 +107,15 @@ export default function Orders() {
         data={orders}
         keyExtractor={(order) => order.id}
         contentContainerStyle={s.list}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.card}
+          />
+        )}
         renderItem={({ item: order }) => (
           <Pressable
             accessibilityRole="button"

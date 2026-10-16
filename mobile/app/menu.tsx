@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pressable, ScrollView, SectionList, StyleSheet, Text, View,
+  Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View,
 } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as api from '@/lib/api';
 import type { ApiDish, ApiMenu } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
-import { Loading, Notice, Screen } from '@/components/ui';
+import { Notice, Screen } from '@/components/ui';
 import { Stepper } from '@/components/stepper';
 import { DishPhoto } from '@/components/dish-photo';
+import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
+import { MenuSkeleton } from '@/components/skeleton';
+import { tapAdd, tapRemove } from '@/lib/haptics';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -34,7 +37,11 @@ export default function Menu() {
   const onError = useApiError();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
+  /** The dish sheet, opened by a row. See `components/dish-sheet.tsx` for why
+   *  it is a child of this screen rather than a modal above the navigator. */
+  const sheet = useRef<DishSheetHandle>(null);
   /** The section shape the list renders — `blurb` included, or the header
    *  cannot read it. */
   const list = useRef<SectionList<ApiDish, MenuSection>>(null);
@@ -68,6 +75,32 @@ export default function Menu() {
     })();
     return () => { cancelled = true; };
   }, [onError]);
+
+  /**
+   * Pull to refresh.
+   *
+   * What it is actually for on this screen: a dish that sold out while
+   * somebody was reading, and a kitchen that closed. Both are server state
+   * that nothing pushes, and both are things people instinctively pull for —
+   * the alternative today is leaving the screen and coming back, because the
+   * focus effect is the only thing that re-reads.
+   *
+   * The cart comes with it. They are one read as far as anybody pulling is
+   * concerned, and a menu refreshed against stale quantities would show a
+   * dish as not in the cart that is.
+   */
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [loaded] = await Promise.all([api.getMenu(), refreshCart()]);
+      setMenu(loaded);
+      setError(null);
+    } catch (failure) {
+      setError(onError(failure));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [onError, refreshCart]);
 
   /**
    * The cart, re-read whenever this screen comes back into focus.
@@ -111,6 +144,9 @@ export default function Menu() {
   const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
     try {
       setCart(await api.quickAdjust({ menuItemId, direction }));
+      // After the round trip, not on the tap. The buzz means the cart
+      // changed; a refused tap must not feel like one that worked.
+      if (direction === 'add') tapAdd(); else tapRemove();
       setError(null);
     } catch (failure) {
       // "That dish is off the menu tonight" is the kitchen's answer and worth
@@ -120,7 +156,9 @@ export default function Menu() {
   }, [setCart, onError]);
 
   if (error && !menu) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
-  if (!menu || !session) return <Loading label="Loading the menu" />;
+  // In the shape of the menu rather than a spinner: the outlet bar, the
+  // section rail and five dish rows, so nothing moves when they arrive.
+  if (!menu || !session) return <Screen><MenuSkeleton /></Screen>;
 
   const sections: MenuSection[] = menu.sections
     .filter((section) => section.items.length > 0)
@@ -218,6 +256,18 @@ export default function Menu() {
         keyExtractor={(dish, index) => `${dish.id}-${index}`}
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        refreshControl={(
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            // iOS reads `tintColor`, Android `colors` and the ring's ground.
+            // Left to the platform defaults it is a black spinner on an
+            // indigo screen.
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.card}
+          />
+        )}
         // `scrollToLocation` on a list with variable row heights throws
         // without this when the target has not been measured yet. The rail is
         // the only caller and it jumps to a section head, so an approximation
@@ -234,6 +284,7 @@ export default function Menu() {
             dish={dish}
             quantity={inCart.get(dish.id) ?? 0}
             onAdjust={(direction) => adjust(dish.id, direction)}
+            onOpen={() => sheet.current?.open(dish.id)}
           />
         )}
       />
@@ -255,6 +306,9 @@ export default function Menu() {
           <Text style={[s.pillTotal, tabular]}>{cart.totals.total.text}</Text>
         </Pressable>
       ) : null}
+
+      {/* LAST, so it draws over the cart pill rather than under it. */}
+      <DishSheet ref={sheet} />
     </Screen>
   );
 }
@@ -266,22 +320,28 @@ export default function Menu() {
  * exists because a button cannot be nested in an anchor — here it is a product
  * decision with the same shape: somebody who wants it the way the chef makes
  * it taps +, and somebody who wants it mild taps the row.
+ *
+ * Tapping the row raises the SHEET now rather than pushing a screen. The menu
+ * stays behind it, which is the whole argument: choosing a spice level is a
+ * step in reading a menu, not a departure from it.
  */
 function DishRow({
   dish,
   quantity,
   onAdjust,
+  onOpen,
 }: {
   dish: ApiDish;
   quantity: number;
   onAdjust: (direction: 'add' | 'remove') => Promise<void>;
+  onOpen: () => void;
 }) {
   return (
     <View style={[s.row, !dish.isAvailable && s.rowOff]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${dish.name}, ${dish.price.text}`}
-        onPress={() => router.push(`/dish/${dish.id}`)}
+        onPress={onOpen}
         style={s.rowBody}
       >
         <Text style={s.dishName}>{dish.name}</Text>

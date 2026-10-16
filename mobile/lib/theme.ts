@@ -141,9 +141,14 @@ export const paperTransparent = 'rgba(16, 30, 51, 0)';
  *
  * `base` and `slow` have no caller yet. They are here because the drift test
  * checks the whole set, and a partial copy is the kind that rots.
+ *
+ * `shimmer` is the one value outside the 180–320 band, and the skeletons are
+ * why. Everything else here times a transition somebody waits through; that
+ * one times a loop that runs while a screen loads and has no end to wait for.
+ * A sweep at 320ms strobes.
  */
 export const duration = {
-  fast: 180, base: 200, mid: 240, slow: 300, slower: 320,
+  fast: 180, base: 200, mid: 240, slow: 300, slower: 320, shimmer: 1200,
 } as const;
 
 /**

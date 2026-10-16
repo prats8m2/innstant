@@ -194,6 +194,14 @@
   --dur-slower: 320ms;
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 
+  /* The one duration outside the band, and the reason it is allowed out:
+     every value above times a TRANSITION, which a person waits through. This
+     one times a LOOP that runs while something loads and that nobody waits
+     for the end of. At 320ms a skeleton strobes; a sweep reads as patience at
+     roughly a second and a bit. Named here rather than written into the app
+     so the app still has a token to ask for. */
+  --dur-shimmer: 1200ms;
+
   /* Touch targets. 44px minimum is a hard requirement, not a preference. */
   --touch-min: 44px;
 

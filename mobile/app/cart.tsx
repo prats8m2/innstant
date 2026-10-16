@@ -8,6 +8,7 @@ import * as api from '@/lib/api';
 import type { ApiCartLine, ApiFulfilment } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
 import { newIdempotencyKey } from '@/lib/ids';
+import { orderPlaced, tapAdd, tapRemove } from '@/lib/haptics';
 import { Button, Loading, Notice, Screen } from '@/components/ui';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
@@ -127,6 +128,9 @@ export default function Cart() {
       setCart(quantity === 0
         ? await api.removeLine(line.id)
         : await api.setLineQuantity(line.id, quantity));
+      // Same weight either way. Going down is not a mistake being corrected,
+      // and a heavier tap on remove would say it was.
+      if (quantity > line.quantity) tapAdd(); else tapRemove();
       setError(null);
     } catch (failure) {
       setError(onError(failure));
@@ -145,6 +149,9 @@ export default function Cart() {
         deliveryAddress: mode === 'DELIVERY' ? address.trim() : undefined,
         deliveryNotes: mode === 'DELIVERY' ? addressNotes.trim() || undefined : undefined,
       });
+      // The one irreversible thing in the app, and the only notification
+      // pattern in it. The kitchen has the order.
+      orderPlaced();
       // `replace`, not `push`: the cart is emptied server-side at placement,
       // and a back gesture onto an empty cart is a dead end.
       router.replace(`/order/${placed.orderId}`);
