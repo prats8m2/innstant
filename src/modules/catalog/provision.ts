@@ -130,6 +130,10 @@ export async function seedMenu(
         dietaryFlags: item.dietaryFlags ?? [],
         spiceLevel: item.spiceLevel ?? null,
         prepTimeMinutes: item.prepTimeMinutes ?? null,
+        /* Null unless the seed carries one. A real property uploads its own
+           and starts with none — see the note on DEMO photography in
+           `kesari-menu.ts`. */
+        imageUrl: item.imageUrl ?? null,
         sortOrder: i,
       }).returning({ id: menuItems.id })
     )[0]!.id);

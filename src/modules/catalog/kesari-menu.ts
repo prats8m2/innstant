@@ -14,7 +14,47 @@ export interface MenuItemSeed {
   spiceLevel?: number;
   prepTimeMinutes?: number;
   collections?: string[];
+  /** DEMO ONLY — see `DEMO_PHOTOGRAPHY` below. Never a real property's. */
+  imageUrl?: string;
 }
+
+/**
+ * Stand-in photography, for the demo and for nothing else.
+ *
+ * ─── Why these are here and not in the product ────────────────────────────
+ *
+ * The app is being rebuilt to a Swiggy-like shape, and that shape is mostly
+ * photographs — strip them out and a dish card is a name and a price, which
+ * is the version that read as basic. The Kesari's own dishes have not been
+ * shot yet, so these stand in until they are.
+ *
+ * They live in the SEEDER, deliberately. Nothing in `src/modules` or
+ * `src/app` reaches for them, no fallback renders them, and no code path
+ * outside `pnpm demo:reset` can put one on a plate. A real property that
+ * uploads nothing shows no photograph — which is the honest outcome, and the
+ * one the upload pipeline will replace these with.
+ *
+ * ─── They are stand-ins, and the app should not pretend otherwise ─────────
+ *
+ * None of these is a photograph of the dish it is attached to. They are
+ * north-Indian curries and sweets of roughly the right colour and framing.
+ * On a hotel's own menu that would be a lie, which is why this is scoped to
+ * the invented tenant (D-018) and why the real fix is seventeen photographs
+ * and half a day of daylight.
+ *
+ * ─── Licence ──────────────────────────────────────────────────────────────
+ *
+ * Unsplash, under the Unsplash Licence: free to use commercially, no
+ * permission needed, no attribution required. Each URL below was fetched and
+ * confirmed to answer 200 with `image/jpeg` before being written down —
+ * a guessed photo id is a broken image on every card.
+ *
+ * The query string is ours: `w=800` because the widest a dish card gets is a
+ * phone, `q=70` because this is a demo on hotel wifi, and `fit=crop` so the
+ * aspect ratio is decided by us rather than by whatever the photographer
+ * framed.
+ */
+const UNSPLASH = (id: string) => `https://images.unsplash.com/photo-${id}?w=800&q=70&fm=jpg&fit=crop`;
 
 export const KESARI_CATEGORIES = [
   'Chef’s specials', 'Rajasthani classics', 'From the rooftop',
@@ -32,39 +72,49 @@ export const KESARI_MENU: readonly MenuItemSeed[] = [
   { name: 'Laal maas with bajra roti', priceMinor: 115_000, category: 'Chef’s specials',
     description: 'Mutton slow-cooked in Mathania chillies. Hot, and meant to be. Served with millet roti.',
     spiceLevel: 4, prepTimeMinutes: 35,
-    collections: ['Chef Bhairav’s table', 'From the rooftop'] },
+    collections: ['Chef Bhairav’s table', 'From the rooftop'],
+    imageUrl: UNSPLASH('1565557623262-b51c2513a641') },
   { name: 'Mohan maas', priceMinor: 128_000, category: 'Chef’s specials',
     description: 'Chicken in a milk and cardamom gravy, finished with almonds. A royal-kitchen dish, mild.',
     spiceLevel: 1, prepTimeMinutes: 35,
-    collections: ['Chef Bhairav’s table', 'From the rooftop'] },
+    collections: ['Chef Bhairav’s table', 'From the rooftop'],
+    imageUrl: UNSPLASH('1772730064970-a7b2735c93b9') },
   { name: 'Rooftop grilled river sole', priceMinor: 142_000, category: 'From the rooftop',
     description: 'Whole sole from the lake, charred over coals with lime and ajwain.',
-    spiceLevel: 2, prepTimeMinutes: 30, collections: ['From the rooftop'] },
+    spiceLevel: 2, prepTimeMinutes: 30, collections: ['From the rooftop'],
+    imageUrl: UNSPLASH('1596797038530-2c107229654b') },
   { name: 'Ker sangri', priceMinor: 62_000, category: 'Rajasthani classics',
     description: 'Desert berries and beans, tempered with red chilli. Nothing green grows here; this is what does.',
     dietaryFlags: ['VEGETARIAN', 'VEGAN'], spiceLevel: 3, prepTimeMinutes: 20,
-    collections: ['Chef Bhairav’s table'] },
+    collections: ['Chef Bhairav’s table'],
+    imageUrl: UNSPLASH('1603894584373-5ac82b2ae398') },
   { name: 'Gatte ki sabzi', priceMinor: 58_000, category: 'Rajasthani classics',
     description: 'Gram-flour dumplings in a yoghurt curry, cooked the way it is at home.',
     dietaryFlags: ['VEGETARIAN'], spiceLevel: 2, prepTimeMinutes: 25,
-    collections: ['Chef Bhairav’s table'] },
+    collections: ['Chef Bhairav’s table'],
+    imageUrl: UNSPLASH('1631292784640-2b24be784d5d') },
   { name: 'Dal baati churma', priceMinor: 74_000, category: 'Rajasthani classics',
     description: 'Baked wheat baatis, five-lentil dal, and sweet churma. Order it if you order nothing else.',
     dietaryFlags: ['VEGETARIAN'], spiceLevel: 2, prepTimeMinutes: 40,
-    collections: ['Chef Bhairav’s table'] },
+    collections: ['Chef Bhairav’s table'],
+    imageUrl: UNSPLASH('1585937421612-70a008356fbe') },
   { name: 'Udaipur-style pyaaz kachori', priceMinor: 26_000, category: 'Small plates',
     description: 'Onion and fennel, fried to order. Two pieces.',
     dietaryFlags: ['VEGETARIAN'], spiceLevel: 2, prepTimeMinutes: 15,
-    collections: ['After 10pm'] },
+    collections: ['After 10pm'],
+    imageUrl: UNSPLASH('1728910156510-77488f19b152') },
   { name: 'Mawa kachori', priceMinor: 38_000, category: 'Sweets',
     description: 'Sweet kachori filled with mawa and nuts, soaked in saffron syrup.',
-    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 15, collections: ['After 10pm'] },
+    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 15, collections: ['After 10pm'],
+    imageUrl: UNSPLASH('1767114915989-c6ab3c8fc42e') },
   { name: 'Masala chai', priceMinor: 18_000, category: 'Drinks',
     description: 'Boiled with ginger, cardamom and a little too much sugar unless you say otherwise.',
-    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 10, collections: ['After 10pm'] },
+    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 10, collections: ['After 10pm'],
+    imageUrl: UNSPLASH('1762922425226-8cfe6987e7b0') },
   { name: 'Kesar lassi', priceMinor: 32_000, category: 'Drinks',
     description: 'Thick, saffron, served cold in a clay tumbler.',
-    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 10, collections: ['After 10pm'] },
+    dietaryFlags: ['VEGETARIAN'], prepTimeMinutes: 10, collections: ['After 10pm'],
+    imageUrl: UNSPLASH('1772730065344-4cf131b39951') },
 ];
 
 /**

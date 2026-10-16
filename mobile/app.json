@@ -56,7 +56,8 @@
         }
       ],
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true
