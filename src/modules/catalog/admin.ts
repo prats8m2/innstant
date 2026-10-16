@@ -36,8 +36,20 @@ import type { CurrencyCode } from '@/lib/money';
  * uses a different list, because "contains nuts" and "is allergic to nuts" are
  * not the same fact and must not share a column.
  */
+/*
+ * NON_VEGETARIAN is the one flag here that is not an ingredient note.
+ *
+ * India's packaging and menu rules turn on a DECLARATION — the green square
+ * for vegetarian, the brown one for everything else — and a declaration
+ * cannot be inferred. "No VEGETARIAN flag" means nobody has said, which
+ * happens on a half-filled menu; it does not mean the dish has meat in it.
+ * Without a positive value for the other side, the app would either draw no
+ * mark at all or draw the brown one on a dish whose chef simply had not
+ * ticked a box yet. So the kitchen says, or nothing is claimed.
+ */
 export const MENU_DIETARY_FLAGS = [
-  'VEGETARIAN', 'VEGAN', 'JAIN', 'GLUTEN_FREE', 'CONTAINS_NUTS', 'CONTAINS_DAIRY',
+  'VEGETARIAN', 'NON_VEGETARIAN', 'VEGAN', 'JAIN', 'GLUTEN_FREE',
+  'CONTAINS_NUTS', 'CONTAINS_DAIRY',
 ] as const;
 
 export type MenuDietaryFlag = (typeof MENU_DIETARY_FLAGS)[number];

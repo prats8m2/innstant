@@ -8,6 +8,7 @@ import { useApiError, useSession } from '@/lib/session';
 import { tapAdd } from '@/lib/haptics';
 import { Button, Notice } from '@/components/ui';
 import { DishPhoto } from '@/components/dish-photo';
+import { DietMark } from '@/components/diet-mark';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -177,9 +178,14 @@ export function useDishChoice(itemId: string, onAdded: () => void): DishChoice {
 export function DishChoiceBody({
   choice,
   Input = TextInput,
+  showPhoto = true,
 }: {
   choice: DishChoice;
   Input?: ComponentType<TextInputProps>;
+  /** False on the dish SCREEN, where the same photograph is already the
+   *  full-bleed header above this. Two of it on one screen is the app
+   *  showing somebody the picture twice. */
+  showPhoto?: boolean;
 }) {
   const { detail, chosen, toggle, notes, setNotes, orderable } = choice;
   if (!detail) return null;
@@ -189,12 +195,15 @@ export function DishChoiceBody({
     <>
       <View style={s.head}>
         <View style={s.headText}>
+          {/* The legal mark, at the top of the column it is scanned in —
+              the same place the menu row puts it. */}
+          <DietMark flags={dish.dietaryFlags} size={16} />
           <Text style={s.name}>{dish.name}</Text>
           <Text style={[s.price, tabular]}>{dish.price.text}</Text>
         </View>
         {/* The same photograph the row that was tapped is showing, so the
             sheet rises out of something rather than replacing it. */}
-        {dish.imageUrl ? (
+        {showPhoto && dish.imageUrl ? (
           <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={84} />
         ) : null}
       </View>

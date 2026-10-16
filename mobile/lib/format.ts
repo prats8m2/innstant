@@ -89,6 +89,30 @@ export function flagChipFor(
 }
 
 /**
+ * The veg / non-veg mark, as the declaration it is — or null. Phase 2.
+ *
+ * ─── Why absence is not non-vegetarian ─────────────────────────────────────
+ *
+ * The green square and the brown one are a LEGAL convention here, not
+ * decoration, and both sides of it are a statement somebody made. A dish
+ * carrying neither flag has had nothing said about it — which is the ordinary
+ * state of a half-filled menu, and three of the ten demo dishes were exactly
+ * that until `NON_VEGETARIAN` was added to the vocabulary for this.
+ *
+ * So absence draws NOTHING. Inferring non-veg from a missing tick would put a
+ * brown square on a vegetarian dish whose chef had not got to it yet, and the
+ * person that square exists for is the one who cannot eat the other kind.
+ *
+ * VEGAN implies vegetarian and is marked green on its own, because a kitchen
+ * that ticked the stricter box has plainly said the looser thing too.
+ */
+export function dietMarkFor(flags: readonly string[]): 'VEG' | 'NON_VEG' | null {
+  if (flags.includes('VEGETARIAN') || flags.includes('VEGAN')) return 'VEG';
+  if (flags.includes('NON_VEGETARIAN')) return 'NON_VEG';
+  return null;
+}
+
+/**
  * How many DISHES a menu holds — not how many rows it draws.
  *
  * A dish that is on the rooftop collection, the chef's table and its own

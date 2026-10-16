@@ -31,7 +31,7 @@ not been deployed, and deliberately need no migration.
 |---|---|
 | 0 · images | stand-in photography seeded (`0c47914`). R2, the upload pipeline and the `image_key` migration are still Next. |
 | 1 · app shell | **DONE.** Tab bar and dish photos in `4940194`; the sheet, the skeletons, pull-to-refresh and haptics in `cac2753`. |
-| 2 · image-led screens | not started. Needs real photography, not the stand-ins. |
+| 2 · image-led screens | **DONE** against the stand-in photography. Photo hero behind the arch, category circles, an "Order again" rail, photo menu cards with the veg / non-veg mark, and a collapsing dish header. Everything in it is as good as the pictures, which are still borrowed. |
 | 3 · search and filters | not started. Needs a search endpoint — client-side filtering stops working at a real property's sixty dishes. |
 | 4 · motion and polish | not started. |
 
@@ -40,6 +40,22 @@ the pull gesture (`react-native-web`'s `RefreshControl` is a no-op `View`, so
 the handler is wired and typechecked but has never been pulled), and the
 haptics themselves (`expo-haptics` is skipped on web by design). Both ship in
 the Android bundle, which exports clean.
+
+Phase 2 added one endpoint and one dietary flag, and no migration. `GET
+/api/v1/orders/again` returns `menu_items` ids and nothing else — the app
+already holds today's menu, and a second copy of a dish from the server would
+be a second price for it on the same screen. `NON_VEGETARIAN` joined
+`MENU_DIETARY_FLAGS` because the green and brown squares are a legal
+DECLARATION and absence cannot imply one: a dish with no flag has had nothing
+said about it, and it draws no mark. The three demo meat dishes carry the new
+flag, so a local `pnpm demo:reset` is needed to see the brown square.
+
+What phase 2 could not verify from a laptop: the kitchen-shut hero (the
+photograph takes a wash of the ground rather than fading, and the arch drops a
+step) — it needs the outlet's schedule changed in the database to see, and was
+left alone. Everything else on the three screens was rendered and measured in
+the browser, including the reduced-motion path, where the dish photograph sits
+in the scroll instead of receding.
 
 ---
 

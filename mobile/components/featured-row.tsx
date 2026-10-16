@@ -1,4 +1,5 @@
 import { DishPhoto } from '@/components/dish-photo';
+import { DietMark } from '@/components/diet-mark';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight, Plus } from 'lucide-react-native';
@@ -57,6 +58,9 @@ export function FeaturedRow({
     <View style={s.row}>
       <View style={s.left}>
         <Text style={s.eyebrow}>{section}</Text>
+        {/* Phase 2. Over the name, where every Indian menu puts it and where
+            the menu rows and the dish screen now put it too. */}
+        <DietMark flags={dish.dietaryFlags} />
         <Text style={s.name}>{dish.name}</Text>
         {dish.description ? <Text style={s.description}>{dish.description}</Text> : null}
 

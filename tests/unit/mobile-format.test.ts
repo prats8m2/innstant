@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toRoman, padCount, spiceWordFor, flagChipFor, distinctDishCount,
+  toRoman, padCount, spiceWordFor, flagChipFor, dietMarkFor, distinctDishCount,
   greetingFor, initialOf,
 } from '../../mobile/lib/format';
 
@@ -161,5 +161,39 @@ describe('initialOf', () => {
   it('is empty for an empty name, so the corner falls back to the icon', () => {
     expect(initialOf('')).toBe('');
     expect(initialOf('   ')).toBe('');
+  });
+});
+
+
+/**
+ * The veg / non-veg square. Phase 2 of the app redesign.
+ *
+ * This one is worth a test for a reason the others are not: it is a LEGAL
+ * convention, and the failure mode is not a wobbly column — it is a brown
+ * square on a vegetarian dish, shown to the one person the mark exists for.
+ */
+describe('dietMarkFor', () => {
+  it('marks a declared vegetarian dish green', () => {
+    expect(dietMarkFor(['VEGETARIAN'])).toBe('VEG');
+    expect(dietMarkFor(['VEGETARIAN', 'CONTAINS_NUTS'])).toBe('VEG');
+  });
+
+  it('treats vegan as the stricter way of saying vegetarian', () => {
+    expect(dietMarkFor(['VEGAN'])).toBe('VEG');
+  });
+
+  it('marks a declared non-vegetarian dish', () => {
+    expect(dietMarkFor(['NON_VEGETARIAN'])).toBe('NON_VEG');
+  });
+
+  /**
+   * The whole point. Three of the ten demo dishes carried no dietary flag at
+   * all until `NON_VEGETARIAN` was added to the vocabulary for this, and a
+   * half-filled menu at a real property is the normal case — so a missing
+   * tick has to mean "nobody has said", never "this has meat in it".
+   */
+  it('claims nothing about a dish that declared nothing', () => {
+    expect(dietMarkFor([])).toBeNull();
+    expect(dietMarkFor(['CONTAINS_NUTS', 'GLUTEN_FREE'])).toBeNull();
   });
 });

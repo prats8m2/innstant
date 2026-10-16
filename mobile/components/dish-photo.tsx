@@ -29,20 +29,45 @@ import { colors, radius } from '@/lib/theme';
  * upload pipeline is what will fill it. Until then this falls back to the
  * card colour, which is at least the right darkness and does not flash white
  * on a dark screen.
+ *
+ * ─── Why phase 2's hero and dish header come through here too ─────────────
+ *
+ * They are not square thumbnails, and the temptation was a second component
+ * for the big ones. That would be two answers to caching, two to the
+ * placeholder and two to the fade — so the shape is parameters instead:
+ * `width`/`height` for anything that is not a square, and `bleed` for a
+ * photograph that runs to the edge of the screen, where a border and a 4pt
+ * radius would draw a box around something that has no box.
  */
 export function DishPhoto({
   uri,
   blurhash,
   name,
   size = 112,
+  width,
+  height,
+  bleed,
 }: {
   uri: string;
   blurhash?: string | null;
   name: string;
+  /** The square case, which is most of them. */
   size?: number;
+  /** Overrides `size` on one axis each. A photograph filling a box it does
+   *  not own passes `width="100%" height="100%"`. */
+  width?: number | `${number}%`;
+  height?: number | `${number}%`;
+  /** Edge to edge: no border, no radius, nothing to clip against. */
+  bleed?: boolean;
 }) {
   return (
-    <View style={[s.frame, { width: size, height: size }]}>
+    <View
+      style={[
+        s.frame,
+        bleed && s.bleed,
+        { width: width ?? size, height: height ?? size },
+      ]}
+    >
       <Image
         source={{ uri }}
         style={StyleSheet.absoluteFill}
@@ -78,4 +103,5 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
   },
+  bleed: { borderRadius: 0, borderWidth: 0 },
 });

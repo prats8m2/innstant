@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radius, space, text as type, tabular } from '@/lib/theme';
+import { colors, radius, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
  * The + and − on a menu card. D-080.
@@ -82,10 +82,16 @@ export function Stepper({
   );
 }
 
-// 44 rather than the 48 everything else uses: three of these sit in a row on a
-// 390px card beside a price, and 48 pushes the dish name onto a second line.
-// Still above Apple's 44pt floor, and the row itself is taller than its parts.
-const SIZE = 44;
+/**
+ * 48, which is `TOUCH_MIN` and what everything else in the app uses.
+ *
+ * It was 44 — Apple's floor rather than Android's — because the control used
+ * to sit in the row beside the dish name, and the four points pushed the name
+ * onto a second line on a 390pt screen. Phase 2 moved it over the photograph,
+ * into a 112pt column of its own, so the reason is gone and the bigger target
+ * costs nothing.
+ */
+const SIZE = TOUCH_MIN;
 
 const s = StyleSheet.create({
   add: {

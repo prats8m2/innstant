@@ -5,7 +5,7 @@ import type {
   ApiPlacedOrder, ApiSession, ApiPlaceOrderBody, ApiAddToCartBody, ApiQuickAddBody,
   ApiCustomer, ApiAddress, ApiAddressBody, ApiMe, ApiSignedIn,
   ApiRequestOtpResult, ApiUpdateProfileBody,
-  ApiReorderSuggestion, ApiReorderResult,
+  ApiReorderSuggestion, ApiReorderResult, ApiOrderedBefore,
 } from '@contract';
 
 /**
@@ -302,6 +302,21 @@ export function getReorder(): Promise<ApiReorderSuggestion> {
   return request<ApiReorderSuggestion>('/orders/reorder');
 }
 
+/**
+ * Which dishes this history has eaten — ids only. Phase 2.
+ *
+ * The "Order again" rail is drawn by intersecting these with the menu the
+ * screen is already holding, so a dish that is off tonight simply is not
+ * there. See `ApiOrderedBefore` for why the server sends no dish data.
+ *
+ * Both credentials ride along by default, which makes this the ACCOUNT's
+ * history when somebody is signed in and this visit's when they are not —
+ * the same branch `/orders` and the reorder block make.
+ */
+export function orderedBefore(): Promise<ApiOrderedBefore> {
+  return request<ApiOrderedBefore>('/orders/again');
+}
+
 /** Puts that order's lines back in the cart and hands the cart back, so the
  *  shared copy is replaced by one assignment rather than a refetch. */
 export function reorder(orderId: string): Promise<ApiReorderResult> {
@@ -313,7 +328,7 @@ export type {
   ApiCart, ApiCartLine, ApiMenu, ApiMenuSection, ApiDish, ApiDishDetail,
   ApiModifierGroup, ApiOrder, ApiOrderSummary, ApiSession, ApiVisit,
   ApiFulfilment, ApiMoney, ApiTrackStep,
-  ApiReorder, ApiReorderSuggestion, ApiReorderResult,
+  ApiReorder, ApiReorderSuggestion, ApiReorderResult, ApiOrderedBefore,
 } from '@contract';
 
 

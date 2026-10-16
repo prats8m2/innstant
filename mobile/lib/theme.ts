@@ -117,6 +117,33 @@ export const tabular = { fontVariant: ['tabular-nums' as const] };
 export const paperTransparent = 'rgba(16, 30, 51, 0)';
 
 /**
+ * The scrim over the hero photograph. Phase 2 of the redesign.
+ *
+ * `paperDeep` at four alphas, written here for the same reason
+ * `paperTransparent` is: a gradient stop is a colour, and a component holding
+ * `'rgba(10, 18, 32, 0.86)'` is a hardcoded hex wearing a hat. RN cannot
+ * compute `color-mix()`, and the web has no counterpart because the web home
+ * has no photograph — so these are not in the drift test's MAPPING.
+ *
+ * Why a scrim at all: the arch is drawn in one-pixel strokes and the headline
+ * is 34pt of lime plaster, and both have to stay legible over a photograph
+ * nobody chose for its contrast. The top stop carries the wordmark row, the
+ * middle is the lightest the photograph is ever allowed to be, and the bottom
+ * closes into the ground so the hero has no visible edge.
+ *
+ * `shut` is the flat wash laid over the photograph when the kitchen is — the
+ * same step the arch's three strokes take, applied to the picture. Not
+ * `opacity` on the image, which would fade it towards whatever is behind it
+ * rather than towards the ground.
+ */
+export const heroScrim = {
+  top: 'rgba(10, 18, 32, 0.86)',
+  mid: 'rgba(10, 18, 32, 0.52)',
+  bottom: 'rgba(10, 18, 32, 0.97)',
+  shut: 'rgba(10, 18, 32, 0.62)',
+} as const;
+
+/**
  * Motion, in milliseconds. The mirror of theme.css's `--dur-*`.
  *
  * Same argument as the palette: RN has no custom properties, so the web file

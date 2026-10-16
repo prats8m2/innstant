@@ -134,7 +134,7 @@ export function MenuSkeleton() {
   );
 }
 
-/** One menu row: text on the left, a 96pt photo on the right. */
+/** One menu row: text on the left, a 112pt photo on the right. */
 function DishRowSkeleton({ index }: { index: number }) {
   // Alternating line lengths. A column of identically ragged rows reads as a
   // pattern rather than as text that has not arrived.
@@ -147,7 +147,7 @@ function DishRowSkeleton({ index }: { index: number }) {
         <Skeleton width={wide ? '64%' : '78%'} height={type.sm} />
         <Skeleton width={72} height={type.base} style={{ marginTop: space[1] }} />
       </View>
-      <Skeleton width={96} height={96} round={radius.md} />
+      <Skeleton width={112} height={112} round={radius.md} />
     </View>
   );
 }
@@ -196,13 +196,16 @@ export function HomeSkeleton() {
           <Skeleton width={34} height={34} round={17} />
         </View>
 
-        {/* Where the arch is. Three centred blocks: the eyebrow and two lines
-            of a 34pt headline — not an arch outline, because a skeleton that
-            drew the brand would be claiming the page had already arrived. */}
-        <View style={s.hero}>
+        {/* Where the hero is: one full-bleed block the height of the
+            photograph and the arch standing in it, then the caption line
+            under it. Not an arch outline and not a headline in two pieces —
+            a skeleton that drew the brand would be claiming the page had
+            already arrived. */}
+        <View style={s.heroPhoto}>
+          <Skeleton width="100%" height={HERO_H} round={0} />
+        </View>
+        <View style={s.heroCaption}>
           <Skeleton width={190} height={type.sm} />
-          <Skeleton width="86%" height={type.display} style={{ marginTop: space[4] }} />
-          <Skeleton width="62%" height={type.display} style={{ marginTop: space[2] }} />
         </View>
 
         <View style={s.hairline} />
@@ -220,6 +223,17 @@ export function HomeSkeleton() {
       </View>
 
       <View style={s.homeBody}>
+        {/* The category circles. Four and a half, because the half is what
+            says the rail scrolls. */}
+        <View style={s.circles}>
+          {[0, 1, 2, 3, 4].map((index) => (
+            <View key={index} style={s.circleCell}>
+              <Skeleton width={CIRCLE} height={CIRCLE} round={CIRCLE / 2} />
+              <Skeleton width={index % 2 === 0 ? 56 : 42} height={type.xs} />
+            </View>
+          ))}
+        </View>
+
         <View style={s.blockHead}>
           <Skeleton width={196} height={type.xl} />
           <Skeleton width={64} height={type.xs} />
@@ -282,6 +296,13 @@ export function DishSkeleton() {
 /** The section rail's chips: two 8pt paddings around a 13pt line, rounded. */
 const CHIP_H = type.sm + space[2] * 2 + 2;
 
+/** The hero photograph and the arch standing in it — 20 of margin, a 300pt
+ *  arch and the 28 it stands on. Mirrors `components/arch.tsx`. */
+const HERO_H = 348;
+
+/** The category circle, from `components/category-rail.tsx`. */
+const CIRCLE = 72;
+
 const s = StyleSheet.create({
   sweep: { position: 'absolute', top: 0, bottom: 0, left: 0 },
 
@@ -331,7 +352,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  hero: { alignItems: 'center', paddingVertical: space[6] },
+  heroPhoto: { marginHorizontal: -space[5] },
+  heroCaption: { alignItems: 'center', paddingVertical: space[3] },
+  circles: { flexDirection: 'row', gap: space[4], marginTop: space[5], overflow: 'hidden' },
+  circleCell: { width: CIRCLE, alignItems: 'center', gap: space[2] },
   hairline: { height: 1, backgroundColor: colors.lineFaint, marginHorizontal: -space[5] },
   strip: { flexDirection: 'row', paddingTop: space[4], gap: space[5] },
   stripCell: { flex: 1 },

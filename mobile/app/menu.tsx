@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View,
+  type ViewToken,
 } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,10 +11,14 @@ import { useApiError, useSession } from '@/lib/session';
 import { Notice, Screen } from '@/components/ui';
 import { Stepper } from '@/components/stepper';
 import { DishPhoto } from '@/components/dish-photo';
+import { DietMark } from '@/components/diet-mark';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
 import { MenuSkeleton } from '@/components/skeleton';
 import { tapAdd, tapRemove } from '@/lib/haptics';
-import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
+import { spiceWordFor } from '@/lib/format';
+import {
+  colors, face, radius, space, text as type, tabular, TOUCH_MIN,
+} from '@/lib/theme';
 
 /**
  * The menu. D-080, and the screen this app is for.
@@ -22,6 +27,13 @@ import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/t
  * tens of dishes and a restaurant with a long one would mount every row on
  * first render. The section rail above it scrolls the list rather than the
  * list scrolling the rail, which is the direction people expect.
+ *
+ * ─── What phase 2 changed ─────────────────────────────────────────────────
+ *
+ * The rail now TRACKS: scrolling the list moves the highlight and brings the
+ * chip into view, so the rail says where you are as well as taking you
+ * somewhere. The rows carry a photograph and the veg / non-veg mark, which
+ * is a legal convention here and not an ornament (see `DietMark`).
  */
 interface MenuSection {
   id: string;
@@ -31,7 +43,8 @@ interface MenuSection {
 }
 
 export default function Menu() {
-  /** Set by a contents row on the home screen — the section to open at. */
+  /** Set by a contents row or a category circle on the home screen — the
+   *  section to open at. */
   const { section: anchor } = useLocalSearchParams<{ section?: string }>();
   const { session, cart, setCart, refreshCart } = useSession();
   const onError = useApiError();
@@ -62,6 +75,28 @@ export default function Menu() {
   /** One jump per arrival. Without it, every re-render of a focused screen
    *  would yank somebody back to the anchor they have since scrolled past. */
   const jumped = useRef(false);
+  /**
+   * The section a jump is on its way to, until it gets there.
+   *
+   * It does two jobs, and both are bugs it was written for. It is what
+   * `onScrollToIndexFailed` retries — a `scrollToLocation` into a section
+   * whose rows have not been measured simply does not happen, which is how a
+   * deep link from the home screen landed on section one. And it is what
+   * stops the scroll reports below from overwriting the highlight on the way:
+   * a jump passes over every section between here and there, and each one of
+   * them reports itself as it goes.
+   */
+  const pending = useRef<{ id: string; index: number; tries: number } | null>(null);
+  /**
+   * Where every chip is, measured.
+   *
+   * A ref and not state: it is written during layout and read by a scroll
+   * handler, and nothing renders differently because of it. Keeping it in
+   * state would re-render the whole list on every chip that measures itself.
+   */
+  const chipX = useRef(new Map<string, number>());
+  /** Which section the list is showing, or null before the first scroll. */
+  const [active, setActive] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,6 +155,12 @@ export default function Menu() {
    * on a list of variable-height rows lands approximately and settles, which
    * is the right behaviour for a jump to a section head.
    */
+  const jumpTo = useCallback((id: string, index: number) => {
+    pending.current = { id, index, tries: 0 };
+    setActive(id);
+    list.current?.scrollToLocation({ sectionIndex: index, itemIndex: 0, viewPosition: 0 });
+  }, []);
+
   useEffect(() => {
     if (!menu || !anchor || jumped.current) return;
 
@@ -129,8 +170,59 @@ export default function Menu() {
     if (index < 0) return;
 
     jumped.current = true;
-    list.current?.scrollToLocation({ sectionIndex: index, itemIndex: 0, viewPosition: 0 });
-  }, [menu, anchor]);
+    jumpTo(anchor, index);
+  }, [menu, anchor, jumpTo]);
+
+  /**
+   * Keep the highlighted chip on screen.
+   *
+   * `space[5]` back from the chip's own left edge, so it lands inside the
+   * gutter rather than flush against the screen. Silent when the chip has not
+   * been measured yet — which is the first commit, and is exactly the case
+   * the anchored chip's own `onLayout` below handles instead.
+   */
+  useEffect(() => {
+    if (!active) return;
+    const x = chipX.current.get(active);
+    if (x === undefined) return;
+    rail.current?.scrollTo({ x: Math.max(0, x - space[5]), animated: true });
+  }, [active]);
+
+  /**
+   * What the list is showing, read off the rows themselves.
+   *
+   * `onViewableItemsChanged` has to be a stable reference — React Native
+   * throws outright if it changes between renders — so it is a ref holding a
+   * closure over `setActive` and nothing else. The topmost viewable row wins:
+   * a section header and its first dish are both visible at a section
+   * boundary, and the one nearer the top is the one somebody is reading.
+   *
+   * Scroll offsets are deliberately not computed here. A row's height depends
+   * on whether a dish has a description and whether that description wraps,
+   * so any arithmetic over an assumed row height is wrong on the fourth
+   * section of a real menu.
+   */
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    const top = viewableItems.find((token) => token.isViewable && token.section);
+    const id = (top?.section as MenuSection | undefined)?.id;
+    if (!id) return;
+
+    // A jump in flight owns the highlight until it arrives. See `pending`.
+    if (pending.current) {
+      if (pending.current.id !== id) return;
+      pending.current = null;
+    }
+    setActive(id);
+  });
+  /**
+   * 60%, not the usual 50.
+   *
+   * The topmost viewable row wins, and these rows are 112pt of photograph
+   * tall — at 20% the last dish of the previous section kept the highlight
+   * while two whole sections of the next one were on screen. 60% is "most of
+   * this row is in front of you", which is the thing being asked.
+   */
+  const viewability = useRef({ itemVisiblePercentThreshold: 60 });
 
   /** How many of each dish are in the cart, summed ACROSS variants. */
   const inCart = useMemo(() => {
@@ -168,6 +260,9 @@ export default function Menu() {
       blurb: section.blurb,
       data: section.items,
     }));
+
+  /** Before the first scroll report, the list is showing its first section. */
+  const current = active ?? sections[0]?.id ?? null;
 
   /** Where this order is going, said once under the title. */
   const where = session.visit.tableLabel
@@ -208,6 +303,9 @@ export default function Menu() {
         }}
       />
 
+      {/* Fixed above the list rather than scrolled with it: this is the only
+          thing on the screen that says where you are in a menu long enough to
+          lose your place in. */}
       <View style={s.bar}>
         <Text style={s.where}>
           {menu.outlet.name} · {where}
@@ -222,31 +320,40 @@ export default function Menu() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.rail}
         >
-          {sections.map((section, index) => (
-            <Pressable
-              key={section.id}
-              // The anchored chip brings itself into view the moment it knows
-              // where it is, so a deep link from the home screen's contents
-              // list arrives with the rail already tracking rather than with
-              // it parked on section one. `space[5]` back from the chip's own
-              // edge, so it sits inside the gutter rather than flush against
-              // the screen edge.
-              onLayout={(event) => {
-                if (section.id !== anchor || railJumped.current) return;
-                railJumped.current = true;
-                const { x } = event.nativeEvent.layout;
-                rail.current?.scrollTo({ x: Math.max(0, x - space[5]), animated: false });
-              }}
-              onPress={() => list.current?.scrollToLocation({
-                sectionIndex: index,
-                itemIndex: 0,
-                viewPosition: 0,
-              })}
-              style={({ pressed }) => [s.chip, pressed && { backgroundColor: colors.raised }]}
-            >
-              <Text style={s.chipText}>{section.title}</Text>
-            </Pressable>
-          ))}
+          {sections.map((section, index) => {
+            const on = section.id === current;
+            return (
+              <Pressable
+                key={section.id}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+                // Every chip records where it is; the anchored one also brings
+                // itself into view the moment it knows, so a deep link from
+                // the home screen arrives with the rail already tracking
+                // rather than parked on section one.
+                onLayout={(event) => {
+                  const { x } = event.nativeEvent.layout;
+                  chipX.current.set(section.id, x);
+                  if (section.id !== anchor || railJumped.current) return;
+                  railJumped.current = true;
+                  rail.current?.scrollTo({ x: Math.max(0, x - space[5]), animated: false });
+                }}
+                onPress={() => jumpTo(section.id, index)}
+                style={({ pressed }) => [
+                  s.chip,
+                  on && s.chipOn,
+                  // Saffron goes LIGHTER on press in this theme, and an
+                  // unselected chip lifts to `raised` — the two press states
+                  // are different surfaces, not one opacity.
+                  pressed && (on ? s.chipOnPressed : s.chipPressed),
+                ]}
+              >
+                {/* On saffron, the ink is the GROUND. Never white, and never
+                    another saffron. */}
+                <Text style={[s.chipText, on && s.chipTextOn]}>{section.title}</Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -256,6 +363,8 @@ export default function Menu() {
         keyExtractor={(dish, index) => `${dish.id}-${index}`}
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        onViewableItemsChanged={onViewable.current}
+        viewabilityConfig={viewability.current}
         refreshControl={(
           <RefreshControl
             refreshing={refreshing}
@@ -268,11 +377,31 @@ export default function Menu() {
             progressBackgroundColor={colors.card}
           />
         )}
-        // `scrollToLocation` on a list with variable row heights throws
-        // without this when the target has not been measured yet. The rail is
-        // the only caller and it jumps to a section head, so an approximation
-        // that lands slightly off and settles is right.
-        onScrollToIndexFailed={() => {}}
+        /*
+          `scrollToLocation` into a section whose rows have not been measured
+          cannot land, and RN hands it back here rather than throwing. An
+          empty handler is what shipped, and it is why a deep link from the
+          home screen arrived at section one: the jump was swallowed in
+          silence on the one render it mattered.
+
+          So it retries on the next frames, up to five of them. Five is the
+          ceiling rather than a loop because the other way for this to fire
+          is a target that genuinely is not there, and a retry that never
+          stops is a list that scrolls by itself forever.
+        */
+        onScrollToIndexFailed={() => {
+          const target = pending.current;
+          if (!target || target.tries >= 5) return;
+          target.tries += 1;
+          setTimeout(() => {
+            if (pending.current !== target) return;
+            list.current?.scrollToLocation({
+              sectionIndex: target.index,
+              itemIndex: 0,
+              viewPosition: 0,
+            });
+          }, 80);
+        }}
         renderSectionHeader={({ section }) => (
           <View style={s.sectionHead}>
             <Text style={s.sectionTitle}>{section.title}</Text>
@@ -324,6 +453,12 @@ export default function Menu() {
  * Tapping the row raises the SHEET now rather than pushing a screen. The menu
  * stays behind it, which is the whole argument: choosing a spice level is a
  * step in reading a menu, not a departure from it.
+ *
+ * ─── The mark goes before the name, where it is read ──────────────────────
+ *
+ * Every Indian menu puts the veg / non-veg square at the start of the line,
+ * and somebody scanning for it is scanning one column rather than reading
+ * rows. A dish that declares neither draws nothing at all — see `DietMark`.
  */
 function DishRow({
   dish,
@@ -336,6 +471,8 @@ function DishRow({
   onAdjust: (direction: 'add' | 'remove') => Promise<void>;
   onOpen: () => void;
 }) {
+  const spice = spiceWordFor(dish.spiceLevel);
+
   return (
     <View style={[s.row, !dish.isAvailable && s.rowOff]}>
       <Pressable
@@ -344,6 +481,7 @@ function DishRow({
         onPress={onOpen}
         style={s.rowBody}
       >
+        <DietMark flags={dish.dietaryFlags} />
         <Text style={s.dishName}>{dish.name}</Text>
         {dish.description ? (
           <Text style={s.dishBlurb} numberOfLines={2}>{dish.description}</Text>
@@ -351,7 +489,10 @@ function DishRow({
         <View style={s.dishMeta}>
           <Text style={[s.price, tabular]}>{dish.price.text}</Text>
           {dish.isAvailable ? (
-            dish.prepTimeMinutes ? <Text style={s.tag}>{dish.prepTimeMinutes} min</Text> : null
+            <>
+              {spice ? <Text style={s.tag}>{spice}</Text> : null}
+              {dish.prepTimeMinutes ? <Text style={s.tag}>{dish.prepTimeMinutes} min</Text> : null}
+            </>
           ) : (
             /* One flag, two causes: the kitchen has 86'd it, or it is outside
                its own hours. "Not available now" is true of both. */
@@ -365,7 +506,7 @@ function DishRow({
           alone, exactly as this row shipped. */}
       <View style={dish.imageUrl ? s.media : undefined}>
         {dish.imageUrl ? (
-          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={96} />
+          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={PHOTO} />
         ) : null}
         {/* Only where there is nothing to ask. A dish whose required choice
             has no default sends somebody inside instead. */}
@@ -379,15 +520,26 @@ function DishRow({
   );
 }
 
+/**
+ * 112, up from the 96 this row shipped with.
+ *
+ * The photographs are the content now rather than a decoration beside it, and
+ * 112 is the largest square that leaves a two-line dish name unwrapped at
+ * 15pt on a 390pt screen with both gutters. Anything wider starts breaking
+ * names across three lines, which costs more vertical space than the picture
+ * gains.
+ */
+const PHOTO = 112;
+
 const s = StyleSheet.create({
   /* Fixed width so every row's text wraps in the same place. A column
      sized to its image makes a list of dishes look like a list of
      different things. */
-  media: { width: 96, alignItems: 'center' },
-  stepperOverPhoto: { marginTop: -20 },
+  media: { width: PHOTO, alignItems: 'center' },
+  stepperOverPhoto: { marginTop: -22 },
 
   center: { justifyContent: 'center', padding: space[5] },
-  headerLink: { fontSize: type.base, color: colors.accent, fontWeight: '600' },
+  headerLink: { ...face('bodyMedium'), fontSize: type.base, color: colors.accent },
 
   bar: {
     paddingHorizontal: space[5],
@@ -396,10 +548,12 @@ const s = StyleSheet.create({
     borderBottomColor: colors.line,
     gap: space[1],
   },
-  where: { fontSize: type.sm, color: colors.inkDim },
-  hours: { fontSize: type.sm, color: colors.positive },
+  where: { ...face('body'), fontSize: type.sm, color: colors.inkDim },
+  hours: { ...face('body'), fontSize: type.sm, color: colors.positive },
   rail: { gap: space[2], paddingTop: space[3] },
   chip: {
+    minHeight: TOUCH_MIN - space[2],
+    justifyContent: 'center',
     paddingVertical: space[2],
     paddingHorizontal: space[3],
     borderRadius: radius.sm,
@@ -407,30 +561,40 @@ const s = StyleSheet.create({
     borderColor: colors.line,
     backgroundColor: colors.card,
   },
-  chipText: { fontSize: type.sm, color: colors.ink },
+  chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  chipPressed: { backgroundColor: colors.raised },
+  chipOnPressed: { backgroundColor: colors.accentHover },
+  chipText: { ...face('body'), fontSize: type.sm, color: colors.ink },
+  chipTextOn: { ...face('bodyMedium'), color: colors.accentInk },
 
   sectionHead: { paddingHorizontal: space[5], paddingTop: space[5], paddingBottom: space[2] },
-  sectionTitle: { fontSize: type.lg, fontWeight: '600', color: colors.ink },
-  sectionBlurb: { fontSize: type.sm, lineHeight: 20, color: colors.inkDim, marginTop: space[1] },
+  sectionTitle: { ...face('display'), fontSize: type.xl, color: colors.ink },
+  sectionBlurb: {
+    ...face('body'),
+    fontSize: type.sm,
+    lineHeight: type.sm * 1.45,
+    color: colors.inkDim,
+    marginTop: space[1],
+  },
 
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: space[4],
     paddingHorizontal: space[5],
-    paddingVertical: space[3],
+    paddingVertical: space[4],
     minHeight: TOUCH_MIN + space[3],
     borderBottomWidth: 1,
     borderBottomColor: colors.lineSoft,
   },
   rowOff: { opacity: 0.55 },
-  rowBody: { flex: 1, gap: 2 },
-  dishName: { fontSize: type.base, fontWeight: '600', color: colors.ink },
-  dishBlurb: { fontSize: type.sm, lineHeight: 19, color: colors.inkDim },
+  rowBody: { flex: 1, gap: space[1] },
+  dishName: { ...face('bodyMedium'), fontSize: type.base, color: colors.ink },
+  dishBlurb: { ...face('body'), fontSize: type.sm, lineHeight: 19, color: colors.inkDim },
   dishMeta: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[1] },
-  price: { fontSize: type.base, color: colors.ink },
-  tag: { fontSize: type.xs, color: colors.inkFaint },
-  soldOut: { fontSize: type.xs, color: colors.critical },
+  price: { ...face('mono'), fontSize: type.base, color: colors.ink },
+  tag: { ...face('mono'), fontSize: type.xs, color: colors.inkFaint },
+  soldOut: { ...face('body'), fontSize: type.xs, color: colors.critical },
 
   floatingError: { position: 'absolute', left: space[5], right: space[5], bottom: 110 },
 
@@ -449,14 +613,14 @@ const s = StyleSheet.create({
   pillCount: {
     minWidth: 26,
     textAlign: 'center',
+    ...face('monoMedium'),
     fontSize: type.sm,
-    fontWeight: '700',
     color: colors.accent,
     backgroundColor: colors.accentInk,
     borderRadius: radius.xs,
     paddingVertical: 2,
     overflow: 'hidden',
   },
-  pillLabel: { flex: 1, fontSize: type.base, fontWeight: '700', color: colors.accentInk },
-  pillTotal: { fontSize: type.base, fontWeight: '700', color: colors.accentInk },
+  pillLabel: { flex: 1, ...face('bodyMedium'), fontSize: type.base, color: colors.accentInk },
+  pillTotal: { ...face('monoMedium'), fontSize: type.base, color: colors.accentInk },
 });

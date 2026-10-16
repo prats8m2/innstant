@@ -30,6 +30,22 @@ export const HOME_COPY = {
   heroHeadlineOpen: 'Cooked on the roof. Sent to your door.',
   heroHeadlineClosed: 'The fires are out until noon.',
 
+  /**
+   * Under the hero photograph, before the dish it is of. Phase 2.
+   *
+   * "Pictured" rather than "Featured" or "Tonight's special": the photograph
+   * is of one real dish and the line says which, which is the whole claim
+   * being made. A stronger word would be the app recommending something the
+   * server did not pick for that reason — `featured[0]` is the first of three,
+   * not a dish of the day.
+   */
+  heroCaption: 'Pictured',
+
+  /** The "Order again" rail, drawn only from dishes somebody actually ate
+   *  and which are on the menu today. */
+  againTitle: 'Order again',
+  againEyebrow: 'You have had these',
+
   featuredTitle: 'Three to start with',
   /** The right-hand eyebrow on the featured header. */
   featuredEyebrow: 'Tonight',

@@ -16,6 +16,8 @@ export { placeOrder } from './place-order';
 
 /** "Same as last time" — the home screen's reorder block (D-080). */
 export { lastReorderable, reorderIntoCart } from './reorder';
+/** The "Order again" rail's ids — see the note in reorder.ts (phase 2). */
+export { dishesOrderedBefore } from './reorder';
 export type { ReorderableOrder, ReorderLine } from './reorder';
 export { getOrderForContext, listOrdersForContext, listOrdersForCustomer } from './read-order';
 

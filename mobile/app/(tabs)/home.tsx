@@ -6,11 +6,13 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Moon, User } from 'lucide-react-native';
 import * as api from '@/lib/api';
-import type { ApiMenu, ApiOrderSummary, ApiReorder } from '@/lib/api';
+import type { ApiDish, ApiMenu, ApiOrderSummary, ApiReorder } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
 import { Notice, Screen } from '@/components/ui';
 import { HomeSkeleton } from '@/components/skeleton';
-import { Arch } from '@/components/arch';
+import { HomeHero } from '@/components/hero';
+import { CategoryRail } from '@/components/category-rail';
+import { AgainRail } from '@/components/again-rail';
 import { StatusStrip } from '@/components/status-strip';
 import { FeaturedRow } from '@/components/featured-row';
 import { ContentsRow } from '@/components/contents-row';
@@ -18,7 +20,7 @@ import { LiveOrderCard } from '@/components/live-order-card';
 import { ReorderRow } from '@/components/reorder-row';
 import { HomeBottomBar } from '@/components/home-bottom-bar';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
-import { tapAdd } from '@/lib/haptics';
+import { tapAdd, tapRemove } from '@/lib/haptics';
 import { HOME_COPY } from '@/lib/copy';
 import { distinctDishCount, greetingFor, initialOf, padCount, toRoman } from '@/lib/format';
 import {
@@ -97,6 +99,9 @@ export default function Home() {
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [orders, setOrders] = useState<ApiOrderSummary[] | null>(null);
   const [reorder, setReorder] = useState<ApiReorder | null>(null);
+  /** Ids, in the order they were last eaten. The dishes themselves come off
+   *  the menu below — see `ApiOrderedBefore`. */
+  const [again, setAgain] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   /** The same sheet the menu raises. A featured dish with a required choice
@@ -239,6 +244,20 @@ export default function Home() {
       }
     })();
 
+    /* The rail beside it, on the same trigger and for the same reasons: the
+       answer changes when an order is delivered, `customer` decides whose
+       history it is, and a failure costs an ornament rather than the page. */
+    (async () => {
+      try {
+        const eaten = await api.orderedBefore();
+        if (!cancelled) setAgain(eaten.menuItemIds);
+      } catch (failure) {
+        if (cancelled) return;
+        if (failure instanceof api.ApiFailure && failure.isSessionGone) onError(failure);
+        else setAgain([]);
+      }
+    })();
+
     return () => { cancelled = true; };
   }, [customer, onError]));
 
@@ -264,10 +283,11 @@ export default function Home() {
    */
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    const [loadedMenu, loadedOrders, suggestion] = await Promise.allSettled([
+    const [loadedMenu, loadedOrders, suggestion, eaten] = await Promise.allSettled([
       api.getMenu(),
       fetchOrders(),
       api.getReorder(),
+      api.orderedBefore(),
     ]);
     void refreshCart();
 
@@ -279,16 +299,17 @@ export default function Home() {
     }
     if (loadedOrders.status === 'fulfilled') setOrders(loadedOrders.value);
     if (suggestion.status === 'fulfilled') setReorder(suggestion.value.reorder);
+    if (eaten.status === 'fulfilled') setAgain(eaten.value.menuItemIds);
 
     setRefreshing(false);
   }, [fetchOrders, onError, refreshCart]);
 
-  const add = useCallback(async (menuItemId: string) => {
+  const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
     try {
-      setCart(await api.quickAdjust({ menuItemId, direction: 'add' }));
-      // After the round trip, not on the tap: it means the dish is in the
-      // cart, not that the button was pressed.
-      tapAdd();
+      setCart(await api.quickAdjust({ menuItemId, direction }));
+      // After the round trip, not on the tap: it means the cart changed, not
+      // that the button was pressed.
+      if (direction === 'add') tapAdd(); else tapRemove();
       setError(null);
     } catch (failure) {
       // "That dish is off the menu tonight" is the kitchen's sentence and is
@@ -296,6 +317,9 @@ export default function Home() {
       setError(onError(failure));
     }
   }, [setCart, onError]);
+
+  /** The featured strip's one-way button, which has no minus. */
+  const add = useCallback((menuItemId: string) => adjust(menuItemId, 'add'), [adjust]);
 
   /**
    * The repeat, then the cart.
@@ -337,6 +361,36 @@ export default function Home() {
   const liveOrder = orders?.find((order) => order.isLive) ?? null;
   const showFeatured = open && menu.featured.length > 0;
   const initial = customer ? initialOf(customer.name) : '';
+
+  /**
+   * The dish the hero is a photograph of.
+   *
+   * `featured[0]` when there is one, because that is a choice the server
+   * made and the strip below repeats it. It is EMPTY when the kitchen is
+   * shut — nothing is available, so nothing is featured — and a shut
+   * restaurant is exactly when somebody is reading a menu rather than
+   * ordering from it. So the fallback is the first dish on the menu with a
+   * photograph, which is still a real dish on this menu.
+   */
+  const heroDish: ApiDish | null = menu.featured[0]?.dish
+    ?? sections.flatMap((section) => section.items).find((dish) => dish.imageUrl)
+    ?? null;
+
+  /**
+   * The rail's dishes, in the order they were last eaten.
+   *
+   * Looked up in the menu rather than sent by the server, which is what
+   * keeps one price and one photograph per dish on this screen. A dish that
+   * is off tonight is not in the menu at all, and an id that finds nothing
+   * drops out — the rail is shorter, and nothing explains itself.
+   */
+  const againDishes = (() => {
+    const byId = new Map(sections.flatMap((section) => section.items).map((d) => [d.id, d]));
+    return again.flatMap((id) => {
+      const dish = byId.get(id);
+      return dish && dish.isAvailable ? dish : [];
+    });
+  })();
 
   return (
     <Screen>
@@ -396,10 +450,21 @@ export default function Home() {
             />
           ) : (
             <>
-              <Arch
+              <HomeHero
                 eyebrow={HOME_COPY.heroEyebrow}
                 headline={open ? HOME_COPY.heroHeadlineOpen : HOME_COPY.heroHeadlineClosed}
                 dimmed={!open}
+                photo={heroDish?.imageUrl ? {
+                  uri: heroDish.imageUrl,
+                  blurhash: heroDish.blurhash,
+                  name: heroDish.name,
+                  price: heroDish.price.text,
+                } : null}
+                /* The full screen, not the sheet. A sheet rises over the
+                   place you were reading; this is a jump from a photograph
+                   to the dish it is of, and the dish screen is where that
+                   photograph is full-bleed. */
+                onPressPhoto={() => heroDish && router.push(`/dish/${heroDish.id}`)}
               />
               {/* Full bleed: it breaks the gutter so the rule runs edge to
                   edge under the arch's open feet. Dropped under the live card,
@@ -440,12 +505,44 @@ export default function Home() {
             </View>
           ) : null}
 
+          {/* Phase 2. Under the greeting and above everything that is a
+              recommendation, because it is the only block on the screen that
+              is pure navigation — four taps' worth of menu, as photographs.
+              It leads where the contents list leads; see `CategoryRail`. */}
+          <View style={s.rail}>
+            <CategoryRail
+              sections={sections}
+              onPick={(sectionId) => router.push({
+                pathname: '/menu',
+                params: { section: sectionId },
+              })}
+            />
+          </View>
+
           {/* Between the greeting and the featured header, where the design
               puts it. Drawn only when the server offered one — "hidden if any
               line is now unavailable" is decided where the menu is, so there
               is no unavailable-dish branch on this screen. */}
           {reorder ? (
             <ReorderRow reorder={reorder} onReorder={() => repeat(reorder.orderId)} />
+          ) : null}
+
+          {/* Phase 2. Only when there is a history to draw it from, and only
+              of dishes that are on the menu tonight. */}
+          {againDishes.length ? (
+            <View style={s.block}>
+              <View style={s.blockHead}>
+                <Text style={s.blockTitle}>{HOME_COPY.againTitle}</Text>
+                <Text style={s.blockEyebrow}>{HOME_COPY.againEyebrow}</Text>
+              </View>
+
+              <AgainRail
+                dishes={againDishes}
+                quantities={inCart}
+                onAdjust={adjust}
+                onOpen={(itemId) => sheet.current?.open(itemId)}
+              />
+            </View>
           ) : null}
 
           {showFeatured ? (
@@ -579,6 +676,9 @@ const s = StyleSheet.create({
 
   body: { paddingHorizontal: space[5] },
   error: { marginTop: space[5] },
+  // 24 above the rail rather than the blocks' 32: the circles belong to the
+  // hero they sit under, not to the sections below them.
+  rail: { marginTop: space[5] },
 
   greeting: {
     ...face('display'),

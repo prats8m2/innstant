@@ -242,3 +242,71 @@ async function canReplay(
   return itemIds.every((id) => pricing.items.get(id)?.isAvailable === true)
     && optionIds.every((id) => pricing.options.get(id)?.isAvailable === true);
 }
+
+/**
+ * Which dishes this history has actually eaten, newest first. Phase 2.
+ *
+ * ─── Ids, and nothing else ─────────────────────────────────────────────────
+ *
+ * The "Order again" rail is a row of dish cards with photographs, prices and
+ * a + on each. None of that is sent from here: the app is already holding
+ * today's menu, and that is the only place a price or a photograph may come
+ * from. What it cannot know is WHAT SOMEBODY ATE, so that is what this
+ * answers — a list of `menu_items.id`, which the app intersects with the menu
+ * it has.
+ *
+ * The consequence is the one that matters: a dish taken off the menu, sold
+ * out, or outside its own hours is simply not in the menu payload, so it
+ * cannot appear in the rail. There is no second availability oracle here to
+ * disagree with the first.
+ *
+ * ─── Delivered only, same as the block above ───────────────────────────────
+ *
+ * An order that was rejected is not a thing somebody ate, and offering it back
+ * as "order again" is the app misremembering. Same rule, same constant.
+ *
+ * ─── Reading past the snapshot, for the same reason ────────────────────────
+ *
+ * `order_items.menu_item_id`, never `name_snapshot` (#6). Matching a receipt's
+ * text against today's menu would put the wrong dish in a cart the day a
+ * kitchen renames one, and would find nothing at all the day it fixes a typo.
+ */
+export async function dishesOrderedBefore(
+  tx: Tx,
+  input: {
+    /** The same scoped history the reorder block is offered from — this
+     *  visit's, or the signed-in customer's across visits (D-081). */
+    history: readonly OrderSummary[];
+    /** How many distinct dishes at most. A rail, not a list. */
+    limit?: number;
+  },
+): Promise<string[]> {
+  const eaten = input.history.filter((order) => isDelivered(order.status));
+  if (!eaten.length) return [];
+
+  const rows = await tx.select({
+    orderId: orderItems.orderId,
+    menuItemId: orderItems.menuItemId,
+  }).from(orderItems)
+    .where(inArray(orderItems.orderId, eaten.map((order) => order.id)));
+
+  // The history arrives newest first, so its own order is the recency order.
+  // Sorting the ROWS by anything of their own would sort by insertion within
+  // an order, which says nothing about when it was eaten.
+  const byOrder = new Map(eaten.map((order, index) => [order.id, index]));
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const row of [...rows].sort((a, b) => (
+    (byOrder.get(a.orderId) ?? 0) - (byOrder.get(b.orderId) ?? 0)
+  ))) {
+    // Null where the dish has since been deleted — the FK is ON DELETE SET
+    // NULL and exists for analytics (#6). Nothing to offer back.
+    if (!row.menuItemId || seen.has(row.menuItemId)) continue;
+    seen.add(row.menuItemId);
+    out.push(row.menuItemId);
+    if (out.length >= (input.limit ?? 12)) break;
+  }
+
+  return out;
+}

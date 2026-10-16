@@ -123,7 +123,15 @@ export interface ApiDish {
   description: string | null;
   price: ApiMoney;
   isAvailable: boolean;
-  /** 'VEGETARIAN', 'VEGAN', 'CONTAINS_NUTS', … — rendered as marks. */
+  /**
+   * 'VEGETARIAN', 'NON_VEGETARIAN', 'VEGAN', 'CONTAINS_NUTS', … — rendered as
+   * marks. Open-ended, so a client renders the ones it knows and drops the
+   * rest rather than printing SCREAMING_SNAKE at somebody.
+   *
+   * The veg / non-veg pair is a DECLARATION and neither one is the default:
+   * a dish carrying neither has had nothing said about it, and a client must
+   * draw no mark rather than guess which square to print.
+   */
   dietaryFlags: string[];
   spiceLevel: number | null;
   prepTimeMinutes: number | null;
@@ -464,6 +472,24 @@ export interface ApiReorderSuggestion {
  *  in it. The app replaces its copy and opens the cart. */
 export interface ApiReorderResult {
   cart: ApiCart;
+}
+
+/**
+ * `GET /api/v1/orders/again` — which dishes this history has eaten. Phase 2.
+ *
+ * Ids ONLY, deliberately. The app is already holding today's menu, and a
+ * price, a photograph and whether a dish can be added blind all belong to it;
+ * what the app cannot know is what somebody ate before. So the server answers
+ * that one question and the app intersects the answer with the menu it has.
+ *
+ * The useful consequence: a dish that is off the menu tonight is not in the
+ * menu payload, so it cannot appear in the rail. There is no second
+ * availability check here to fall out of step with the first.
+ *
+ * Newest first, and capped — this draws a rail, not a history.
+ */
+export interface ApiOrderedBefore {
+  menuItemIds: string[];
 }
 
 
