@@ -9,6 +9,7 @@ import type { ApiDish, ApiMenu } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
 import { Loading, Notice, Screen } from '@/components/ui';
 import { Stepper } from '@/components/stepper';
+import { DishPhoto } from '@/components/dish-photo';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -299,16 +300,32 @@ function DishRow({
         </View>
       </Pressable>
 
-      {/* Only where there is nothing to ask. A dish whose required choice has
-          no default sends somebody inside instead. */}
-      {dish.isAvailable && dish.canQuickAdd ? (
-        <Stepper quantity={quantity} onAdjust={onAdjust} label={dish.name} />
-      ) : null}
+      {/* Photo and control share a column, the control sitting over the
+          photo's lower edge. Without a photograph the column is the control
+          alone, exactly as this row shipped. */}
+      <View style={dish.imageUrl ? s.media : undefined}>
+        {dish.imageUrl ? (
+          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={96} />
+        ) : null}
+        {/* Only where there is nothing to ask. A dish whose required choice
+            has no default sends somebody inside instead. */}
+        {dish.isAvailable && dish.canQuickAdd ? (
+          <View style={dish.imageUrl ? s.stepperOverPhoto : undefined}>
+            <Stepper quantity={quantity} onAdjust={onAdjust} label={dish.name} />
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
 const s = StyleSheet.create({
+  /* Fixed width so every row's text wraps in the same place. A column
+     sized to its image makes a list of dishes look like a list of
+     different things. */
+  media: { width: 96, alignItems: 'center' },
+  stepperOverPhoto: { marginTop: -20 },
+
   center: { justifyContent: 'center', padding: space[5] },
   headerLink: { fontSize: type.base, color: colors.accent, fontWeight: '600' },
 

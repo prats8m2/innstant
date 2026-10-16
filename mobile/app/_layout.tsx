@@ -12,6 +12,7 @@ import { DMMono_400Regular, DMMono_500Medium } from '@expo-google-fonts/dm-mono'
  * pinned cart pill, the checkout footer and the dish footer each jump by the
  * home-indicator height as a screen appears.
  */
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { SessionProvider } from '@/lib/session';
 import { colors } from '@/lib/theme';
@@ -75,6 +76,13 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
+    /*
+     * `GestureHandlerRootView` has to be the OUTERMOST view, and it has to
+     * have flex: 1. Gesture handlers register against it, so a bottom sheet
+     * mounted outside one simply does not respond to a drag — no error, no
+     * warning, a sheet that will not move.
+     */
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       {/* Light content, because the ground is indigo. Set here so a screen
           cannot forget it and show black text on a dark bar. */}
@@ -93,17 +101,14 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />
-          {/* The landing. It draws its own 64pt top row — a wordmark and the
-              account corner — so there is no header to show, and a native one
-              above it would be a second title bar. */}
-          <Stack.Screen name="home" options={{ headerShown: false }} />
+          {/* The tab bar and everything inside it. One entry, because from
+              the stack's point of view the three tabs are a single place. */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="menu" options={{ title: 'Menu' }} />
           <Stack.Screen name="dish/[itemId]" options={{ title: '' }} />
           <Stack.Screen name="cart" options={{ title: 'Your order', presentation: 'modal' }} />
           <Stack.Screen name="order/[orderId]" options={{ title: 'Your order' }} />
-          <Stack.Screen name="orders" options={{ title: 'Orders' }} />
           {/* D-081 — the account. None of it gates ordering (#9). */}
-          <Stack.Screen name="account/index" options={{ title: 'Account' }} />
           <Stack.Screen name="account/sign-in" options={{ title: 'Sign in' }} />
           <Stack.Screen name="account/addresses" options={{ title: 'Addresses' }} />
           {/* Deep links. The router owns the launch URL and routes to these
@@ -113,5 +118,6 @@ export default function RootLayout() {
         </Stack>
       </SessionProvider>
     </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

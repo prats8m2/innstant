@@ -1,3 +1,4 @@
+import { DishPhoto } from '@/components/dish-photo';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight, Plus } from 'lucide-react-native';
@@ -93,13 +94,25 @@ export function FeaturedRow({
         </View>
       </View>
 
-      {/* Aligned to the dish NAME rather than the top of the row: the eyebrow
-          above it is a label, and a control level with a label reads as
-          belonging to the label. */}
-      <View style={s.control}>
-        {dish.canQuickAdd
-          ? <QuickAdd dish={dish} quantity={quantity} onAdd={onAdd} />
-          : <Choose dish={dish} onPress={onChoose} />}
+      {/*
+        Photo with the control laid over its lower edge — the arrangement
+        Swiggy and Zomato both use, and they use it because it buys a row of
+        vertical space back: the picture and the button occupy the same
+        column instead of queueing.
+
+        When there is no photograph the column collapses to just the control,
+        which is the layout this screen shipped with. A property that has
+        uploaded nothing therefore loses nothing.
+      */}
+      <View style={dish.imageUrl ? s.media : s.control}>
+        {dish.imageUrl ? (
+          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} />
+        ) : null}
+        <View style={dish.imageUrl ? s.controlOverPhoto : undefined}>
+          {dish.canQuickAdd
+            ? <QuickAdd dish={dish} quantity={quantity} onAdd={onAdd} />
+            : <Choose dish={dish} onPress={onChoose} />}
+        </View>
       </View>
     </View>
   );
@@ -242,6 +255,13 @@ const s = StyleSheet.create({
   // `minWidth: 0`'s RN equivalent — without `flex: 1` the long description
   // pushes the control off the right edge instead of wrapping.
   left: { flex: 1, gap: 6 },
+
+  /* The photo column. Fixed width so every row's text wraps at the same
+     place — a column that sized itself to its image would make a list of
+     dishes look like a list of different things. */
+  media: { width: 112, alignItems: 'center' },
+  /* Pulled up over the photo's bottom edge, centred on it. */
+  controlOverPhoto: { marginTop: -22 },
 
   eyebrow: {
     ...face('mono'),
