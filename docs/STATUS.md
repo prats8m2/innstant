@@ -21,8 +21,30 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Production is CURRENT with this repo.** Deployed 15 October 2026 from
-`2bbdec7`. `/api/health` reads **ok, 10/10**, latest `0009_customer_accounts.sql`
+**Production is BEHIND this repo.** Everything below the app-redesign section
+describes the last deployed state; the redesign commits since `2bbdec7` have
+not been deployed, and deliberately need no migration.
+
+### The app redesign (`docs/APP-REDESIGN-PLAN.md`)
+
+| Phase | State |
+|---|---|
+| 0 · images | stand-in photography seeded (`0c47914`). R2, the upload pipeline and the `image_key` migration are still Next. |
+| 1 · app shell | **DONE.** Tab bar and dish photos in `4940194`; the sheet, the skeletons, pull-to-refresh and haptics in `cac2753`. |
+| 2 · image-led screens | not started. Needs real photography, not the stand-ins. |
+| 3 · search and filters | not started. Needs a search endpoint — client-side filtering stops working at a real property's sixty dishes. |
+| 4 · motion and polish | not started. |
+
+What phase 1 cannot verify from a laptop, and what a device has to settle:
+the pull gesture (`react-native-web`'s `RefreshControl` is a no-op `View`, so
+the handler is wired and typechecked but has never been pulled), and the
+haptics themselves (`expo-haptics` is skipped on web by design). Both ship in
+the Android bundle, which exports clean.
+
+---
+
+**Deployed 15 October 2026 from
+`2bbdec7`.** `/api/health` reads **ok, 10/10**, latest `0009_customer_accounts.sql`
 — no new migration this round, by design.
 
 Verified against the live site rather than the deploy log:
@@ -122,6 +144,9 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| P6 | `cac2753` | Phase 1 of the app redesign, finished: modifier selection rises as a bottom sheet over the menu, skeletons in the shape of home, the menu, the orders list and the dish, pull-to-refresh on all three lists, and haptics on exactly three events. The selection rules moved into `useDishChoice()` so the sheet and the deep-linkable `/dish/:id` screen cannot disagree about which option replaces its siblings. The footer had to become a `BottomSheetFooter`: the sheet's content container is as tall as its LARGEST snap point, so a pinned footer at the bottom of a `flex: 1` child sat a third of a screen below the fold — visible in a screenshot, invisible to tsc. `--dur-shimmer` is a new token on both sides of the hand-kept copy, the one duration outside the 180–320 band because it times a loop rather than a transition. |
+| P6 | `4940194` | Phase 1, first half: the bottom tab bar — Order, Orders, Account — and dish photography on the home and menu rows through one `DishPhoto` wrapper over `expo-image`, blurhash-ready. Search is deliberately NOT a tab until there is an endpoint behind it. |
+| P6 | `0c47914` | Stand-in dish photography seeded from `kesari-menu.ts`, so the redesign has something to lay out while the real shoot is organised. |
 | P5 | `dce47cb` | Customer accounts (D-081). The collision between a menu nobody signs in to scan and an account that keeps order history, resolved by separating CONTEXT from IDENTITY into two credentials: `guest_sessions` says where you are and expires, `customer_sessions` says who you are and outlives every visit. A customer session grants zero access to any context — signing in never raises a tier — which is what keeps #9 true. OTP over a pluggable `OtpSender` whose only implementation writes to the log. History is ONLINE-link orders only, per the scope the user set, stamped from the identity token and never from the visit's unverified phone. Found `openVisit()` never writing `link_kind` at all, which would have shipped a permanently empty history that looked like it worked; and `verifyCode()` throwing its refusal inside the transaction that recorded the attempt, rolling back the counter and leaving no brute-force protection — the same bug `escalation.ts` already carried a warning about. Driving the screens in a browser found four more. |
 | P4 | `ceb14df` | A property can be used without a room (D-079). `/p/{code}` opens a VISIT — dine-in at a table tent, takeaway at a counter, delivery from a sent link — and the orders land on the same kitchen rail as room service. A visit is a SIBLING of a stay, not a stay against a virtual room: the partial unique index permits one per room, a stay shows up on four screens a diner is not on, and `scheduled_checkout_at` is NOT NULL. `GuestSession` became a discriminated union and `stayId` became `OrderContext`, so ~20 call sites were compile errors rather than one runtime failure. No folio for a visit, deliberately. Found the demo seeder never snapshotting a destination, rendering two dashes on a rail otherwise full of correct ones. |
 | P4 | `69e1685` | The front door leads with the product: `/demo` is the filled primary in the hero, the header and the dark band, and "Book a demo" is the outlined secondary everywhere. `site-icons.tsx` turns a copy string into a Lucide mark in one place, so the pillars' comma-lists are chips, every How-it-works step carries its surface's mark and a screen-chip of what is on that screen at that minute, and the revenue and security cards lead with one. Body copy on `/` down about a third; no photography invented, every picture is still built markup. |
