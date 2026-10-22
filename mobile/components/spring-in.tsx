@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import Animated, {
-  useAnimatedStyle, useSharedValue, withSpring,
+  useAnimatedStyle, useReducedMotion, useSharedValue, withSpring,
 } from 'react-native-reanimated';
-import { useReducedMotion } from '@/lib/motion';
 import { duration } from '@/lib/theme';
 
 /**
@@ -48,6 +47,22 @@ import { duration } from '@/lib/theme';
  * not an animation — and starting at 1.33 and jumping to 1 is a flash. So
  * this component picks its own starting point, and it is the only place in
  * the app that has an entry state to pick one for.
+ *
+ * ─── Reanimated's `useReducedMotion`, not `lib/motion`'s ───────────────────
+ *
+ * The app's own hook is the right one everywhere else and the wrong one here.
+ * It reads `AccessibilityInfo` asynchronously, so it returns `false` on the
+ * FIRST render and corrects a tick later — which is fine for a duration that
+ * is read when an animation starts, and useless for an initial value that is
+ * read once and never again. Using it here shipped the exact flash described
+ * above: the photograph mounted at 1.333 and snapped to 1, under the setting
+ * that exists to prevent precisely that. Measured, not reasoned about.
+ *
+ * Reanimated's hook is a constant read at app start, so it is already settled
+ * on the first render, and it is the same source `ReducedMotionConfig` reads
+ * — which is what this starting point has to agree with. What it gives up is
+ * reacting to the setting being changed mid-session; that costs nothing for a
+ * value sampled once at mount.
  */
 export function SpringIn({
   from,

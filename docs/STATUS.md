@@ -33,7 +33,22 @@ not been deployed, and deliberately need no migration.
 | 1 · app shell | **DONE.** Tab bar and dish photos in `4940194`; the sheet, the skeletons, pull-to-refresh and haptics in `cac2753`. |
 | 2 · image-led screens | **DONE** against the stand-in photography. Photo hero behind the arch, category circles, an "Order again" rail, photo menu cards with the veg / non-veg mark, and a collapsing dish header. Everything in it is as good as the pictures, which are still borrowed. |
 | 3 · search and filters | **DONE** in `5013e56`. `GET /api/v1/menu/search` with diet, spice and price filters; a fourth tab; recents; a "most ordered" badge counted from `order_items`. |
-| 4 · motion and polish | **DONE.** Optimistic cart, drawn empty / offline / refused states on every list, one global reduced-motion rule, and the dish sheet's photograph springing in from the row's size. |
+| 4 · motion and polish | **DONE** in `8358a3b`, verified and corrected since. Optimistic cart, drawn empty / offline / refused states on every list, one global reduced-motion rule, and the dish sheet's photograph springing in from the row's size. **No** shared-element transition — see below. |
+
+The redesign is finished as a UI pass. What it did NOT do, and what nobody
+should read these four DONEs as covering:
+
+  · **The photographs are licensed Unsplash stand-ins**, seeded onto the ten
+    demo dishes. Every screen phases 2 and 4 built is drawn around a picture,
+    and none of the pictures is the restaurant's food. R2, the upload
+    pipeline, blurhash-at-upload and the `image_key` migration are all still
+    unbuilt — phase 0 is half done and is the only item here that blocks.
+  · **No ratings** (argued against — a self-published rating with no
+    independent source is decoration), **no offers** (a money path, its own
+    project, needs schema), **no rider map** (there is no rider GPS and no
+    driver app). All three are reasoned out in `docs/APP-REDESIGN-PLAN.md`
+    under "What is left"; none of them is a thing left half-finished.
+  · **No migration and no deploy** in any of the four phases, by design.
 
 What phase 1 cannot verify from a laptop, and what a device has to settle:
 the pull gesture (`react-native-web`'s `RefreshControl` is a no-op `View`, so
@@ -91,14 +106,34 @@ the destination rect, which is inside a sheet that is mid-rise when it lays
 out. What shipped is the cheaper honest thing, named as such in
 `components/spring-in.tsx`: the sheet's photograph starts at the ROW's 112pt
 and springs to its own 84pt. Measured in the browser at 1.33 → 0.99 → 1.00,
-settling inside 250ms, and flat at 1.000 with reduced motion on.
+settling inside 250ms.
 
-Phase 4 was rendered and measured in the browser: the optimistic count moves
-in ~100ms against a server deliberately held for 2s; a 409 rolls it back and
-the toast reads "Not added. The kitchen has stopped taking orders for
-tonight."; and the empty / offline states were driven on all five lists
-(menu — both by-filter and nothing-on-the-menu, search, orders, addresses,
-cart) with their boxes measured rather than eyeballed.
+**The reduced-motion half of that was wrong when it was first written here,
+and is fixed.** `SpringIn` asked `lib/motion.ts` whether to start at 1.333 or
+at 1 — and that hook reads `AccessibilityInfo` asynchronously, so it answers
+`false` on the first render and corrects a tick later. Fine for a duration
+read when an animation starts; useless for an initial value read once. The
+photograph therefore mounted at 1.333 and snapped to 1 under the exact setting
+that exists to prevent that flash. The earlier "flat at 1.000" reading had
+sampled from `requestAnimationFrame`, which starts too late to see a value set
+at mount; a `MutationObserver` on the inline style catches it, and did. It now
+reads Reanimated's own `useReducedMotion` — a constant settled at app start,
+and the same source `<ReducedMotionConfig>` consults. Re-measured at four
+observations of 1.333 before the fix and zero after, with the ordinary spring
+unchanged.
+
+Phase 4 was rendered and measured in the browser, then re-rendered and
+re-measured on review: the optimistic count moves in **89ms** against a server
+deliberately held for **2,280ms**; a 409 rolls it back to a plain `+` and the
+toast reads "Not added. That dish is off the menu tonight." — the server's
+sentence verbatim — while an aborted request reads "Not added. No connection.
+Check your signal and try again."; and the drawn states were driven on the
+lists (menu, both filtered-to-nothing and failed-to-load; search, all three of
+idle, nothing-matched and offline; orders; cart) with their boxes measured
+rather than eyeballed. Every `Try again` / `Clear the filters` / `Sign in`
+measures 280x48 centred at x=195 in a 390 viewport — the one thing a
+screenshot would have got wrong, because they sat left-aligned at x=24 until
+`ListState`'s `alignSelf: 'stretch'` became a width.
 
 ---
 
