@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 /**
@@ -46,4 +46,56 @@ export function useReducedMotion(): boolean {
   }, []);
 
   return reduced;
+}
+
+/**
+ * One millisecond. Phase 4, and the whole of what reduced motion costs.
+ *
+ * It is not zero. `Animated.timing` with a zero duration is a special case in
+ * several easing implementations and in Reanimated's worklet scheduler, and a
+ * zero-length animation is the kind of thing a library is allowed to decide
+ * means "no animation" and skip — including skipping the completion callback
+ * that the next thing was waiting on. 1ms is a real animation that lands on
+ * the very next frame, so every code path downstream of it runs exactly as it
+ * does at 240.
+ */
+export const REDUCED_MS = 1;
+
+/**
+ * What a duration MEANS on this phone. Phase 4.
+ *
+ * ─── Why this exists rather than a branch per component ────────────────────
+ *
+ * Every animating component used to carry the same three lines:
+ *
+ *     if (reduced) { value.setValue(to); return; }
+ *     Animated.timing(value, { toValue: to, duration: duration.mid, … })
+ *
+ * Four components had it, each with its own chance to forget. The fifth one
+ * somebody writes is the one that animates for a person who asked it not to,
+ * and nothing fails — the bug is invisible to everybody who does not have the
+ * setting turned on, which is almost everybody who would review it.
+ *
+ * So the decision moves into the duration itself. A component asks what
+ * `duration.mid` is worth right now and animates for that long, with no branch
+ * and no second code path:
+ *
+ *     const ms = useDuration();
+ *     Animated.timing(value, { toValue: to, duration: ms(duration.mid), … })
+ *
+ * The end state is identical either way, which is what the setting asks for —
+ * the information arrives, the travel does not. And because there is only one
+ * path, the reduced-motion path is the same path everybody else exercises
+ * rather than a branch nobody runs.
+ *
+ * ─── Reanimated is handled in the root layout instead ──────────────────────
+ *
+ * This covers React Native's own `Animated`, which has no global switch.
+ * Reanimated has one — `ReducedMotionConfig`, mounted once in
+ * `app/_layout.tsx` — and it reaches the skeletons, the dish screen's
+ * parallax and the bottom sheet's rise, none of which this hook can see.
+ */
+export function useDuration(): (ms: number) => number {
+  const reduced = useReducedMotion();
+  return useCallback((ms: number) => (reduced ? REDUCED_MS : ms), [reduced]);
 }

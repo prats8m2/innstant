@@ -169,8 +169,14 @@ const BADGE_ICON = 12;
  * 15pt on a 390pt screen with both gutters. Anything wider starts breaking
  * names across three lines, which costs more vertical space than the picture
  * gains.
+ *
+ * Exported because the sheet's photograph springs in from this size — see
+ * `components/spring-in.tsx`. The ratio has to be two real numbers, or the
+ * day somebody retunes this one the transition starts at a size nothing on
+ * screen ever was.
  */
-const PHOTO = 112;
+export const DISH_ROW_PHOTO = 112;
+const PHOTO = DISH_ROW_PHOTO;
 
 const s = StyleSheet.create({
   /* Fixed width so every row's text wraps in the same place. A column

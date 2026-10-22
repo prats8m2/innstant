@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import type { ApiOrderSummary } from '@contract';
-import { useReducedMotion } from '@/lib/motion';
+import { useDuration } from '@/lib/motion';
 import {
   colors, duration, face, radius, space, tabular, text as type, TOUCH_MIN,
 } from '@/lib/theme';
@@ -39,7 +39,6 @@ export function LiveOrderCard({
   timezone: string;
   onPress: () => void;
 }) {
-  const reduced = useReducedMotion();
   const eta = etaSentence(order, timezone);
 
   return (
@@ -62,7 +61,7 @@ export function LiveOrderCard({
           min: 0, max: order.stepCount, now: order.stepIndex,
         }}>
           {Array.from({ length: order.stepCount }, (_, index) => (
-            <Segment key={index} filled={index < order.stepIndex} reduced={reduced} />
+            <Segment key={index} filled={index < order.stepIndex} />
           ))}
         </View>
       ) : null}
@@ -90,21 +89,26 @@ export function LiveOrderCard({
  *
  * The animated value starts at its CURRENT state, so a card that mounts three
  * steps in appears three steps in — only a segment that actually changes
- * fills, which is what the 320ms is for. Reduced motion snaps to the end
- * state, never to a half-played one.
+ * fills, which is what the 320ms is for. Reduced motion lands on the end
+ * state on the next frame, never on a half-played one — `useDuration` is what
+ * decides that, here and everywhere else, rather than a branch per component.
+ *
+ * The hook is called per segment rather than passed down from the card. It
+ * reads one subscription's worth of state and there are at most five of them;
+ * a `reduced` prop threaded through was the shape that made the card know
+ * about an accessibility setting it has nothing to do with.
  */
-function Segment({ filled, reduced }: { filled: boolean; reduced: boolean }) {
+function Segment({ filled }: { filled: boolean }) {
+  const ms = useDuration();
   const on = useRef(new Animated.Value(filled ? 1 : 0)).current;
 
   useEffect(() => {
-    const to = filled ? 1 : 0;
-    if (reduced) { on.setValue(to); return; }
     Animated.timing(on, {
-      toValue: to,
-      duration: duration.slower,
+      toValue: filled ? 1 : 0,
+      duration: ms(duration.slower),
       useNativeDriver: true,
     }).start();
-  }, [filled, reduced, on]);
+  }, [filled, ms, on]);
 
   return (
     <View style={s.segment}>

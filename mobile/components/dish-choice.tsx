@@ -8,7 +8,9 @@ import { useApiError, useSession } from '@/lib/session';
 import { tapAdd } from '@/lib/haptics';
 import { Button, Notice } from '@/components/ui';
 import { DishPhoto } from '@/components/dish-photo';
+import { DISH_ROW_PHOTO } from '@/components/dish-row';
 import { DietMark } from '@/components/diet-mark';
+import { SpringIn } from '@/components/spring-in';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -201,10 +203,24 @@ export function DishChoiceBody({
           <Text style={s.name}>{dish.name}</Text>
           <Text style={[s.price, tabular]}>{dish.price.text}</Text>
         </View>
-        {/* The same photograph the row that was tapped is showing, so the
-            sheet rises out of something rather than replacing it. */}
+        {/*
+          The same photograph the row that was tapped is showing, so the sheet
+          rises out of something rather than replacing it — and phase 4 made
+          it start at the row's size and settle to this one, so it reads as
+          that picture coming closer. `showPhoto` is false on the full dish
+          SCREEN, where the same photograph is already the bleed header, so
+          this spring only ever runs in the sheet. See spring-in.tsx for why
+          it is this and not a shared element.
+        */}
         {showPhoto && dish.imageUrl ? (
-          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={84} />
+          <SpringIn from={DISH_ROW_PHOTO / SHEET_PHOTO}>
+            <DishPhoto
+              uri={dish.imageUrl}
+              blurhash={dish.blurhash}
+              name={dish.name}
+              size={SHEET_PHOTO}
+            />
+          </SpringIn>
         ) : null}
       </View>
 
@@ -348,6 +364,10 @@ function formatFrom(sample: string, minor: number): string {
     maximumFractionDigits: 2,
   })}`;
 }
+
+/** The sheet's own photograph. Smaller than the row's, because the sheet has
+ *  a name, a price and a paragraph to fit beside it. */
+const SHEET_PHOTO = 84;
 
 const s = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: space[4] },

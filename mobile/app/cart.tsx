@@ -4,12 +4,14 @@ import {
 } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ShoppingBag } from 'lucide-react-native';
 import * as api from '@/lib/api';
 import type { ApiCartLine, ApiFulfilment } from '@/lib/api';
-import { useApiError, useSession } from '@/lib/session';
+import { useApiFailure, useSession, type Failure } from '@/lib/session';
 import { newIdempotencyKey } from '@/lib/ids';
 import { orderPlaced, tapAdd, tapRemove } from '@/lib/haptics';
 import { Button, Loading, Notice, Screen } from '@/components/ui';
+import { ListState } from '@/components/state';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
@@ -29,7 +31,7 @@ import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/t
  */
 export default function Cart() {
   const { session, customer, addresses, cart, setCart, refreshCart } = useSession();
-  const onError = useApiError();
+  const failureOf = useApiFailure();
   const insets = useSafeAreaInsets();
 
   /**
@@ -92,7 +94,10 @@ export default function Cart() {
     // render and depending on it would re-run this on every keystroke.
   }, [defaultAddress?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
   const [mode, setMode] = useState<ApiFulfilment>('TAKEAWAY');
-  const [error, setError] = useState<string | null>(null);
+  /** A refusal from a line change or from sending. Kept with its kind so the
+   *  two that can empty this screen — no connection, a dead kitchen — do not
+   *  read as the same thing. */
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
 
   /**
@@ -108,7 +113,9 @@ export default function Cart() {
    */
   const [idempotencyKey] = useState(newIdempotencyKey);
 
-  useEffect(() => { void refreshCart(); }, [refreshCart]);
+  // The one caller that reads the answer. Everywhere else the cart is a
+  // backstop on focus and a failed background read is not worth a panel.
+  useEffect(() => { void refreshCart().then(setFailure); }, [refreshCart]);
 
   // A table tent fixes the answer. Offering "delivery" to somebody sitting in
   // the dining room is an invitation to a mistake, and `setVisitDetails()`
@@ -131,15 +138,15 @@ export default function Cart() {
       // Same weight either way. Going down is not a mistake being corrected,
       // and a heavier tap on remove would say it was.
       if (quantity > line.quantity) tapAdd(); else tapRemove();
-      setError(null);
-    } catch (failure) {
-      setError(onError(failure));
+      setFailure(null);
+    } catch (thrown) {
+      setFailure(failureOf(thrown));
     }
-  }, [setCart, onError]);
+  }, [setCart, failureOf]);
 
   const send = async () => {
     setBusy(true);
-    setError(null);
+    setFailure(null);
     try {
       const placed = await api.placeOrder({
         idempotencyKey,
@@ -155,21 +162,52 @@ export default function Cart() {
       // `replace`, not `push`: the cart is emptied server-side at placement,
       // and a back gesture onto an empty cart is a dead end.
       router.replace(`/order/${placed.orderId}`);
-    } catch (failure) {
-      setError(onError(failure));
+    } catch (thrown) {
+      setFailure(failureOf(thrown));
     } finally {
       setBusy(false);
     }
   };
 
+  /*
+    A failure with no cart behind it is the whole screen, because there is no
+    order to show and no form worth filling in. The two causes are drawn
+    apart: one is advice about a signal, the other is a sentence from the
+    kitchen. This case had no drawing at all before — `<Loading />` ran
+    forever on a cart read that failed.
+  */
+  if (failure && !cart) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Your order' }} />
+        <ListState
+          tone={failure.kind}
+          title={failure.kind === 'offline' ? 'Your order did not load' : 'Your order is not available'}
+          body={failure.kind === 'offline'
+            ? 'You are not reaching us. Check your signal — nothing in the cart has been lost.'
+            : undefined}
+          message={failure.kind === 'refused' ? failure.message : undefined}
+          actionLabel="Back to the menu"
+          onAction={() => router.back()}
+        />
+      </Screen>
+    );
+  }
+
   if (!cart || !session) return <Loading />;
 
   if (cart.lines.length === 0) {
     return (
-      <Screen style={s.center}>
+      <Screen>
         <Stack.Screen options={{ title: 'Your order' }} />
-        <Text style={s.emptyLine}>Nothing in the order yet.</Text>
-        <Button label="Back to the menu" tone="quiet" onPress={() => router.back()} />
+        <ListState
+          tone="empty"
+          icon={ShoppingBag}
+          title="Nothing in the order yet"
+          body="Add a dish from the menu and it shows up here."
+          actionLabel="Back to the menu"
+          onAction={() => router.back()}
+        />
       </Screen>
     );
   }
@@ -420,7 +458,7 @@ export default function Cart() {
             </>
           ) : null}
 
-          {error ? <Notice>{error}</Notice> : null}
+          {failure ? <Notice>{failure.message}</Notice> : null}
 
           {/* Offered, never required. Somebody who ignores this orders exactly
               as they did before (#9). */}
@@ -461,9 +499,6 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
 }
 
 const s = StyleSheet.create({
-  center: { justifyContent: 'center', alignItems: 'center', padding: space[5], gap: space[4] },
-  emptyLine: { fontSize: type.base, color: colors.inkDim },
-
   body: { paddingHorizontal: space[5], paddingVertical: space[4], gap: space[3] },
   where: { fontSize: type.sm, color: colors.inkDim, marginBottom: space[1] },
 

@@ -1,21 +1,29 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
 /**
  * The + and − on a menu card. D-080.
  *
- * ─── Why it holds its own busy state ───────────────────────────────────────
+ * ─── What phase 4 changed, and why the busy state went ─────────────────────
  *
- * Every tap is a round trip — the cart is a table, not client state, exactly
- * as it is on the web. A stepper that re-rendered the whole list while one
- * card was in flight would make the other thirty flicker, so the pending state
- * is local and the cart that comes back replaces the shared one.
+ * This used to hold its own `busy` flag: a tap disabled the control, replaced
+ * the count with a `·` and waited for the round trip. The cart is a table and
+ * not client state, so that was honest — but it meant the number a person had
+ * just changed was the one thing on screen that would not move, for as long
+ * as hotel wifi took.
  *
- * Taps are swallowed while one is in flight rather than queued. Somebody
- * jabbing + four times means four, and four overlapping writes against one
- * cart row is a race the UI should not start — the server merges identical
- * lines, so the quantity that lands is the quantity they can see.
+ * The cart is optimistic now. `session.adjust` moves the count on the tap and
+ * reconciles when the server answers, so `quantity` arriving here is already
+ * the number this tap produced and there is nothing to wait for and nothing
+ * to hide. A refusal rolls it back and says so — see `CartToast`.
+ *
+ * The swallow is unchanged and moved up: taps for a dish with a write in the
+ * air are dropped rather than queued, because four overlapping writes against
+ * one cart row is a race the UI should not start. It lives in `adjust` now,
+ * because the stepper is no longer the only thing that can start one — the
+ * featured rail's quick-add and the home screen's rows go through the same
+ * door. A control that disabled itself would be a second, weaker copy of a
+ * rule that is already enforced where it matters.
  */
 export function Stepper({
   quantity,
@@ -27,28 +35,15 @@ export function Stepper({
   /** For the screen reader: "One more Laal maas". */
   label: string;
 }) {
-  const [busy, setBusy] = useState(false);
-
-  const tap = async (direction: 'add' | 'remove') => {
-    if (busy) return;
-    setBusy(true);
-    try {
-      await onAdjust(direction);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   if (quantity === 0) {
     return (
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Add ${label}`}
-        disabled={busy}
-        onPress={() => void tap('add')}
-        style={({ pressed }) => [s.add, pressed && s.pressed, busy && s.busy]}
+        onPress={() => void onAdjust('add')}
+        style={({ pressed }) => [s.add, pressed && s.pressed]}
       >
-        {busy ? <ActivityIndicator size="small" color={colors.accent} /> : <Text style={s.addText}>+</Text>}
+        <Text style={s.addText}>+</Text>
       </Pressable>
     );
   }
@@ -58,22 +53,20 @@ export function Stepper({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`One fewer ${label}`}
-        disabled={busy}
-        onPress={() => void tap('remove')}
+        onPress={() => void onAdjust('remove')}
         style={({ pressed }) => [s.step, pressed && s.pressed]}
       >
         <Text style={s.stepText}>−</Text>
       </Pressable>
 
       <Text style={[s.count, tabular]} accessibilityLiveRegion="polite">
-        {busy ? '·' : quantity}
+        {quantity}
       </Text>
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`One more ${label}`}
-        disabled={busy}
-        onPress={() => void tap('add')}
+        onPress={() => void onAdjust('add')}
         style={({ pressed }) => [s.step, pressed && s.pressed]}
       >
         <Text style={s.stepText}>+</Text>
@@ -119,5 +112,4 @@ const s = StyleSheet.create({
   count: { minWidth: 20, textAlign: 'center', fontSize: type.base, fontWeight: '700', color: colors.ink },
 
   pressed: { backgroundColor: colors.raised },
-  busy: { opacity: 0.6 },
 });

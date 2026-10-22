@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   AppState, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
@@ -7,8 +7,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Moon, User } from 'lucide-react-native';
 import * as api from '@/lib/api';
 import type { ApiDish, ApiMenu, ApiOrderSummary, ApiReorder } from '@/lib/api';
-import { useApiError, useSession } from '@/lib/session';
+import { useApiError, useApiFailure, useSession, type Failure } from '@/lib/session';
 import { Notice, Screen } from '@/components/ui';
+import { ListState } from '@/components/state';
 import { HomeSkeleton } from '@/components/skeleton';
 import { HomeHero } from '@/components/hero';
 import { CategoryRail } from '@/components/category-rail';
@@ -20,7 +21,7 @@ import { LiveOrderCard } from '@/components/live-order-card';
 import { ReorderRow } from '@/components/reorder-row';
 import { HomeBottomBar } from '@/components/home-bottom-bar';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
-import { tapAdd, tapRemove } from '@/lib/haptics';
+import { tapAdd } from '@/lib/haptics';
 import { HOME_COPY } from '@/lib/copy';
 import { distinctDishCount, greetingFor, initialOf, padCount, toRoman } from '@/lib/format';
 import {
@@ -92,8 +93,9 @@ const POLL_MS = 30_000;
 const BAR_CLEARANCE = 136;
 
 export default function Home() {
-  const { session, customer, isCustomerLoading, cart, setCart, refreshCart } = useSession();
+  const { session, customer, isCustomerLoading, cart, counts, adjust, setCart, refreshCart } = useSession();
   const onError = useApiError();
+  const failureOf = useApiFailure();
   const insets = useSafeAreaInsets();
 
   const [menu, setMenu] = useState<ApiMenu | null>(null);
@@ -102,6 +104,16 @@ export default function Home() {
   /** Ids, in the order they were last eaten. The dishes themselves come off
    *  the menu below — see `ApiOrderedBefore`. */
   const [again, setAgain] = useState<string[]>([]);
+  /**
+   * Two different things, and they are drawn in two different places.
+   *
+   * `failure` is the MENU not arriving, which is the page failing and takes
+   * the whole screen. `error` is a refusal from the reorder block — the page
+   * is fine and one offer on it is not — and stays a notice in the flow.
+   * Collapsing them was how a dead reorder put a red panel over a storefront
+   * that had loaded perfectly well.
+   */
+  const [failure, setFailure] = useState<Failure | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   /** The same sheet the menu raises. A featured dish with a required choice
@@ -129,16 +141,16 @@ export default function Home() {
     (async () => {
       try {
         const loaded = await api.getMenu();
-        if (!cancelled) { setMenu(loaded); setError(null); }
-      } catch (failure) {
-        if (!cancelled) setError(onError(failure));
+        if (!cancelled) { setMenu(loaded); setFailure(null); }
+      } catch (thrown) {
+        if (!cancelled) setFailure(failureOf(thrown));
       }
     })();
 
     void refreshCart();
 
     return () => { cancelled = true; };
-  }, [onError, refreshCart]));
+  }, [failureOf, refreshCart]));
 
   /**
    * Live orders, polled while there is one and only while this screen is on
@@ -261,15 +273,10 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [customer, onError]));
 
-  /** How many of each dish are in the cart, summed ACROSS variants — the same
-   *  shape the menu screen's cards read. */
-  const inCart = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const line of cart?.lines ?? []) {
-      counts.set(line.menuItemId, (counts.get(line.menuItemId) ?? 0) + line.quantity);
-    }
-    return counts;
-  }, [cart]);
+  /* The counts come from the session, with any tap that has not been answered
+     yet already in them. It was a `useMemo` over `cart.lines` here, and the
+     same one in the menu and in search — one sum, written three times, which
+     the optimistic cart cannot be. */
 
   /**
    * Everything on the page, re-read at once.
@@ -293,30 +300,16 @@ export default function Home() {
 
     if (loadedMenu.status === 'fulfilled') {
       setMenu(loadedMenu.value);
-      setError(null);
+      setFailure(null);
     } else {
-      setError(onError(loadedMenu.reason));
+      setFailure(failureOf(loadedMenu.reason));
     }
     if (loadedOrders.status === 'fulfilled') setOrders(loadedOrders.value);
     if (suggestion.status === 'fulfilled') setReorder(suggestion.value.reorder);
     if (eaten.status === 'fulfilled') setAgain(eaten.value.menuItemIds);
 
     setRefreshing(false);
-  }, [fetchOrders, onError, refreshCart]);
-
-  const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
-    try {
-      setCart(await api.quickAdjust({ menuItemId, direction }));
-      // After the round trip, not on the tap: it means the cart changed, not
-      // that the button was pressed.
-      if (direction === 'add') tapAdd(); else tapRemove();
-      setError(null);
-    } catch (failure) {
-      // "That dish is off the menu tonight" is the kitchen's sentence and is
-      // worth showing. A dead session navigates and shows nothing.
-      setError(onError(failure));
-    }
-  }, [setCart, onError]);
+  }, [fetchOrders, failureOf, refreshCart]);
 
   /** The featured strip's one-way button, which has no minus. */
   const add = useCallback((menuItemId: string) => adjust(menuItemId, 'add'), [adjust]);
@@ -345,7 +338,22 @@ export default function Home() {
     }
   };
 
-  if (error && !menu) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
+  if (failure && !menu) {
+    return (
+      <Screen>
+        <ListState
+          tone={failure.kind}
+          title={failure.kind === 'offline' ? 'The menu did not load' : 'The menu is not available'}
+          body={failure.kind === 'offline'
+            ? 'You are not reaching the kitchen. Check your signal, then try again.'
+            : 'The kitchen gave a reason for this.'}
+          message={failure.kind === 'refused' ? failure.message : undefined}
+          actionLabel="Try again"
+          onAction={() => void refresh()}
+        />
+      </Screen>
+    );
+  }
   // The storefront's own shape — well, status strip, three featured rows and
   // the contents list — rather than a spinner on an empty ground.
   if (!menu || !session) return <Screen><HomeSkeleton /></Screen>;
@@ -538,7 +546,7 @@ export default function Home() {
 
               <AgainRail
                 dishes={againDishes}
-                quantities={inCart}
+                quantities={counts}
                 onAdjust={adjust}
                 onOpen={(itemId) => sheet.current?.open(itemId)}
               />
@@ -557,7 +565,7 @@ export default function Home() {
                   key={entry.dish.id}
                   section={entry.section}
                   dish={entry.dish}
-                  quantity={inCart.get(entry.dish.id) ?? 0}
+                  quantity={counts.get(entry.dish.id) ?? 0}
                   onAdd={() => add(entry.dish.id)}
                   onChoose={() => sheet.current?.open(entry.dish.id)}
                 />
@@ -629,7 +637,6 @@ export default function Home() {
 }
 
 const s = StyleSheet.create({
-  center: { justifyContent: 'center', padding: space[5] },
 
   well: { backgroundColor: colors.paperDeep, paddingHorizontal: space[5] },
   wellWithArch: { paddingBottom: space[6] },

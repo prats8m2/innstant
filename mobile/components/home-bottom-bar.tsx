@@ -5,7 +5,7 @@ import { ArrowRight, ShoppingBag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ApiCart } from '@contract';
 import { HOME_COPY } from '@/lib/copy';
-import { useReducedMotion } from '@/lib/motion';
+import { useDuration } from '@/lib/motion';
 import {
   colors, duration, face, paperTransparent, radius, space, tabular, text as type,
 } from '@/lib/theme';
@@ -75,7 +75,7 @@ export function HomeBottomBar({
   onCart: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const reduced = useReducedMotion();
+  const ms = useDuration();
   const itemCount = cart?.itemCount ?? 0;
   const hasCart = itemCount > 0;
 
@@ -84,14 +84,15 @@ export function HomeBottomBar({
   const toCart = useRef(new Animated.Value(hasCart ? 1 : 0)).current;
 
   useEffect(() => {
-    const to = hasCart ? 1 : 0;
-    if (reduced) { toCart.setValue(to); return; }
+    // No reduced-motion branch here any more: `useDuration` is what decides
+    // whether 240ms means 240ms on this phone. One path, and it is the one
+    // everybody exercises. See lib/motion.ts.
     Animated.timing(toCart, {
-      toValue: to,
-      duration: duration.mid,
+      toValue: hasCart ? 1 : 0,
+      duration: ms(duration.mid),
       useNativeDriver: true,
     }).start();
-  }, [hasCart, reduced, toCart]);
+  }, [hasCart, ms, toCart]);
 
   const browseLabel = isOpen ? HOME_COPY.ctaBrowse : HOME_COPY.ctaBrowseClosed;
   const cartLabel = `${HOME_COPY.ctaCart} · ${itemCount} ${itemCount === 1 ? 'item' : 'items'}`;

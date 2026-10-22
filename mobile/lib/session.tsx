@@ -1,8 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
+} from 'react';
 import { router } from 'expo-router';
 import * as api from './api';
-import { ApiFailure } from './api';
+import { ApiFailure, NetworkFailure } from './api';
 import type { ApiCart, ApiSession, ApiCustomer, ApiAddress } from './api';
+import { tapAdd, tapRemove } from './haptics';
 
 /**
  * The one piece of state the whole app shares. D-080.
@@ -34,6 +37,41 @@ import type { ApiCart, ApiSession, ApiCustomer, ApiAddress } from './api';
  * this can be a single assignment rather than a refetch.
  */
 
+/**
+ * What a failure WAS, once the session-gone case has been navigated away.
+ *
+ * ─── Why two kinds and not one string ──────────────────────────────────────
+ *
+ * Phase 4 draws offline differently from refused, on every list, and it can
+ * only do that if the thing a screen holds carries which one it is. A string
+ * forces the screen to re-read the sentence to guess, which is how "No
+ * connection" ends up under a "Try a different search" heading.
+ *
+ *   · `offline` — the request never reached a server. `NetworkFailure`, which
+ *     `lib/api.ts` throws when `fetch` itself rejects. Retrying is the whole
+ *     of the advice.
+ *   · `refused` — it reached one and the server said no, in a sentence
+ *     written to be read. Retrying the same request gets the same answer.
+ */
+export interface Failure {
+  kind: 'offline' | 'refused';
+  /** The server's own words, or the network's. Never rewritten here. */
+  message: string;
+}
+
+/**
+ * A cart tap that did not stick. Phase 4.
+ *
+ * `lead` is the app's half and `message` is the server's: "Not added." is a
+ * fact about the tap that only the client knows, and "That dish is off the
+ * menu tonight" is a fact about the kitchen that only the server does.
+ * Composing them here keeps #5's rule about refusals intact — the app says
+ * what happened to the tap and never rewrites what the server said about why.
+ */
+export interface CartNotice extends Failure {
+  lead: string;
+}
+
 interface SessionState {
   /** WHERE they are ordering from. Null before the default link opens. */
   session: ApiSession | null;
@@ -58,10 +96,32 @@ interface SessionState {
   open: (code: string) => Promise<void>;
   /** Replace the cart after a mutation returned a fresh one. */
   setCart: (cart: ApiCart) => void;
-  refreshCart: () => Promise<void>;
+  /** Re-read the cart. Returns what stopped it, or null — see below for why
+   *  it hands the failure back instead of swallowing it. */
+  refreshCart: () => Promise<Failure | null>;
+  /**
+   * How many of each DISH are in the cart, summed across variants — with any
+   * tap that has not been answered yet already counted in.
+   *
+   * Every row that draws a quantity reads this one map. It used to be a
+   * `useMemo` over `cart.lines` repeated in the menu, in search and on the
+   * home screen, which was three copies of one sum and three places for the
+   * optimistic half to be missing from.
+   */
+  counts: ReadonlyMap<string, number>;
+  /**
+   * Add or remove one of a dish, moving the count before the server answers.
+   * Swallowed while a tap for the SAME dish is still in flight.
+   */
+  adjust: (menuItemId: string, direction: 'add' | 'remove') => Promise<void>;
+  /** The last tap that was rolled back, or null. Drawn by `CartToast`. */
+  cartNotice: CartNotice | null;
+  dismissCartNotice: () => void;
   /** After a sign-in, or a profile/address change. */
   setCustomer: (customer: ApiCustomer | null, addresses?: ApiAddress[]) => void;
-  refreshAccount: () => Promise<void>;
+  /** Re-read the account. Returns what stopped it, or null — a lapsed
+   *  customer token is signed-out rather than failed, and comes back null. */
+  refreshAccount: () => Promise<Failure | null>;
   signOut: () => Promise<void>;
   /** Drop the CONTEXT token and go back to the entry screen. Leaves the
    *  customer signed in — a lapsed visit is not a sign-out. */
@@ -77,6 +137,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCartState] = useState<ApiCart | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isCustomerLoading, setCustomerLoading] = useState(true);
+
+  /**
+   * ─── The optimistic half of the cart. Phase 4 ──────────────────────────
+   *
+   * `cart` is the server's answer and is the only thing that can be trusted;
+   * `pending` is what the UI has already committed to on the strength of a
+   * tap, as a delta per menu item. `counts` is the sum, and is what every row
+   * in the app draws.
+   *
+   * It is a delta rather than a predicted total on purpose. A refresh, an
+   * order placed on another tab, or a second line of the same dish added from
+   * the sheet can all replace `cart` while a tap is in the air — and a delta
+   * stays correct across any of that, where a predicted total would be an
+   * old number fighting a new one.
+   *
+   * The entry is deleted when the server answers, success or refusal. On
+   * success the real cart has already replaced it in the same commit, so the
+   * number on screen does not move; on a refusal it is the rollback, and it
+   * is visible precisely because the number does move. `CartToast` is what
+   * stops that looking like an add that silently evaporated.
+   */
+  const [pending, setPending] = useState<ReadonlyMap<string, number>>(NO_PENDING);
+  /**
+   * Which dishes have a write in the air.
+   *
+   * A ref, not state: nothing renders differently because of it, and it is
+   * read on the tap that is deciding whether to be swallowed — which has to
+   * see the value from the tap half a frame ago, not the one from the last
+   * commit. The rule it enforces is the stepper's own, moved up here because
+   * the stepper is no longer the only thing that knows a tap happened: four
+   * overlapping writes against one cart row is a race the UI should not start.
+   */
+  const inFlight = useRef(new Set<string>());
+  const [cartNotice, setCartNotice] = useState<CartNotice | null>(null);
 
   const end = useCallback(async () => {
     await api.setToken(null);
@@ -192,18 +286,30 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     if (!next) setAddresses([]);
   }, []);
 
-  const refreshAccount = useCallback(async () => {
-    if (!(await api.getCustomerToken())) return;
+  /**
+   * Re-read the account, and hand back what stopped it — same shape, and the
+   * same reasoning, as `refreshCart`.
+   *
+   * A 401 here is NOT a failure to report: a customer token that expired is
+   * an ordinary signed-out state, and this clears it and returns null so the
+   * screen draws the sign-in invitation rather than an error.
+   */
+  const refreshAccount = useCallback(async (): Promise<Failure | null> => {
+    if (!(await api.getCustomerToken())) return null;
     try {
       const mine = await api.me();
       setCustomerState(mine.customer);
       setAddresses(mine.addresses);
+      return null;
     } catch (error) {
-      if (error instanceof ApiFailure && error.isSessionGone) {
+      const classified = classify(error);
+      if (!classified) {
         await api.setCustomerToken(null);
         setCustomerState(null);
         setAddresses([]);
+        return null;
       }
+      return classified;
     }
   }, []);
 
@@ -216,13 +322,101 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     // used to have an account.
   }, []);
 
-  const refreshCart = useCallback(async () => {
+  /**
+   * Re-read the cart, and HAND BACK what stopped it.
+   *
+   * It used to swallow everything but a 401, which was right for the three
+   * screens that call it as a backstop on focus — a menu must not show a red
+   * panel because a background cart read timed out. It was wrong for the cart
+   * screen, which has nothing else to render: a failed read left `cart` null
+   * and the spinner ran forever, with no state drawn for the most likely
+   * cause on this product's connection.
+   *
+   * So the failure is returned rather than thrown. The backstops carry on
+   * ignoring it — `void refreshCart()` is unchanged at every one of them —
+   * and the one screen that is the cart reads the answer.
+   */
+  const refreshCart = useCallback(async (): Promise<Failure | null> => {
     try {
       setCartState(await api.getCart());
+      return null;
     } catch (error) {
-      if (error instanceof ApiFailure && error.isSessionGone) await end();
+      const classified = classify(error);
+      if (!classified) { await end(); return null; }
+      return classified;
     }
   }, [end]);
+
+  /**
+   * The counts every dish row draws: the server's cart plus what has been
+   * tapped since.
+   *
+   * Floored at zero. A minus tap for a dish the server has already removed
+   * would otherwise read as −1 for the length of a round trip, and a negative
+   * quantity on a menu card is a bug somebody screenshots.
+   */
+  const counts = useMemo(() => {
+    const next = new Map<string, number>();
+    for (const line of cart?.lines ?? []) {
+      next.set(line.menuItemId, (next.get(line.menuItemId) ?? 0) + line.quantity);
+    }
+    for (const [menuItemId, delta] of pending) {
+      next.set(menuItemId, Math.max(0, (next.get(menuItemId) ?? 0) + delta));
+    }
+    return next;
+  }, [cart, pending]);
+
+  /**
+   * One of a dish, in or out — with the number moving first. Phase 4.
+   *
+   * ─── Why the haptic did NOT move to the tap ────────────────────────────
+   *
+   * It would have been the obvious change: the UI now commits on the tap, so
+   * buzz on the tap. The buzz keeps its old meaning instead — the cart
+   * actually changed — for the reason it was given one: a refused tap must
+   * not feel like one that worked, and feeling is the part a person cannot
+   * check. The instant feedback the tap needs is the count moving, which it
+   * now does; the buzz is the confirmation underneath it, and confirming
+   * something that has not happened yet is the one thing it must not do.
+   *
+   * ─── A rollback says what happened ─────────────────────────────────────
+   *
+   * The count going back by itself is indistinguishable from an add that
+   * worked and then vanished, which is worse than no optimism at all — it
+   * teaches somebody that the cart loses things. So the rollback and the
+   * sentence are set in the same commit, and the sentence names the tap
+   * ("Not added") before it quotes the kitchen.
+   */
+  const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
+    if (inFlight.current.has(menuItemId)) return;
+    inFlight.current.add(menuItemId);
+    setPending((current) => withDelta(current, menuItemId, direction === 'add' ? 1 : -1));
+
+    try {
+      const next = await api.quickAdjust({ menuItemId, direction });
+      // Both in one commit: React batches them, so the guess is replaced by
+      // the server's number without a frame in between where neither is
+      // counted and the row reads one lower than it did before the tap.
+      setPending((current) => without(current, menuItemId));
+      setCartState(next);
+      setCartNotice(null);
+      if (direction === 'add') tapAdd(); else tapRemove();
+    } catch (failure) {
+      setPending((current) => without(current, menuItemId));
+      const classified = classify(failure);
+      // A dead session is a navigation, not a message. Nothing to say about
+      // a tap on a screen that is about to be replaced.
+      if (!classified) { void end(); return; }
+      setCartNotice({
+        ...classified,
+        lead: direction === 'add' ? 'Not added.' : 'Not removed.',
+      });
+    } finally {
+      inFlight.current.delete(menuItemId);
+    }
+  }, [end]);
+
+  const dismissCartNotice = useCallback(() => setCartNotice(null), []);
 
   const value = useMemo<SessionState>(() => ({
     session,
@@ -234,11 +428,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     open,
     setCart: setCartState,
     refreshCart,
+    counts,
+    adjust,
+    cartNotice,
+    dismissCartNotice,
     setCustomer,
     refreshAccount,
     signOut,
     end,
   }), [session, customer, addresses, cart, isLoading, isCustomerLoading, open, refreshCart,
+       counts, adjust, cartNotice, dismissCartNotice,
        setCustomer, refreshAccount, signOut, end]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -250,21 +449,74 @@ export function useSession(): SessionState {
   return value;
 }
 
+/** Shared so that an empty `pending` is one object rather than a new Map per
+ *  provider render, which would re-run `counts` for nothing. */
+const NO_PENDING: ReadonlyMap<string, number> = new Map();
+
+function withDelta(
+  current: ReadonlyMap<string, number>,
+  menuItemId: string,
+  delta: number,
+): ReadonlyMap<string, number> {
+  const next = new Map(current);
+  next.set(menuItemId, (next.get(menuItemId) ?? 0) + delta);
+  return next;
+}
+
+/** Deleted, not set to zero: a zero entry is still a key `counts` iterates
+ *  and still a cart item the map claims to know about. */
+function without(
+  current: ReadonlyMap<string, number>,
+  menuItemId: string,
+): ReadonlyMap<string, number> {
+  if (!current.has(menuItemId)) return current;
+  const next = new Map(current);
+  next.delete(menuItemId);
+  return next.size === 0 ? NO_PENDING : next;
+}
+
 /**
- * The 401 handler every screen shares.
+ * What kind of failure this was, or null for one that is a navigation.
+ *
+ * A module function rather than a hook, because `adjust` needs it inside the
+ * provider where the hooks below cannot reach. The null case is the 401: the
+ * caller ends the session, and there is nothing to draw because the screen
+ * that would draw it is leaving.
+ */
+function classify(error: unknown): Failure | null {
+  if (error instanceof ApiFailure && error.isSessionGone) return null;
+  if (error instanceof NetworkFailure) return { kind: 'offline', message: error.message };
+  return {
+    kind: 'refused',
+    message: error instanceof Error ? error.message : 'Something went wrong. Try again.',
+  };
+}
+
+/**
+ * The 401 handler every screen shares, and the thing that says what else went
+ * wrong. Phase 4 widened it from a string to a `Failure`.
  *
  * A session that has gone is not an error to show — it is a navigation. Every
  * screen that calls the API wraps its failures in this so that "your session
  * ended" is handled once rather than six times, and only the refusals a person
  * can act on reach a message.
+ *
+ * What phase 4 added is the KIND. A list that cannot tell offline from refused
+ * has to draw one state for both, and the two need different words and
+ * different buttons — "check your signal" is useless advice about a kitchen
+ * that has closed.
  */
-export function useApiError(): (error: unknown) => string | null {
+export function useApiFailure(): (error: unknown) => Failure | null {
   const { end } = useSession();
   return useCallback((error: unknown) => {
-    if (error instanceof ApiFailure && error.isSessionGone) {
-      void end();
-      return null;
-    }
-    return error instanceof Error ? error.message : 'Something went wrong. Try again.';
+    const failure = classify(error);
+    if (!failure) void end();
+    return failure;
   }, [end]);
+}
+
+/** The same thing, for the screens that only ever wanted the sentence. */
+export function useApiError(): (error: unknown) => string | null {
+  const failureOf = useApiFailure();
+  return useCallback((error: unknown) => failureOf(error)?.message ?? null, [failureOf]);
 }

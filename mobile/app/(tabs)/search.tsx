@@ -1,15 +1,15 @@
 import type { ApiMenuSearch } from '@contract';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList, Keyboard, Pressable, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Clock, Search as SearchIcon, X } from 'lucide-react-native';
+import { Clock, Search as SearchIcon, SearchX, X } from 'lucide-react-native';
 import * as api from '@/lib/api';
-import type { ApiDish } from '@/lib/api';
-import { useApiError, useSession } from '@/lib/session';
-import { Notice, Screen } from '@/components/ui';
+import { useApiFailure, useSession, type Failure } from '@/lib/session';
+import { Screen } from '@/components/ui';
+import { ListState } from '@/components/state';
 import { CartPill } from '@/components/cart-pill';
 import { DishRow } from '@/components/dish-row';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
@@ -18,7 +18,6 @@ import { ResultsSkeleton } from '@/components/skeleton';
 import { SEARCH_COPY } from '@/lib/copy';
 import { NO_FILTERS, filterParams, hasFilters, type DishFilters } from '@/lib/filters';
 import { clearRecents, forgetSearch, readRecents, rememberSearch } from '@/lib/recents';
-import { tapAdd, tapRemove } from '@/lib/haptics';
 import {
   colors, face, radius, space, TAB_BAR_H, text as type, TOUCH_MIN,
 } from '@/lib/theme';
@@ -72,8 +71,8 @@ import {
 const DEBOUNCE_MS = 250;
 
 export default function Search() {
-  const { cart, setCart, refreshCart } = useSession();
-  const onError = useApiError();
+  const { cart, counts, adjust, refreshCart } = useSession();
+  const failureOf = useApiFailure();
   const insets = useSafeAreaInsets();
   const field = useRef<TextInput>(null);
   const sheet = useRef<DishSheetHandle>(null);
@@ -91,7 +90,13 @@ export default function Search() {
    */
   const [found, setFound] = useState<ApiMenuSearch | null>(null);
   const results = found?.results ?? null;
-  const [error, setError] = useState<string | null>(null);
+  /** What stopped the answer arriving, with its kind. Offline and refused get
+   *  different words and a different icon — see `ListState`. */
+  const [failure, setFailure] = useState<Failure | null>(null);
+  /** Bumped by the failed state's button. The request effect is keyed on it,
+   *  so "Try again" re-runs the same search rather than being a second path
+   *  that could ask a different question. */
+  const [attempt, setAttempt] = useState(0);
   const [recents, setRecents] = useState<string[]>([]);
 
   const query = term.trim();
@@ -116,7 +121,7 @@ export default function Search() {
   useEffect(() => {
     if (!asked) {
       setFound(null);
-      setError(null);
+      setFailure(null);
       return;
     }
 
@@ -129,42 +134,24 @@ export default function Search() {
           const answer = await api.searchMenu(query, filterParams(filters));
           if (cancelled) return;
           setFound(answer);
-          setError(null);
-        } catch (failure) {
+          setFailure(null);
+        } catch (thrown) {
           if (cancelled) return;
           // An empty list and a failed request are different things and must
           // not look the same — `results` stays null so the "nothing matched"
           // state cannot claim the menu has nothing in it when the truth is
           // that the kitchen could not be reached.
-          setError(onError(failure));
+          setFailure(failureOf(thrown));
         }
       })();
     }, DEBOUNCE_MS);
 
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [asked, query, filters, onError]);
+  }, [asked, query, filters, failureOf, attempt]);
 
-  /** How many of each dish are in the cart, summed ACROSS variants — the
-   *  same count the menu's rows draw. */
-  const inCart = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const line of cart?.lines ?? []) {
-      counts.set(line.menuItemId, (counts.get(line.menuItemId) ?? 0) + line.quantity);
-    }
-    return counts;
-  }, [cart]);
-
-  const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
-    try {
-      setCart(await api.quickAdjust({ menuItemId, direction }));
-      // After the round trip, not on the tap. A refused tap must not feel
-      // like one that worked.
-      if (direction === 'add') tapAdd(); else tapRemove();
-      setError(null);
-    } catch (failure) {
-      setError(onError(failure));
-    }
-  }, [setCart, onError]);
+  /* The counts and the write are the session's — the same optimistic cart the
+     menu's rows read, so a dish added here and a dish added there behave
+     identically and there is one place a refusal is handled. */
 
   /**
    * What counts as a search worth remembering.
@@ -228,12 +215,24 @@ export default function Search() {
         <FilterChips filters={filters} onChange={setFilters} />
       </View>
 
-      {error ? <View style={s.notice}><Notice>{error}</Notice></View> : null}
-
       {!asked ? (
         <Idle recents={recents} onPick={runRecent} onForget={setRecents} />
+      ) : failure ? (
+        /* The search itself failed. Drawn as its own state rather than as a
+           notice above an empty list, which is the shape that made a dead
+           network look like a menu with nothing in it. */
+        <ListState
+          tone={failure.kind}
+          title={failure.kind === 'offline' ? 'The search did not reach us' : 'The search did not run'}
+          body={failure.kind === 'offline'
+            ? 'Check your signal. The menu tab still has everything that loaded earlier.'
+            : undefined}
+          message={failure.kind === 'refused' ? failure.message : undefined}
+          actionLabel="Try again"
+          onAction={() => setAttempt((n) => n + 1)}
+        />
       ) : results === null ? (
-        error ? null : <ResultsSkeleton />
+        <ResultsSkeleton />
       ) : results.length === 0 ? (
         <Nothing term={query} filtered={hasFilters(filters)} outOf={found?.totalDishes ?? 0} />
       ) : (
@@ -254,7 +253,7 @@ export default function Search() {
                  and the server already resolves this to the one section a
                  dish should be filed under. */
               section={item.section}
-              quantity={inCart.get(item.dish.id) ?? 0}
+              quantity={counts.get(item.dish.id) ?? 0}
               onAdjust={(direction) => adjust(item.dish.id, direction)}
               onOpen={() => {
                 if (query) remember(query);
@@ -340,18 +339,24 @@ function Idle({
   );
 }
 
-/** Searched, and the menu has nothing like it. */
+/**
+ * Searched, and the menu has nothing like it.
+ *
+ * Phase 4 moved the drawing into `ListState` and left the words exactly where
+ * they were. This was the one screen in the app that already distinguished an
+ * empty answer from a failed request; what it did not have was a shape the
+ * other five could borrow, and now the same picture, the same spacing and the
+ * same voice appear on every list.
+ */
 function Nothing({ term, filtered, outOf }: { term: string; filtered: boolean; outOf: number }) {
   return (
-    <View style={s.say} accessibilityLiveRegion="polite">
-      <Text style={s.sayTitle}>
-        {term ? `${SEARCH_COPY.emptyLead} “${term}”.` : `${SEARCH_COPY.emptyLead} those filters.`}
-      </Text>
-      <Text style={s.sayBody}>
-        {filtered ? SEARCH_COPY.emptyFiltered : SEARCH_COPY.emptyPlain}
-        {outOf > 0 ? ` ${SEARCH_COPY.emptyOutOf(outOf)}` : ''}
-      </Text>
-    </View>
+    <ListState
+      tone="empty"
+      icon={SearchX}
+      title={term ? `${SEARCH_COPY.emptyLead} “${term}”.` : `${SEARCH_COPY.emptyLead} those filters.`}
+      body={`${filtered ? SEARCH_COPY.emptyFiltered : SEARCH_COPY.emptyPlain}`
+        + (outOf > 0 ? ` ${SEARCH_COPY.emptyOutOf(outOf)}` : '')}
+    />
   );
 }
 
@@ -390,8 +395,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radius.sm,
   },
-
-  notice: { paddingHorizontal: space[5], paddingTop: space[3] },
 
   idle: { flex: 1 },
   recents: { paddingTop: space[4] },

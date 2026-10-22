@@ -32,8 +32,8 @@ not been deployed, and deliberately need no migration.
 | 0 · images | stand-in photography seeded (`0c47914`). R2, the upload pipeline and the `image_key` migration are still Next. |
 | 1 · app shell | **DONE.** Tab bar and dish photos in `4940194`; the sheet, the skeletons, pull-to-refresh and haptics in `cac2753`. |
 | 2 · image-led screens | **DONE** against the stand-in photography. Photo hero behind the arch, category circles, an "Order again" rail, photo menu cards with the veg / non-veg mark, and a collapsing dish header. Everything in it is as good as the pictures, which are still borrowed. |
-| 3 · search and filters | not started. Needs a search endpoint — client-side filtering stops working at a real property's sixty dishes. |
-| 4 · motion and polish | not started. |
+| 3 · search and filters | **DONE** in `5013e56`. `GET /api/v1/menu/search` with diet, spice and price filters; a fourth tab; recents; a "most ordered" badge counted from `order_items`. |
+| 4 · motion and polish | **DONE.** Optimistic cart, drawn empty / offline / refused states on every list, one global reduced-motion rule, and the dish sheet's photograph springing in from the row's size. |
 
 What phase 1 cannot verify from a laptop, and what a device has to settle:
 the pull gesture (`react-native-web`'s `RefreshControl` is a no-op `View`, so
@@ -56,6 +56,49 @@ step) — it needs the outlet's schedule changed in the database to see, and was
 left alone. Everything else on the three screens was rendered and measured in
 the browser, including the reduced-motion path, where the dish photograph sits
 in the scroll instead of receding.
+
+Phase 4 moved three things that were duplicated into one place each, and the
+duplication is why each of them was slightly different on each screen:
+
+  · **The cart is the session's.** `counts` and `adjust` live in
+    `lib/session.tsx`; the menu, search and the home screen each used to hold
+    their own sum of `cart.lines` and their own copy of the write. A tap now
+    moves the count before the server answers, and a refusal rolls it back
+    WITH a sentence — `CartToast`, mounted once in the root layout. A rollback
+    with no words is indistinguishable from an add that evaporated, which is
+    worse than no optimism at all. The swallow (one write per dish in flight)
+    moved out of `Stepper` and into `adjust`, because the stepper is no longer
+    the only control that can start one.
+  · **Empty, offline and refused are three different screens.** `ListState`
+    draws all three in one shape, and `useApiFailure()` is what tells them
+    apart — `NetworkFailure` is `offline`, anything the server said is
+    `refused`. `refreshCart()` and `refreshAccount()` now HAND BACK the
+    failure instead of swallowing it, so the cart and the addresses screen can
+    draw one; the background callers still ignore it.
+  · **Reduced motion is decided once.** `useDuration()` turns a token into
+    1ms when the phone asks for less movement, so no component carries an
+    `if (reduced)` branch; `<ReducedMotionConfig>` in the root layout covers
+    everything Reanimated drives, which `useDuration` cannot see. The last
+    hardcoded duration in the app — `transition={180}` on the dish photo —
+    is a token now, and was also the one animation that ignored the setting.
+
+What phase 4 did NOT do, and the reason, because it was asked for: a genuine
+shared-element transition from the dish row's photograph into the sheet.
+Reanimated 4 removed `sharedTransitionTag` (and the 4.5.1 pin is matched to
+the worklets runtime), and the sheet is a child of the screen rather than a
+second screen, so there is no pair to share between. The ghost version needs
+the destination rect, which is inside a sheet that is mid-rise when it lays
+out. What shipped is the cheaper honest thing, named as such in
+`components/spring-in.tsx`: the sheet's photograph starts at the ROW's 112pt
+and springs to its own 84pt. Measured in the browser at 1.33 → 0.99 → 1.00,
+settling inside 250ms, and flat at 1.000 with reduced motion on.
+
+Phase 4 was rendered and measured in the browser: the optimistic count moves
+in ~100ms against a server deliberately held for 2s; a 409 rolls it back and
+the toast reads "Not added. The kitchen has stopped taking orders for
+tonight."; and the empty / offline states were driven on all five lists
+(menu — both by-filter and nothing-on-the-menu, search, orders, addresses,
+cart) with their boxes measured rather than eyeballed.
 
 ---
 

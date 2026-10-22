@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
-import { colors, radius } from '@/lib/theme';
+import { useDuration } from '@/lib/motion';
+import { colors, duration, radius } from '@/lib/theme';
 
 /**
  * A dish photograph. One implementation, because there is one right answer
@@ -60,6 +61,8 @@ export function DishPhoto({
   /** Edge to edge: no border, no radius, nothing to clip against. */
   bleed?: boolean;
 }) {
+  const ms = useDuration();
+
   return (
     <View
       style={[
@@ -79,9 +82,15 @@ export function DishPhoto({
            visible thing on screen for as long as it is there. */
         placeholder={blurhash ? { blurhash } : undefined}
         placeholderContentFit="cover"
-        /* 180ms, the bottom of the motion band. Long enough to read as a
-           fade, short enough that a list of ten does not shimmer. */
-        transition={180}
+        /* `fast` — 180ms, the bottom of the motion band. Long enough to read
+           as a fade, short enough that a list of ten does not shimmer.
+
+           It was the literal 180 until phase 4. A duration in a component is
+           the same defect as a hex in one, and this was the last of them: it
+           also meant the one animation on a list of ten photographs was the
+           one that ignored reduced motion, because it never went near
+           `useDuration`. */
+        transition={ms(duration.fast)}
         cachePolicy="memory-disk"
         /* The name, not "image of the dish" — a screen reader already says
            it is an image, and the dish name is beside it in the row, so this

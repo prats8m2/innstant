@@ -39,7 +39,7 @@ export function AgainRail({
   /** In the order the server gave them — most recently eaten first. */
   dishes: ApiDish[];
   /** How many of each are in the cart, summed across variants. */
-  quantities: Map<string, number>;
+  quantities: ReadonlyMap<string, number>;
   onAdjust: (menuItemId: string, direction: 'add' | 'remove') => Promise<void>;
   onOpen: (menuItemId: string) => void;
 }) {

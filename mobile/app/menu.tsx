@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View,
   type ViewToken,
 } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CookingPot, SlidersHorizontal } from 'lucide-react-native';
 import * as api from '@/lib/api';
 import type { ApiDish, ApiMenu } from '@/lib/api';
-import { useApiError, useSession } from '@/lib/session';
-import { Notice, Screen } from '@/components/ui';
+import { useApiFailure, useSession, type Failure } from '@/lib/session';
+import { Screen } from '@/components/ui';
+import { ListState } from '@/components/state';
 import { CartPill } from '@/components/cart-pill';
 import { DishRow } from '@/components/dish-row';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
 import { FilterChips, FilterSummary } from '@/components/filter-chips';
 import { MenuSkeleton } from '@/components/skeleton';
-import { tapAdd, tapRemove } from '@/lib/haptics';
-import { NO_FILTERS, matchesFilters, type DishFilters } from '@/lib/filters';
+import { NO_FILTERS, hasFilters, matchesFilters, type DishFilters } from '@/lib/filters';
 import {
   colors, face, radius, space, text as type, TOUCH_MIN,
 } from '@/lib/theme';
@@ -58,10 +59,16 @@ export default function Menu() {
   /** Set by a contents row or a category circle on the home screen — the
    *  section to open at. */
   const { section: anchor } = useLocalSearchParams<{ section?: string }>();
-  const { session, cart, setCart, refreshCart } = useSession();
-  const onError = useApiError();
+  const { session, cart, counts, adjust, refreshCart } = useSession();
+  const failureOf = useApiFailure();
   const [menu, setMenu] = useState<ApiMenu | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /** What stopped the menu arriving, with its kind — offline and refused are
+   *  drawn differently and say different things. Null while it is fine. */
+  const [failure, setFailure] = useState<Failure | null>(null);
+  /** Bumped by the error state's own button. The effect below is keyed on it,
+   *  so "Try again" is a re-run of the first load rather than a second code
+   *  path that could fetch differently. */
+  const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   /** Veg, heat, price. Deliberately NOT in the URL: a filtered menu is a
    *  reading position rather than a place, and a link to one would restore
@@ -119,13 +126,15 @@ export default function Menu() {
     (async () => {
       try {
         const loaded = await api.getMenu();
-        if (!cancelled) setMenu(loaded);
-      } catch (failure) {
-        if (!cancelled) setError(onError(failure));
+        if (cancelled) return;
+        setMenu(loaded);
+        setFailure(null);
+      } catch (thrown) {
+        if (!cancelled) setFailure(failureOf(thrown));
       }
     })();
     return () => { cancelled = true; };
-  }, [onError]);
+  }, [failureOf, attempt]);
 
   /**
    * Pull to refresh.
@@ -145,13 +154,13 @@ export default function Menu() {
     try {
       const [loaded] = await Promise.all([api.getMenu(), refreshCart()]);
       setMenu(loaded);
-      setError(null);
-    } catch (failure) {
-      setError(onError(failure));
+      setFailure(null);
+    } catch (thrown) {
+      setFailure(failureOf(thrown));
     } finally {
       setRefreshing(false);
     }
-  }, [onError, refreshCart]);
+  }, [failureOf, refreshCart]);
 
   /**
    * The cart, re-read whenever this screen comes back into focus.
@@ -240,30 +249,34 @@ export default function Menu() {
    */
   const viewability = useRef({ itemVisiblePercentThreshold: 60 });
 
-  /** How many of each dish are in the cart, summed ACROSS variants. */
-  const inCart = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const line of cart?.lines ?? []) {
-      counts.set(line.menuItemId, (counts.get(line.menuItemId) ?? 0) + line.quantity);
-    }
-    return counts;
-  }, [cart]);
+  /*
+    The counts and the write both come from the session now.
 
-  const adjust = useCallback(async (menuItemId: string, direction: 'add' | 'remove') => {
-    try {
-      setCart(await api.quickAdjust({ menuItemId, direction }));
-      // After the round trip, not on the tap. The buzz means the cart
-      // changed; a refused tap must not feel like one that worked.
-      if (direction === 'add') tapAdd(); else tapRemove();
-      setError(null);
-    } catch (failure) {
-      // "That dish is off the menu tonight" is the kitchen's answer and worth
-      // showing; a dead session is a navigation and shows nothing.
-      setError(onError(failure));
-    }
-  }, [setCart, onError]);
+    They used to be a `useMemo` over `cart.lines` and a local `adjust` here,
+    and the same pair again in search and on the home screen — three sums of
+    one cart and three opinions about what a tap does. The optimistic half
+    cannot be duplicated three times and stay consistent, so it is not: see
+    `lib/session.tsx`, where a tap moves the count before the server answers
+    and a refusal rolls it back with a sentence attached.
+  */
 
-  if (error && !menu) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
+  if (failure && !menu) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: session?.property.name ?? 'Menu' }} />
+        <ListState
+          tone={failure.kind}
+          title={failure.kind === 'offline' ? 'The menu did not load' : 'The menu is not available'}
+          body={failure.kind === 'offline'
+            ? 'You are not reaching the kitchen. Check your signal, then try again.'
+            : 'The kitchen gave a reason for this.'}
+          message={failure.kind === 'refused' ? failure.message : undefined}
+          actionLabel="Try again"
+          onAction={() => setAttempt((n) => n + 1)}
+        />
+      </Screen>
+    );
+  }
   // In the shape of the menu rather than a spinner: the outlet bar, the
   // section rail and five dish rows, so nothing moves when they arrive.
   if (!menu || !session) return <Screen><MenuSkeleton /></Screen>;
@@ -438,14 +451,33 @@ export default function Menu() {
           }, 80);
         }}
         ListHeaderComponent={<FilterSummary filters={filters} count={shown} />}
-        /* Only reachable with chips lit — an outlet with no dishes at all
-           never gets here, because the menu read returns no sections and the
-           screen above shows the kitchen's own line instead. */
-        ListEmptyComponent={(
-          <View style={s.noMatch}>
-            <Text style={s.noMatchTitle}>Nothing on the menu matches those filters.</Text>
-            <Text style={s.noMatchBody}>Clear one and the card comes back.</Text>
-          </View>
+        /*
+          Two ways to be empty, and they are not the same thing.
+
+          Chips lit: the filters did it, and the button undoes them. No chips:
+          the outlet is genuinely showing nothing today — which used to be
+          unreachable, because the comment here assumed the screen above
+          handled it, and the screen above only handles a FAILED read. A menu
+          that loads with no dishes in it fell through to a blank list.
+        */
+        ListEmptyComponent={hasFilters(filters) ? (
+          <ListState
+            tone="empty"
+            icon={SlidersHorizontal}
+            fill={false}
+            title="Nothing matches those filters"
+            body="Clear one and the dishes come back."
+            actionLabel="Clear the filters"
+            onAction={() => setFilters(NO_FILTERS)}
+          />
+        ) : (
+          <ListState
+            tone="empty"
+            icon={CookingPot}
+            fill={false}
+            title="Nothing on the menu today"
+            body="The kitchen has not put anything out. Pull down to look again."
+          />
         )}
         renderSectionHeader={({ section }) => (
           <View style={s.sectionHead}>
@@ -456,14 +488,12 @@ export default function Menu() {
         renderItem={({ item: dish }) => (
           <DishRow
             dish={dish}
-            quantity={inCart.get(dish.id) ?? 0}
+            quantity={counts.get(dish.id) ?? 0}
             onAdjust={(direction) => adjust(dish.id, direction)}
             onOpen={() => sheet.current?.open(dish.id)}
           />
         )}
       />
-
-      {error ? <View style={s.floatingError}><Notice>{error}</Notice></View> : null}
 
       {cart && cart.itemCount > 0 ? (
         <CartPill cart={cart} bottom={insets.bottom + space[4]} />
@@ -476,7 +506,6 @@ export default function Menu() {
 }
 
 const s = StyleSheet.create({
-  center: { justifyContent: 'center', padding: space[5] },
   headerLink: { ...face('bodyMedium'), fontSize: type.base, color: colors.accent },
 
   bar: {
@@ -504,10 +533,6 @@ const s = StyleSheet.create({
   chipText: { ...face('body'), fontSize: type.sm, color: colors.ink },
   chipTextOn: { ...face('bodyMedium'), color: colors.accentInk },
 
-  noMatch: { paddingHorizontal: space[5], paddingTop: space[6], gap: space[2] },
-  noMatchTitle: { ...face('display'), fontSize: type.xl, color: colors.ink },
-  noMatchBody: { ...face('body'), fontSize: type.base, lineHeight: 22, color: colors.inkDim },
-
   sectionHead: { paddingHorizontal: space[5], paddingTop: space[5], paddingBottom: space[2] },
   sectionTitle: { ...face('display'), fontSize: type.xl, color: colors.ink },
   sectionBlurb: {
@@ -518,5 +543,4 @@ const s = StyleSheet.create({
     marginTop: space[1],
   },
 
-  floatingError: { position: 'absolute', left: space[5], right: space[5], bottom: 110 },
 });

@@ -1,10 +1,12 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
+import { ReceiptText } from 'lucide-react-native';
 import * as api from '@/lib/api';
 import type { ApiOrderSummary } from '@/lib/api';
-import { useApiError, useSession } from '@/lib/session';
-import { Button, Notice, Screen } from '@/components/ui';
+import { useApiFailure, useSession, type Failure } from '@/lib/session';
+import { Screen } from '@/components/ui';
+import { ListState } from '@/components/state';
 import { OrdersSkeleton } from '@/components/skeleton';
 import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/theme';
 
@@ -25,10 +27,13 @@ import { colors, radius, space, text as type, tabular, TOUCH_MIN } from '@/lib/t
  * order went.
  */
 export default function Orders() {
-  const onError = useApiError();
+  const failureOf = useApiFailure();
   const { customer } = useSession();
   const [orders, setOrders] = useState<ApiOrderSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  /** Bumped by the failed state's button; the focus effect is keyed on it, so
+   *  "Try again" is the same read rather than a second one. */
+  const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   /** Account history when there is an account; this visit's otherwise. */
@@ -44,13 +49,13 @@ export default function Orders() {
     (async () => {
       try {
         const loaded = await read();
-        if (!cancelled) { setOrders(loaded); setError(null); }
-      } catch (failure) {
-        if (!cancelled) setError(onError(failure));
+        if (!cancelled) { setOrders(loaded); setFailure(null); }
+      } catch (thrown) {
+        if (!cancelled) setFailure(failureOf(thrown));
       }
     })();
     return () => { cancelled = true; };
-  }, [onError, read]));
+  }, [failureOf, read, attempt]));
 
   /**
    * Pull to refresh.
@@ -65,15 +70,39 @@ export default function Orders() {
     setRefreshing(true);
     try {
       setOrders(await read());
-      setError(null);
-    } catch (failure) {
-      setError(onError(failure));
+      setFailure(null);
+    } catch (thrown) {
+      setFailure(failureOf(thrown));
     } finally {
       setRefreshing(false);
     }
-  }, [onError, read]);
+  }, [failureOf, read]);
 
-  if (error && !orders) return <Screen style={s.center}><Notice>{error}</Notice></Screen>;
+  /*
+    `!orders?.length` and not `!orders`: an empty array is data, and after a
+    failed re-read it is data that may no longer be true. There is nothing to
+    look at either way, so the failure is the more useful of the two screens —
+    "Nothing ordered yet" over a read that never landed is the app stating a
+    fact it does not have. A read that fails over a list that DID load keeps
+    the list, because stale orders are still the last thing we actually know.
+  */
+  if (failure && !orders?.length) {
+    return (
+      <Screen>
+        <Stack.Screen options={{ title: 'Orders' }} />
+        <ListState
+          tone={failure.kind}
+          title={failure.kind === 'offline' ? 'Your orders did not load' : 'Your orders are not available'}
+          body={failure.kind === 'offline'
+            ? 'You are not reaching us. Check your signal, then try again. Anything already sent to the kitchen is still being cooked.'
+            : undefined}
+          message={failure.kind === 'refused' ? failure.message : undefined}
+          actionLabel="Try again"
+          onAction={() => setAttempt((n) => n + 1)}
+        />
+      </Screen>
+    );
+  }
   if (!orders) {
     return (
       <Screen>
@@ -85,17 +114,24 @@ export default function Orders() {
 
   if (orders.length === 0) {
     return (
-      <Screen style={s.center}>
+      <Screen>
         <Stack.Screen options={{ title: 'Orders' }} />
-        <Text style={s.emptyTitle}>Nothing ordered yet</Text>
-        <Text style={s.emptyBody}>
-          {customer
+        {/* The words are the ones this screen shipped with: which list is
+            being shown, so nobody wonders where an order went. What changed
+            is that it is now drawn the same way every other empty list in
+            the app is, and can no longer be mistaken for a failed read. */}
+        <ListState
+          tone="empty"
+          icon={ReceiptText}
+          title="Nothing ordered yet"
+          body={customer
             ? 'Orders you place from here are kept on your account. Table and room-service orders stay with the table and the room.'
             : 'Orders show up here while you are ordering. Sign in and they are kept after that.'}
-        </Text>
-        {customer
-          ? <Button label="Back to the menu" tone="quiet" onPress={() => router.replace('/menu')} />
-          : <Button label="Sign in" onPress={() => router.push('/account/sign-in')} />}
+          actionLabel={customer ? 'Back to the menu' : 'Sign in'}
+          onAction={() => (customer
+            ? router.replace('/menu')
+            : router.push('/account/sign-in'))}
+        />
       </Screen>
     );
   }
@@ -148,10 +184,6 @@ function title(status: string): string {
 }
 
 const s = StyleSheet.create({
-  center: { justifyContent: 'center', alignItems: 'center', padding: space[5], gap: space[3] },
-  emptyTitle: { fontSize: type.lg, fontWeight: '600', color: colors.ink },
-  emptyBody: { fontSize: type.base, lineHeight: 22, color: colors.inkDim, textAlign: 'center' },
-
   list: { padding: space[4], gap: space[2] },
   row: {
     flexDirection: 'row',

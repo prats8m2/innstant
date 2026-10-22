@@ -5,7 +5,7 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from '
 import { ChevronRight, Plus } from 'lucide-react-native';
 import type { ApiDish } from '@contract';
 import { flagChipFor, spiceWordFor } from '@/lib/format';
-import { useReducedMotion } from '@/lib/motion';
+import { useDuration } from '@/lib/motion';
 import {
   colors, duration, face, radius, space, tabular, text as type, TOUCH_MIN,
 } from '@/lib/theme';
@@ -149,7 +149,7 @@ function QuickAdd({
   onAdd: () => Promise<void>;
 }) {
   const [busy, setBusy] = useState(false);
-  const reduced = useReducedMotion();
+  const ms = useDuration();
   const filled = quantity > 0;
 
   // Initialised to the CURRENT state, so a row that mounts with three already
@@ -157,14 +157,12 @@ function QuickAdd({
   const fill = useRef(new Animated.Value(filled ? 1 : 0)).current;
 
   useEffect(() => {
-    const to = filled ? 1 : 0;
-    if (reduced) { fill.setValue(to); return; }
     Animated.timing(fill, {
-      toValue: to,
-      duration: duration.fast,
+      toValue: filled ? 1 : 0,
+      duration: ms(duration.fast),
       useNativeDriver: true,
     }).start();
-  }, [filled, reduced, fill]);
+  }, [filled, ms, fill]);
 
   const tap = async () => {
     if (busy) return;

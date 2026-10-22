@@ -13,8 +13,10 @@ import { DMMono_400Regular, DMMono_500Medium } from '@expo-google-fonts/dm-mono'
  * home-indicator height as a screen appears.
  */
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ReduceMotion, ReducedMotionConfig } from 'react-native-reanimated';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { SessionProvider } from '@/lib/session';
+import { CartToast } from '@/components/cart-toast';
 import { colors } from '@/lib/theme';
 
 /**
@@ -84,6 +86,22 @@ export default function RootLayout() {
      */
     <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      {/*
+        Reduced motion, for everything Reanimated drives. Phase 4.
+
+        `ReduceMotion.System` is already Reanimated's default, which is
+        exactly why it is written down: a default is a thing a minor version
+        is allowed to change, and the failure would be silent and invisible
+        to anybody who does not have the setting turned on. It reaches the
+        skeleton shimmer, the dish screen's parallax header, the sheet
+        photograph's spring and @gorhom/bottom-sheet's own rise — none of
+        which `useDuration()` can see, because none of them is RN `Animated`.
+
+        The two halves together are the whole of CLAUDE.md's
+        `prefers-reduced-motion` rule on this app: this line for Reanimated,
+        `lib/motion.ts` for `Animated`. No component decides for itself.
+      */}
+      <ReducedMotionConfig mode={ReduceMotion.System} />
       {/* Light content, because the ground is indigo. Set here so a screen
           cannot forget it and show black text on a dark bar. */}
       <StatusBar style="light" />
@@ -116,6 +134,9 @@ export default function RootLayout() {
           <Stack.Screen name="p/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="r/[code]" options={{ title: 'Room service' }} />
         </Stack>
+        {/* AFTER the navigator, so a rolled-back tap is readable over
+            whichever screen made it. See components/cart-toast.tsx. */}
+        <CartToast />
       </SessionProvider>
     </SafeAreaProvider>
     </GestureHandlerRootView>
