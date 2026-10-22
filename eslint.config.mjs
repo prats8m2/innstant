@@ -103,6 +103,13 @@ export default tseslint.config(
        */
       'design/UX/**',
       /*
+       * Workflow scripts. They are run by the Claude Code harness, not by
+       * node and not by Next — `phase()`, `agent()`, `parallel()` and `log()`
+       * are globals it injects, so every one of them reads as `no-undef`
+       * here. Nothing under `src/` imports them and they ship nowhere.
+       */
+      '.claude/**',
+      /*
        * The React Native app is its own package with its own toolchain
        * (D-080). It is typechecked by `mobile/tsconfig.json` and linted by
        * Expo's config, which knows about React Native's globals and its JSX

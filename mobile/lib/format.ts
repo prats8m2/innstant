@@ -179,3 +179,26 @@ export function initialOf(name: string): string {
   const first = Array.from(name.trim())[0];
   return first ? first.toUpperCase() : '';
 }
+
+/**
+ * `ApiDish.mostOrderedRank` → the badge's words, or null. Phase 3.
+ *
+ * ─── Only two sentences are honest here ───────────────────────────────────
+ *
+ * The contract is explicit about it: the rank is counted from `order_items`
+ * over a trailing month, the server declines to rank at all until there is
+ * enough history for a ranking to mean anything, and ties share a rank. What
+ * that supports is "this is the one people order" and "this is the second" —
+ * and nothing else. A count ("ordered 48 times"), a share ("12% of orders")
+ * or a percentile would each be the app inventing precision the number does
+ * not carry, which is exactly the decoration the redesign plan rejected
+ * ratings for.
+ *
+ * Rank 1 is the only one that gets the unqualified sentence. Lower ones say
+ * their number, because "Most ordered" on four dishes at once is a badge
+ * that has stopped meaning anything.
+ */
+export function mostOrderedLabelFor(rank: number | null): string | null {
+  if (rank === null || !Number.isInteger(rank) || rank < 1) return null;
+  return rank === 1 ? 'Most ordered' : `#${rank} most ordered`;
+}

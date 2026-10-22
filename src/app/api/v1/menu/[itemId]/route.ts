@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getDish } from '@/modules/catalog';
+import { mostOrderedDishes } from '@/modules/ordering';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
 import { apiHandler, corsPreflight } from '../../_lib/handler';
@@ -54,8 +55,15 @@ export const GET = apiHandler('/api/v1/menu/[itemId]', async (request): Promise<
 
     const currency = detail.outlet.currency as CurrencyCode;
 
+    /*
+     * The same badge the list showed (phase 3). Carried onto the dish screen
+     * rather than dropped there, because a "Most ordered" chip that vanishes
+     * when you tap the dish reads as a list that was making it up.
+     */
+    const ranks = await mostOrderedDishes(tx, { outletId: ctx.outletId });
+
     return {
-      dish: apiDish(detail.dish),
+      dish: apiDish(detail.dish, ranks),
       outlet: ctx.apiOutlet,
       modifierGroups: detail.modifierGroups.map((group) => ({
         id: group.id,

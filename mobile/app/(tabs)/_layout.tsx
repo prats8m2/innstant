@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { House, ReceiptText, User } from 'lucide-react-native';
-import { colors, space, text as type, face, TOUCH_MIN } from '@/lib/theme';
+import { House, ReceiptText, Search, User } from 'lucide-react-native';
+import { colors, space, text as type, face, TAB_BAR_H, TOUCH_MIN } from '@/lib/theme';
 
 /**
  * The tab bar. Phase 1 of the app redesign.
@@ -13,12 +13,19 @@ import { colors, space, text as type, face, TOUCH_MIN } from '@/lib/theme';
  * is most of what "it feels basic" was describing, and it costs nothing to
  * fix — no new data, no new screens, and no photography.
  *
- * ─── Three tabs, not four ─────────────────────────────────────────────────
+ * ─── Four tabs, since phase 3 ─────────────────────────────────────────────
  *
- * Search belongs here and is deliberately absent. Searching a menu properly
- * needs an endpoint — ten dishes filter fine in the client, sixty do not, and
- * a real property has sixty. It is phase 3, and a search tab that only works
- * on the demo menu would be a promise we would then have to keep.
+ * Search was deliberately absent from this bar for one phase, and the note
+ * that used to be here said why: searching a menu properly needs an endpoint
+ * — ten dishes filter fine in the client, sixty do not, and a real property
+ * has sixty. `GET /menu/search` is what phase 3 built, so the tab is here and
+ * it is the server answering it.
+ *
+ * It sits SECOND, between Order and Orders, which is where its own screen
+ * argues from: searching is something you do instead of scrolling the menu,
+ * so it belongs beside the menu rather than beside your history. The two
+ * neighbours are also why the labels are "Order" and "Orders" and not
+ * "Menu" and "Orders" — the first tab is the act, the third is the record.
  *
  * ─── What is NOT a tab ────────────────────────────────────────────────────
  *
@@ -54,7 +61,7 @@ export default function TabLayout() {
           // Taller than the platform default. The bar sits under a thumb on
           // a phone held one-handed, which is how somebody orders standing
           // in a lobby.
-          height: TOUCH_MIN + space[5],
+          height: TAB_BAR_H,
           paddingTop: space[2],
           paddingBottom: space[3],
         },
@@ -67,6 +74,13 @@ export default function TabLayout() {
         options={{
           title: 'Order',
           tabBarIcon: ({ color, size }) => <House color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="search"
+        options={{
+          title: 'Search',
+          tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
         }}
       />
       <Tabs.Screen

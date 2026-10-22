@@ -91,6 +91,21 @@ export const text = {
 export const TOUCH_MIN = 48;
 
 /**
+ * How tall the tab bar is, without the home indicator under it.
+ *
+ * `(tabs)/_layout.tsx` sets this height and a screen inside the tabs has to
+ * know it: a cart pill pinned to the bottom of a tab is pinned above the bar
+ * rather than behind it, and the number has to be the same one in both files
+ * or the pill floats. Add `insets.bottom` at the point of use — the inset is
+ * the device's and not the bar's.
+ *
+ * A size rather than a layout accident, which is why it is here: the
+ * alternative is the figure written twice, and the second copy is the one
+ * that is wrong after somebody retunes the bar.
+ */
+export const TAB_BAR_H = TOUCH_MIN + space[5];
+
+/**
  * Tabular figures, for every number that sits next to another number.
  *
  * Prices in a column, a quantity beside a stepper, a time in a timeline. A

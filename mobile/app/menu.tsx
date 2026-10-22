@@ -9,15 +9,15 @@ import * as api from '@/lib/api';
 import type { ApiDish, ApiMenu } from '@/lib/api';
 import { useApiError, useSession } from '@/lib/session';
 import { Notice, Screen } from '@/components/ui';
-import { Stepper } from '@/components/stepper';
-import { DishPhoto } from '@/components/dish-photo';
-import { DietMark } from '@/components/diet-mark';
+import { CartPill } from '@/components/cart-pill';
+import { DishRow } from '@/components/dish-row';
 import { DishSheet, type DishSheetHandle } from '@/components/dish-sheet';
+import { FilterChips, FilterSummary } from '@/components/filter-chips';
 import { MenuSkeleton } from '@/components/skeleton';
 import { tapAdd, tapRemove } from '@/lib/haptics';
-import { spiceWordFor } from '@/lib/format';
+import { NO_FILTERS, matchesFilters, type DishFilters } from '@/lib/filters';
 import {
-  colors, face, radius, space, text as type, tabular, TOUCH_MIN,
+  colors, face, radius, space, text as type, TOUCH_MIN,
 } from '@/lib/theme';
 
 /**
@@ -34,6 +34,18 @@ import {
  * chip into view, so the rail says where you are as well as taking you
  * somewhere. The rows carry a photograph and the veg / non-veg mark, which
  * is a legal convention here and not an ornament (see `DietMark`).
+ *
+ * ─── What phase 3 changed ─────────────────────────────────────────────────
+ *
+ * A second rail, of filter chips, under the section one — and the row moved
+ * out to `components/dish-row.tsx`, because search draws the same rows and a
+ * second copy of the stepper is a second opinion about the cart.
+ *
+ * The filtering here is done in the CLIENT, where the search tab asks the
+ * server. That is not an inconsistency: this screen is already holding every
+ * dish, and a round trip to re-select from a list in memory would be slower
+ * and could disagree with what is on screen. `lib/filters.ts` is the single
+ * rule both screens apply, which is what keeps a chip meaning one thing.
  */
 interface MenuSection {
   id: string;
@@ -51,6 +63,10 @@ export default function Menu() {
   const [menu, setMenu] = useState<ApiMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  /** Veg, heat, price. Deliberately NOT in the URL: a filtered menu is a
+   *  reading position rather than a place, and a link to one would restore
+   *  somebody to a card with most of the dishes missing. */
+  const [filters, setFilters] = useState<DishFilters>(NO_FILTERS);
   const insets = useSafeAreaInsets();
   /** The dish sheet, opened by a row. See `components/dish-sheet.tsx` for why
    *  it is a child of this screen rather than a modal above the navigator. */
@@ -252,14 +268,26 @@ export default function Menu() {
   // section rail and five dish rows, so nothing moves when they arrive.
   if (!menu || !session) return <Screen><MenuSkeleton /></Screen>;
 
+  /**
+   * The sections, with the chips applied.
+   *
+   * A section whose every dish was filtered out is dropped rather than left
+   * as an empty heading — and it leaves the RAIL too, so the rail and the
+   * list always agree about what is on this screen. The indices the rail
+   * jumps with are this array's, so they stay correct by construction.
+   */
   const sections: MenuSection[] = menu.sections
-    .filter((section) => section.items.length > 0)
     .map((section) => ({
       id: section.id,
       title: section.title,
       blurb: section.blurb,
-      data: section.items,
-    }));
+      data: section.items.filter((dish) => matchesFilters(dish, filters)),
+    }))
+    .filter((section) => section.data.length > 0);
+
+  /** Dishes, not rows: one dish on three collections is one thing to eat,
+   *  and the summary line under the chips says how many there are. */
+  const shown = new Set(sections.flatMap((section) => section.data.map((dish) => dish.id))).size;
 
   /** Before the first scroll report, the list is showing its first section. */
   const current = active ?? sections[0]?.id ?? null;
@@ -357,6 +385,13 @@ export default function Menu() {
         </ScrollView>
       </View>
 
+      {/* Its own row under the section rail, and the one that carries the
+          divider — two hairlines across a header this tall reads as two
+          headers. */}
+      <View style={s.filterBar}>
+        <FilterChips filters={filters} onChange={setFilters} />
+      </View>
+
       <SectionList
         ref={list}
         sections={sections}
@@ -402,6 +437,16 @@ export default function Menu() {
             });
           }, 80);
         }}
+        ListHeaderComponent={<FilterSummary filters={filters} count={shown} />}
+        /* Only reachable with chips lit — an outlet with no dishes at all
+           never gets here, because the menu read returns no sections and the
+           screen above shows the kitchen's own line instead. */
+        ListEmptyComponent={(
+          <View style={s.noMatch}>
+            <Text style={s.noMatchTitle}>Nothing on the menu matches those filters.</Text>
+            <Text style={s.noMatchBody}>Clear one and the card comes back.</Text>
+          </View>
+        )}
         renderSectionHeader={({ section }) => (
           <View style={s.sectionHead}>
             <Text style={s.sectionTitle}>{section.title}</Text>
@@ -421,19 +466,7 @@ export default function Menu() {
       {error ? <View style={s.floatingError}><Notice>{error}</Notice></View> : null}
 
       {cart && cart.itemCount > 0 ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/cart')}
-          style={({ pressed }) => [
-            s.pill,
-            { bottom: insets.bottom + space[4] },
-            pressed && { backgroundColor: colors.accentHover },
-          ]}
-        >
-          <Text style={[s.pillCount, tabular]}>{cart.itemCount}</Text>
-          <Text style={s.pillLabel}>Review order</Text>
-          <Text style={[s.pillTotal, tabular]}>{cart.totals.total.text}</Text>
-        </Pressable>
+        <CartPill cart={cart} bottom={insets.bottom + space[4]} />
       ) : null}
 
       {/* LAST, so it draws over the cart pill rather than under it. */}
@@ -442,112 +475,16 @@ export default function Menu() {
   );
 }
 
-/**
- * One dish.
- *
- * The whole row opens the dish; the stepper does not. On the web that split
- * exists because a button cannot be nested in an anchor — here it is a product
- * decision with the same shape: somebody who wants it the way the chef makes
- * it taps +, and somebody who wants it mild taps the row.
- *
- * Tapping the row raises the SHEET now rather than pushing a screen. The menu
- * stays behind it, which is the whole argument: choosing a spice level is a
- * step in reading a menu, not a departure from it.
- *
- * ─── The mark goes before the name, where it is read ──────────────────────
- *
- * Every Indian menu puts the veg / non-veg square at the start of the line,
- * and somebody scanning for it is scanning one column rather than reading
- * rows. A dish that declares neither draws nothing at all — see `DietMark`.
- */
-function DishRow({
-  dish,
-  quantity,
-  onAdjust,
-  onOpen,
-}: {
-  dish: ApiDish;
-  quantity: number;
-  onAdjust: (direction: 'add' | 'remove') => Promise<void>;
-  onOpen: () => void;
-}) {
-  const spice = spiceWordFor(dish.spiceLevel);
-
-  return (
-    <View style={[s.row, !dish.isAvailable && s.rowOff]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${dish.name}, ${dish.price.text}`}
-        onPress={onOpen}
-        style={s.rowBody}
-      >
-        <DietMark flags={dish.dietaryFlags} />
-        <Text style={s.dishName}>{dish.name}</Text>
-        {dish.description ? (
-          <Text style={s.dishBlurb} numberOfLines={2}>{dish.description}</Text>
-        ) : null}
-        <View style={s.dishMeta}>
-          <Text style={[s.price, tabular]}>{dish.price.text}</Text>
-          {dish.isAvailable ? (
-            <>
-              {spice ? <Text style={s.tag}>{spice}</Text> : null}
-              {dish.prepTimeMinutes ? <Text style={s.tag}>{dish.prepTimeMinutes} min</Text> : null}
-            </>
-          ) : (
-            /* One flag, two causes: the kitchen has 86'd it, or it is outside
-               its own hours. "Not available now" is true of both. */
-            <Text style={s.soldOut}>Not available now</Text>
-          )}
-        </View>
-      </Pressable>
-
-      {/* Photo and control share a column, the control sitting over the
-          photo's lower edge. Without a photograph the column is the control
-          alone, exactly as this row shipped. */}
-      <View style={dish.imageUrl ? s.media : undefined}>
-        {dish.imageUrl ? (
-          <DishPhoto uri={dish.imageUrl} blurhash={dish.blurhash} name={dish.name} size={PHOTO} />
-        ) : null}
-        {/* Only where there is nothing to ask. A dish whose required choice
-            has no default sends somebody inside instead. */}
-        {dish.isAvailable && dish.canQuickAdd ? (
-          <View style={dish.imageUrl ? s.stepperOverPhoto : undefined}>
-            <Stepper quantity={quantity} onAdjust={onAdjust} label={dish.name} />
-          </View>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-/**
- * 112, up from the 96 this row shipped with.
- *
- * The photographs are the content now rather than a decoration beside it, and
- * 112 is the largest square that leaves a two-line dish name unwrapped at
- * 15pt on a 390pt screen with both gutters. Anything wider starts breaking
- * names across three lines, which costs more vertical space than the picture
- * gains.
- */
-const PHOTO = 112;
-
 const s = StyleSheet.create({
-  /* Fixed width so every row's text wraps in the same place. A column
-     sized to its image makes a list of dishes look like a list of
-     different things. */
-  media: { width: PHOTO, alignItems: 'center' },
-  stepperOverPhoto: { marginTop: -22 },
-
   center: { justifyContent: 'center', padding: space[5] },
   headerLink: { ...face('bodyMedium'), fontSize: type.base, color: colors.accent },
 
   bar: {
     paddingHorizontal: space[5],
     paddingBottom: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
     gap: space[1],
   },
+  filterBar: { borderBottomWidth: 1, borderBottomColor: colors.line },
   where: { ...face('body'), fontSize: type.sm, color: colors.inkDim },
   hours: { ...face('body'), fontSize: type.sm, color: colors.positive },
   rail: { gap: space[2], paddingTop: space[3] },
@@ -567,6 +504,10 @@ const s = StyleSheet.create({
   chipText: { ...face('body'), fontSize: type.sm, color: colors.ink },
   chipTextOn: { ...face('bodyMedium'), color: colors.accentInk },
 
+  noMatch: { paddingHorizontal: space[5], paddingTop: space[6], gap: space[2] },
+  noMatchTitle: { ...face('display'), fontSize: type.xl, color: colors.ink },
+  noMatchBody: { ...face('body'), fontSize: type.base, lineHeight: 22, color: colors.inkDim },
+
   sectionHead: { paddingHorizontal: space[5], paddingTop: space[5], paddingBottom: space[2] },
   sectionTitle: { ...face('display'), fontSize: type.xl, color: colors.ink },
   sectionBlurb: {
@@ -577,50 +518,5 @@ const s = StyleSheet.create({
     marginTop: space[1],
   },
 
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[4],
-    paddingHorizontal: space[5],
-    paddingVertical: space[4],
-    minHeight: TOUCH_MIN + space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineSoft,
-  },
-  rowOff: { opacity: 0.55 },
-  rowBody: { flex: 1, gap: space[1] },
-  dishName: { ...face('bodyMedium'), fontSize: type.base, color: colors.ink },
-  dishBlurb: { ...face('body'), fontSize: type.sm, lineHeight: 19, color: colors.inkDim },
-  dishMeta: { flexDirection: 'row', alignItems: 'center', gap: space[3], marginTop: space[1] },
-  price: { ...face('mono'), fontSize: type.base, color: colors.ink },
-  tag: { ...face('mono'), fontSize: type.xs, color: colors.inkFaint },
-  soldOut: { ...face('body'), fontSize: type.xs, color: colors.critical },
-
   floatingError: { position: 'absolute', left: space[5], right: space[5], bottom: 110 },
-
-  pill: {
-    position: 'absolute',
-    left: space[5],
-    right: space[5],
-    minHeight: TOUCH_MIN + 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[3],
-    paddingHorizontal: space[4],
-    borderRadius: radius.md,
-    backgroundColor: colors.accent,
-  },
-  pillCount: {
-    minWidth: 26,
-    textAlign: 'center',
-    ...face('monoMedium'),
-    fontSize: type.sm,
-    color: colors.accent,
-    backgroundColor: colors.accentInk,
-    borderRadius: radius.xs,
-    paddingVertical: 2,
-    overflow: 'hidden',
-  },
-  pillLabel: { flex: 1, ...face('bodyMedium'), fontSize: type.base, color: colors.accentInk },
-  pillTotal: { ...face('monoMedium'), fontSize: type.base, color: colors.accentInk },
 });

@@ -146,6 +146,23 @@ export interface ApiDish {
    * web menu follows, decided once in the menu read.
    */
   canQuickAdd: boolean;
+  /**
+   * 1 for the dish this outlet has sold most over the trailing month, 2 for
+   * the next, and so on down a short shelf. Null — the usual answer — means
+   * no badge, and it is what a new property, a quiet month and a dish nobody
+   * orders all return.
+   *
+   * Counted from `order_items`, so it is the one piece of social proof in
+   * this app that is EARNED rather than published about ourselves. It counts
+   * orders rather than units (six chais on one tray is one table wanting
+   * chai), and the server declines to rank at all until the outlet has enough
+   * history for a ranking to mean anything. A client must therefore never
+   * render a count, a percentage or a "top 10%" from this: the only honest
+   * sentences it supports are "Most ordered" and "#2 most ordered".
+   *
+   * Ties share a rank, so two dishes may both be 2 and nothing is 3.
+   */
+  mostOrderedRank: number | null;
 }
 
 export interface ApiMenuSection {
@@ -191,6 +208,116 @@ export interface ApiMenu {
    * request for it.
    */
   featured: ApiFeaturedDish[];
+}
+
+/* ── Searching the menu (phase 3) ────────────────────────────────────────── */
+
+/**
+ * `GET /api/v1/menu/search` — one read that both searches and filters.
+ *
+ * ─── Why the filters are on the search and not beside it ──────────────────
+ *
+ * A diner types "paneer" and then taps "Veg", and the answer is one list.
+ * Two endpoints would mean the app intersecting two result sets and owning
+ * the ordering of the intersection, which is the search rule living in the
+ * client again by another route.
+ *
+ * ─── Every parameter is optional, including the query ─────────────────────
+ *
+ * Tapping a filter chip with an empty box is a legitimate request — browse
+ * the veg dishes — and it returns the whole filtered menu in menu order. A
+ * request with nothing at all returns the whole menu, which makes this
+ * endpoint's empty state the menu rather than a blank screen.
+ *
+ * The query string:
+ *
+ *   q             the typed text, up to 64 characters
+ *   diet          comma-separated flags the dish must ALL carry
+ *   excludeDiet   comma-separated flags the dish must carry NONE of
+ *   minSpice      0-5, inclusive
+ *   maxSpice      0-5, inclusive
+ *   minPrice      integer MINOR units, inclusive (#5)
+ *   maxPrice      integer MINOR units, inclusive (#5)
+ *   limit         1-100, default 100
+ *
+ * An empty value is the same as an absent one, so an app clearing a chip may
+ * send `?minSpice=` rather than rebuilding the query string. A repeated
+ * parameter is NOT a list — `?diet=A&diet=B` keeps only the last; the two
+ * flag fields are comma-separated for exactly that reason.
+ *
+ * Out of range is a 422, not a clamp, so `filters` below is always what was
+ * asked for. Unknown dietary flags are the one exception: they are accepted
+ * and match nothing, because `ApiDish.dietaryFlags` is open-ended and an
+ * older app must not start failing the day a property invents a flag.
+ */
+export interface ApiMenuSearchResult {
+  /**
+   * Where the dish sits on the menu, in the short rail form — the eyebrow
+   * over the name in a result row, the same string `ApiMenuSection.label`
+   * and `ApiFeaturedDish.section` carry.
+   *
+   * A dish in three sections appears ONCE, under the first — which is the
+   * editorial one, because collections precede categories.
+   */
+  section: string;
+  dish: ApiDish;
+}
+
+/**
+ * The filters as the server APPLIED them, echoed back.
+ *
+ * Not decoration: it is how a chip row proves it agrees with the list under
+ * it. An unparseable or out-of-range parameter is a 422 rather than a silent
+ * clamp, so what comes back here is what was asked for — but it comes back
+ * normalised (flags upper-cased, blanks dropped), and an app that renders
+ * from this rather than from its own pending state cannot show a chip the
+ * results do not honour.
+ */
+export interface ApiMenuFilters {
+  dietaryFlags: string[];
+  excludeDietaryFlags: string[];
+  minSpice: number | null;
+  maxSpice: number | null;
+  minPrice: ApiMoney | null;
+  maxPrice: ApiMoney | null;
+}
+
+/**
+ * What there is to filter BY on THIS menu — the chips a filter sheet may
+ * offer and the ends of the price slider.
+ *
+ * Sent with every search so the sheet needs no second request, and taken from
+ * the outlet's own dishes rather than from a constant: a "Vegan" chip on a
+ * menu with no vegan dish can only ever reach the empty state, and a slider
+ * whose range is not the menu's spends half its travel on nothing.
+ *
+ * Computed over every dish on the menu, including tonight's unavailable ones,
+ * so the chip row does not move under somebody's thumb as the kitchen 86s a
+ * dish.
+ */
+export interface ApiMenuFacets {
+  /** Sorted, so the chip order is stable between requests. */
+  dietaryFlags: string[];
+  /** The levels actually declared, ascending. Empty when none are. */
+  spiceLevels: number[];
+  /** Null when the outlet is showing no dishes at all. */
+  priceRange: { min: ApiMoney; max: ApiMoney } | null;
+}
+
+export interface ApiMenuSearch {
+  /** What was actually searched, folded of nothing but surrounding space —
+   *  so a results header can quote it back without re-trimming. */
+  query: string;
+  filters: ApiMenuFilters;
+  facets: ApiMenuFacets;
+  /** Best match first; with no query, available dishes in menu order. */
+  results: ApiMenuSearchResult[];
+  /**
+   * How many dishes the outlet is showing before `query` and `filters` — so
+   * an empty result can say "no match among 62 dishes" rather than implying
+   * the kitchen has nothing.
+   */
+  totalDishes: number;
 }
 
 export interface ApiModifierOption {

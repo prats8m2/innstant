@@ -1,4 +1,5 @@
 import { getMenu, featuredDishes } from '@/modules/catalog';
+import { mostOrderedDishes } from '@/modules/ordering';
 import { NotFoundError } from '@/lib/errors';
 import { requireVisitSession } from '@/lib/api-auth';
 import { apiHandler, corsPreflight } from '../_lib/handler';
@@ -53,14 +54,25 @@ export const GET = apiHandler('/api/v1/menu', async (request): Promise<ApiMenu> 
     });
     if (!menu) throw new NotFoundError('This menu is no longer being served.');
 
+    /*
+     * The "Most ordered" badge, on the same read (phase 3).
+     *
+     * Two index scans rather than a second request: a badge that arrived
+     * after the list had rendered would move dish cards under a thumb, and an
+     * app merging two payloads would be the one deciding which dishes are
+     * popular. Usually an empty map, which is the correct answer for a new
+     * property and costs nothing to serialise.
+     */
+    const ranks = await mostOrderedDishes(tx, { outletId: ctx.outletId });
+
     return {
       outlet: ctx.apiOutlet,
-      sections: menu.sections.map(apiSection),
+      sections: menu.sections.map((section) => apiSection(section, ranks)),
       // A view of the sections above, not a second read. The pick is made
       // server-side so the app's home and the web's cannot disagree about what
       // the restaurant is leading with — and so the rule has a test, which a
       // choice made in a component would not.
-      featured: apiFeatured(featuredDishes(menu.sections)),
+      featured: apiFeatured(featuredDishes(menu.sections), ranks),
     };
   });
 });

@@ -1,11 +1,11 @@
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import type {
-  ApiCart, ApiError, ApiMenu, ApiDishDetail, ApiOrder, ApiOrderSummary,
-  ApiPlacedOrder, ApiSession, ApiPlaceOrderBody, ApiAddToCartBody, ApiQuickAddBody,
-  ApiCustomer, ApiAddress, ApiAddressBody, ApiMe, ApiSignedIn,
-  ApiRequestOtpResult, ApiUpdateProfileBody,
-  ApiReorderSuggestion, ApiReorderResult, ApiOrderedBefore,
+  ApiAddToCartBody, ApiAddress, ApiAddressBody, ApiCart, ApiCustomer,
+  ApiDish, ApiDishDetail, ApiError, ApiMe, ApiMenu, ApiMenuSearch,
+  ApiOrder, ApiOrderSummary, ApiOrderedBefore, ApiPlaceOrderBody,
+  ApiPlacedOrder, ApiQuickAddBody, ApiReorderResult, ApiReorderSuggestion,
+  ApiRequestOtpResult, ApiSession, ApiSignedIn, ApiUpdateProfileBody,
 } from '@contract';
 
 /**
@@ -248,6 +248,49 @@ export function getMenu(): Promise<ApiMenu> {
 
 export function getDish(itemId: string): Promise<ApiDishDetail> {
   return request<ApiDishDetail>(`/menu/${itemId}`);
+}
+
+/**
+ * Search the menu. Phase 3 of the redesign.
+ *
+ * ─── Why this is an endpoint and not a filter over `getMenu()` ────────────
+ *
+ * The Kesari's card is ten dishes and would filter perfectly well in the
+ * client. A real property's is sixty or more, across sections, with
+ * descriptions worth matching on — and the day that menu arrives, a client
+ * that had been filtering an array it already held has to be rewritten rather
+ * than extended. The plan says build the endpoint anyway, and this is the
+ * call that makes the screen use it.
+ *
+ * `q` is sent even when empty: a search with no words and three chips lit is
+ * a legitimate question ("what is veg and under ₹600"), and it is the server
+ * that decides what an empty term matches.
+ *
+ * ─── The shape, and the fact that it is an assumption ─────────────────────
+ *
+ * `GET /api/v1/menu/search`. The response is `ApiMenuSearch` — an object,
+ * not a bare array, and its `results` are `{ section, dish }` rather than
+ * dishes.
+ *
+ * This used to accept three possible shapes and unwrap whichever arrived,
+ * which is what writing a client against a guessed contract looks like. It
+ * guessed wrong in the way that does not fail: `results` existed, so the
+ * array came back, and every row rendered from a wrapper object with no
+ * `name` and no `price`. The typed shape is the fix, and it is also why the
+ * section is now available for the eyebrow.
+ * returning the dishes in the same `ApiDish` shape the menu does, while the
+ * endpoint itself was being written in the other half of the repo. What was
+ * NOT settled is whether the body is a bare array or an object around one, so
+ * this reads both and hands back a list. When the contract lands in
+ * `@contract` this normalisation is the thing to delete — it is a guess, not
+ * a feature.
+ */
+export async function searchMenu(
+  query: string,
+  params: Record<string, string> = {},
+): Promise<ApiMenuSearch> {
+  const search = new URLSearchParams({ q: query, ...params });
+  return request<ApiMenuSearch>(`/menu/search?${search.toString()}`);
 }
 
 export function getCart(): Promise<ApiCart> {

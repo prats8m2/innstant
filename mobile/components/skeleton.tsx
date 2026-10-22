@@ -152,6 +152,25 @@ function DishRowSkeleton({ index }: { index: number }) {
   );
 }
 
+/**
+ * Search results, mid-request. Phase 3.
+ *
+ * The same rows as the menu's, without the outlet bar or a section head —
+ * a result list has neither, and a skeleton that drew them would be the
+ * shape of the wrong screen.
+ *
+ * Four rather than the menu's five: the search field and the chip rail take
+ * about a row's height off the top, so four is what actually fits before the
+ * fold on the shortest phone this targets.
+ */
+export function ResultsSkeleton() {
+  return (
+    <View accessibilityRole="progressbar" accessibilityLabel="Searching the menu">
+      {[0, 1, 2, 3].map((index) => <DishRowSkeleton key={index} index={index} />)}
+    </View>
+  );
+}
+
 /** The orders list: four cards, each a number, a status chip and a total. */
 export function OrdersSkeleton() {
   return (

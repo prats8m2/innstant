@@ -63,3 +63,17 @@ export type { OrderTotals, TotalsConfig, TotalsLine } from './totals';
 /** The menu list's own add and remove — see quick-add.ts for why defaults. */
 export { quickAddDish, quickRemoveDish } from './quick-add';
 export { canQuickAdd, defaultOptionIds } from './quick-add-rules';
+
+/**
+ * "Most ordered" — counted from `order_items`, scoped to one outlet, and
+ * silent when the history is too thin to rank. The one badge in this product
+ * that is earned rather than published about ourselves.
+ */
+export {
+  mostOrderedDishes, mostOrderedCounts, rankMostOrdered,
+  MOST_ORDERED_WINDOW_DAYS, MOST_ORDERED_MIN_OUTLET_ORDERS,
+  MOST_ORDERED_MIN_ORDERS, MOST_ORDERED_TOP_N,
+} from './popularity';
+export type {
+  DishOrderCount, MostOrderedCounts, MostOrderedThresholds,
+} from './popularity';

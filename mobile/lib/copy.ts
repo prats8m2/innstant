@@ -80,3 +80,45 @@ export const HOME_COPY = {
    *  `outlet.opensAt` is null this sentence is not shown at all. */
   ctaOpensAt: 'Ordering opens',
 } as const;
+
+/**
+ * The search tab's own prose. Phase 3.
+ *
+ * Here for the same reason `HOME_COPY` is: these are sentences about one
+ * restaurant's menu on one screen, and none of them is a thing the server
+ * said. What the server says — a refusal, a price, an opening line — is
+ * still rendered verbatim and is not in this file.
+ */
+export const SEARCH_COPY = {
+  /** Inside the field. It names what is searched, not what to do. */
+  placeholder: 'Search the menu',
+
+  /** Before anything is typed and before any chip is lit. */
+  idleTitle: 'What are you after?',
+  idleBody:
+    'Search by name or by what is in it — “laal maas”, “kachori”, “ghee”. Or use the filters above.',
+
+  recentTitle: 'Recent',
+  recentClear: 'Clear all',
+
+  /**
+   * Appended to an empty result, when the server told us how many dishes the
+   * outlet is actually showing.
+   *
+   * "Nothing matched" on its own reads as a kitchen with no food in it. The
+   * count turns it into what it really is — a search that was too narrow —
+   * and the server returns `totalDishes` precisely so this sentence can be
+   * written without a second request.
+   */
+  emptyOutOf: (n: number) => `There ${n === 1 ? 'is' : 'are'} ${n} ${n === 1 ? 'dish' : 'dishes'} on the menu today.`,
+
+  /**
+   * Nothing matched. Composed with the term by the screen, because a quoted
+   * term in the middle of a sentence is the part that makes the sentence
+   * useful — "Nothing matched" alone reads as an error.
+   */
+  emptyLead: 'Nothing on the menu matches',
+  /** Said only when chips are lit, because then there is something to undo. */
+  emptyFiltered: 'The filters may be doing it. Clear them and look again.',
+  emptyPlain: 'Try a shorter word, or a part of one.',
+} as const;

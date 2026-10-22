@@ -2,8 +2,11 @@ import { formatMoney, money, type CurrencyCode, type Money } from '@/lib/money';
 import type {
   ApiMoney, ApiDish, ApiFeaturedDish, ApiMenuSection, ApiOutlet, ApiCart, ApiCartLine,
   ApiOrder, ApiOrderSummary, ApiReorder, ApiTrackStep, ApiVisit,
+  ApiMenuFacets, ApiMenuSearchResult,
 } from '@/lib/api-contract';
-import type { FeaturedDish, MenuDish, MenuSection, OutletMenu } from '@/modules/catalog';
+import type {
+  FeaturedDish, MenuDish, MenuFacets, MenuSearchHit, MenuSection, OutletMenu,
+} from '@/modules/catalog';
 import type {
   Cart, CartLine, PlacedOrderDetail, OrderSummary, ReorderableOrder,
 } from '@/modules/ordering';
@@ -49,7 +52,28 @@ export function iso(value: Date | null | undefined): string | null {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-export function apiDish(dish: MenuDish): ApiDish {
+/**
+ * One dish, with its badge hung on it.
+ *
+ * `ranks` is a REQUIRED parameter rather than an optional one, and that is
+ * the whole reason it is a parameter at all. `MenuDish` cannot carry the
+ * rank: it belongs to catalog, the count comes from `order_items`, and a
+ * module may not read another module's tables (D-001) — so the composition
+ * happens here, in the one layer that is allowed to know both.
+ *
+ * Required, because the alternative defaults to "no badge" and the failure
+ * mode of that is a screen that silently never shows one. Passing
+ * `NO_RANKS` is a decision somebody made; forgetting an argument is not.
+ *
+ * It also rules out `section.items.map(apiDish)`, which would hand `apiDish`
+ * the array index as its second argument.
+ */
+export type DishRanks = ReadonlyMap<string, number>;
+
+/** For the reads where popularity is not part of the question. */
+export const NO_RANKS: DishRanks = new Map();
+
+export function apiDish(dish: MenuDish, ranks: DishRanks): ApiDish {
   return {
     id: dish.id,
     name: dish.name,
@@ -62,17 +86,20 @@ export function apiDish(dish: MenuDish): ApiDish {
     imageUrl: dish.imageUrl,
     blurhash: dish.blurhash,
     canQuickAdd: dish.canQuickAdd,
+    // Absent is null, never 0: a dish nobody ordered has no rank, and zero
+    // would sort to the top of anything that treated it as one.
+    mostOrderedRank: ranks.get(dish.id) ?? null,
   };
 }
 
-export function apiSection(section: MenuSection): ApiMenuSection {
+export function apiSection(section: MenuSection, ranks: DishRanks): ApiMenuSection {
   return {
     id: section.id,
     kind: section.kind,
     title: section.title,
     label: section.label,
     blurb: section.blurb,
-    items: section.items.map(apiDish),
+    items: section.items.map((dish) => apiDish(dish, ranks)),
   };
 }
 
@@ -84,8 +111,40 @@ export function apiSection(section: MenuSection): ApiMenuSection {
  * instead of from a lookup the app has to get right. `apiDish` is the same
  * function `apiSection` uses, so the two views of a dish cannot drift.
  */
-export function apiFeatured(entries: readonly FeaturedDish[]): ApiFeaturedDish[] {
-  return entries.map((entry) => ({ section: entry.section, dish: apiDish(entry.dish) }));
+export function apiFeatured(
+  entries: readonly FeaturedDish[],
+  ranks: DishRanks,
+): ApiFeaturedDish[] {
+  return entries.map((entry) => ({
+    section: entry.section,
+    dish: apiDish(entry.dish, ranks),
+  }));
+}
+
+/**
+ * A search hit. The same `apiDish` again, for the same reason — a dish found
+ * by searching and the same dish scrolled to must not differ by a field.
+ */
+export function apiSearchResult(hit: MenuSearchHit, ranks: DishRanks): ApiMenuSearchResult {
+  return { section: hit.section, dish: apiDish(hit.dish, ranks) };
+}
+
+/**
+ * The filter vocabulary, with the price ends formatted by the one formatter
+ * (#5) — a slider's end caps are money a person reads, so they arrive as
+ * "₹180" rather than as 18000 for the app to group digits a second way.
+ */
+export function apiMenuFacets(facets: MenuFacets, currency: string): ApiMenuFacets {
+  return {
+    dietaryFlags: facets.dietaryFlags,
+    spiceLevels: facets.spiceLevels,
+    priceRange: facets.priceRange
+      ? {
+        min: apiMoney(facets.priceRange.minMinor, currency),
+        max: apiMoney(facets.priceRange.maxMinor, currency),
+      }
+      : null,
+  };
 }
 
 export function apiOutlet(

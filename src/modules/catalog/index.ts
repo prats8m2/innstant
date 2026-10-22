@@ -10,6 +10,18 @@ export { outletOpenState, describeOpenState, isItemOnNow, hoursForDay } from './
 /** "Three to start with" — computed from the curated collections, never a flag. */
 export { featuredDishes } from './featured';
 export type { FeaturedDish } from './featured';
+
+/**
+ * Searching and filtering the menu (phase 3). Pure, over the sections
+ * `getMenu()` has already assembled — see the note at the top of the file for
+ * why this is not a WHERE clause.
+ */
+export {
+  searchMenu, menuFacets, countDishes, foldForSearch, matchTier, passesFilters,
+} from './menu-search';
+export type {
+  MenuSearchHit, MenuSearchInput, MenuFilters, MenuFacets, MatchTier,
+} from './menu-search';
 export type {
   OutletHoursDay, OutletOpenState, ItemAvailabilityWindow,
 } from './hours';
