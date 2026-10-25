@@ -108,6 +108,18 @@ railway up --service kesari --ci
 
 ### `railway up` exits 0 when it fails
 
+It has now done so for two different reasons, and neither showed up anywhere
+but in `railway deployment list`:
+
+1. **An upload timeout** (15 October). The CLI printed `operation timed out`
+   and returned 0.
+2. **An expired login** (25 October). The CLI printed `Your saved login is no
+   longer valid` and returned 0. Nothing was uploaded and no deployment row
+   was created at all — so even `deployment list` showed only the PREVIOUS
+   deploy, sitting at SUCCESS, which reads exactly like a deploy that worked.
+
+Check `railway whoami` before a deploy, not after.
+
 It did, on 15 October: the upload timed out, the CLI printed
 `operation timed out` and **exited 0**, and `/api/health` stayed green the
 whole time because the PREVIOUS release was still serving. Nothing in the
@@ -130,11 +142,19 @@ curl -s https://innstant.in/api/v1/menu -H "authorization: Bearer $TOKEN" \
   | python3 -c 'import sys,json;print("featured:", len(json.load(sys.stdin).get("featured") or []))'
 ```
 
-Pick the probe carefully. `GET /api/v1/orders/reorder` looks like a good one
-and is not: on the OLD code it matches `/orders/[orderId]` with an orderId of
-"reorder" and answers **422**, not 404, so a route that does not exist yet
-returns a plausible-looking status. A field that is present or absent cannot
-be faked that way.
+Pick the probe carefully. A new route under a path that already has a
+dynamic segment will be CAUGHT by that segment on the old code and answer
+something plausible:
+
+| probe | old code answers | why |
+|---|---|---|
+| `GET /api/v1/orders/reorder` | **422** | matches `/orders/[orderId]`, "reorder" is not a UUID |
+| `GET /api/v1/menu/search` | **422** "That is not a dish." | matches `/menu/[itemId]` |
+
+Both look like a live route refusing bad input. Neither exists. This has now
+caught two deploys, so probe for a FIELD instead — `featured` in the menu
+response, `results` in a search response. A field is present or absent and
+cannot be imitated by a neighbouring route.
 
 Then:
 
