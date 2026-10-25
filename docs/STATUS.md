@@ -21,214 +21,86 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**Production is BEHIND this repo.** Everything below the app-redesign section
-describes the last deployed state; the redesign commits since `2bbdec7` have
-not been deployed, and deliberately need no migration.
+**Production is CURRENT and carries the whole redesign.** Deployed 25 October
+2026 from `eae60bd`, and the demo tenant reseeded the same day. No migration:
+phases 1 to 4 were deliberately schema-free, so production is still on
+`0009_customer_accounts.sql`, 10/10, health ok.
 
-### The app redesign (`docs/APP-REDESIGN-PLAN.md`)
+Verified by calling the live site, not by reading a deploy log:
 
-| Phase | State |
-|---|---|
-| 0 · images | stand-in photography seeded (`0c47914`). R2, the upload pipeline and the `image_key` migration are still Next. |
-| 1 · app shell | **DONE.** Tab bar and dish photos in `4940194`; the sheet, the skeletons, pull-to-refresh and haptics in `cac2753`. |
-| 2 · image-led screens | **DONE** against the stand-in photography. Photo hero behind the arch, category circles, an "Order again" rail, photo menu cards with the veg / non-veg mark, and a collapsing dish header. Everything in it is as good as the pictures, which are still borrowed. |
-| 3 · search and filters | **DONE** in `5013e56`. `GET /api/v1/menu/search` with diet, spice and price filters; a fourth tab; recents; a "most ordered" badge counted from `order_items`. |
-| 4 · motion and polish | **DONE** in `8358a3b`, verified and corrected since. Optimistic cart, drawn empty / offline / refused states on every list, one global reduced-motion rule, and the dish sheet's photograph springing in from the row's size. **No** shared-element transition — see below. |
+    /menu/search?q=kachori        2 of 10        the new endpoint answering
+    diet=VEGETARIAN               7 of 10
+    diet=NON_VEGETARIAN           3 of 10        0 before the reseed
+    maxSpice=2 / maxPrice=₹400    5 / 4 of 10
+    menu                          10 of 10 dishes carry a photograph
 
-The redesign is finished as a UI pass. What it did NOT do, and what nobody
-should read these four DONEs as covering:
+And the app's own bundle, pointed at `https://innstant.in` and walked:
+11 photographs on the home screen, search for "maas" narrowed to 2 by the
+Non-veg chip, zero console errors.
 
-  · **The photographs are licensed Unsplash stand-ins**, seeded onto the ten
-    demo dishes. Every screen phases 2 and 4 built is drawn around a picture,
-    and none of the pictures is the restaurant's food. R2, the upload
-    pipeline, blurhash-at-upload and the `image_key` migration are all still
-    unbuilt — phase 0 is half done and is the only item here that blocks.
-  · **No ratings** (argued against — a self-published rating with no
-    independent source is decoration), **no offers** (a money path, its own
-    project, needs schema), **no rider map** (there is no rider GPS and no
-    driver app). All three are reasoned out in `docs/APP-REDESIGN-PLAN.md`
-    under "What is left"; none of them is a thing left half-finished.
-  · **No migration and no deploy** in any of the four phases, by design.
+### The APK
 
-What phase 1 cannot verify from a laptop, and what a device has to settle:
-the pull gesture (`react-native-web`'s `RefreshControl` is a no-op `View`, so
-the handler is wired and typechecked but has never been pulled), and the
-haptics themselves (`expo-haptics` is skipped on web by design). Both ship in
-the Android bundle, which exports clean.
+`~/Downloads/kesari-order-redesign.apk` — 132MB, 5 dex, signing block
+present, Reanimated / worklets / gesture-handler native libs all shipped,
+one reference to `https://innstant.in` and none to localhost.
 
-Phase 2 added one endpoint and one dietary flag, and no migration. `GET
-/api/v1/orders/again` returns `menu_items` ids and nothing else — the app
-already holds today's menu, and a second copy of a dish from the server would
-be a second price for it on the same screen. `NON_VEGETARIAN` joined
-`MENU_DIETARY_FLAGS` because the green and brown squares are a legal
-DECLARATION and absence cannot imply one: a dish with no flag has had nothing
-said about it, and it draws no mark. The three demo meat dishes carry the new
-flag, so a local `pnpm demo:reset` is needed to see the brown square.
+It was built from `5c0dfda`, and `eae60bd` changed only a doc, so it is
+current. Rebuilding it would produce the same bundle.
 
-What phase 2 could not verify from a laptop: the kitchen-shut hero (the
-photograph takes a wash of the ground rather than fading, and the arch drops a
-step) — it needs the outlet's schedule changed in the database to see, and was
-left alone. Everything else on the three screens was rendered and measured in
-the browser, including the reduced-motion path, where the dish photograph sits
-in the scroll instead of receding.
+### What the reseed fixed
 
-Phase 4 moved three things that were duplicated into one place each, and the
-duplication is why each of them was slightly different on each screen:
+Production's demo data was twelve days behind the seeder, and every symptom
+had that one cause:
 
-  · **The cart is the session's.** `counts` and `adjust` live in
-    `lib/session.tsx`; the menu, search and the home screen each used to hold
-    their own sum of `cart.lines` and their own copy of the write. A tap now
-    moves the count before the server answers, and a refusal rolls it back
-    WITH a sentence — `CartToast`, mounted once in the root layout. A rollback
-    with no words is indistinguishable from an add that evaporated, which is
-    worse than no optimism at all. The swallow (one write per dish in flight)
-    moved out of `Stepper` and into `adjust`, because the stepper is no longer
-    the only control that can start one.
-  · **Empty, offline and refused are three different screens.** `ListState`
-    draws all three in one shape, and `useApiFailure()` is what tells them
-    apart — `NetworkFailure` is `offline`, anything the server said is
-    `refused`. `refreshCart()` and `refreshAccount()` now HAND BACK the
-    failure instead of swallowing it, so the cart and the addresses screen can
-    draw one; the background callers still ignore it.
-  · **Reduced motion is decided once.** `useDuration()` turns a token into
-    1ms when the phone asks for less movement, so no component carries an
-    `if (reduced)` branch; `<ReducedMotionConfig>` in the root layout covers
-    everything Reanimated drives, which `useDuration` cannot see. The last
-    hardcoded duration in the app — `transition={180}` on the dish photo —
-    is a token now, and was also the one animation that ignored the setting.
+- no photographs anywhere — `image_url` was null on all ten dishes
+- the Non-veg chip matched nothing — `NON_VEGETARIAN` entered the seed on
+  16 October and production was last seeded on the 13th
+- nine live kitchen tickets, three of them twelve days old, showing red `3d`
+  age badges on a board that looked like a failing kitchen
+- two dishes still 86'd from someone tapping the button on that board
+- the room stays were two days from expiry
 
-What phase 4 did NOT do, and the reason, because it was asked for: a genuine
-shared-element transition from the dish row's photograph into the sheet.
-Reanimated 4 removed `sharedTransitionTag` (and the 4.5.1 pin is matched to
-the worklets runtime), and the sheet is a child of the screen rather than a
-second screen, so there is no pair to share between. The ghost version needs
-the destination rect, which is inside a sheet that is mid-rise when it lays
-out. What shipped is the cheaper honest thing, named as such in
-`components/spring-in.tsx`: the sheet's photograph starts at the ROW's 112pt
-and springs to its own 84pt. Measured in the browser at 1.33 → 0.99 → 1.00,
-settling inside 250ms.
+Now: ten photographs, all four filters correct, two fresh tickets, nothing
+86'd, and stays running to **8 November 2026**.
 
-**The reduced-motion half of that was wrong when it was first written here,
-and is fixed.** `SpringIn` asked `lib/motion.ts` whether to start at 1.333 or
-at 1 — and that hook reads `AccessibilityInfo` asynchronously, so it answers
-`false` on the first render and corrects a tick later. Fine for a duration
-read when an animation starts; useless for an initial value read once. The
-photograph therefore mounted at 1.333 and snapped to 1 under the exact setting
-that exists to prevent that flash. The earlier "flat at 1.000" reading had
-sampled from `requestAnimationFrame`, which starts too late to see a value set
-at mount; a `MutationObserver` on the inline style catches it, and did. It now
-reads Reanimated's own `useReducedMotion` — a constant settled at app start,
-and the same source `<ReducedMotionConfig>` consults. Re-measured at four
-observations of 1.333 before the fix and zero after, with the ordinary spring
-unchanged.
+### `railway up` has now failed silently twice, for different reasons
 
-Phase 4 was rendered and measured in the browser, then re-rendered and
-re-measured on review: the optimistic count moves in **89ms** against a server
-deliberately held for **2,280ms**; a 409 rolls it back to a plain `+` and the
-toast reads "Not added. That dish is off the menu tonight." — the server's
-sentence verbatim — while an aborted request reads "Not added. No connection.
-Check your signal and try again."; and the drawn states were driven on the
-lists (menu, both filtered-to-nothing and failed-to-load; search, all three of
-idle, nothing-matched and offline; orders; cart) with their boxes measured
-rather than eyeballed. Every `Try again` / `Clear the filters` / `Sign in`
-measures 280x48 centred at x=195 in a 390 viewport — the one thing a
-screenshot would have got wrong, because they sat left-aligned at x=24 until
-`ListState`'s `alignSelf: 'stretch'` became a width.
+It exits 0 either way, and `/api/health` stays green because the previous
+release is still serving.
 
----
+- **15 October** — the upload timed out.
+- **25 October** — the saved login had expired. Nothing uploaded, and NO
+  deployment row was created, so `railway deployment list` showed the
+  previous deploy at SUCCESS. That reads exactly like a deploy that worked.
 
-**Deployed 15 October 2026 from
-`2bbdec7`.** `/api/health` reads **ok, 10/10**, latest `0009_customer_accounts.sql`
-— no new migration this round, by design.
+Run `railway whoami` first. Then probe for a FIELD, never a status: on the old
+code `GET /api/v1/menu/search` answers **422 "That is not a dish."**, because
+`/menu/[itemId]` catches it with an itemId of "search" — the same shadowing
+that makes `/orders/reorder` answer 422. Two deploys were nearly read as live
+off exactly that.
 
-Verified against the live site rather than the deploy log:
+### The one thing that is still not honest
 
-    featured            Laal maas · Mohan maas · Ker sangri   (picked across collections)
-    POST /auth/otp/verify with 0000                           signs in
-    GET  /orders        KE-1190 · With the kitchen · step 1 of 5
+**The photographs are licensed Unsplash stand-ins**, seeded for the demo only
+(`src/modules/catalog/kesari-menu.ts`). They are not photographs of the dishes
+they sit on. That is fine for a demo tenant of invented data and it is not
+shippable to a real property — a stock curry on a hotel's own app reads as a
+lie.
 
-### What landed
-
-The round-1 home screen from `design/UX/Kesari Ordering.dc.html`. The app used
-to open onto a flat menu list that read like a PDF; it opens onto a storefront
-now — arch, status strip, three featured dishes, a contents list, and a sticky
-bar that cross-fades to the cart on first add.
-
-The three design states are not three screens with a switch. They are three
-independent facts — `outlet.isOpen`, whether an order is live, whether somebody
-is signed in — so all eight combinations render, including the ones the design
-never drew.
-
-The three typefaces are installed and loading. Until this session every style
-asked for a face through `face(role)` and got a weight back, so the screen
-rendered on the system sans: right layout, wrong voice. A megabyte of TTF was
-over CLAUDE.md's ask-first bar and was asked about; the answer was yes, because
-a typography-led design that has no photography gives up its whole idea on the
-system face, to save under one per cent of a 118MB APK.
-
-Customer sign-in works on production for the first time, through
-`OTP_DEMO_CODE=0000`. Read that plainly: **anybody who knows a phone number can
-sign in as that person.** It is opt-in, it announces itself at warn level on
-every send, and the sender that pairs with it refuses to write the code down.
-It is deleted the day a real `OtpSender` lands — see "Next".
-
-### Three failure modes found this session, all worth keeping
-
-**`railway up` exits 0 when it fails.** The upload timed out, the CLI printed
-`operation timed out`, returned 0, and `/api/health` stayed green the whole
-time because the previous release was still serving. Every available signal
-said the deploy had worked. Only `railway deployment list` said FAILED.
-`DEPLOY-D081.md` now carries the check.
-
-**A route that does not exist can answer with a plausible status.** `GET
-/api/v1/orders/reorder` looked like a good probe for the new code and is not:
-on the OLD code it matches `/orders/[orderId]` with an orderId of "reorder",
-fails UUID validation and answers **422**. Probe for a FIELD — `featured` is
-present or absent and cannot be imitated by a neighbour.
-
-**Committing the design exports broke deploys.** `railway up` ships the working
-tree, so 7MB of PNG went into every upload. `.railwayignore` now excludes
-`design/` and `mobile/`, neither of which is read at runtime or by `pnpm build`.
-
-### Known gaps, written down rather than discovered later
-
-- **The live-order headline is not the design's.** The design asks for a
-  per-status voice — "On the stove.", "He is at your door." The card reuses
-  `track.ts`'s existing copy instead: "Order with the kitchen". That is
-  defensible (one source of truth, so the card and the tracking screen cannot
-  drift) and it is not what was drawn. Fixing it properly means changing the
-  `short` strings in `track.ts`, which changes the tracking screen too — a
-  product decision, not a refactor.
-- **`+` vs `Choose` never shows its second branch.** All 17 live dishes are
-  `canQuickAdd`, so "Choose" renders only once a dish has a required modifier
-  with no default.
-- **One `visits` row has a NULL `link_kind`**, written in the 47-second window
-  between migration 0009 and its code deploy. No orders attached.
-- **Reorder was deferred in the plan and built anyway.** It is sound — it reads
-  PAST the snapshot deliberately, because #6 governs receipts and a reorder is
-  a NEW order priced against today's menu — but the scope call is worth knowing.
+Phase 0 proper is still unbuilt: no R2 bucket, no upload pipeline, no
+`image_key` migration, and the admin form still says "paste a CDN URL". And
+seventeen dishes still need photographing, which no amount of code finishes.
 
 ### Next
 
-1. **A real SMS provider**, which deletes `OTP_DEMO_CODE`. Research is in this
-   session's history: at demo volume the DLT registration (₹5,000 one-time,
-   ₹2,500/yr) dominates the per-SMS price, and the crossover against a no-DLT
-   route is about 190 OTPs/month. We need a transactional SMS API, NOT a
-   verification service — Twilio Verify, MSG91's widget and Firebase all own
-   the OTP lifecycle, and adopting one means deleting `otp_challenges`, the
-   lockout and the 15 tests that cover them.
-2. **Images.** R2 over Railway Buckets, because Railway's are private-only and
-   presigned URLs cannot be cached by a CDN or survive a cached menu. Schema is
-   already ready (`menu_items.image_url`, `.blurhash`,
-   `order_items.image_url_snapshot`). Store the KEY, not the URL — #6 means a
-   past receipt breaks the day the domain changes. And #6 also means a replaced
-   image can never be deleted.
-3. **Round 2 of the design** — cart, dish, orders, account. The brief in
-   `design/MOBILE-APP-BRIEF.md` is written around "there is no photography";
-   if images land first, rewrite it photo-led before running it.
-4. **A git remote.** Still none, so CI never runs and `railway up` ships the
-   working tree rather than a commit. An uncommitted edit deploys silently.
-   Carried for five sessions now.
+1. **Phase 0 for real** — R2, the upload pipeline, `image_key`, and the
+   photography. `docs/APP-REDESIGN-PLAN.md` carries the argument.
+2. **A real SMS provider**, which deletes `OTP_DEMO_CODE`. Until then anybody
+   who knows a phone number can sign in as that person on production.
+3. **A git remote.** Still none, so CI never runs and `railway up` ships the
+   working tree rather than a commit. Carried for six sessions.
+4. Ratings, offers and a rider map were each argued about and deferred —
+   see the plan. None of them has become a better idea.
 
 **`pnpm status` re-derives all of this from the repo and the database.** If it
 disagrees with this file, it is right and this file is stale.

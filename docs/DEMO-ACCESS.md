@@ -5,9 +5,9 @@ place. **Every value here is seeded fixture data (D-018). None of it is a real
 person, a real phone number or a real password**, and nothing here grants
 access to anything but the demo tenant.
 
-Verified against **production** on 15 October 2026, by querying the live
-database rather than by copying the seeder — the two had already drifted, see
-"Corrections" at the end.
+Verified against **production** on 25 October 2026, after a reseed, by
+querying the live database rather than by copying the seeder — the two had
+already drifted once, see "Corrections" at the end.
 
 Regenerate all of it with `pnpm demo:reset`, which wipes and rebuilds the
 tenant and prints what it made.
@@ -58,7 +58,7 @@ them. Staff make, reprint and revoke them at `/admin/links`.
 | 210 | <https://innstant.in/r/the-kesari-210> | Iqbal Qureshi | `4444` |
 | 301 | <https://innstant.in/r/the-kesari-301> | Rhea Kapoor | `3333` |
 
-**All four stays check out on 27 October 2026.** After that the links render a
+**All four stays check out on 8 November 2026.** After that the links render a
 page saying the stay has ended; `pnpm demo:reset` brings them back for another
 fourteen nights (`DEMO_STAY_NIGHTS`).
 
