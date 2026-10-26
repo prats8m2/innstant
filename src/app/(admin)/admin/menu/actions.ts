@@ -5,10 +5,12 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
-  setMenuItemPrice, arrangeMenu,
+  setMenuItemPrice, arrangeMenu, startTodaysSpecial, addDishToCollection,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
@@ -529,5 +531,63 @@ export async function setAvailabilityFromBoard(input: unknown): Promise<MenuActi
     );
     revalidatePath('/admin/menu');
     return { done: isAvailable ? `${name} is back on.` : `${name} is off tonight.` };
+  });
+}
+
+/* ── Menus on a schedule, from the board (D-084) ───────────────────────── */
+
+/** "Today's special", one tap. Today is the HOTEL's today, read here. */
+export async function startTodaysSpecialFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Ids.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId } = parsed.data;
+
+  return guard('start todays special', async () => {
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      async (tx) => {
+        const property = await findProperty(tx, propertyId);
+        const today = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata').date!;
+        return startTodaysSpecial(tx, {
+          tenantId: session.tenantId, propertyId, outletId, today,
+          actorStaffId: session.staffUserId,
+        });
+      },
+    );
+    revalidatePath('/admin/menu');
+    revalidatePath('/admin/menu/collections');
+    return {
+      done: result.created || result.rolledOver
+        ? 'Today’s special is ready. Drag dishes onto it; it ends by itself tonight.'
+        : 'Today’s special is already on. Drag more dishes onto it.',
+    };
+  });
+}
+
+const DropOnCollection = Ids.extend({ collectionId: z.uuid(), menuItemId: z.uuid() });
+
+/** A dish dropped on a collection's card: it joins it, and stays in its section. */
+export async function addDishToCollectionFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = DropOnCollection.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, collectionId, menuItemId } = parsed.data;
+
+  return guard('add dish to collection', async () => {
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => addDishToCollection(tx, {
+        tenantId: session.tenantId, propertyId, outletId, collectionId, menuItemId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    revalidatePath('/admin/menu/collections');
+    return {
+      done: result.added
+        ? `${result.dish} is in ${result.collection} now.`
+        : `${result.dish} was already in ${result.collection}.`,
+    };
   });
 }

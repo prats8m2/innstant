@@ -24,17 +24,39 @@ import studio from './studio.module.css';
  * visits never looked at. Opened, it docks beside the board from 1280px and
  * slides in over it below that. The frame is not mounted while closed.
  */
+/**
+ * A collection as the board's strip draws it. Decided on the server (the
+ * schedule rules live in the catalog module, which carries the database
+ * client and so cannot be imported here).
+ */
+export interface ScheduledCard {
+  id: string;
+  name: string;
+  /** "Weekends · 11:00–15:30". */
+  schedule: string;
+  /** "showing now", "later today · from 22:00", "ended 5 Nov"… */
+  label: string;
+  tone: 'live' | 'waiting' | 'off';
+  dishes: string[];
+}
+
 export function MenuStudio({
   propertyId,
   menu,
   permissions,
-  today,
+  now,
+  scheduled,
+  todaysSpecialOn,
 }: {
   propertyId: string;
   menu: AdminMenu;
   permissions: MenuPermissions;
-  /** Property-local day of the week, 0 = Sunday, for the preview's day list. */
-  today: number;
+  /** The hotel's today, not the server's: the preview's default, and the
+   *  date its presets use. */
+  now: { dayOfWeek: number; date: string };
+  scheduled: ScheduledCard[];
+  /** Whether a "Today's special" dated today already exists. */
+  todaysSpecialOn: boolean;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const dishCount = menu.categories.reduce((n, c) => n + c.items.length, 0);
@@ -96,10 +118,16 @@ export function MenuStudio({
       </header>
 
       <div className={studio.layout} data-preview={previewOpen || undefined}>
-        <MenuBoard propertyId={propertyId} menu={menu} permissions={permissions} />
+        <MenuBoard
+          propertyId={propertyId}
+          menu={menu}
+          permissions={permissions}
+          scheduled={scheduled}
+          todaysSpecialOn={todaysSpecialOn}
+        />
         <PreviewPane
           menu={menu}
-          today={today}
+          today={now.date}
           open={previewOpen}
           onClose={() => setPreviewOpen(false)}
         />
@@ -116,8 +144,6 @@ export function MenuStudio({
 
 /* ── The preview ────────────────────────────────────────────────────────── */
 
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 /** The moments a manager actually checks. Each is today, at that hour. */
 const PRESETS = [
   { label: 'Breakfast', time: '08:00' },
@@ -133,12 +159,15 @@ function PreviewPane({
   onClose,
 }: {
   menu: AdminMenu;
-  today: number;
+  /** The hotel's `YYYY-MM-DD`. */
+  today: string;
   open: boolean;
   onClose: () => void;
 }) {
   // null is "now", which is the default and what a guest sees this minute.
-  const [moment, setMoment] = useState<{ day: number; time: string } | null>(null);
+  // A DATE rather than a weekday since D-084: a menu that runs 1–5 November
+  // looks different on a Sunday in October than on the Sunday it starts.
+  const [moment, setMoment] = useState<{ date: string; time: string } | null>(null);
   const [version, setVersion] = useState(0);
 
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -157,7 +186,7 @@ function PreviewPane({
 
   const params = new URLSearchParams();
   if (moment) {
-    params.set('day', String(moment.day));
+    params.set('date', moment.date);
     params.set('time', moment.time);
   }
   params.set('v', String(version));
@@ -197,8 +226,8 @@ function PreviewPane({
             key={preset.label}
             type="button"
             className={studio.chip}
-            aria-pressed={moment?.time === preset.time && moment.day === today}
-            onClick={() => setMoment({ day: today, time: preset.time })}
+            aria-pressed={moment?.time === preset.time && moment.date === today}
+            onClick={() => setMoment({ date: today, time: preset.time })}
           >
             {preset.label}
           </button>
@@ -207,19 +236,17 @@ function PreviewPane({
 
       <div className={studio.momentPick}>
         <label className={studio.momentField}>
-          <span className={styles.label}>Day</span>
-          <select
+          <span className={styles.label}>Date</span>
+          <input
+            type="date"
             className={styles.input}
-            value={moment?.day ?? today}
-            onChange={(event) => setMoment({
-              day: Number(event.target.value),
-              time: moment?.time ?? '12:00',
-            })}
-          >
-            {DAYS.map((name, day) => (
-              <option key={name} value={day}>{day === today ? `${name} (today)` : name}</option>
-            ))}
-          </select>
+            value={moment?.date ?? today}
+            onChange={(event) => {
+              if (event.target.value) {
+                setMoment({ date: event.target.value, time: moment?.time ?? '12:00' });
+              }
+            }}
+          />
         </label>
         <label className={studio.momentField}>
           <span className={styles.label}>Time</span>
@@ -228,7 +255,7 @@ function PreviewPane({
             className={styles.input}
             value={moment?.time ?? ''}
             onChange={(event) => {
-              if (event.target.value) setMoment({ day: moment?.day ?? today, time: event.target.value });
+              if (event.target.value) setMoment({ date: moment?.date ?? today, time: event.target.value });
             }}
           />
         </label>
@@ -251,9 +278,17 @@ function PreviewPane({
       </div>
 
       <p className={studio.previewNote}>
-        The room menu as it reads {moment ? `on ${DAYS[moment.day]} at ${moment.time}` : 'right now'},
+        The room menu as it reads {moment ? `on ${readableDate(moment.date)} at ${moment.time}` : 'right now'},
         in the hotel’s time. Taps do nothing here.
       </p>
     </aside>
   );
+}
+
+/** `2026-11-05` → `Thursday 5 November`. A bare date, so UTC. */
+function readableDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y!, m! - 1, d!)));
 }

@@ -128,8 +128,14 @@ frame (D-083): beside the board from 1280px wide, over it below that.
 - **Find a dish, or narrow the board.** Search, or the chips: On, Off tonight,
   Veg, Non-veg, No photo. Dragging is off while the board is narrowed, and
   the board says so.
-- **See it at another hour.** Breakfast, Lunch, Dinner, Late, or any day and
-  time. *After 10pm* appears at 23:00 and not at 08:00.
+- **See it at another hour.** Breakfast, Lunch, Dinner, Late, or any date and
+  time. *After 10pm* appears at 23:00 and not at 08:00; *Weekend brunch*
+  appears on a Saturday at noon.
+- **Menus on a schedule** sit above the sections: one card per collection,
+  with its schedule and whether it is showing now. **Today's special** is one
+  tap: it appears at the top of the guest's menu as soon as a dish is in it,
+  and ends by itself tonight. Drag any dish onto a card to add it there; it
+  stays in its own section too.
 - **Add a dish** from the head or a section's foot. **Rename or archive a
   section** with the pencil and box icons. Archiving one that still holds
   dishes refuses and names the count.
@@ -158,8 +164,14 @@ As the **GM** or **F&B manager**.
 
 The guest menu's sections **are** these.
 
-- Each heading says whether it is *showing now*, *outside its window* or
-  *switched off* — computed with the same function the guest read uses.
+- Each heading says whether it is *showing now*, *later today · from 22:00*,
+  *not showing today*, *starts 1 Nov*, *ended 5 Nov* or *switched off*,
+  computed with the same function the guest read uses (D-084), with the
+  schedule in words beside it: *Weekends · 11:00–15:30*.
+- **Days and dates.** Untick days to make it a weekend menu; set a first and
+  last day for a festival. It stops by itself after the last day.
+- **Start from** Breakfast, Weekend brunch or Today only: each fills the form,
+  and nothing is saved until you press Add.
 - **Add a collection**, write the line underneath, tick a few dishes, save.
   Reload the guest menu: a new section, with your words under the heading.
 - Give one a window of 22:00–01:00 and it disappears outside those hours. That

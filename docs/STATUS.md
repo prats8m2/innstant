@@ -53,9 +53,13 @@ Done since: dish photos on every web guest screen, and the preview is now
 a toggle, closed by default. Still open from D-083: `/p/[code]/menu` is a
 separate copy of the markup rather than `MenuView`.
 
-The e2e test "opens a dish, prices the choice live" fails on desktop as
-well as mobile. It fails identically with and without the photo change
-(three fresh runs each), on a price assertion, so it joins the list below.
+The e2e test "opens a dish, prices the choice live" is flaky on both
+projects: it fails 5 runs in 6 on `5965da1`, before the photo change, on its
+last line, which asserts no `role="alert"` has text. Next's route announcer
+is that alert, and it reads out the page title after a client navigation.
+The assertion predates the announcer having anything to say. It joins the
+list below. (An earlier "three runs each" comparison was against a stale
+server; see Environment notes.)
 
 ### The e2e suite was already red, and nothing knew
 
@@ -274,6 +278,14 @@ The things that still belong in a status file:
 ---
 
 ## Environment notes
+
+**A built server outlives `pkill -f server.js`.** Next renames its process
+to `next-server (v15.x)`, so a pattern on the command line never matches it.
+A stale one on :3200 served an OLD build, every new one silently failed to
+bind, and an hour of e2e results were against a page with no JavaScript (its
+static files answered 400). Stop servers by port: `lsof -ti tcp:3200 | xargs
+kill`. Starting one by hand after sourcing `.env` also needs
+`NODE_ENV=production`, because `.env` says development.
 
 **Running e2e locally: use a production build, never the dev server.**
 `PORT=3200 APP_URL=http://localhost:3200 NEXT_DIST_DIR=.next-e2e pnpm test:e2e`.

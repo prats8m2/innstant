@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, boolean, jsonb, index, uniqueIndex,
+  pgTable, uuid, text, integer, smallint, date, boolean, jsonb, index, uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import {
   pk, createdAt, updatedAt, tenantId, propertyId, archivedAt, currency, outletKind,
@@ -167,6 +167,16 @@ export const collections = pgTable('collections', {
   /** A collection may only surface inside a window — "After 10pm" is literal. */
   availableFrom: text('available_from'),
   availableUntil: text('available_until'),
+
+  /**
+   * D-084 (migration 0010). Which days it runs, 0 = Sunday; NULL is every
+   * day, and an empty array is refused by a CHECK. Property-local dates,
+   * inclusive, either end open. A window past midnight belongs to the day it
+   * started — isCollectionLive() in modules/catalog/hours.ts.
+   */
+  daysOfWeek: smallint('days_of_week').array(),
+  startsOn: date('starts_on', { mode: 'string' }),
+  endsOn: date('ends_on', { mode: 'string' }),
 
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),

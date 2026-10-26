@@ -1043,6 +1043,49 @@ test.describe('collections', () => {
     await expect(section.getByRole('alert').filter({ hasText: /\S/ }))
       .toContainText(/both a start and an end/i, { timeout: 20_000 });
   });
+
+  test('starts today’s special in one tap, and the guest menu leads with it',
+    async ({ page, browser }) => {
+      // One special per outlet, shared by every project running at once: two
+      // projects tapping and archiving the same one would race each other.
+      test.skip(test.info().project.name !== 'staff-desktop', 'one special per outlet');
+
+      await page.goto('/admin/login');
+      await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+      await page.locator('input[name="password"]').fill('kesari-demo-2026');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+      // One tap on the board (D-084). It is dated today and empty.
+      await page.goto('/admin/menu');
+      await page.getByRole('button', { name: /Today.s special/ }).click();
+      await expect(page.getByText(/Today.s special is ready/)).toBeVisible({ timeout: 20_000 });
+      const card = page.getByRole('article', { name: /^Today’s special:/ });
+      await expect(card).toContainText('Today only');
+      await expect(card).toContainText('empty, so not showing');
+
+      // A dish, from its edit form on the collections page.
+      await page.goto('/admin/menu/collections');
+      const section = page.locator('section').filter({
+        has: page.getByRole('heading', { name: 'Today’s special' }),
+      });
+      await section.locator('summary').click();
+      await section.locator(`label:has-text("${ownDish()}") input[type="checkbox"]`).first().check();
+      await section.getByRole('button', { name: 'Save the collection' }).click();
+      await expect(section.getByText(/showing now/)).toBeVisible({ timeout: 25_000 });
+
+      // The guest's menu opens on it.
+      const phone = await browser.newContext();
+      const guest = await phone.newPage();
+      await guest.goto(`/r/${seed!.qrCodes['214']}`);
+      await guest.goto(`/r/${seed!.qrCodes['214']}/menu`);
+      await expect(guest.locator('section h2').first()).toHaveText('Today’s special', { timeout: 25_000 });
+      await phone.close();
+
+      // Archived again, so the next run's tap starts a fresh one.
+      await section.getByRole('button', { name: 'Archive' }).click();
+      await expect(page.getByRole('heading', { name: 'Today’s special' })).toHaveCount(0, { timeout: 25_000 });
+    });
 });
 
 /**

@@ -31,7 +31,7 @@ export type {
 } from './menu';
 export type { OutletHoursSeed } from './provision';
 export {
-  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
+  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_DEMO_COLLECTIONS, KESARI_MODIFIER_GROUPS,
   KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS,
 } from './kesari-menu';
 export type { MenuItemSeed, ModifierGroupSeed, ModifierOptionSeed } from './kesari-menu';
@@ -64,12 +64,13 @@ export type { ArrangedSection, ArrangementPlan } from './arrange-plan';
 /** Editorial collections — what decides how the menu reads. */
 export {
   listCollections, createCollection, updateCollection, archiveCollection,
-  setCollectionItems,
+  setCollectionItems, startTodaysSpecial, addDishToCollection, TODAYS_SPECIAL,
 } from './admin-collections';
 export type {
   AdminCollection, AdminCollectionItem, CollectionWriteInput,
 } from './admin-collections';
-export { isWithinWindow } from './hours';
+export { isWithinWindow, isCollectionLive, scheduleState, describeSchedule } from './hours';
+export type { CollectionSchedule, ScheduleState } from './hours';
 
 /** Modifier groups and their options — the choices a guest gets on a dish. */
 export {

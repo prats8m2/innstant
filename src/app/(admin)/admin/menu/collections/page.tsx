@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { withTenant } from '@/db';
 import { findProperty } from '@/modules/identity';
 import {
-  getInRoomDiningOutlet, getAdminMenu, listCollections, isWithinWindow,
+  getInRoomDiningOutlet, getAdminMenu, listCollections, scheduleState, describeSchedule,
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { adminAccess, AdminDenied } from '../../guard';
 import { AdminShell } from '../../admin-shell';
 import { CollectionEditor } from './collection-editor';
+import { scheduleLabel } from '../schedule-label';
 import styles from '../../admin.module.css';
 
 /**
@@ -49,13 +50,19 @@ export default async function CollectionsAdmin() {
     );
   }
 
-  // The same check the guest read makes, on the same rows, at the property's
-  // own clock — so "showing now" on this screen means showing now on a phone.
-  const showingNow = collections
-    .filter((c) => c.isActive
-      && c.items.length > 0
-      && isWithinWindow(c.availableFrom, c.availableUntil, at))
-    .map((c) => c.id);
+  // The same rule the guest read applies (isCollectionLive, D-084), on the
+  // same rows, at the property's own clock: "showing now" on this screen
+  // means showing now on a phone, and anything else says why not.
+  const statuses = Object.fromEntries(collections.map((c) => {
+    const state = scheduleState(c, at);
+    return [c.id, {
+      label: scheduleLabel(state).label,
+      schedule: describeSchedule(c, at.date),
+      live: state.kind === 'live',
+    }];
+  }));
+  const showingNow = collections.filter((c) =>
+    c.isActive && c.items.length > 0 && statuses[c.id]!.live).length;
 
   return (
     <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
@@ -64,7 +71,7 @@ export default async function CollectionsAdmin() {
           <h1 className={styles.title}>Collections</h1>
           <p className={styles.lede}>
             The guest&rsquo;s menu leads with these, in this order, and falls back to
-            sections for anything not in one. {showingNow.length} of{' '}
+            sections for anything not in one. {showingNow} of{' '}
             {collections.length} {collections.length === 1 ? 'is' : 'are'} showing
             right now.
           </p>
@@ -77,7 +84,8 @@ export default async function CollectionsAdmin() {
         outletId={menu.outlet.id}
         collections={collections}
         categories={menu.categories}
-        showingNow={showingNow}
+        statuses={statuses}
+        today={at.date!}
       />
     </AdminShell>
   );

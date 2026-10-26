@@ -96,7 +96,13 @@ export async function seedMenu(
     currency?: string;
     categories: readonly string[];
     items: readonly MenuItemSeed[];
-    collections?: readonly { name: string; editorialNote?: string; availableFrom?: string; availableUntil?: string }[];
+    collections?: readonly {
+      name: string; editorialNote?: string; availableFrom?: string; availableUntil?: string;
+      /** D-084. 0 = Sunday; omitted is every day. */
+      daysOfWeek?: readonly number[];
+      /** Dishes by name, for a collection the dish list itself does not name. */
+      members?: readonly string[];
+    }[];
     modifierGroups?: readonly ModifierGroupSeed[];
   },
 ): Promise<{ categories: number; items: number; collections: number; modifierGroups: number }> {
@@ -148,12 +154,14 @@ export async function seedMenu(
         tenantId: input.tenantId, propertyId: input.propertyId, outletId: input.outletId,
         name: c.name, editorialNote: c.editorialNote ?? null,
         availableFrom: c.availableFrom ?? null, availableUntil: c.availableUntil ?? null,
+        daysOfWeek: c.daysOfWeek ? [...c.daysOfWeek] : null,
         sortOrder: i,
       }).returning({ id: collections.id })
     )[0]!.id;
     if (!found[0]) collectionCount += 1;
 
-    const members = input.items.filter((it) => it.collections?.includes(c.name));
+    const members = input.items.filter((it) =>
+      it.collections?.includes(c.name) || c.members?.includes(it.name));
     for (const [j, member] of members.entries()) {
       const menuItemId = itemIds.get(member.name);
       if (!menuItemId) continue;

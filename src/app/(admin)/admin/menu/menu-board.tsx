@@ -13,12 +13,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Flame, GripVertical, ImageOff, Plus, Search } from 'lucide-react';
+import { CalendarClock, Flame, GripVertical, ImageOff, Pencil, Plus, Search, Sparkles } from 'lucide-react';
 import type { AdminMenu, AdminMenuCategory, AdminMenuItem } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
 import {
   arrangeMenuFromBoard, setAvailabilityFromBoard, setPriceFromBoard,
+  startTodaysSpecialFromBoard, addDishToCollectionFromBoard,
 } from './actions';
+import type { ScheduledCard } from './menu-studio';
 import { DishImage } from '@/app/(guest)/dish-image';
 import { ArchiveDish, ArchiveSection, NewSection, RenameSection } from './menu-forms';
 import styles from '../admin.module.css';
@@ -56,10 +58,15 @@ export function MenuBoard({
   propertyId,
   menu,
   permissions,
+  scheduled,
+  todaysSpecialOn,
 }: {
   propertyId: string;
   menu: AdminMenu;
   permissions: MenuPermissions;
+  /** The menus on a schedule (D-084), already measured against now. */
+  scheduled: ScheduledCard[];
+  todaysSpecialOn: boolean;
 }) {
   const outletId = menu.outlet.id;
   const dndId = useId();
@@ -121,6 +128,7 @@ export function MenuBoard({
     const rest = key.slice(2);
     if (key.startsWith('s:')) return `section ${categories.get(rest)?.name ?? ''}`;
     if (key.startsWith('l:')) return `the end of ${categories.get(rest)?.name ?? 'a section'}`;
+    if (key.startsWith('c:')) return `the ${scheduled.find((c) => c.id === rest)?.name ?? 'scheduled'} menu`;
     return items.get(rest)?.name ?? 'a dish';
   };
 
@@ -143,6 +151,9 @@ export function MenuBoard({
   // the section it is over opens a gap for it.
   const onDragOver = ({ active, over }: DragOverEvent) => {
     if (!over || !String(active.id).startsWith('d:')) return;
+    // Over a scheduled menu's card, the dish is being ADDED there, not moved:
+    // it stays in its section, so no gap opens anywhere.
+    if (String(over.id).startsWith('c:')) return;
     const from = containerOf(active.id);
     const to = containerOf(over.id);
     if (!from || !to || from === to) return;
@@ -167,6 +178,24 @@ export function MenuBoard({
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
     dragging.current = false;
+
+    // Dropped on a scheduled menu: the dish joins it and goes back to exactly
+    // where it was on the board, whatever sections it passed over on the way.
+    if (over && String(over.id).startsWith('c:') && String(active.id).startsWith('d:')) {
+      setOrder(before.current);
+      const collectionId = String(over.id).slice(2);
+      const menuItemId = String(active.id).slice(2);
+      startSaving(async () => {
+        const result = await addDishToCollectionFromBoard({
+          propertyId, outletId, collectionId, menuItemId,
+        });
+        setMessage(result.error
+          ? { tone: 'error', text: result.error }
+          : { tone: 'done', text: result.done ?? 'Added.' });
+      });
+      return;
+    }
+
     let next = order;
 
     if (over && active.id !== over.id) {
@@ -244,6 +273,15 @@ export function MenuBoard({
 
   const rowProps = { propertyId, outletId, permissions, onAvailable: setAvailable, onPrice: setPrice };
 
+  const startSpecial = () => {
+    startSaving(async () => {
+      const result = await startTodaysSpecialFromBoard({ propertyId, outletId });
+      setMessage(result.error
+        ? { tone: 'error', text: result.error }
+        : { tone: 'done', text: result.done ?? 'Ready.' });
+    });
+  };
+
   return (
     <div className={studio.board}>
       <div className={studio.toolbar}>
@@ -302,6 +340,15 @@ export function MenuBoard({
         onDragEnd={onDragEnd}
         onDragCancel={onDragCancel}
       >
+        {permissions.manage ? (
+          <ScheduledStrip
+            scheduled={scheduled}
+            todaysSpecialOn={todaysSpecialOn}
+            canDrop={canArrange}
+            onStartSpecial={startSpecial}
+          />
+        ) : null}
+
         <SortableContext
           items={order.map((s) => `s:${s.categoryId}`)}
           strategy={verticalListSortingStrategy}
@@ -352,6 +399,105 @@ export function MenuBoard({
 
       {permissions.manage ? <NewSection propertyId={propertyId} outletId={outletId} /> : null}
     </div>
+  );
+}
+
+/* ── Menus on a schedule (D-084) ──────────────────────────────────────────── */
+
+/**
+ * The collections that lead the guest's menu, in that order, each saying
+ * when it runs and whether it is showing right now. A dish dragged onto a
+ * card joins it (and stays in its own section: a collection is a view over
+ * dishes, not a place they live). Editing the schedule itself is on the
+ * collections page, one click away.
+ */
+function ScheduledStrip({
+  scheduled,
+  todaysSpecialOn,
+  canDrop,
+  onStartSpecial,
+}: {
+  scheduled: ScheduledCard[];
+  todaysSpecialOn: boolean;
+  canDrop: boolean;
+  onStartSpecial: () => void;
+}) {
+  return (
+    // A region of articles, not a <section> of <li>s: the board's sections
+    // and rows are found as `section` and `li` (by people's tools and by the
+    // e2e suite), and a card listing "Mohan maas" must not read as his row.
+    <div role="region" className={studio.strip} aria-labelledby="scheduled-title">
+      <header className={studio.stripHead}>
+        <div>
+          <h2 id="scheduled-title" className={studio.stripTitle}>
+            <CalendarClock size={18} strokeWidth={1.75} aria-hidden="true" />
+            Menus on a schedule
+          </h2>
+          <p className={studio.stripBlurb}>
+            They lead the guest&rsquo;s menu at the times you set.
+            {canDrop ? ' Drag a dish onto one to add it.' : null}
+          </p>
+        </div>
+        <div className={studio.stripActions}>
+          {todaysSpecialOn ? null : (
+            <button type="button" className={`${styles.primary} ${studio.addPrimary}`} onClick={onStartSpecial}>
+              <Sparkles size={16} strokeWidth={1.75} aria-hidden="true" />
+              Today&rsquo;s special
+            </button>
+          )}
+          <Link href="/admin/menu/collections" className={studio.headLink}>
+            <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+            New schedule
+          </Link>
+        </div>
+      </header>
+
+      {scheduled.length ? (
+        <div className={studio.cards}>
+          {scheduled.map((card) => <ScheduledCardView key={card.id} card={card} canDrop={canDrop} />)}
+        </div>
+      ) : (
+        <p className={studio.stripEmpty}>
+          None yet. Start today&rsquo;s special, or a breakfast or weekend menu.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ScheduledCardView({ card, canDrop }: { card: ScheduledCard; canDrop: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `c:${card.id}`, disabled: !canDrop });
+  const shown = card.dishes.slice(0, 3);
+  return (
+    <article
+      ref={setNodeRef}
+      className={studio.card}
+      data-tone={card.tone}
+      data-over={isOver || undefined}
+      aria-label={`${card.name}: ${card.label}`}
+    >
+      <div className={studio.cardHead}>
+        <h3 className={studio.cardName}>{card.name}</h3>
+        <Link
+          href={`/admin/menu/collections#collection-${card.id}`}
+          className={studio.iconButton}
+          aria-label={`Edit ${card.name}`}
+          title="Edit its schedule and dishes"
+        >
+          <Pencil size={15} strokeWidth={1.75} aria-hidden="true" />
+        </Link>
+      </div>
+      <p className={studio.cardSchedule}>{card.schedule}</p>
+      <p className={studio.cardState}>
+        <span className={studio.cardDot} aria-hidden="true" />
+        {card.label}
+      </p>
+      <p className={studio.cardDishes}>
+        {card.dishes.length
+          ? `${shown.join(', ')}${card.dishes.length > shown.length ? ` +${card.dishes.length - shown.length}` : ''}`
+          : 'No dishes yet. Drop one here.'}
+      </p>
+    </article>
   );
 }
 
@@ -746,6 +892,10 @@ const collision: CollisionDetection = (args) => {
 
   const within = pointerWithin(scoped);
   if (within.length) {
+    // A scheduled menu's card first: it is a small target, and the pointer
+    // being on it is the whole intent.
+    const card = within.find((c) => String(c.id).startsWith('c:'));
+    if (card) return [card];
     const dish = within.find((c) => String(c.id).startsWith('d:'));
     return dish ? [dish] : within;
   }

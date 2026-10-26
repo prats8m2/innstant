@@ -68,6 +68,18 @@ export const KESARI_COLLECTIONS = [
   { name: 'Chef Bhairav’s table', editorialNote: 'What Bhairav cooks when the family visits.' },
 ] as const;
 
+/**
+ * The demo's own, on top of the three above: a menu that only runs at the
+ * weekend, so the console's "Menus on a schedule" has something to show that
+ * is NOT on today (D-084). Kept out of KESARI_COLLECTIONS because the
+ * integration suites seed that list and count its sections.
+ */
+export const KESARI_DEMO_COLLECTIONS = [
+  { name: 'Weekend brunch', editorialNote: 'Late, slow, and on the terrace if the sun allows.',
+    availableFrom: '11:00', availableUntil: '15:30', daysOfWeek: [0, 6],
+    members: ['Udaipur-style pyaaz kachori', 'Masala chai', 'Kesar lassi'] },
+] as const;
+
 export const KESARI_MENU: readonly MenuItemSeed[] = [
   { name: 'Laal maas with bajra roti', priceMinor: 115_000, category: 'Chef’s specials',
     description: 'Mutton slow-cooked in Mathania chillies. Hot, and meant to be. Served with millet roti.',

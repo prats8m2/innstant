@@ -2825,3 +2825,55 @@ Expo app is a third rendering, so neither is what the preview shows. Folding
 `/p` onto `MenuView` is small and would make the preview cover both.
 Collections, the curated sections that open the guest menu, are not on the
 board yet. Step 2 of the plan, menus on a schedule, brings them on.
+
+### D-084 · Menus on a schedule: days, dates, and a special that ends itself
+A collection could be held to a time of day and nothing else. "Weekend
+brunch" needed somebody to switch it on on Saturday and off on Monday,
+"Diwali, 1–5 November" needed somebody to remember the 6th, and a daily
+special was a collection that stayed up until a manager took it down. The
+guest saw Sunday's thali on a Tuesday when they forgot.
+
+**Days and dates on the collection** (migration 0010): `days_of_week`
+(NULL is every day; an empty array is refused, because "never" is already
+`is_active = false`) and inclusive property-local `starts_on` / `ends_on`.
+No separate "menus" or "schedules" table: a schedule with nothing to show
+has no meaning here, and a collection already is the thing that leads the
+menu, so the schedule belongs on it.
+
+**A late window belongs to the day it started.** Once there are days, "is
+it on" stops being a clock comparison: Friday 22:00–01:00 must be on at
+00:30 Saturday, and Thursday's tail must not count as Friday's.
+`isCollectionLive()` works out the service day first, the same rule as
+`outlet_hours.crosses_midnight`, and the guest menu, the API, the preview
+and the console's labels all call it. `LocalTime` gained an optional `date`.
+`localTimeAt()` always sets it; a caller without one sees no date-bounded
+collection, because Diwali's menu in March is the worse way to be wrong.
+
+**Today's special is one tap and needs nobody to end it.** It is an
+ordinary collection dated today to today, put at the top of the menu,
+empty until the manager drags dishes onto it. One per outlet: a second tap
+the same day returns the same one, and a tap on a later day rolls it
+forward EMPTIED, because last Tuesday's fish is not this Tuesday's special.
+Two simultaneous taps lock the outlet row and make one (tested in
+parallel).
+
+**On the board, as cards.** Collections sit above the sections in their
+menu order, each saying when it runs and whether it is showing now, and why
+not if it isn't ("later today · from 22:00", "ended 5 Nov"). A dish dropped
+on a card joins it and stays in its section. A collection is a view over
+dishes, not a place they live. The cards are articles in a region, not
+`<li>`s in a `<section>`: rows and sections are found by those tags, and a
+card listing "Mohan maas" must not read as his row.
+
+**The form went back to uncontrolled inputs.** Controlled, a `type="time"`
+field ignores a value set by autofill or a test tool (`.value =`, which
+React's tracker never sees), and "22:00" typed in saved as nothing. Presets
+remount the fields with new defaults instead.
+
+**Cost / when to revisit.** "Today" is a calendar date, so a special set at
+lunch disappears at midnight even if the kitchen runs until 01:00. Ending
+it at the kitchen's close would need the service day to come from
+`outlet_hours`, which is the honest next step if anybody notices. The
+demo's "Weekend brunch" is seeded by `demo-reset` only
+(`KESARI_DEMO_COLLECTIONS`), so the integration suites keep their three
+collections.

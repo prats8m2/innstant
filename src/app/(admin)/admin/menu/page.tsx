@@ -1,10 +1,14 @@
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
-import { getInRoomDiningOutlet, getAdminMenu } from '@/modules/catalog';
+import {
+  getInRoomDiningOutlet, getAdminMenu, listCollections, scheduleState, describeSchedule,
+  TODAYS_SPECIAL,
+} from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
-import { MenuStudio } from './menu-studio';
+import { MenuStudio, type ScheduledCard } from './menu-studio';
+import { scheduleLabel } from './schedule-label';
 import styles from '../admin.module.css';
 
 /**
@@ -28,7 +32,9 @@ export default async function MenuAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, outlet, menu } = await withTenant(
+  const mayCurate = can(session, propertyId, 'catalog:manage');
+
+  const { property, outlet, menu, collections } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
@@ -36,6 +42,9 @@ export default async function MenuAdmin() {
         property: await findProperty(tx, propertyId),
         outlet: found,
         menu: found ? await getAdminMenu(tx, { outletId: found.id }) : null,
+        // The scheduled menus strip is curation, behind the same permission
+        // as the collections page it links to.
+        collections: found && mayCurate ? await listCollections(tx, { outletId: found.id }) : [],
       };
     },
   );
@@ -54,13 +63,36 @@ export default async function MenuAdmin() {
     );
   }
 
+  // The hotel's now, not the server's (CLAUDE.md "Dates"): the preview's
+  // "today", and what every card on the strip is measured against.
+  const now = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata');
+
+  // Worked out here rather than on the board: the rules live in the catalog
+  // module, which a client component must not import (it carries the
+  // database client). The board gets plain, already-decided cards.
+  const scheduled: ScheduledCard[] = collections.map((c) => {
+    const state = scheduleState(c, now);
+    const { label, tone } = scheduleLabel(state);
+    return {
+      id: c.id,
+      name: c.name,
+      schedule: describeSchedule(c, now.date),
+      label: !c.isActive ? 'switched off' : !c.items.length ? 'empty, so not showing' : label,
+      tone: !c.isActive || !c.items.length ? 'off' : tone,
+      dishes: c.items.map((i) => i.name),
+    };
+  });
+  const todaysSpecialOn = collections.some((c) => c.name === TODAYS_SPECIAL
+    && c.isActive && c.startsOn === now.date && c.endsOn === now.date);
+
   return (
     <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
       <MenuStudio
         propertyId={propertyId}
         menu={menu}
-        // The preview's "today" is the hotel's, not the server's (CLAUDE.md "Dates").
-        today={localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata').dayOfWeek}
+        now={{ dayOfWeek: now.dayOfWeek, date: now.date! }}
+        scheduled={scheduled}
+        todaysSpecialOn={todaysSpecialOn}
         permissions={{
           manage: can(session, propertyId, 'catalog:manage'),
           pricing: can(session, propertyId, 'catalog:pricing'),

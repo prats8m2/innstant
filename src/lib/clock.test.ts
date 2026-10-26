@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  localTimeAt, parseClock, toClock, formatClock, dayName, formatCheckoutDay, formatCheckoutShort, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
+  localTimeAt, addDays, dayOfWeekOf, parseClock, toClock, formatClock, dayName, formatCheckoutDay, formatCheckoutShort, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
 } from './clock';
 
 /**
@@ -12,8 +12,10 @@ describe('localTimeAt', () => {
     // 2026-09-01T18:30:00Z is 2026-09-02T00:00 in Kolkata: a different DAY.
     const instant = new Date('2026-09-01T18:30:00Z');
 
-    expect(localTimeAt(instant, 'Asia/Kolkata')).toEqual({ dayOfWeek: 3, minutes: 0 });
-    expect(localTimeAt(instant, 'UTC')).toEqual({ dayOfWeek: 2, minutes: 18 * 60 + 30 });
+    expect(localTimeAt(instant, 'Asia/Kolkata'))
+      .toEqual({ dayOfWeek: 3, minutes: 0, date: '2026-09-02' });
+    expect(localTimeAt(instant, 'UTC'))
+      .toEqual({ dayOfWeek: 2, minutes: 18 * 60 + 30, date: '2026-09-01' });
   });
 
   it('reads midnight as 0, not 24', () => {
@@ -210,5 +212,18 @@ describe('formatting an hour', () => {
     expect(formatHour(11)).toBe('11am');
     expect(formatHour(0)).toBe('12am');
     expect(formatHour(12)).toBe('12pm');
+  });
+});
+
+describe('addDays / dayOfWeekOf', () => {
+  it('crosses a month, a year and a leap day', () => {
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+    expect(addDays('2028-03-01', -1)).toBe('2028-02-29');
+  });
+
+  it('names the weekday of a bare date, 0 = Sunday', () => {
+    expect(dayOfWeekOf('2026-10-25')).toBe(0);
+    expect(dayOfWeekOf('2026-10-31')).toBe(6);
   });
 });

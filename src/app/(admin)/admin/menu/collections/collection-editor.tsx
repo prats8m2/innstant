@@ -1,10 +1,11 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { AdminCollection, AdminMenuCategory } from '@/modules/catalog';
 import { saveCollection, removeCollection, type CollectionActionState } from './actions';
 import styles from '../../admin.module.css';
+import studio from '../studio.module.css';
 
 /**
  * The collections editor.
@@ -15,25 +16,38 @@ import styles from '../../admin.module.css';
  *
  * Every form posts to a Server Action, so the screen works with JavaScript off.
  */
+export interface CollectionStatus {
+  /** "showing now", "later today · from 22:00", "ended 5 Nov"… */
+  label: string;
+  /** "Weekends · 11:00–15:30": the schedule in words. */
+  schedule: string;
+  live: boolean;
+}
+
 export function CollectionEditor({
   propertyId,
   outletId,
   collections,
   categories,
-  /** What a guest would see right now — computed on the server, in the
-   *  property's timezone, so it is the same answer the menu gives. */
-  showingNow,
+  /** Per collection, what a guest would see right now and why: computed on
+   *  the server, in the property's timezone, with the same rule the guest
+   *  menu uses (isCollectionLive, D-084). */
+  statuses,
+  /** The property's own today, `YYYY-MM-DD`, for "today only". */
+  today,
 }: {
   propertyId: string;
   outletId: string;
   collections: AdminCollection[];
   categories: AdminMenuCategory[];
-  showingNow: readonly string[];
+  statuses: Record<string, CollectionStatus>;
+  today: string;
 }) {
   return (
     <>
       {collections.map((collection) => (
-        <section key={collection.id} className={styles.section}>
+        // The id is the board's "Edit" link target (`#collection-…`).
+        <section key={collection.id} id={`collection-${collection.id}`} className={styles.section}>
           <header className={styles.sectionHead}>
             <h2 className={styles.sectionTitle}>{collection.name}</h2>
             <span className={styles.collectionState}>
@@ -41,9 +55,7 @@ export function CollectionEditor({
                 ? 'switched off'
                 : !collection.items.length
                   ? 'no dishes — a guest sees nothing'
-                  : showingNow.includes(collection.id)
-                    ? 'showing now'
-                    : 'outside its window'}
+                  : statuses[collection.id]?.label ?? ''}
             </span>
             <span className={styles.sectionActions}>
               <ArchiveCollection
@@ -62,9 +74,9 @@ export function CollectionEditor({
                 {collection.items.length === 1 ? 'dish' : 'dishes'}
               </span>
             ) : null}
-            {collection.availableFrom && collection.availableUntil ? (
+            {statuses[collection.id] ? (
               <span className={styles.collectionCount}>
-                {' · '}{collection.availableFrom}–{collection.availableUntil}
+                {' · '}{statuses[collection.id]!.schedule}
               </span>
             ) : null}
           </p>
@@ -81,6 +93,7 @@ export function CollectionEditor({
               outletId={outletId}
               categories={categories}
               collection={collection}
+              today={today}
             />
           </details>
         </section>
@@ -92,6 +105,7 @@ export function CollectionEditor({
           propertyId={propertyId}
           outletId={outletId}
           categories={categories}
+          today={today}
         />
       </details>
 
@@ -105,19 +119,56 @@ export function CollectionEditor({
   );
 }
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * The shapes a manager reaches for most. Each only fills the form; nothing is
+ * saved until "Add the collection", so a preset is a starting point, not a
+ * commitment. The dishes are always the manager's to tick.
+ */
+const PRESETS = [
+  { label: 'Breakfast', name: 'Breakfast', from: '07:00', until: '10:30', days: EVERY_DAY, today: false },
+  { label: 'Weekend brunch', name: 'Weekend brunch', from: '11:00', until: '15:30', days: [0, 6], today: false },
+  { label: 'Today only', name: 'Today’s special', from: '', until: '', days: EVERY_DAY, today: true },
+] as const;
+
 function CollectionForm({
   propertyId,
   outletId,
   categories,
   collection,
+  today,
 }: {
   propertyId: string;
   outletId: string;
   categories: AdminMenuCategory[];
   collection?: AdminCollection;
+  today: string;
 }) {
   const [state, action] = useActionState<CollectionActionState, FormData>(saveCollection, {});
   const chosen = new Set(collection?.items.map((i) => i.id) ?? []);
+
+  /*
+   * The fields stay NATIVE and uncontrolled. Controlled, a time or date input
+   * ignores a value set the way autofill and test tools set it (`.value =`,
+   * which React's value tracker never sees), and the form posts the old one:
+   * "22:00" typed in, nothing saved. A preset instead hands the fields new
+   * defaults and re-mounts them under a new key.
+   */
+  const stored = {
+    key: 0,
+    name: collection?.name ?? '',
+    from: collection?.availableFrom ?? '',
+    until: collection?.availableUntil ?? '',
+    days: collection?.daysOfWeek ?? EVERY_DAY,
+    startsOn: collection?.startsOn ?? '',
+    endsOn: collection?.endsOn ?? '',
+  };
+  const [preset, setFill] = useState<typeof stored | null>(null);
+  // The server's latest until a preset is chosen: React resets a form to its
+  // defaults after a successful save, and they must be what was just saved.
+  const fill = preset ?? stored;
 
   return (
     <form action={action} className={styles.dishForm}>
@@ -125,15 +176,38 @@ function CollectionForm({
       <input type="hidden" name="outletId" value={outletId} />
       {collection ? (
         <input type="hidden" name="collectionId" value={collection.id} />
-      ) : null}
+      ) : (
+        <div className={studio.presets} role="group" aria-label="Start from">
+          <span className={styles.label}>Start from</span>
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className={studio.chip}
+              onClick={() => setFill((current) => ({
+                key: (current?.key ?? 0) + 1,
+                name: preset.name,
+                from: preset.from,
+                until: preset.until,
+                days: [...preset.days],
+                startsOn: preset.today ? today : '',
+                endsOn: preset.today ? today : '',
+              }))}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className={styles.formGrid}>
         <label className={`${styles.field} ${styles.wide}`}>
           <span className={styles.label}>Name</span>
           <input
+            key={`name-${fill.key}`}
             name="name"
             className={styles.input}
-            defaultValue={collection?.name ?? ''}
+            defaultValue={fill.name}
             required
             maxLength={120}
             placeholder="After 10pm"
@@ -164,7 +238,8 @@ function CollectionForm({
             name="availableFrom"
             type="time"
             className={styles.timeInput}
-            defaultValue={collection?.availableFrom ?? ''}
+            key={`from-${fill.key}`}
+            defaultValue={fill.from}
           />
         </label>
 
@@ -174,10 +249,59 @@ function CollectionForm({
             name="availableUntil"
             type="time"
             className={styles.timeInput}
-            defaultValue={collection?.availableUntil ?? ''}
+            key={`until-${fill.key}`}
+            defaultValue={fill.until}
           />
           <span className={styles.hint}>
             Both, or neither. 22:00 to 01:00 makes &ldquo;After 10pm&rdquo; literal.
+          </span>
+        </label>
+
+        <fieldset className={`${styles.fieldset} ${styles.wide}`}>
+          <legend className={styles.legend}>Which days</legend>
+          <div className={studio.days}>
+            {DAY_LABELS.map((label, day) => (
+              <label key={label} className={studio.dayToggle}>
+                <input
+                  key={`day-${day}-${fill.key}`}
+                  type="checkbox"
+                  name="daysOfWeek"
+                  value={day}
+                  defaultChecked={fill.days.includes(day)}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+          <span className={styles.hint}>
+            A late window belongs to the day it starts: Friday 22:00–01:00 is
+            still Friday&rsquo;s at half past midnight.
+          </span>
+        </fieldset>
+
+        <label className={styles.field}>
+          <span className={styles.label}>First day</span>
+          <input
+            name="startsOn"
+            type="date"
+            className={styles.timeInput}
+            key={`starts-${fill.key}`}
+            defaultValue={fill.startsOn}
+          />
+        </label>
+
+        <label className={styles.field}>
+          <span className={styles.label}>Last day</span>
+          <input
+            name="endsOn"
+            type="date"
+            className={styles.timeInput}
+            key={`ends-${fill.key}`}
+            defaultValue={fill.endsOn}
+          />
+          <span className={styles.hint}>
+            Optional. Leave both empty to run it until you switch it off.
+            It stops by itself after the last day, in the hotel&rsquo;s time.
           </span>
         </label>
       </div>

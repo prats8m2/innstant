@@ -391,6 +391,36 @@ Catalog rows change. Transactional rows must not.
 A dish renamed or repriced next month must not silently rewrite last month's
 receipts. Catalog tables are archived (`archived_at`), never hard-deleted.
 
+### Menus on a schedule: `collections` (D-084, migration 0010)
+
+A collection is a curated view over dishes that leads the guest's menu
+("After 10pm", "Weekend brunch", "Today's special"). When it shows is four
+things, all property-local:
+
+| Column | Meaning | Empty means |
+|---|---|---|
+| `available_from` / `available_until` | a time window; until ≤ from runs past midnight | all day |
+| `days_of_week smallint[]` | 0 = Sunday … 6 = Saturday | every day (NULL; `{}` is refused) |
+| `starts_on` / `ends_on date` | inclusive calendar dates | open-ended |
+
+CHECKs: `collections_days_of_week_valid` (1–7 values, each 0–6) and
+`collections_dates_ordered` (`ends_on >= starts_on`). `date`, not
+`timestamptz`: "the 5th" at a hotel is the 5th where the hotel is, and there
+is no instant to store.
+
+A window past midnight belongs to the day it STARTED: Friday 22:00–01:00 is
+still Friday's at 00:30 on Saturday, by the same rule as
+`outlet_hours.crosses_midnight`. The rule is one function,
+`isCollectionLive()` in `modules/catalog/hours.ts`, and every reader (the
+guest menu, `/api/v1`, the console's preview and its status labels) goes
+through it. `LocalTime` carries the property-local `date` for it; a reader
+without one sees no date-bounded collection rather than the wrong one.
+
+"Today's special" is an ordinary collection, dated today to today and
+created by `startTodaysSpecial()`, which keeps one per outlet (it locks the
+outlet row, so two simultaneous taps make one) and rolls a previous day's
+forward EMPTIED.
+
 ---
 
 ## 5. Money

@@ -1,4 +1,4 @@
-import { parseClock, dayName, type LocalTime } from '@/lib/clock';
+import { parseClock, dayName, addDays, type LocalTime } from '@/lib/clock';
 
 /**
  * When the kitchen is open. Pure — no database, no clock.
@@ -169,6 +169,143 @@ export function isWithinWindow(
 
   if (from !== null) return now >= from;
   return now < until!;
+}
+
+/* ── Menus on a schedule (D-084) ────────────────────────────────────────── */
+
+/** Everything that decides when a collection is on the guest's menu. */
+export interface CollectionSchedule {
+  availableFrom: string | null;
+  availableUntil: string | null;
+  /** 0 = Sunday. Null (or empty) is every day. */
+  daysOfWeek: readonly number[] | null;
+  /** Property-local `YYYY-MM-DD`, inclusive. Null is an open end. */
+  startsOn: string | null;
+  endsOn: string | null;
+}
+
+/**
+ * Which day's service a moment belongs to, for this schedule.
+ *
+ * `isWithinWindow()` needed no notion of this while collections had only a
+ * time of day. With days and dates (migration 0010) it matters: "Friday,
+ * 22:00–01:00" must still be on at 00:30, when the clock already says
+ * Saturday. A window that runs past midnight belongs to the day it STARTED,
+ * the same rule `outlet_hours.crosses_midnight` encodes for the kitchen.
+ */
+function serviceDay(schedule: CollectionSchedule, at: LocalTime): LocalTime {
+  const { availableFrom: from, availableUntil: until } = schedule;
+  if (!from || !until) return at;
+  const start = parseClock(from);
+  const end = parseClock(until);
+  const crosses = end <= start;
+  if (!crosses || at.minutes >= end) return at;
+  return {
+    dayOfWeek: (at.dayOfWeek + 6) % 7,
+    minutes: at.minutes,
+    ...(at.date ? { date: addDays(at.date, -1) } : {}),
+  };
+}
+
+function runsOnDay(schedule: CollectionSchedule, day: LocalTime): boolean {
+  if (schedule.daysOfWeek?.length && !schedule.daysOfWeek.includes(day.dayOfWeek)) return false;
+  if (schedule.startsOn || schedule.endsOn) {
+    // A date range with no date to test it against stays off: see LocalTime.date.
+    if (!day.date) return false;
+    if (schedule.startsOn && day.date < schedule.startsOn) return false;
+    if (schedule.endsOn && day.date > schedule.endsOn) return false;
+  }
+  return true;
+}
+
+/**
+ * Whether a collection is on the guest's menu at this moment.
+ *
+ * The time window first, then the day the moment belongs to (see
+ * `serviceDay`), then that day against the days of the week and the dates.
+ * `YYYY-MM-DD` strings compare correctly as strings, so no Date is built.
+ */
+export function isCollectionLive(schedule: CollectionSchedule, at: LocalTime): boolean {
+  if (!isWithinWindow(schedule.availableFrom, schedule.availableUntil, at)) return false;
+  return runsOnDay(schedule, serviceDay(schedule, at));
+}
+
+/**
+ * Where a collection stands, for the console. The guest only needs
+ * live-or-not; a manager needs to know WHY it is not showing, because
+ * "later today", "not on Tuesdays" and "it ended on the 5th" each call for
+ * a different thing to do.
+ */
+export type ScheduleState =
+  | { kind: 'live' }
+  | { kind: 'later'; from: string }
+  | { kind: 'not-today' }
+  | { kind: 'upcoming'; startsOn: string }
+  | { kind: 'ended'; endedOn: string };
+
+export function scheduleState(schedule: CollectionSchedule, at: LocalTime): ScheduleState {
+  if (isCollectionLive(schedule, at)) return { kind: 'live' };
+
+  if (at.date && schedule.endsOn && at.date > schedule.endsOn) {
+    return { kind: 'ended', endedOn: schedule.endsOn };
+  }
+  if (at.date && schedule.startsOn && at.date < schedule.startsOn) {
+    return { kind: 'upcoming', startsOn: schedule.startsOn };
+  }
+
+  // On today's days and dates, but outside the window: is the window still
+  // ahead of us today?
+  if (runsOnDay(schedule, at) && schedule.availableFrom
+    && parseClock(schedule.availableFrom) > at.minutes) {
+    return { kind: 'later', from: schedule.availableFrom };
+  }
+  return { kind: 'not-today' };
+}
+
+const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * The schedule in words: "Every day · 22:00–01:00", "Sat, Sun · 11:00–15:30",
+ * "Today only", "1 Nov – 5 Nov". What the board's cards and the collections
+ * page print, so the two never describe one schedule two ways.
+ */
+export function describeSchedule(schedule: CollectionSchedule, today?: string): string {
+  const parts: string[] = [];
+
+  const { startsOn, endsOn } = schedule;
+  if (startsOn && endsOn && startsOn === endsOn) {
+    parts.push(startsOn === today ? 'Today only' : `${shortDate(startsOn)} only`);
+  } else if (startsOn && endsOn) {
+    parts.push(`${shortDate(startsOn)} – ${shortDate(endsOn)}`);
+  } else if (startsOn) {
+    parts.push(`From ${shortDate(startsOn)}`);
+  } else if (endsOn) {
+    parts.push(`Until ${shortDate(endsOn)}`);
+  }
+
+  const days = schedule.daysOfWeek?.length ? [...schedule.daysOfWeek].sort() : null;
+  if (days && days.length < 7) {
+    const weekend = days.length === 2 && days[0] === 0 && days[1] === 6;
+    const weekdays = days.length === 5 && days.every((d, i) => d === i + 1);
+    parts.push(weekend ? 'Weekends' : weekdays ? 'Weekdays' : days.map((d) => SHORT_DAYS[d]).join(', '));
+  } else if (!startsOn && !endsOn) {
+    parts.push('Every day');
+  }
+
+  if (schedule.availableFrom && schedule.availableUntil) {
+    parts.push(`${schedule.availableFrom}–${schedule.availableUntil}`);
+  } else {
+    parts.push('all day');
+  }
+
+  return parts.join(' · ');
+}
+
+/** `2026-11-05` → `5 Nov`. A bare date, so UTC and no zone can shift it. */
+function shortDate(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(y!, m! - 1, d!)));
 }
 
 

@@ -16,6 +16,17 @@
 export interface LocalTime {
   dayOfWeek: number;
   minutes: number;
+  /**
+   * The local calendar date, `YYYY-MM-DD`. Set by `localTimeAt()`, so every
+   * request path has it; optional so the many fixtures that only care about
+   * a weekday and an hour can go on saying `{ dayOfWeek: 3, minutes: 1260 }`.
+   *
+   * A rule that depends on the date (a collection that runs 1–5 November,
+   * D-084) treats a missing date as "cannot tell" and stays off. Showing
+   * Diwali's menu in March because a caller forgot the date is the wrong way
+   * to be wrong.
+   */
+  date?: string;
 }
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -31,6 +42,9 @@ export function localTimeAt(instant: Date, timeZone: string): LocalTime {
   const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     weekday: 'long',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -48,7 +62,29 @@ export function localTimeAt(instant: Date, timeZone: string): LocalTime {
     throw new RangeError(`Could not read local time in ${timeZone}`);
   }
 
-  return { dayOfWeek, minutes: hour * 60 + minute };
+  return {
+    dayOfWeek,
+    minutes: hour * 60 + minute,
+    date: `${get('year')}-${get('month')}-${get('day')}`,
+  };
+}
+
+/**
+ * The calendar date `days` away from a `YYYY-MM-DD`, as a `YYYY-MM-DD`.
+ *
+ * Date arithmetic on a date with no time and no zone, so UTC is safe: it is
+ * the one place a day is always 24 hours.
+ */
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const moved = new Date(Date.UTC(y!, m! - 1, d! + days));
+  return moved.toISOString().slice(0, 10);
+}
+
+/** 0 = Sunday, for a `YYYY-MM-DD`. Same caveat as `addDays`: no zone involved. */
+export function dayOfWeekOf(date: string): number {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay();
 }
 
 /** `'07:00'` → 420. Throws rather than guessing — this parses stored data. */

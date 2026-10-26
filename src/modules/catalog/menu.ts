@@ -6,7 +6,7 @@ import {
   menuItemAvailabilityWindows,
 } from '@/db/schema/catalog';
 import {
-  isWithinWindow, isItemOnNow, type OutletHoursDay, type ItemAvailabilityWindow,
+  isCollectionLive, isItemOnNow, type OutletHoursDay, type ItemAvailabilityWindow,
 } from './hours';
 import type { LocalTime } from '@/lib/clock';
 
@@ -286,6 +286,9 @@ async function buildMenu(
       editorialNote: collections.editorialNote,
       availableFrom: collections.availableFrom,
       availableUntil: collections.availableUntil,
+      daysOfWeek: collections.daysOfWeek,
+      startsOn: collections.startsOn,
+      endsOn: collections.endsOn,
     })
     .from(collections)
     .where(and(
@@ -301,10 +304,12 @@ async function buildMenu(
      *
      * Filtered in memory rather than in SQL: the comparison crosses midnight,
      * which is three clauses and a `crosses_midnight`-shaped argument in SQL and
-     * one tested function here (`isWithinWindow`). There are at most a handful
+     * one tested function here (`isCollectionLive`). There are at most a handful
      * of collections per outlet.
      */
-    .filter((c) => isWithinWindow(c.availableFrom, c.availableUntil, input.at));
+    // And since D-084 the days and the dates, through one function that knows
+    // a late window belongs to the day it started.
+    .filter((c) => isCollectionLive(c, input.at));
 
   if (activeCollections.length) {
     const memberships = await tx
