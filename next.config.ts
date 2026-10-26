@@ -44,6 +44,15 @@ const nextConfig: NextConfig = {
   // Long-lived DB pools, SSE connections and in-process schedulers depend on
   // this. See CLAUDE.md "Stack" and D-002.
   output: 'standalone',
+  /**
+   * The repo is the root, said out loud. Left to infer it, Next walks UP to
+   * the first lockfile it finds, and a stray package-lock.json in a home
+   * directory made it trace from there: the standalone tree came out as
+   * `standalone/Desktop/…/server.js`, `pnpm start` found nothing, and the
+   * e2e suite never started. Railway's container has no such file, which is
+   * why production never showed it.
+   */
+  outputFileTracingRoot: process.cwd(),
   reactStrictMode: true,
   poweredByHeader: false,
   env: {
