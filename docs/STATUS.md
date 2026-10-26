@@ -21,6 +21,60 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**The admin console revamp is under way, and none of it is deployed.**
+Production is unchanged since 25 October (`eae60bd`, see below). Everything
+in this section is on `main` locally, four commits ahead of `origin/main`,
+and was checked against the local database (Environment notes).
+
+What landed, in the order the user asked for it:
+
+1. **The console on a phone** (`5ca5768`). Below 1024px the rail becomes a
+   sticky top bar plus a drawer, every destination has a lucide mark, and
+   the bell is rendered once beside the property name.
+2. **The menu studio, step 1 of 4** (`9a397cd`, D-083). A drag-and-drop
+   board, inline prices, a real on/off switch, search and filters, and the
+   guest's own menu in a phone frame that can be wound to any day and time.
+
+### Next: the menu studio, steps 2 to 4
+
+The user approved this order, the `@dnd-kit` dependency, and migrations for
+each step (each with `DATA-MODEL.md` in the same commit):
+
+2. **Menus on a schedule.** Collections gain days of the week and a date
+   range, and "Today's special" becomes one button that ends by itself at
+   closing. Bring collections onto the board.
+3. **Offers.** AUTOMATIC only, which is the user's choice: % or ₹ off a dish,
+   a section or the menu, optionally in a time window or date range. Never
+   stacked; the best single offer applies, shown struck through. A money
+   path (#5, #6, #8). It must NOT be named `promotions` (#12).
+4. **Daily limits** ("only 20 today"), duplicate a dish, a warnings strip.
+
+Two small things D-083 found, worth doing before step 2: the web guest menu
+draws a placeholder where the dish photo goes (only the app renders
+`image_url`), and `/p/[code]/menu` is still a separate copy of the markup
+rather than `MenuView`.
+
+### The e2e suite was already red, and nothing knew
+
+With no CI running, 21 tests in `tests/e2e/smoke.spec.ts` had drifted. They
+fail identically on `7aea4e3`, before any menu work: the same suite was run
+on that commit in a worktree and the failure lists compared. None of them
+are menu tests. Every menu, collections, option-group and bell test passes
+on both projects. The failing ones:
+
+    an unusable code is a bare 404           (the app now serves a page)
+    a scanned sticker ×3                     (browse menu, dish 404, add)
+    asking for things ×3
+    the floor board · routing a request · the request catalog promise
+    room 210 · your stay · a charging hold · settling up · the building
+    the kitchen display (desktop; flaky on mobile)
+
+Fix these as their own piece of work, starting with the first, whose
+assertion predates the friendly 404 page.
+
+### Production, as of 25 October
+
+
 **Production is CURRENT and carries the whole redesign.** Deployed 25 October
 2026 from `eae60bd`, and the demo tenant reseeded the same day. No migration:
 phases 1 to 4 were deliberately schema-free, so production is still on
@@ -97,8 +151,11 @@ seventeen dishes still need photographing, which no amount of code finishes.
    photography. `docs/APP-REDESIGN-PLAN.md` carries the argument.
 2. **A real SMS provider**, which deletes `OTP_DEMO_CODE`. Until then anybody
    who knows a phone number can sign in as that person on production.
-3. **A git remote.** Still none, so CI never runs and `railway up` ships the
-   working tree rather than a commit. Carried for six sessions.
+3. **CI that actually runs.** There is a remote now (`origin`, GitHub, per
+   `pnpm status` on 26 October), and the workflow file is there. But 21 e2e
+   failures had built up unseen (see the top of Now), so either CI is not
+   running on push or nobody is reading it. Check that before trusting a
+   green tick. `railway up` still ships the working tree, not a commit.
 4. Ratings, offers and a rider map were each argued about and deferred —
    see the plan. None of them has become a better idea.
 
@@ -110,6 +167,9 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| C1 | `9a397cd` | The menu studio, step 1 (D-083). `/admin/menu` is a board: sections and dishes drag by a handle (mouse, touch or keyboard), price is an inline cell behind `catalog:pricing` alone, and tonight's on/off is a real switch. A drop posts the whole arrangement to `arrangeMenu()`, which refuses a stale one; the rules are a pure `planArrangement()` with 10 unit tests. Beside the board is the guest's own menu in a phone frame, at any day and time: the guest screen's markup moved into `MenuView`, which both the guest route and `/admin/menu/preview` render. Found that `@dnd-kit`'s keyboard helper, unscoped, stepped onto dish rows, so six presses moved a section three places. Found that the e2e suite had 21 failures nobody knew about. |
+| C1 | `0eb3730` | `outputFileTracingRoot` pinned to the repo. A stray lockfile in a home directory had moved the standalone `server.js`, and `pnpm start` (and so the whole e2e suite) found nothing. |
+| C1 | `5ca5768` | The console on a phone: a sticky top bar and a drawer below 1024px instead of a sideways-scrolling strip that showed four of twelve destinations. lucide marks on every destination, the bell rendered once, Housekeeping under Floor screens. |
 | P6 | `cac2753` | Phase 1 of the app redesign, finished: modifier selection rises as a bottom sheet over the menu, skeletons in the shape of home, the menu, the orders list and the dish, pull-to-refresh on all three lists, and haptics on exactly three events. The selection rules moved into `useDishChoice()` so the sheet and the deep-linkable `/dish/:id` screen cannot disagree about which option replaces its siblings. The footer had to become a `BottomSheetFooter`: the sheet's content container is as tall as its LARGEST snap point, so a pinned footer at the bottom of a `flex: 1` child sat a third of a screen below the fold — visible in a screenshot, invisible to tsc. `--dur-shimmer` is a new token on both sides of the hand-kept copy, the one duration outside the 180–320 band because it times a loop rather than a transition. |
 | P6 | `4940194` | Phase 1, first half: the bottom tab bar — Order, Orders, Account — and dish photography on the home and menu rows through one `DishPhoto` wrapper over `expo-image`, blurhash-ready. Search is deliberately NOT a tab until there is an endpoint behind it. |
 | P6 | `0c47914` | Stand-in dish photography seeded from `kesari-menu.ts`, so the redesign has something to lay out while the real shoot is organised. |
@@ -211,6 +271,14 @@ The things that still belong in a status file:
 ---
 
 ## Environment notes
+
+**Running e2e locally: use a production build, never the dev server.**
+`PORT=3200 APP_URL=http://localhost:3200 NEXT_DIST_DIR=.next-e2e pnpm test:e2e`.
+Against `next dev` the first visit to a route compiles it, a hot-reload
+"Compiled" event aborts the browser's navigation, and tests fail with
+`ERR_ABORTED` at 30s for no reason in the code. The suite reseeds whatever
+`DATABASE_URL` points at, which here is the local database. After a build,
+`git checkout next-env.d.ts`: the build rewrites it to point at `.next-e2e`.
 
 **A local database now exists on this laptop (26 October 2026).** It is the
 Homebrew Postgres 14 already running on `localhost:5432`, which also holds
