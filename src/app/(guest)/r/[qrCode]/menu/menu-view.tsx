@@ -9,6 +9,7 @@ import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from './category-rail';
 import { DishStepper } from './dish-stepper';
 import styles from './menu.module.css';
+import { DishImage } from '../../../dish-image';
 
 /**
  * The menu screen as a guest sees it, given everything it needs.
@@ -108,7 +109,9 @@ export function MenuView({
                   data-available={dish.isAvailable}
                 >
                   <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
-                    <span className={styles.thumb} aria-hidden="true" />
+                    <span className={styles.thumb} aria-hidden="true">
+                      <DishImage src={dish.imageUrl} />
+                    </span>
                     <span className={styles.dishBody}>
                       <span className={styles.dishName}>{dish.name}</span>
                       {dish.description ? (

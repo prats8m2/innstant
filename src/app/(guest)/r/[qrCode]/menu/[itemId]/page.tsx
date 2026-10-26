@@ -10,6 +10,7 @@ import { localTimeAt } from '@/lib/clock';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { DishForm } from './dish-form';
 import styles from './dish.module.css';
+import { DishImage } from '../../../../dish-image';
 
 /**
  * One dish. The screen a guest actually decides on.
@@ -86,7 +87,8 @@ export default async function DishScreen({
 
   return (
     <main className={styles.shell}>
-      <div className={styles.hero}>
+      <div className={styles.hero} data-photo={dish.imageUrl ? true : undefined}>
+        <DishImage src={dish.imageUrl} priority />
         <div className={styles.heroWash} aria-hidden="true" />
         <Link
           href={`/r/${encodeURIComponent(qrCode)}/menu`}

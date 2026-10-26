@@ -345,6 +345,10 @@
 .thumb {
   /* Smaller inside a card than it was on the open page — the card's own
      padding now does the work the thumbnail's size used to. */
+  /* Positioned and clipped: a dish's photograph (DishImage) fills the arch
+     and takes its shape, and the drawing below shows when there is none. */
+  position: relative;
+  overflow: hidden;
   width: 84px;
   height: 84px;
   flex: 0 0 84px;

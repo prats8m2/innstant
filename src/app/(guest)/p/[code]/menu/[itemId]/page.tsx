@@ -12,6 +12,7 @@ import { DishForm } from './dish-form';
 // The room flow's stylesheet, imported rather than copied — the design is the
 // same design, and two copies is how one of them stops matching the other.
 import styles from '../../../../r/[qrCode]/menu/[itemId]/dish.module.css';
+import { DishImage } from '../../../../dish-image';
 
 /**
  * One dish, opened from a property link. D-079.
@@ -97,7 +98,8 @@ export default async function VisitDishScreen({
 
   return (
     <main className={styles.shell}>
-      <div className={styles.hero}>
+      <div className={styles.hero} data-photo={dish.imageUrl ? true : undefined}>
+        <DishImage src={dish.imageUrl} priority />
         <div className={styles.heroWash} aria-hidden="true" />
         <Link
           href={`/p/${encodeURIComponent(code)}/menu`}

@@ -49,10 +49,13 @@ each step (each with `DATA-MODEL.md` in the same commit):
    path (#5, #6, #8). It must NOT be named `promotions` (#12).
 4. **Daily limits** ("only 20 today"), duplicate a dish, a warnings strip.
 
-Two small things D-083 found, worth doing before step 2: the web guest menu
-draws a placeholder where the dish photo goes (only the app renders
-`image_url`), and `/p/[code]/menu` is still a separate copy of the markup
-rather than `MenuView`.
+Done since: dish photos on every web guest screen, and the preview is now
+a toggle, closed by default. Still open from D-083: `/p/[code]/menu` is a
+separate copy of the markup rather than `MenuView`.
+
+The e2e test "opens a dish, prices the choice live" fails on desktop as
+well as mobile. It fails identically with and without the photo change
+(three fresh runs each), on a price assertion, so it joins the list below.
 
 ### The e2e suite was already red, and nothing knew
 

@@ -2807,11 +2807,21 @@ at 11 and not at 8. It sits in a phone frame beside the board at 1280px and
 up, and slides in from the right below that. A capture-phase guard makes its
 taps no-ops, apart from the section rail, which only scrolls.
 
+**Closed until asked for.** Open by default, the preview took a third of the
+screen from the board and loaded a second page on every visit to show
+something most visits never looked at. It is a toggle in the page head now:
+it docks beside the board from 1280px, slides over it below that, and its
+frame is not mounted while it is closed.
+
+**Photos on the web guest screens too.** `DishImage` lays `image_url` over
+the arch on the menu card, the dish page and the cart line, for room and
+property-link alike. The arch stays underneath as the fallback, so a dish
+with no photo, or with a URL that 404s, still shows the drawn jharokha and
+never a broken-image icon. The board uses the same component.
+
 **Cost / when to revisit.** The preview is the ROOM menu on the web. A
 property link's menu (`/p/[code]`) is a separate copy of the markup, and the
-Expo app is a third rendering, so neither is what the preview shows. The web
-guest menu also draws a placeholder where a dish photo goes; only the app
-renders `image_url`. Folding `/p` onto `MenuView` and putting the photo on the
-web card are both small, and both make the preview more truthful.
+Expo app is a third rendering, so neither is what the preview shows. Folding
+`/p` onto `MenuView` is small and would make the preview cover both.
 Collections, the curated sections that open the guest menu, are not on the
 board yet. Step 2 of the plan, menus on a schedule, brings them on.

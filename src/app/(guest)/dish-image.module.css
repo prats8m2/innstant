@@ -1,0 +1,20 @@
+/*
+ * A dish photograph filling whatever arch it is placed in. The arch is the
+ * positioned, clipped parent (menu.module.css `.thumb`, dish.module.css
+ * `.hero`, cart.module.css `.thumb`), so the photo takes its shape.
+ */
+.photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Fades in over the arch rather than popping, and the arch shows until it
+     has. Reduced motion is handled globally in theme.css. */
+  animation: photoIn var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes photoIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

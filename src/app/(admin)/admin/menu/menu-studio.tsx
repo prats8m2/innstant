@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Eye, Layers, ListPlus, Plus, RotateCw, SlidersHorizontal, X } from 'lucide-react';
+import { Eye, EyeOff, Layers, ListPlus, Plus, RotateCw, SlidersHorizontal, X } from 'lucide-react';
 import type { AdminMenu } from '@/modules/catalog';
 import { MenuBoard, type MenuPermissions } from './menu-board';
 import { OutletSwitch } from './menu-forms';
@@ -18,8 +18,11 @@ import studio from './studio.module.css';
  * second, and it can be wound to any day and time, because "After 10pm" and
  * a breakfast-only dish are only visible at the hour they apply.
  *
- * Below 1280px there is no room for both, and the preview becomes a panel
- * opened from the page head.
+ * It is closed until somebody asks for it, at every width. Open all the time
+ * it took a third of the screen from the board, which is the thing being
+ * worked on, and loaded a second page on every visit to show something most
+ * visits never looked at. Opened, it docks beside the board from 1280px and
+ * slides in over it below that. The frame is not mounted while closed.
  */
 export function MenuStudio({
   propertyId,
@@ -71,13 +74,16 @@ export function MenuStudio({
             ) : null}
             <button
               type="button"
-              className={`${studio.headLink} ${studio.previewToggle}`}
+              className={studio.headLink}
               aria-expanded={previewOpen}
               aria-controls="menu-preview"
-              onClick={() => setPreviewOpen(true)}
+              data-active={previewOpen || undefined}
+              onClick={() => setPreviewOpen((open) => !open)}
             >
-              <Eye size={16} strokeWidth={1.75} aria-hidden="true" />
-              Preview
+              {previewOpen
+                ? <EyeOff size={16} strokeWidth={1.75} aria-hidden="true" />
+                : <Eye size={16} strokeWidth={1.75} aria-hidden="true" />}
+              {previewOpen ? 'Hide preview' : 'Preview'}
             </button>
             {permissions.manage && permissions.pricing ? (
               <Link href="/admin/menu/new" className={`${styles.primary} ${studio.addPrimary}`}>
@@ -89,7 +95,7 @@ export function MenuStudio({
         </div>
       </header>
 
-      <div className={studio.layout}>
+      <div className={studio.layout} data-preview={previewOpen || undefined}>
         <MenuBoard propertyId={propertyId} menu={menu} permissions={permissions} />
         <PreviewPane
           menu={menu}
@@ -135,11 +141,15 @@ function PreviewPane({
   const [moment, setMoment] = useState<{ day: number; time: string } | null>(null);
   const [version, setVersion] = useState(0);
 
+  const closeRef = useRef<HTMLButtonElement>(null);
+
   // Any new menu from the server is a reason to look again.
   useEffect(() => setVersion((v) => v + 1), [menu]);
 
   useEffect(() => {
     if (!open) return;
+    // Where the keyboard goes when it opens, so Escape and Tab start here.
+    closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -163,8 +173,9 @@ function PreviewPane({
       <div className={studio.previewHead}>
         <p className={studio.previewTitle}>What a guest sees</p>
         <button
+          ref={closeRef}
           type="button"
-          className={`${studio.iconButton} ${studio.previewClose}`}
+          className={studio.iconButton}
           aria-label="Close the preview"
           onClick={onClose}
         >
@@ -233,7 +244,10 @@ function PreviewPane({
       </div>
 
       <div className={studio.phone}>
-        <iframe key={src} src={src} title="The guest menu" className={studio.phoneScreen} />
+        {/* Not mounted while closed: a hidden iframe still loads its page. */}
+        {open ? (
+          <iframe key={src} src={src} title="The guest menu" className={studio.phoneScreen} />
+        ) : null}
       </div>
 
       <p className={studio.previewNote}>

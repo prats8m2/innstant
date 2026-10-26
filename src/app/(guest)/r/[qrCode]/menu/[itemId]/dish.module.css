@@ -43,6 +43,19 @@
   );
 }
 
+/* Over a photograph the wash is lighter: enough at the top for the back
+   button to read, and a fade at the foot into the page. The full wash above
+   is for the drawn arch, where it is the light. */
+.hero[data-photo] .heroWash {
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--ink-900) 45%, transparent) 0%,
+    transparent 32%,
+    transparent 68%,
+    color-mix(in srgb, var(--ink-900) 60%, transparent) 100%
+  );
+}
+
 .back {
   position: absolute;
   top: var(--space-3);

@@ -113,9 +113,9 @@ Do this in a **second window** so nothing reloads.
 
 ## 4 · The menu studio — `/admin/menu`
 
-Sign in as **fnb@thekesari.example** → `/admin/menu`. The board is on the
-left and the guest's own screen is on the right, in a phone frame (D-083).
-Below 1280px wide, the frame is behind **Preview** in the page head.
+Sign in as **fnb@thekesari.example** → `/admin/menu`. The board fills the
+page. **Preview** in the page head opens the guest's own screen in a phone
+frame (D-083): beside the board from 1280px wide, over it below that.
 
 - **Arrange it.** Drag a section by its handle (⋮⋮) to move it. Drag a dish
   within its section or into another one. The preview reloads with the new

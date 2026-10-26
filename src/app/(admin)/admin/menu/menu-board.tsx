@@ -19,6 +19,7 @@ import { formatMoney, money } from '@/lib/money';
 import {
   arrangeMenuFromBoard, setAvailabilityFromBoard, setPriceFromBoard,
 } from './actions';
+import { DishImage } from '@/app/(guest)/dish-image';
 import { ArchiveDish, ArchiveSection, NewSection, RenameSection } from './menu-forms';
 import styles from '../admin.module.css';
 import studio from './studio.module.css';
@@ -520,15 +521,12 @@ function DishRow({
     >
       {handle}
 
+      {/* The guest screens' own photo component: the mark underneath shows
+          when there is no photo AND when the URL is dead, which is the case
+          a manager most needs to see. */}
       <span className={studio.thumb}>
-        {item.imageUrl ? (
-          // A plain <img>: these are whatever URL the dish form holds, from
-          // any host, until the upload pipeline lands (docs/APP-REDESIGN-PLAN).
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.imageUrl} alt="" loading="lazy" />
-        ) : (
-          <ImageOff size={18} strokeWidth={1.5} aria-label="No photo" />
-        )}
+        <ImageOff size={18} strokeWidth={1.5} aria-label={item.imageUrl ? undefined : 'No photo'} aria-hidden={item.imageUrl ? true : undefined} />
+        <DishImage src={item.imageUrl} />
       </span>
 
       <span className={studio.dishBody}>

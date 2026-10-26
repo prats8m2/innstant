@@ -42,6 +42,11 @@
   transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 .headLink:hover { background: var(--surface-hover); color: var(--text); }
+.headLink[data-active] {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+  color: var(--text);
+}
 
 .addPrimary {
   display: inline-flex;
@@ -49,17 +54,16 @@
   gap: var(--space-2);
 }
 
-/* Only where the preview is not already on screen (below). */
-.previewToggle { display: none; }
-
 /* ── Layout: board | preview ────────────────────────────────────────────── */
 
+/* The board has the page to itself until the preview is asked for. */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
 }
+.layout[data-preview] { grid-template-columns: minmax(0, 1fr) 400px; }
 
 .board {
   min-width: 0;
@@ -256,6 +260,8 @@
 .handle:active { cursor: grabbing; }
 
 .thumb {
+  /* The photo (DishImage) is absolutely placed over the no-photo mark. */
+  position: relative;
   width: 52px;
   height: 52px;
   display: grid;
@@ -265,11 +271,7 @@
   background: var(--surface-raised);
   color: var(--text-muted);
 }
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+
 
 .dishBody {
   min-width: 0;
@@ -508,6 +510,8 @@
 
 /* ── The preview ────────────────────────────────────────────────────────── */
 
+.preview:not([data-open]) { display: none; }
+
 .preview {
   position: sticky;
   top: var(--space-4);
@@ -534,8 +538,6 @@
   text-transform: uppercase;
   color: var(--text-muted);
 }
-
-.previewClose { display: none; }
 
 .momentPick {
   display: grid;
@@ -584,13 +586,13 @@
 }
 
 /* ── Narrower than board + phone ─────────────────────────────────────────
-   Below 1280px the preview leaves the page and comes back as a panel from
-   the right, opened from the page head. */
+   Below 1280px there is no room to dock it, so it slides in over the board
+   from the right instead. */
 @media (max-width: 1279px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout[data-preview] { grid-template-columns: minmax(0, 1fr); }
 
-  .previewToggle { display: inline-flex; }
-  .previewClose { display: inline-flex; }
+  /* Kept in the layout while closed, off-screen and hidden, so it can slide. */
+  .preview:not([data-open]) { display: flex; }
 
   .preview {
     position: fixed;

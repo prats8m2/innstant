@@ -14,6 +14,7 @@ import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from '../../../r/[qrCode]/menu/category-rail';
 import { DishStepper } from './dish-stepper';
 import styles from '../../../r/[qrCode]/menu/menu.module.css';
+import { DishImage } from '../../../dish-image';
 
 /**
  * The restaurant's menu — what a property link opens onto. D-079.
@@ -169,7 +170,9 @@ export default async function VisitMenu({
                   data-available={dish.isAvailable}
                 >
                   <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
-                    <span className={styles.thumb} aria-hidden="true" />
+                    <span className={styles.thumb} aria-hidden="true">
+                      <DishImage src={dish.imageUrl} />
+                    </span>
                     <span className={styles.dishBody}>
                       <span className={styles.dishName}>{dish.name}</span>
                       {dish.description ? (
