@@ -541,6 +541,67 @@ export async function updateMenuItem(
 }
 
 /**
+ * Change a dish's price and nothing else — the menu studio's inline edit.
+ *
+ * `updateMenuItem()` would do it, but it needs every field of the dish and
+ * `catalog:manage` as well as pricing. A manager retyping ₹580 as ₹620 on the
+ * board is a pricing act, and the permission should say so. The event is the
+ * same `menu_item.repriced`, carrying both numbers, so a dispute reads one
+ * history whichever screen changed the price.
+ *
+ * The currency is the dish's own: a price edit cannot change it.
+ */
+export async function setMenuItemPrice(
+  tx: Tx,
+  input: {
+    tenantId: string; propertyId: string; outletId: string;
+    itemId: string; priceMinor: number; actorStaffId: string;
+  },
+): Promise<{ name: string; changed: boolean }> {
+  if (!Number.isInteger(input.priceMinor) || input.priceMinor < 0) {
+    throw new ValidationError('A price is a whole number of paise, and not below zero.');
+  }
+
+  const existing = await tx.select({
+    name: menuItems.name,
+    priceMinor: menuItems.priceMinor,
+    currency: menuItems.currency,
+  }).from(menuItems)
+    .where(and(
+      eq(menuItems.id, input.itemId),
+      eq(menuItems.outletId, input.outletId),
+      isNull(menuItems.archivedAt),
+    ))
+    .limit(1)
+    .for('update');
+
+  const before = existing[0];
+  if (!before) throw new NotFoundError('That dish is not on this menu.');
+  if (before.priceMinor === input.priceMinor) return { name: before.name, changed: false };
+
+  await tx.update(menuItems)
+    .set({ priceMinor: input.priceMinor, updatedAt: new Date() })
+    .where(eq(menuItems.id, input.itemId));
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'menu_item',
+    entityId: input.itemId,
+    eventType: 'menu_item.repriced',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: {
+      name: before.name,
+      fromMinor: before.priceMinor,
+      toMinor: input.priceMinor,
+      currency: before.currency,
+    },
+  });
+
+  return { name: before.name, changed: true };
+}
+
+/**
  * What is 86'd right now, and nothing else.
  *
  * The kitchen display needs this to draw its 86 tray — the row of "we are out

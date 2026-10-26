@@ -2,8 +2,9 @@ import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import { getInRoomDiningOutlet, getAdminMenu } from '@/modules/catalog';
+import { localTimeAt } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
-import { MenuEditor } from './menu-editor';
+import { MenuStudio } from './menu-studio';
 import styles from '../admin.module.css';
 
 /**
@@ -55,9 +56,11 @@ export default async function MenuAdmin() {
 
   return (
     <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
-      <MenuEditor
+      <MenuStudio
         propertyId={propertyId}
         menu={menu}
+        // The preview's "today" is the hotel's, not the server's (CLAUDE.md "Dates").
+        today={localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata').dayOfWeek}
         permissions={{
           manage: can(session, propertyId, 'catalog:manage'),
           pricing: can(session, propertyId, 'catalog:pricing'),

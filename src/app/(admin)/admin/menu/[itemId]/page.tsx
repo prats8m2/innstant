@@ -111,6 +111,13 @@ function describe(event: Record<string, unknown>): string {
     return `Repriced from ${formatMoney(money(from, currency))} to ${formatMoney(money(to, currency))}`;
   }
 
+  // Dragged into another section on the menu studio's board.
+  if (type === 'menu_item.moved') {
+    return payload.from && payload.to
+      ? `Moved from ${String(payload.from)} to ${String(payload.to)}`
+      : 'Moved to another section';
+  }
+
   return {
     'menu_item.created': 'Added to the menu',
     'menu_item.updated': 'Edited',

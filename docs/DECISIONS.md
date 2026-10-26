@@ -2761,3 +2761,57 @@ it is three collections. That is the feature, not a defect, but it means
 "which three" is a question with a time in it. And a property that uses no
 collections gets the first dish of each category, which is a weaker answer
 than curation and the reason the fallback is second rather than first.
+
+### D-083 · The menu studio: a board you arrange, beside the screen a guest reads
+`/admin/menu` was a list of forms. A manager could reprice, take a dish off
+and rename a section, but could not do the one thing a menu is mostly about:
+put things in an order. `sort_order` has been on `menu_categories` and
+`menu_items` since migration 0000, and nothing but the seeder ever wrote it.
+And the only way to see the result was to scan a room's QR code.
+
+**The board.** Sections and dishes drag by a handle: within a section, across
+sections, and by keyboard (space, arrows, space; Escape cancels). Only the
+handle drags, because a whole-row drag on a tablet turns every scroll into a
+pickup. `@dnd-kit` does the dragging (about 15–20KB shipped, approved),
+because accessible, touch-safe drag and drop is a solved problem
+(CLAUDE.md "Use a library"). Its keyboard and collision helpers are scoped
+so a section only ever moves among sections. Unscoped, six arrow presses
+moved a section three places, landing on dish rows in between.
+
+**A drop posts the whole arrangement** (`arrangeMenu()`), not "X goes after Y".
+A relative move is ambiguous once Y has moved too; the full list is
+idempotent. It must name exactly the sections and dishes on the menu now, so a
+board loaded before somebody added a dish elsewhere is refused with "the menu
+changed", and the board goes back to how it was. Merging would leave the new
+dish's `sort_order` colliding with a neighbour's. The rules are a pure
+function, `planArrangement()`, unit-tested apart from the database.
+
+A dish changing section writes `menu_item.moved` with both section NAMES, so
+its history reads "Moved from Drinks to Sweets" even after a rename. The drop
+as a whole writes one `menu.arranged` on the outlet.
+
+**Price and tonight's switch, in place.** The price is a cell: click, type,
+Enter. It uses its own service, `setMenuItemPrice()`, behind
+`catalog:pricing` alone, and writes the same `menu_item.repriced` with both
+numbers that the full form writes. The on/off is a real `role="switch"`
+behind `catalog:availability`, so the kitchen's account still sees the
+switch and nothing else. The small forms (rename, archive, add a section,
+close the kitchen) stay server-action forms that work without JavaScript.
+
+**The preview is the guest screen, not a picture of it.** The guest menu's
+markup moved into `MenuView`, and both `/r/[qrCode]/menu` and the staff-only
+`/admin/menu/preview` render it. The preview reads through
+`getInRoomDiningMenu()` at a property-local day and time the manager picks
+(Now, Breakfast, Lunch, Dinner, Late, or any moment), so "After 10pm" shows
+at 11 and not at 8. It sits in a phone frame beside the board at 1280px and
+up, and slides in from the right below that. A capture-phase guard makes its
+taps no-ops, apart from the section rail, which only scrolls.
+
+**Cost / when to revisit.** The preview is the ROOM menu on the web. A
+property link's menu (`/p/[code]`) is a separate copy of the markup, and the
+Expo app is a third rendering, so neither is what the preview shows. The web
+guest menu also draws a placeholder where a dish photo goes; only the app
+renders `image_url`. Folding `/p` onto `MenuView` and putting the photo on the
+web card are both small, and both make the preview more truthful.
+Collections, the curated sections that open the guest menu, are not on the
+board yet. Step 2 of the plan, menus on a schedule, brings them on.

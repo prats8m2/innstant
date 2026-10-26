@@ -43,7 +43,7 @@ export type { MenuItemSeed, ModifierGroupSeed, ModifierOptionSeed } from './kesa
 export {
   getAdminMenu, getAdminMenuItem, listModifierGroups,
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
-  createMenuItem, updateMenuItem, setMenuItemAvailability, listUnavailableItems,
+  createMenuItem, updateMenuItem, setMenuItemPrice, setMenuItemAvailability, listUnavailableItems,
   archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours,
@@ -55,6 +55,11 @@ export type {
   AdminModifierGroup, MenuDietaryFlag, MenuItemWriteInput, CategoryInput,
   AdminOutletSettings, OutletSettingsInput,
 } from './admin';
+
+/** The order of sections and dishes — the menu studio's drag and drop. */
+export { arrangeMenu } from './arrange';
+export { planArrangement } from './arrange-plan';
+export type { ArrangedSection, ArrangementPlan } from './arrange-plan';
 
 /** Editorial collections — what decides how the menu reads. */
 export {

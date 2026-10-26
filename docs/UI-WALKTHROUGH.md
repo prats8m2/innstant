@@ -111,25 +111,35 @@ Do this in a **second window** so nothing reloads.
 4. **Handed over** → the guest reads *At your door* and the live indicator
    disappears: nothing more will happen that they need.
 
-## 4 · The menu, editable
+## 4 · The menu studio — `/admin/menu`
 
-Sign in as **fnb@thekesari.example** → `/admin/menu`.
+Sign in as **fnb@thekesari.example** → `/admin/menu`. The board is on the
+left and the guest's own screen is on the right, in a phone frame (D-083).
+Below 1280px wide, the frame is behind **Preview** in the page head.
 
-- **Change a price.** Click a dish, edit the price, save. Reload the guest menu:
-  the new price is there. Scroll the dish page: *Repriced from ₹620 to ₹680*, in
-  its history.
-- **Take a dish off tonight.** *Take off* on any row. The guest menu shows it as
-  unavailable rather than hiding it. *Put back on* undoes it.
-- **Add a dish** to any section, with modifiers and dietary flags.
-- **Add or rename a section.** Try archiving one that still holds dishes — it
-  refuses and names the count.
+- **Arrange it.** Drag a section by its handle (⋮⋮) to move it. Drag a dish
+  within its section or into another one. The preview reloads with the new
+  order. With the keyboard: Tab to a handle, Space, the arrows, Space.
+- **Change a price.** Click the price on any row, type, press Enter. Escape
+  puts it back. Open the dish and scroll: *Repriced from ₹620 to ₹680*, in
+  its history. Something that is not a price is refused under the cell.
+- **Take a dish off tonight.** Flip its switch. The row says *off tonight* and
+  the guest menu shows it as unavailable rather than hiding it.
+- **Find a dish, or narrow the board.** Search, or the chips: On, Off tonight,
+  Veg, Non-veg, No photo. Dragging is off while the board is narrowed, and
+  the board says so.
+- **See it at another hour.** Breakfast, Lunch, Dinner, Late, or any day and
+  time. *After 10pm* appears at 23:00 and not at 08:00.
+- **Add a dish** from the head or a section's foot. **Rename or archive a
+  section** with the pencil and box icons. Archiving one that still holds
+  dishes refuses and names the count.
 - **Close the kitchen** (top right) stops new orders immediately, without
   touching the hours.
 
-Sign in as **kitchen@thekesari.example** and open the same page: only the *Take
-off* buttons are there. No prices, no removing, no sections. That split is
-deliberate — a kitchen tablet left signed in overnight is the credential most
-likely to be misused.
+Sign in as **kitchen@thekesari.example** and open the same page: only the
+switches are there. No handles, no editable prices, no removing, no sections.
+That split is deliberate: a kitchen tablet left signed in overnight is the
+credential most likely to be misused.
 
 ## 5 · The kitchen's hours and rates — `/admin/outlet`
 

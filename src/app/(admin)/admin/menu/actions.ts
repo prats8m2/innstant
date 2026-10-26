@@ -8,6 +8,7 @@ import { requirePermission } from '@/lib/auth-context';
 import {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
+  setMenuItemPrice, arrangeMenu,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
@@ -432,5 +433,101 @@ export async function toggleOutletOpen(
         ? 'The kitchen is taking orders.'
         : 'The kitchen is closed to new orders.',
     };
+  });
+}
+
+/* ── The menu studio's board ────────────────────────────────────────────────
+ *
+ * Called directly by the board rather than posted by a form: a drop, a price
+ * typed into a cell and a switch flipped are each one gesture with a typed
+ * payload, and the board needs the answer in place, not a redirect. Same
+ * guard, same permissions as the forms above, re-checked here.
+ */
+
+const Ids = z.object({ propertyId: z.uuid(), outletId: z.uuid() });
+
+const Arrangement = Ids.extend({
+  sections: z.array(z.object({
+    categoryId: z.uuid(),
+    itemIds: z.array(z.uuid()).max(500),
+  })).min(1).max(100),
+});
+
+/** A drop on the board: the whole arrangement (see `arrangeMenu`). */
+export async function arrangeMenuFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Arrangement.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, sections } = parsed.data;
+
+  return guard('arrange menu', async () => {
+    // Moving a dish between sections changes how the menu reads, which is a
+    // menu edit, not a price and not tonight's availability.
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const { changed } = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => arrangeMenu(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        sections,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: changed ? 'Menu order saved.' : 'Nothing moved.' };
+  });
+}
+
+const BoardPrice = Ids.extend({ itemId: z.uuid(), price: z.string().max(20) });
+
+/** A price typed into a dish's cell on the board. */
+export async function setPriceFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = BoardPrice.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId, price } = parsed.data;
+
+  return guard('set price', async () => {
+    const session = await requirePermission(propertyId, 'catalog:pricing');
+    // INR is the only currency a property can hold today; see saveItem.
+    const parsedPrice = parseMoneyInput(price, 'INR');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => setMenuItemPrice(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        itemId,
+        priceMinor: parsedPrice.amountMinor,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: result.changed ? `${result.name} repriced.` : 'Same price — nothing changed.' };
+  });
+}
+
+const BoardAvailability = Ids.extend({ itemId: z.uuid(), isAvailable: z.boolean() });
+
+/** The on/off switch on a dish's row — tonight's 86, as on the kitchen board. */
+export async function setAvailabilityFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = BoardAvailability.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId, isAvailable } = parsed.data;
+
+  return guard('toggle availability', async () => {
+    const session = await requirePermission(propertyId, 'catalog:availability');
+    const { name } = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => setMenuItemAvailability(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        itemId,
+        isAvailable,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: isAvailable ? `${name} is back on.` : `${name} is off tonight.` };
   });
 }
