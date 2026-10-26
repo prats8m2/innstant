@@ -212,6 +212,25 @@ The things that still belong in a status file:
 
 ## Environment notes
 
+**A local database now exists on this laptop (26 October 2026).** It is the
+Homebrew Postgres 14 already running on `localhost:5432`, which also holds
+unrelated projects' databases. Only two things were added: a `guest_services`
+database and the roles `innstant_owner` (migrations) and `app_user` (the app,
+created by `pnpm db:bootstrap`, RLS-subject). The URLs are in the gitignored
+`.env`, with random passwords. CI and production run Postgres 18; all ten
+migrations apply cleanly on 14.
+
+`innstant_owner` is a SUPERUSER, and that is required, not a shortcut.
+`demo:reset` and the integration fixtures `SET session_replication_role`, which
+needs a superuser. The comment in `demo-reset.ts` calls it "owner-only", but
+that is wrong. The `SECURITY DEFINER` lookups also need the owner to bypass
+forced RLS, as `postgres` does on Railway. Point `.env` at the real database
+when you have it; the local one can stay for development.
+
+The default shell Node here is 20.14, which cannot run pnpm 11 (`node:sqlite`).
+Use `PATH="$HOME/.nvm/versions/node/v22.22.2/bin:$PATH"`. Playwright's
+Chromium was installed for screenshots; WebKit is still not usable locally.
+
 **SecureStore no-ops on the Expo web target.** Both tokens live in memory
 there, so a full page reload drops them and the app opens a fresh anonymous
 visit. That is a property of the harness, not of the app — but it means the
