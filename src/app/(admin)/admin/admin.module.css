@@ -37,6 +37,8 @@
 .rail {
   position: sticky;
   top: 0;
+  /* Above the canvas, so the bell's panel can hang over the page. */
+  z-index: 20;
   align-self: start;
   height: 100dvh;
   display: flex;
@@ -45,13 +47,52 @@
   border-right: 1px solid var(--border);
 }
 
+/* The property's name, and the bell beside it. Below 1024px this same row is
+   the sticky top bar, with the menu button in front. */
 .railHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3) var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.railBrand {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  border-bottom: 1px solid var(--border-soft);
 }
+
+/* Only below 1024px, where the groups are a drawer. */
+.railToggle {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  margin-left: calc(var(--space-2) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.railToggle:hover { background: var(--surface-hover); }
+
+/* The groups and the foot. A column of the rail on a desk; the drawer below
+   1024px. */
+.railBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.railScrim { display: none; }
 
 .brand {
   font-family: var(--font-display);
@@ -128,10 +169,17 @@
   background: var(--accent);
 }
 
+.navIcon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+.navLink:hover .navIcon,
+.navLink[aria-current='page'] .navIcon { color: var(--accent); }
+
 .navLabel { flex: 1; min-width: 0; }
 
 .navAway {
-  font-size: var(--text-xs);
+  flex: 0 0 auto;
   color: var(--plaster-faint);
 }
 
@@ -141,13 +189,6 @@
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-soft);
-}
-
-.railFootRow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-left: calc(var(--space-2) * -1);
 }
 
 .whoName {
@@ -160,6 +201,8 @@
 }
 
 .signOut {
+  /* The text lines up with the name above it; the 44px target does not. */
+  margin-left: calc(var(--space-2) * -1);
   min-height: var(--touch-min);
   padding: 0 var(--space-2);
   border: 0;
@@ -1426,51 +1469,89 @@ details[open] > .disclosureHead {
   color: var(--text);
 }
 
-/* ── Narrow screens ─────────────────────────────────────────────────────
+/* ── The rail as a top bar and a drawer ───────────────────────────────────
  *
- * The console is desktop furniture, but a GM opens it on a phone and must get a
- * usable page rather than a rail eating half the width. The rail lies down into
- * a strip that SCROLLS rather than wraps: the old bar wrapped, and because it is
- * sticky the second line sat on top of the page and swallowed clicks.
+ * Below 1024px the rail's head is a sticky bar across the top (menu, the
+ * property, the bell) and the groups open as a drawer beneath it. It used to
+ * lie down into a sideways-scrolling strip that showed four of twelve
+ * destinations on a phone and scrolled away with the page; console-rail.tsx
+ * has the rest. The 1024px here must match RAIL_QUERY there.
  */
-@media (max-width: 960px) {
+@media (max-width: 1023px) {
   .frame { grid-template-columns: minmax(0, 1fr); }
 
   .rail {
-    position: static;
+    --bar-h: 60px;
+    position: sticky;
+    top: 0;
     height: auto;
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
 
   .railHead {
-    padding: var(--space-3) var(--space-4);
+    min-height: var(--bar-h);
+    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
     border-bottom: 0;
   }
 
-  .nav {
-    flex-direction: row;
-    gap: var(--space-4);
-    overflow-x: auto;
-    padding: 0 var(--space-4) var(--space-3);
-    scrollbar-width: thin;
+  .railToggle { display: inline-flex; }
+
+  .brand {
+    font-size: var(--text-md);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .navGroup { flex-direction: row; gap: var(--space-1); }
-  .navGroupTitle { display: none; }
-  .navLink { white-space: nowrap; }
-  .navLink[aria-current='page']::before { display: none; }
-
-  .railFoot {
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-4);
-    border-top: 1px solid var(--border-soft);
+  .railBody {
+    position: fixed;
+    top: var(--bar-h);
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    width: min(320px, 86vw);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-md);
+    transform: translateX(-100%);
+    /* Hidden as well as moved, so a closed drawer's links are not in the
+       tab order. The visibility change waits for the slide to finish. */
+    visibility: hidden;
+    transition: transform var(--dur-base) var(--ease-out),
+                visibility 0s linear var(--dur-base);
   }
-  .railFootRow { margin-left: 0; }
+  .railBody[data-open='true'] {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--dur-base) var(--ease-out);
+  }
 
+  .nav { flex: 0 0 auto; overflow: visible; }
+
+  .railFoot { margin-top: auto; }
+
+  .railScrim {
+    display: block;
+    position: fixed;
+    inset: var(--bar-h) 0 0 0;
+    z-index: 1;
+    background: color-mix(in srgb, var(--text) 32%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .railScrim[data-open='true'] { opacity: 1; pointer-events: auto; }
+}
+
+/* ── Narrow screens ─────────────────────────────────────────────────────
+ *
+ * The console is desktop furniture, but a GM opens it on a phone and must get
+ * a usable page. This block is the PAGES' half; the shell's is above.
+ */
+@media (max-width: 960px) {
   .main { padding: var(--space-5) var(--space-4) var(--space-10); }
 
   .formGrid { grid-template-columns: minmax(0, 1fr); }

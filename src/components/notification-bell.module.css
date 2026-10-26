@@ -62,6 +62,17 @@
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.35);
 }
 
+/* The console's desktop rail. The bell sits against the rail's right edge,
+   so the panel hangs rightwards over the canvas instead of off the left of
+   the screen. 1024px is the console's rail breakpoint (admin.module.css);
+   below it the rail is a top bar and the bell is at the end of it again. */
+@media (min-width: 1024px) {
+  .bell[data-placement='rail'] .panel {
+    right: auto;
+    left: 0;
+  }
+}
+
 .panelHead {
   display: flex;
   align-items: center;

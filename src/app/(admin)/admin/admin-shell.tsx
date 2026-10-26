@@ -1,7 +1,13 @@
 import Link from 'next/link';
+import {
+  ArrowUpRight, BedDouble, Building2, ChefHat, ConciergeBell, DoorOpen,
+  Footprints, LayoutDashboard, Link2, ListChecks, MonitorPlay, SprayCan,
+  UtensilsCrossed, Users, type LucideIcon,
+} from 'lucide-react';
 import { can, type StaffSession, type Permission } from '@/modules/identity';
 import { Alerts } from '@/components/alerts';
 import { signOut } from './actions';
+import { ConsoleRail } from './console-rail';
 import styles from './admin.module.css';
 
 /**
@@ -22,8 +28,9 @@ import styles from './admin.module.css';
  * destinations with no hierarchy, in the one axis a console has least of.
  *
  * A rail has the axis to spare, gives the groups names, and leaves the top of
- * every page for that page. Below 960px it lies down into a scrolling strip
- * rather than wrapping, so it cannot cover anything.
+ * every page for that page. Below 1024px its head becomes a sticky top bar and
+ * the groups fold into a drawer under it (`console-rail.tsx` says why the
+ * scrolling strip that used to be here had to go).
  *
  * ─── Why it is filtered by permission ──────────────────────────────────────
  *
@@ -44,6 +51,8 @@ export type AdminSection =
 interface NavItem {
   href: string;
   label: string;
+  /** A mark the eye can find before it has read the word. */
+  icon: LucideIcon;
   section?: AdminSection;
   /** Everything here is visible without a permission. */
   needs?: Permission;
@@ -60,39 +69,42 @@ const GROUPS: NavGroup[] = [
   {
     title: 'Today',
     items: [
-      { href: '/admin', label: 'Overview', section: 'home' },
+      { href: '/admin', label: 'Overview', icon: LayoutDashboard, section: 'home' },
       /* The desk's one-room view. Above the key rack because it is where
          somebody answering a phone starts, and the rack is where somebody
          walking a floor starts. */
-      { href: '/admin/desk', label: 'Front desk', section: 'desk', needs: 'stay:read' },
-      { href: '/admin/rooms', label: 'Rooms', section: 'rooms', needs: 'stay:read' },
-      { href: '/admin/checkouts', label: 'Leaving', section: 'checkouts', needs: 'stay:read' },
+      { href: '/admin/desk', label: 'Front desk', icon: ConciergeBell, section: 'desk', needs: 'stay:read' },
+      { href: '/admin/rooms', label: 'Rooms', icon: BedDouble, section: 'rooms', needs: 'stay:read' },
+      { href: '/admin/checkouts', label: 'Leaving', icon: DoorOpen, section: 'checkouts', needs: 'stay:read' },
     ],
   },
   {
     title: 'Service',
     items: [
-      { href: '/admin/menu', label: 'Menu', section: 'menu', needs: 'catalog:read' },
-      { href: '/admin/requests', label: 'Requests', section: 'requests', needs: 'request:read' },
-      { href: '/admin/outlet', label: 'The kitchen', section: 'outlet', needs: 'catalog:read' },
+      { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, section: 'menu', needs: 'catalog:read' },
+      { href: '/admin/requests', label: 'Requests', icon: ListChecks, section: 'requests', needs: 'request:read' },
+      { href: '/admin/outlet', label: 'The kitchen', icon: ChefHat, section: 'outlet', needs: 'catalog:read' },
       /* D-079. Under Service rather than Setup: a table tent is reprinted
          mid-service by whoever is running the floor, not configured once by
          whoever set the property up. */
-      { href: '/admin/links', label: 'Links', section: 'links', needs: 'catalog:read' },
+      { href: '/admin/links', label: 'Links', icon: Link2, section: 'links', needs: 'catalog:read' },
     ],
   },
   {
     title: 'Setup',
     items: [
-      { href: '/admin/property', label: 'Property', section: 'property', needs: 'room:read' },
-      { href: '/admin/staff', label: 'Staff', section: 'staff', needs: 'staff:read' },
+      { href: '/admin/property', label: 'Property', icon: Building2, section: 'property', needs: 'room:read' },
+      { href: '/admin/staff', label: 'Staff', icon: Users, section: 'staff', needs: 'staff:read' },
     ],
   },
   {
     title: 'Floor screens',
     items: [
-      { href: '/kds', label: 'Kitchen display', needs: 'order:read', away: true },
-      { href: '/runner', label: 'Runner', needs: 'order:read', away: true },
+      { href: '/kds', label: 'Kitchen display', icon: MonitorPlay, needs: 'order:read', away: true },
+      { href: '/runner', label: 'Runner', icon: Footprints, needs: 'order:read', away: true },
+      /* The board the overview's "Requests open" card already led to, and the
+         one floor screen the rail did not list. */
+      { href: '/housekeeping', label: 'Housekeeping', icon: SprayCan, needs: 'request:read', away: true },
     ],
   },
 ];
@@ -120,14 +132,19 @@ export async function AdminShell({
 
   return (
     <div className={styles.frame}>
-      <aside className={styles.rail}>
-        <div className={styles.railHead}>
-          <Link href="/admin" className={styles.brand}>
-            {propertyName}
-          </Link>
-          <span className={styles.brandSub}>Ops console</span>
-        </div>
-
+      <ConsoleRail
+        head={
+          <>
+            <Link href="/admin" className={styles.brand}>
+              {propertyName}
+            </Link>
+            <span className={styles.brandSub}>Ops console</span>
+          </>
+        }
+        /* Once, in the head. It holds a live stream, and in the head it is
+           in the top bar on a phone and beside the name on a desk. */
+        bell={<Alerts session={session} propertyId={propertyId} placement="rail" />}
+      >
         <nav className={styles.nav} aria-label="Console">
           {groups.map((group) => (
             <div key={group.title} className={styles.navGroup}>
@@ -141,11 +158,24 @@ export async function AdminShell({
                     item.section && item.section === current ? 'page' : undefined
                   }
                 >
+                  <item.icon
+                    className={styles.navIcon}
+                    size={18}
+                    strokeWidth={1.75}
+                    aria-hidden="true"
+                  />
                   <span className={styles.navLabel}>{item.label}</span>
                   {/* An always-on floor screen, not a console page. Said in the
                       nav because arriving at a full-screen ticket rail you did
                       not expect is disorienting on a desk. */}
-                  {item.away ? <span className={styles.navAway} aria-hidden="true">↗</span> : null}
+                  {item.away ? (
+                    <ArrowUpRight
+                      className={styles.navAway}
+                      size={14}
+                      strokeWidth={1.75}
+                      aria-label="opens a floor screen"
+                    />
+                  ) : null}
                 </Link>
               ))}
             </div>
@@ -153,21 +183,16 @@ export async function AdminShell({
         </nav>
 
         <div className={styles.railFoot}>
-          {/* Two lines, not one. A 228px rail holding a bell, a full name and a
-              sign-out button truncated the name to "Vikra…" — and the name is
-              the part that tells somebody which account a shared back-office
-              machine is signed in to. */}
+          {/* The name is the part that tells somebody which account a shared
+              back-office machine is signed in to, so it gets its own line. */}
           <span className={styles.whoName}>{session.fullName}</span>
-          <div className={styles.railFootRow}>
-            <Alerts session={session} propertyId={propertyId} />
-            {/* A form, not a link: signing out is a mutation, and a GET that
-                revokes a session can be fired by a prefetch. */}
-            <form action={signOut}>
-              <button type="submit" className={styles.signOut}>Sign out</button>
-            </form>
-          </div>
+          {/* A form, not a link: signing out is a mutation, and a GET that
+              revokes a session can be fired by a prefetch. */}
+          <form action={signOut}>
+            <button type="submit" className={styles.signOut}>Sign out</button>
+          </form>
         </div>
-      </aside>
+      </ConsoleRail>
 
       <div className={styles.canvas}>
         <main className={styles.main}>{children}</main>

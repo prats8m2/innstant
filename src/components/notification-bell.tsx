@@ -44,10 +44,18 @@ export function NotificationBell({
   propertyId,
   items,
   unseen,
+  placement = 'end',
 }: {
   propertyId: string;
   items: BellItem[];
   unseen: number;
+  /**
+   * Which way the panel hangs. `end` is right-aligned, for a bell at the end
+   * of a bar. `rail` is for the console's desktop rail, where the bell sits
+   * against the rail's right edge and a right-aligned panel would hang off
+   * the left of the screen. Below the rail breakpoint it goes back to `end`.
+   */
+  placement?: 'end' | 'rail';
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -73,7 +81,7 @@ export function NotificationBell({
   };
 
   return (
-    <details className={styles.bell}>
+    <details className={styles.bell} data-placement={placement}>
       <summary className={styles.trigger} aria-label={label(unseen)}>
         <Bell size={20} strokeWidth={1.6} absoluteStrokeWidth aria-hidden="true" />
         {unseen > 0 ? (
