@@ -50,8 +50,21 @@ What landed, in the order the user asked for it:
    at once), duplicate a dish, a section's prices in one go, and a "needs
    attention" strip.
 
+7. **The console's busiest screens on phones and tablets** (`a2f0812`,
+   `1f0b34b`, `8e388f1`). Overview 2×2 with marks and the stale "folio not
+   built" tile gone; Rooms filters and two-line room cards (7,891px → about
+   5,000, no sideways scroll); desk rows that keep the guest's name; the dish
+   form no longer wider than the phone; general rows two lines not three;
+   44px controls on touch screens; no gap under the top bar on short pages;
+   the bell's hydration mismatch fixed.
+
 ### Next
 
+- Not done, and why: console loading skeletons need the shell moved into a
+  route-group layout (every console page renders its own `AdminShell`), so a
+  `loading.tsx` today would blank the rail on every navigation. That is a
+  restructuring to agree first. The stylesheet split (Phase 2) is
+  housekeeping with no visible change; left for a reviewed session.
 - The rest of the admin portal, in progress: per-screen phone layouts (Rooms is
   7,900px tall on a phone; the dish form scrolls sideways at 390px), the
   36px touch targets, skeletons for the console, and the stylesheet split.
