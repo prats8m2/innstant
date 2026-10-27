@@ -147,6 +147,9 @@ function Row({ item }: { item: BellItem }) {
 function Ago({ at }: { at: string }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    // The browser's clock, straight after hydration: the server's "now" was
+    // a moment ago and on another machine.
+    setNow(Date.now());
     const tick = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(tick);
   }, []);
@@ -154,7 +157,11 @@ function Ago({ at }: { at: string }) {
   const minutes = Math.max(0, Math.round((now - new Date(at).getTime()) / 60_000));
 
   return (
-    <span className={styles.itemWhen}>
+    // The server and the browser each read the clock, so "5 min ago" and
+    // "6 min ago" can both be right a second apart. That mismatch threw the
+    // whole tree away on hydration; this one text node may differ instead,
+    // and the effect above corrects it at once.
+    <span className={styles.itemWhen} suppressHydrationWarning>
       {minutes < 1
         ? 'just now'
         : minutes < 60

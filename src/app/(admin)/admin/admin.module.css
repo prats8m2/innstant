@@ -1743,3 +1743,23 @@ details[open] > .disclosureHead {
   /* The in-screen switch wraps rather than pushing the page wide. */
   .views { flex-wrap: wrap; max-width: 100%; }
 }
+
+/* ── Rows on a phone ─────────────────────────────────────────────────────
+ * The console's general row (requests, floors, staff, links, a guest's
+ * history) stacked name, price and buttons as three lines at 390px, which
+ * made the request catalog 4,300px. The name keeps the full width; the
+ * price and the buttons share the line under it, buttons to the right.
+ */
+@media (max-width: 640px) {
+  .dish:not(.roomRow):not(.rowHead) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-3);
+    align-items: center;
+  }
+  .dish:not(.roomRow) > .dishBody { grid-column: 1 / -1; }
+  .dish:not(.roomRow) > .dishPrice { grid-column: 1; }
+  .dish:not(.roomRow) > .dishActions,
+  .dish:not(.roomRow) > .rowEnd { grid-column: 2; justify-self: end; }
+  .dish:not(.roomRow) > .dishPrice + .dishActions,
+  .dish:not(.roomRow) > .dishPrice + .rowEnd { grid-row: auto; }
+}
