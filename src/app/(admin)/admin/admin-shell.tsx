@@ -8,6 +8,7 @@ import { can, type StaffSession, type Permission } from '@/modules/identity';
 import { Alerts } from '@/components/alerts';
 import { signOut } from './actions';
 import { ConsoleRail } from './console-rail';
+import { NavPending } from './nav-pending';
 import styles from './admin.module.css';
 
 /**
@@ -165,6 +166,9 @@ export async function AdminShell({
                     aria-hidden="true"
                   />
                   <span className={styles.navLabel}>{item.label}</span>
+                  {/* Floor screens open in full; the console's own pages get
+                      the "loading" mark while they arrive. */}
+                  {item.away ? null : <NavPending />}
                   {/* An always-on floor screen, not a console page. Said in the
                       nav because arriving at a full-screen ticket rail you did
                       not expect is disorienting on a desk. */}

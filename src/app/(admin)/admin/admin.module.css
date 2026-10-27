@@ -1767,3 +1767,20 @@ details[open] > .disclosureHead {
   .dish:not(.roomRow) > .dishPrice + .dishActions,
   .dish:not(.roomRow) > .dishPrice + .rowEnd { grid-row: auto; }
 }
+
+/* ── A menu item that is loading ─────────────────────────────────────────
+   Hidden, and shown only while its own navigation is pending AND has taken
+   longer than a blink: the delay keeps a fast click from flashing it. */
+.navPending {
+  flex: 0 0 auto;
+  color: var(--accent);
+  opacity: 0;
+}
+.navPending[data-pending] {
+  animation:
+    navPendingIn var(--dur-fast) step-end forwards,
+    navPendingSpin var(--dur-shimmer) linear infinite;
+}
+
+@keyframes navPendingIn { to { opacity: 1; } }
+@keyframes navPendingSpin { to { transform: rotate(360deg); } }
