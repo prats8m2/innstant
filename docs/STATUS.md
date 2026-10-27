@@ -72,6 +72,12 @@ What landed, in the order the user asked for it:
     against yesterday by this time, orders by the hour (chart), the
     kitchen's rail, top dishes, the menu right now. New ordering service
     `daySummary()`, in the hotel's day via `AT TIME ZONE`.
+12. **Preview and overview fixes** (`777af8f`): the menu preview had been
+    picked up by the console layout (the console's top bar showed inside
+    the phone frame); it now lives in `(staff-bare)`. Any page that must
+    not get the console layout goes there. The overview's figures scale
+    with their tile (container query) and use the body sans with tabular
+    figures, so ₹ sales no longer overflow at 1280–1920px.
 
 All of the above is on branch `feat/admin-revamp-menu-studio`, PR #1, not
 `main`. The user's rule: never push to `main`; a PR and their thumbs-up.
