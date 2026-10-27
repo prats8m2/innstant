@@ -520,3 +520,42 @@ a.row[aria-current='true'] {
 @media (pointer: coarse) {
   .view, .filter, .feeInput, .feeWaive { min-height: var(--touch-min); }
 }
+
+/*
+ * The desk's request and order tables on a phone. Five columns at 390px cut
+ * every request to three letters ("Wak…") and wrapped "over by 15m" under
+ * the room number. Two lines each, nothing truncated:
+ *   request: room · what was asked        · promise
+ *            room · who has it            · state
+ *   order:   number · items               · state
+ *            where
+ */
+@media (max-width: 640px) {
+  .requestRow:not(.tableHead) {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'num what promise'
+      'num who state';
+    row-gap: 2px;
+  }
+  .requestRow:not(.tableHead) > :nth-child(1) { grid-area: num; align-self: start; }
+  .requestRow:not(.tableHead) > :nth-child(2) { grid-area: what; }
+  .requestRow:not(.tableHead) > :nth-child(3) { grid-area: who; }
+  .requestRow:not(.tableHead) > :nth-child(4) { grid-area: state; justify-self: end; }
+  .requestRow:not(.tableHead) > :nth-child(5) { grid-area: promise; justify-self: end; }
+
+  .orderRow:not(.tableHead) {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'number items state'
+      'where where where';
+    row-gap: 2px;
+  }
+  .orderRow:not(.tableHead) > :nth-child(1) { grid-area: number; }
+  .orderRow:not(.tableHead) > :nth-child(2) { grid-area: where; }
+  .orderRow:not(.tableHead) > :nth-child(3) { grid-area: items; }
+  .orderRow:not(.tableHead) > :nth-child(4) { grid-area: state; }
+
+  /* Truncation was the fault: on two lines there is room to say it. */
+  .requestRow .guest, .orderRow .guest { white-space: normal; }
+}

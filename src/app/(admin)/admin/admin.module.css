@@ -1871,3 +1871,15 @@ details[open] > .disclosureHead {
 
 @keyframes sidePanelIn { from { transform: translateX(32px); opacity: 0; } }
 @keyframes sidePanelFade { from { opacity: 0; } }
+
+/* A row that is only a name and one or two buttons (a floor, a room, a room
+   type) keeps them on ONE line on a phone, buttons to the right: the floors
+   and rooms tab was 5,859px of rooms each on two lines. Three or more
+   buttons still get a line of their own, where there is room for them. */
+@media (max-width: 960px) {
+  /* Two conditions side by side: :has() may not be nested inside :has(),
+     and a selector that tries is dropped whole, silently. */
+  .dish:not(.roomRow):has(> .dishBody:first-child + :is(.rowEnd, .dishActions):last-child):not(:has(> :is(.rowEnd, .dishActions) > :nth-child(3))) > .dishBody {
+    grid-column: 1;
+  }
+}
