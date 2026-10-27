@@ -48,6 +48,12 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
 
   // Move the pill under the active chip, and keep that chip in view — with
   // nine sections the rail scrolls, and the active one can sit off-screen.
+  //
+  // The pill lives INSIDE the scrolling rail, so it scrolls with the chips:
+  // its position is the chip's own offset, with no scrollLeft in the sum.
+  // (It once subtracted scrollLeft and started from the rail's padding as
+  // well, which put it 12px right of the first chip and off the chip
+  // entirely once the rail had scrolled.)
   useEffect(() => {
     const rail = railRef.current;
     const pill = pillRef.current;
@@ -56,13 +62,22 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
     const chip = rail.querySelector<HTMLElement>(`[data-chip="${CSS.escape(active)}"]`);
     if (!chip) return;
 
-    pill.style.width = `${chip.offsetWidth}px`;
-    pill.style.transform = `translateX(${chip.offsetLeft - rail.scrollLeft}px)`;
+    const place = () => {
+      pill.style.width = `${chip.offsetWidth}px`;
+      pill.style.transform = `translateX(${chip.offsetLeft}px)`;
+    };
+    place();
 
     const left = chip.offsetLeft - rail.scrollLeft;
     if (left < 0 || left + chip.offsetWidth > rail.clientWidth) {
       rail.scrollTo({ left: chip.offsetLeft - 12, behavior: 'smooth' });
     }
+
+    // A chip's width changes when the web font arrives or the text is
+    // resized; the pill follows.
+    const resize = new ResizeObserver(place);
+    resize.observe(chip);
+    return () => resize.disconnect();
   }, [active]);
 
   const jump = (id: string) => {

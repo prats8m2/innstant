@@ -87,7 +87,7 @@
 .railPill {
   position: absolute;
   top: 0;
-  left: var(--space-3);
+  left: 0;
   height: 34px;
   width: 0;
   border-radius: var(--radius-pill-sm);
@@ -100,6 +100,7 @@
 .chip {
   display: flex;
   align-items: center;
+  justify-content: center;
   height: 34px;
   /* 34px is the design's chip height; the 44px touch minimum is met by the
      padding block below, which extends the hit area past the painted pill. */
