@@ -1480,7 +1480,10 @@ details[open] > .disclosureHead {
  * has the rest. The 1024px here must match RAIL_QUERY there.
  */
 @media (max-width: 1023px) {
-  .frame { grid-template-columns: minmax(0, 1fr); }
+  /* Two rows now, bar and page. The page's row takes the spare height: left
+     to share it, a short page (the desk at 768px) grew the BAR's row and
+     opened a 40px gap under it. */
+  .frame { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 
   .rail {
     --bar-h: 60px;
@@ -1692,7 +1695,8 @@ details[open] > .disclosureHead {
  * sticker's buttons on one line. The code itself is in the link, so it is
  * not printed again at this width.
  */
-@media (max-width: 640px) {
+/* From 960px down, where the six-column table would otherwise stack. */
+@media (max-width: 960px) {
   .roomRow,
   .roomTable > .roomRow {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -1750,7 +1754,7 @@ details[open] > .disclosureHead {
  * made the request catalog 4,300px. The name keeps the full width; the
  * price and the buttons share the line under it, buttons to the right.
  */
-@media (max-width: 640px) {
+@media (max-width: 960px) {
   .dish:not(.roomRow):not(.rowHead) {
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-3);
