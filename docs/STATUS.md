@@ -78,6 +78,8 @@ What landed, in the order the user asked for it:
     not get the console layout goes there. The overview's figures scale
     with their tile (container query) and use the body sans with tabular
     figures, so ₹ sales no longer overflow at 1280–1920px.
+    The guest menu's section pill (`8311275`) sits on its chip again; it
+    was 12px off and left the chip once the rail scrolled.
 
 All of the above is on branch `feat/admin-revamp-menu-studio`, PR #1, not
 `main`. The user's rule: never push to `main`; a PR and their thumbs-up.
