@@ -32,7 +32,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         marcellus.variable, mukta.variable, dmMono.variable,
         instrumentSerif.variable, figtree.variable,
       ].join(' ')}>
-      <body>{children}</body>
+      {/* Browser extensions write attributes onto <body> before React hydrates
+          (ColorZilla adds `cz-shortcut-listen`, password managers add their
+          own), and React reports the mismatch as a hydration error on every
+          page. This ignores attribute differences on <body> ITSELF only; a
+          real mismatch anywhere inside the app is still reported. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
