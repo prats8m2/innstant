@@ -316,6 +316,9 @@
 .statLink:hover { color: inherit; background: var(--surface-hover); }
 
 .statLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.1em;
@@ -332,6 +335,11 @@
   color: var(--text);
 }
 .stat[data-attention='true'] .statValue { color: var(--accent); }
+
+.statIcon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
 
 .statOf {
   font-family: var(--font-mono);
@@ -364,8 +372,7 @@
 }
 .card:has(.cardLink:hover) { border-color: var(--ink-300); }
 
-.cardLink,
-.card.soon {
+.cardLink {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -387,11 +394,6 @@
   color: var(--text-muted);
   text-wrap: pretty;
 }
-
-/* Named, not hidden — but visibly not a link. */
-.soon { background: transparent; }
-.soon .cardTitle { color: var(--text-muted); }
-.soon .cardBody { color: var(--plaster-faint); }
 
 /* ── Panels ─────────────────────────────────────────────────────────────
  *
@@ -1660,4 +1662,84 @@ details[open] > .disclosureHead {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow-sm);
+}
+
+/* ── A phone ─────────────────────────────────────────────────────────────
+ * The overview's four numbers two by two, rather than one per screenful:
+ * at 390px one per row put "Needs somebody", the thing a GM opened the page
+ * for, below the fold.
+ */
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+  .statLink { padding: var(--space-4); gap: var(--space-1); }
+  .statValue { font-size: var(--text-2xl); }
+  .statNote { font-size: var(--text-xs); }
+  .cards { padding: var(--space-4); gap: var(--space-3); }
+}
+
+/* A count inside an in-screen switch ("In house 4"). */
+.viewCount {
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── The key rack on a phone ─────────────────────────────────────────────
+ * At 390px the six columns stacked into six lines a room, and with
+ * thirty-four rooms the rack was 7,900px. Each room is now a short card:
+ * number and type beside the guest (or "empty") and its one action, the
+ * stay's dates and balance under that when there is a stay, and the
+ * sticker's buttons on one line. The code itself is in the link, so it is
+ * not printed again at this width.
+ */
+@media (max-width: 640px) {
+  .roomRow,
+  .roomTable > .roomRow {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'num guest act'
+      'num due bal'
+      'stk stk stk';
+    grid-auto-flow: row;
+    column-gap: var(--space-3);
+    row-gap: var(--space-1);
+    align-items: center;
+  }
+  .roomRow > :nth-child(1) { grid-area: num; align-self: start; }
+  .roomRow > :nth-child(2) { grid-area: guest; }
+  .roomRow > :nth-child(3) { grid-area: due; }
+  .roomRow > :nth-child(4) { grid-area: bal; justify-self: end; }
+  .roomRow > :nth-child(5) { grid-area: stk; }
+  .roomRow > :nth-child(6) { grid-area: act; justify-self: end; }
+  .roomSticker .guestCode { display: none; }
+  .roomSticker .guestLink { flex-wrap: wrap; gap: var(--space-2); }
+}
+
+/* ── Fingers ─────────────────────────────────────────────────────────────
+ * The console's 36px switches and chips are fine under a mouse and too small
+ * under a thumb (CLAUDE.md "UI": 44px minimum). On a touch screen they grow;
+ * on a desk they keep the density a desk wants.
+ */
+@media (pointer: coarse) {
+  .view { min-height: var(--touch-min); }
+}
+
+/* A <fieldset> will not shrink below its content by default
+   (min-inline-size: min-content), so the dish form's three-row hours table
+   pushed the whole page to 535px on a phone. Let it shrink, and let the
+   table scroll inside it instead of the page scrolling sideways. */
+.fieldset { min-width: 0; }
+
+@media (max-width: 640px) {
+  .fieldset > .hoursTable {
+    display: block;
+    /* The 960px rule's 460px minimum is for the kitchen's own hours page,
+       where the table sits in a scroller of its own. Here the table IS the
+       scroller, so it must be allowed to be narrower than its rows. */
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  /* The in-screen switch wraps rather than pushing the page wide. */
+  .views { flex-wrap: wrap; max-width: 100%; }
 }

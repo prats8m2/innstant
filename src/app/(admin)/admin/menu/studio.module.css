@@ -936,3 +936,8 @@
   padding: var(--space-1) 0;
   border-bottom: 1px solid var(--border-soft);
 }
+
+/* Fingers: the 36px chips grow to the 44px minimum on a touch screen. */
+@media (pointer: coarse) {
+  .chip { min-height: var(--touch-min); }
+}

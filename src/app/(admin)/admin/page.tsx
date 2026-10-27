@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BedDouble, ChefHat, DoorOpen, ListChecks, type LucideIcon } from 'lucide-react';
 import { withTenant } from '@/db';
 import { can, findProperty } from '@/modules/identity';
 import { adminAccess, AdminDenied } from './guard';
@@ -107,6 +108,7 @@ export default async function AdminHome() {
         {maySeeStays ? (
           <Stat
             href="/admin/rooms"
+            icon={BedDouble}
             label="Rooms occupied"
             value={`${occupied}`}
             of={`of ${rooms.length}`}
@@ -118,6 +120,7 @@ export default async function AdminHome() {
         {maySeeRequests ? (
           <Stat
             href="/housekeeping"
+            icon={ListChecks}
             label="Requests open"
             value={`${requests.length}`}
             /* Breached, not "late-ish": `slaState()` computes it from the clock
@@ -130,6 +133,7 @@ export default async function AdminHome() {
         {maySeeOrders && outlet ? (
           <Stat
             href="/kds"
+            icon={ChefHat}
             label="In the kitchen"
             value={`${tickets.length}`}
             note={tickets.length === 1 ? 'one ticket up' : 'tickets up'}
@@ -139,6 +143,7 @@ export default async function AdminHome() {
         {maySeeStays ? (
           <Stat
             href="/admin/checkouts"
+            icon={DoorOpen}
             label="Leaving later"
             value={`${checkouts.length}`}
             note={checkouts.length ? 'waiting on an answer' : 'nothing waiting'}
@@ -243,16 +248,15 @@ export default async function AdminHome() {
             </Card>
           ) : null}
 
-          {/* Named rather than hidden: this is the next phase in
-              docs/PROJECT-PLAN.md, and staff asking "where is the folio"
-              deserve an answer better than a missing tile. */}
-          <li className={`${styles.card} ${styles.soon}`}>
-            <span className={styles.cardTitle}>Settling a folio</span>
-            <span className={styles.cardBody}>
-              Not built yet — the rest of P3. Checking out frees the room and
-              records the balance; taking the money is still the card machine.
-            </span>
-          </li>
+          {/* This tile used to say "Settling a folio: not built yet". It was
+              built in P3 (2d23757), and the tile went on saying otherwise
+              for months: a promise of absence is a claim like any other. */}
+          {maySeeStays ? (
+            <Card href="/admin/desk" title="Settling up">
+              A guest&rsquo;s bill, taking the payment, and checking out: open the
+              room on the front desk.
+            </Card>
+          ) : null}
         </ul>
       </section>
     </AdminShell>
@@ -261,6 +265,7 @@ export default async function AdminHome() {
 
 function Stat({
   href,
+  icon: Icon,
   label,
   value,
   of,
@@ -268,6 +273,7 @@ function Stat({
   attention = false,
 }: {
   href: string;
+  icon: LucideIcon;
   label: string;
   value: string;
   of?: string;
@@ -278,7 +284,10 @@ function Stat({
   return (
     <li className={styles.stat} data-attention={attention}>
       <Link href={href} className={styles.statLink}>
-        <span className={styles.statLabel}>{label}</span>
+        <span className={styles.statLabel}>
+          <Icon size={15} strokeWidth={1.75} aria-hidden="true" className={styles.statIcon} />
+          {label}
+        </span>
         <span className={styles.statValue}>
           <span className="tabular">{value}</span>
           {of ? <span className={styles.statOf}>{of}</span> : null}

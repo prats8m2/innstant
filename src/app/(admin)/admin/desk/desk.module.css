@@ -491,3 +491,32 @@ a.row[aria-current='true'] {
 
 /* An unclaimed request is the one row in these tables that wants a person. */
 [data-state='unclaimed'] .dot { background: var(--status-critical); }
+
+/*
+ * A phone. Four columns at 390px truncated every guest's name to three
+ * letters ("Tho…"). The room number keeps its column; the guest and their
+ * status share the first line, and what is open in the room goes under
+ * them, where it has the width to say it.
+ */
+@media (max-width: 640px) {
+  /* Room rows only: the request and order tables are .row too, and their
+     cells come in another order. */
+  .row:not(.requestRow):not(.orderRow) {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'num guest status'
+      'num open open';
+    row-gap: 2px;
+  }
+  .row:not(.requestRow):not(.orderRow) > :nth-child(1) { grid-area: num; align-self: start; }
+  .row:not(.requestRow):not(.orderRow) > :nth-child(2) { grid-area: guest; }
+  .row:not(.requestRow):not(.orderRow) > :nth-child(3) { grid-area: status; justify-self: end; }
+  .row:not(.requestRow):not(.orderRow) > :nth-child(5) { grid-area: open; }
+  /* The column names describe columns this width no longer has. */
+  .tableHead { display: none; }
+}
+
+/* Fingers: 36px is a desk's density, and too small for a thumb. */
+@media (pointer: coarse) {
+  .view, .filter, .feeInput, .feeWaive { min-height: var(--touch-min); }
+}
