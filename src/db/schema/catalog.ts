@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, smallint, date, boolean, jsonb, index, uniqueIndex,
+  pgTable, uuid, text, integer, smallint, date, boolean, jsonb, index, uniqueIndex, primaryKey,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 import {
   pk, createdAt, updatedAt, tenantId, propertyId, archivedAt, currency, outletKind,
@@ -94,6 +95,9 @@ export const menuItems = pgTable('menu_items', {
   spiceLevel: integer('spice_level'),
   prepTimeMinutes: integer('prep_time_minutes'),
 
+  /** D-086 (migration 0012). Portions a day; NULL is no limit. Counted in
+   *  `menu_item_daily_sales`, claimed atomically by placeOrder(). */
+  dailyLimit: integer('daily_limit'),
   isAvailable: boolean('is_available').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
 
@@ -248,3 +252,17 @@ export const menuOffers = pgTable('menu_offers', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [index('menu_offers_outlet_idx').on(t.outletId)]);
+
+/**
+ * D-086 (migration 0012). How many of a limited dish have gone today, per
+ * property-local business date. Written only by claimDailyPortions() (one
+ * conditional upsert, so the last portion goes to exactly one order) and
+ * releaseDailyPortions() (a rejected or cancelled order gives them back).
+ */
+export const menuItemDailySales = pgTable('menu_item_daily_sales', {
+  tenantId: tenantId(),
+  menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  businessDate: date('business_date', { mode: 'string' }).notNull(),
+  sold: integer('sold').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.menuItemId, t.businessDate] })]);

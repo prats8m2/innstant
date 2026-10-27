@@ -136,8 +136,15 @@ export function MenuView({
                             <span className={styles.tag}>{dish.prepTimeMinutes} min</span>
                           ) : null
                         ) : (
-                          <span className={styles.soldOut}>Not available now</span>
+                          // D-086: when the day's portions are what ran out,
+                          // say so, so the guest knows to try tomorrow.
+                          <span className={styles.soldOut}>
+                            {dish.remainingToday === 0 ? 'Sold out today' : 'Not available now'}
+                          </span>
                         )}
+                        {dish.isAvailable && dish.remainingToday !== null && dish.remainingToday <= 5 ? (
+                          <span className={styles.soldOut}>Only {dish.remainingToday} left today</span>
+                        ) : null}
                       </span>
                     </span>
                   </Link>

@@ -42,6 +42,15 @@ export interface ScheduledCard {
   dishes: string[];
 }
 
+/** A loose end on the menu, said as the thing to do (step 4). */
+export interface Warning {
+  text: string;
+  /** Where to fix it, when that is another page. */
+  href?: string;
+  /** A board filter that shows exactly the dishes it is about. */
+  filter?: 'nophoto';
+}
+
 export function MenuStudio({
   propertyId,
   menu,
@@ -51,6 +60,8 @@ export function MenuStudio({
   todaysSpecialOn,
   liveOffers,
   offerCount,
+  portions,
+  warnings,
 }: {
   propertyId: string;
   menu: AdminMenu;
@@ -65,6 +76,9 @@ export function MenuStudio({
   liveOffers: Record<string, string>;
   /** How many offers exist, or null without `catalog:pricing`. */
   offerCount: number | null;
+  /** D-086. Limited dishes only: id → today's limit and what is left. */
+  portions: Record<string, { limit: number; left: number }>;
+  warnings: Warning[];
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const dishCount = menu.categories.reduce((n, c) => n + c.items.length, 0);
@@ -139,6 +153,8 @@ export function MenuStudio({
           scheduled={scheduled}
           todaysSpecialOn={todaysSpecialOn}
           liveOffers={liveOffers}
+          portions={portions}
+          warnings={warnings}
         />
         <PreviewPane
           menu={menu}

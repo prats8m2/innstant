@@ -137,6 +137,19 @@ frame (D-083): beside the board from 1280px wide, over it below that.
   dish an offer is pricing right now (*20% off now · Happy hour*), and the
   guest's card shows the new price with the old one struck through. *End it*
   and the next guest pays the list price; a receipt keeps the offer's name.
+- **Needs attention** appears above the board only when something does:
+  dishes with no photo (*Show them* filters the board to exactly those), an
+  empty section, a schedule that ended but is still on, an ended offer, a
+  dish sold out today.
+- **Only 20 today.** Set *Most portions a day* on a dish's page. The board
+  says *8 of 20 left today*, the guest's card says *Only 3 left today* near
+  the end and *Sold out today* after it, and a rejected order gives its
+  portions back (D-086).
+- **Duplicate** (the copy icon on a row): a copy directly under the
+  original, switched off until you have looked at it.
+- **Change a section's prices** (the % icon on a section): *5* or *-10*,
+  rounded to ₹10, ₹5, ₹1 or exactly. Every new price is listed before
+  *Apply*, and each one is in that dish's history.
 - **Menus on a schedule** sit above the sections: one card per collection,
   with its schedule and whether it is showing now. **Today's special** is one
   tap: it appears at the top of the guest's menu as soon as a dish is in it,

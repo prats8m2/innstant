@@ -1,7 +1,10 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
 import { recordEvent } from '@/db';
-import { orders } from '@/db/schema/ordering';
+import { orders, orderItems } from '@/db/schema/ordering';
+import { releaseDailyPortions } from '@/modules/catalog';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import { reverseFolioLinesForSource } from '@/modules/billing';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
@@ -63,6 +66,7 @@ export async function advanceOrder(
       outletId: orders.outletId,
       stayId: orders.stayId,
       visitId: orders.visitId,
+      placedAt: orders.placedAt,
     })
     .from(orders)
     .where(and(eq(orders.id, input.orderId), eq(orders.propertyId, input.propertyId)))
@@ -213,6 +217,24 @@ export async function advanceOrder(
         },
       });
     }
+  }
+
+  /*
+   * D-086. An order the kitchen will not make gives its portions of a
+   * limited dish back, for the next guest. The business date is the one the
+   * portions were taken on: the hotel's date when the order was PLACED, read
+   * the same way placeOrder() read it. Same transaction as the transition,
+   * reached once per real transition by the compare-and-set above.
+   */
+  if (input.to === 'REJECTED' || input.to === 'CANCELLED') {
+    const property = await findProperty(tx, input.propertyId);
+    const placed = localTimeAt(order.placedAt ?? new Date(), property?.timezone ?? 'Asia/Kolkata');
+    const lines = await tx.select({ menuItemId: orderItems.menuItemId, quantity: orderItems.quantity })
+      .from(orderItems).where(eq(orderItems.orderId, order.id));
+    await releaseDailyPortions(tx, {
+      businessDate: placed.date!,
+      lines: lines.flatMap((l) => (l.menuItemId ? [{ menuItemId: l.menuItemId, quantity: l.quantity }] : [])),
+    });
   }
 
   await notifyOrderChanged(tx, {

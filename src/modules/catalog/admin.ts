@@ -8,6 +8,7 @@ import { parseClock } from '@/lib/clock';
 import type { OutletHoursDay, ItemAvailabilityWindow } from './hours';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import type { CurrencyCode } from '@/lib/money';
+import { adjustPrice } from './price-adjust';
 
 /**
  * Editing the menu. The other half of menu.ts — that file shapes the catalog
@@ -68,6 +69,8 @@ export interface AdminMenuItem {
   spiceLevel: number | null;
   prepTimeMinutes: number | null;
   imageUrl: string | null;
+  /** D-086. Portions a day; null is no limit. */
+  dailyLimit: number | null;
 }
 
 export interface AdminMenuCategory {
@@ -142,6 +145,7 @@ export async function getAdminMenu(
     spiceLevel: menuItems.spiceLevel,
     prepTimeMinutes: menuItems.prepTimeMinutes,
     imageUrl: menuItems.imageUrl,
+    dailyLimit: menuItems.dailyLimit,
   }).from(menuItems)
     .where(and(eq(menuItems.outletId, input.outletId), isNull(menuItems.archivedAt)))
     .orderBy(asc(menuItems.sortOrder), asc(menuItems.name));
@@ -158,6 +162,7 @@ export async function getAdminMenu(
     spiceLevel: row.spiceLevel,
     prepTimeMinutes: row.prepTimeMinutes,
     imageUrl: row.imageUrl,
+    dailyLimit: row.dailyLimit,
   });
 
   const known = new Set(categories.map((c) => c.id));
@@ -203,6 +208,7 @@ export async function getAdminMenuItem(
     spiceLevel: menuItems.spiceLevel,
     prepTimeMinutes: menuItems.prepTimeMinutes,
     imageUrl: menuItems.imageUrl,
+    dailyLimit: menuItems.dailyLimit,
   }).from(menuItems)
     .where(and(
       eq(menuItems.id, input.itemId),
@@ -1162,4 +1168,148 @@ async function nextSortOrder(
       AND archived_at IS NULL
   `);
   return Number(rows.rows[0]?.next ?? 0);
+}
+
+/* ── Step 4 of the menu studio: bulk price, duplicate ──────────────────────── */
+
+/**
+ * Change every dish in a section by one percentage, rounded to a step: the
+ * "everything in Sweets up 5%" a manager does once a year and should not do
+ * one cell at a time. One transaction, so the section moves together or not
+ * at all, and each dish writes the same `menu_item.repriced` with both
+ * numbers that a single edit writes (via `setMenuItemPrice`), so the dispute
+ * history reads the same whichever screen changed it.
+ *
+ * Returns what changed, for the board to say "7 dishes repriced".
+ */
+export async function repriceCategory(
+  tx: Tx,
+  input: {
+    tenantId: string; propertyId: string; outletId: string;
+    categoryId: string;
+    /** Signed: +500 is 5% up. */
+    percentBps: number;
+    /** Rounding step in minor units: 1000 = the nearest ₹10. */
+    stepMinor: number;
+    actorStaffId: string;
+  },
+): Promise<{ changed: number; category: string }> {
+  const category = (await tx.select({ name: menuCategories.name }).from(menuCategories)
+    .where(and(
+      eq(menuCategories.id, input.categoryId),
+      eq(menuCategories.outletId, input.outletId),
+      isNull(menuCategories.archivedAt),
+    )).limit(1))[0];
+  if (!category) throw new NotFoundError('That section is not on this menu.');
+
+  const items = await tx.select({ id: menuItems.id, priceMinor: menuItems.priceMinor })
+    .from(menuItems)
+    .where(and(
+      eq(menuItems.categoryId, input.categoryId),
+      eq(menuItems.outletId, input.outletId),
+      isNull(menuItems.archivedAt),
+    ));
+
+  let changed = 0;
+  for (const item of items) {
+    let next: number;
+    try {
+      next = adjustPrice(item.priceMinor, input.percentBps, input.stepMinor);
+    } catch (error) {
+      throw new ValidationError((error as Error).message);
+    }
+    const result = await setMenuItemPrice(tx, {
+      tenantId: input.tenantId,
+      propertyId: input.propertyId,
+      outletId: input.outletId,
+      itemId: item.id,
+      priceMinor: next,
+      actorStaffId: input.actorStaffId,
+    });
+    if (result.changed) changed += 1;
+  }
+  return { changed, category: category.name };
+}
+
+/**
+ * A copy of a dish, to start a variant from: "Laal maas (copy)", right under
+ * the original, with its description, flags, options and own hours. OFF the
+ * guest menu until somebody looks at it, because a duplicate is a draft and
+ * two identical dishes side by side on a guest's phone is a mistake on show.
+ */
+export async function duplicateMenuItem(
+  tx: Tx,
+  input: {
+    tenantId: string; propertyId: string; outletId: string;
+    itemId: string; actorStaffId: string;
+  },
+): Promise<{ id: string; name: string }> {
+  const source = (await tx.select().from(menuItems).where(and(
+    eq(menuItems.id, input.itemId),
+    eq(menuItems.outletId, input.outletId),
+    isNull(menuItems.archivedAt),
+  )).limit(1))[0];
+  if (!source) throw new NotFoundError('That dish is not on this menu.');
+
+  // Make room directly under the original, so the copy is where the eye is.
+  await tx.update(menuItems)
+    .set({ sortOrder: sql`${menuItems.sortOrder} + 1` })
+    .where(and(
+      eq(menuItems.categoryId, source.categoryId),
+      isNull(menuItems.archivedAt),
+      sql`${menuItems.sortOrder} > ${source.sortOrder}`,
+    ));
+
+  const name = `${source.name} (copy)`.slice(0, 120);
+  const [copy] = await tx.insert(menuItems).values({
+    tenantId: source.tenantId,
+    propertyId: source.propertyId,
+    outletId: source.outletId,
+    categoryId: source.categoryId,
+    name,
+    description: source.description,
+    priceMinor: source.priceMinor,
+    currency: source.currency,
+    imageUrl: source.imageUrl,
+    blurhash: source.blurhash,
+    dietaryFlags: source.dietaryFlags,
+    spiceLevel: source.spiceLevel,
+    prepTimeMinutes: source.prepTimeMinutes,
+    isAvailable: false,
+    sortOrder: source.sortOrder + 1,
+  }).returning({ id: menuItems.id });
+
+  const groups = await tx.select({
+    modifierGroupId: menuItemModifierGroups.modifierGroupId,
+    sortOrder: menuItemModifierGroups.sortOrder,
+  }).from(menuItemModifierGroups).where(eq(menuItemModifierGroups.menuItemId, source.id));
+  if (groups.length) {
+    await tx.insert(menuItemModifierGroups).values(groups.map((g) => ({
+      tenantId: input.tenantId, menuItemId: copy!.id, ...g,
+    })));
+  }
+
+  const windows = await tx.select({
+    dayOfWeek: menuItemAvailabilityWindows.dayOfWeek,
+    startsAt: menuItemAvailabilityWindows.startsAt,
+    endsAt: menuItemAvailabilityWindows.endsAt,
+    crossesMidnight: menuItemAvailabilityWindows.crossesMidnight,
+  }).from(menuItemAvailabilityWindows).where(eq(menuItemAvailabilityWindows.menuItemId, source.id));
+  if (windows.length) {
+    await tx.insert(menuItemAvailabilityWindows).values(windows.map((w) => ({
+      tenantId: input.tenantId, menuItemId: copy!.id, ...w,
+    })));
+  }
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'menu_item',
+    entityId: copy!.id,
+    eventType: 'menu_item.created',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: { name, priceMinor: source.priceMinor, currency: source.currency, copiedFrom: source.id },
+  });
+
+  return { id: copy!.id, name };
 }

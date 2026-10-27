@@ -131,6 +131,11 @@ export interface ApiDish {
   listPrice?: ApiMoney | null;
   /** Added with D-085. The offer that set `price`: "20% off", and its name. */
   offer?: { name: string; label: string } | null;
+  /**
+   * Added with D-086. Portions left today for a dish with a daily limit;
+   * null for a dish without one. At 0, `isAvailable` is false too.
+   */
+  remainingToday?: number | null;
   isAvailable: boolean;
   /**
    * 'VEGETARIAN', 'NON_VEGETARIAN', 'VEGAN', 'CONTAINS_NUTS', … — rendered as

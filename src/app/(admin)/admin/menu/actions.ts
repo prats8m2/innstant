@@ -11,12 +11,13 @@ import {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
   setMenuItemPrice, arrangeMenu, startTodaysSpecial, addDishToCollection,
+  setDailyLimit, repriceCategory, duplicateMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
 import type { ItemAvailabilityWindow } from '@/modules/catalog';
-import { parseMoneyInput, MoneyInputError, type CurrencyCode } from '@/lib/money';
+import { parseMoneyInput, parseRateBps, MoneyInputError, type CurrencyCode } from '@/lib/money';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -69,6 +70,7 @@ const ItemForm = z.object({
   imageUrl: optionalText(500),
   spiceLevel: z.coerce.number().int().min(0).max(5).optional(),
   prepTimeMinutes: z.coerce.number().int().min(1).max(240).optional(),
+  dailyLimit: z.coerce.number().int().min(1, 'A daily limit is at least 1.').max(10_000).optional(),
   isAvailable: z.boolean(),
   dietaryFlags: z.array(Flags),
   modifierGroupIds: z.array(z.uuid()),
@@ -258,6 +260,7 @@ export async function saveItem(
     imageUrl: formData.get('imageUrl') ?? undefined,
     spiceLevel: formData.get('spiceLevel') || undefined,
     prepTimeMinutes: formData.get('prepTimeMinutes') || undefined,
+    dailyLimit: formData.get('dailyLimit') || undefined,
     // An unchecked checkbox posts nothing at all, which is the difference
     // between "off" and "not on the form".
     isAvailable: formData.get('isAvailable') === 'on',
@@ -310,6 +313,15 @@ export async function saveItem(
           outletId: input.outletId,
           itemId: id,
           groupIds: input.modifierGroupIds,
+        });
+
+        await setDailyLimit(tx, {
+          tenantId: session.tenantId,
+          propertyId: input.propertyId,
+          outletId: input.outletId,
+          itemId: id,
+          dailyLimit: input.dailyLimit ?? null,
+          actorStaffId: session.staffUserId,
         });
 
         await setMenuItemAvailabilityWindows(tx, {
@@ -588,6 +600,70 @@ export async function addDishToCollectionFromBoard(input: unknown): Promise<Menu
       done: result.added
         ? `${result.dish} is in ${result.collection} now.`
         : `${result.dish} was already in ${result.collection}.`,
+    };
+  });
+}
+
+/* ── Step 4, from the board: duplicate, reprice a section ──────────────── */
+
+const Duplicate = Ids.extend({ itemId: z.uuid() });
+
+/** A copy of a dish under the original, off the guest menu until reviewed. */
+export async function duplicateFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Duplicate.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId } = parsed.data;
+
+  return guard('duplicate dish', async () => {
+    // A new dish carries a price, so it needs what the dish form needs.
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    await requirePermission(propertyId, 'catalog:pricing');
+    const copy = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => duplicateMenuItem(tx, {
+        tenantId: session.tenantId, propertyId, outletId, itemId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: `${copy.name} is under the original, switched off until you have looked at it.` };
+  });
+}
+
+const Reprice = Ids.extend({
+  categoryId: z.uuid(),
+  /** "5", "-10", "2.5": a signed percentage. */
+  percent: z.string().trim().regex(/^[-+]?\d{1,3}(\.\d{1,2})?$/, 'A change is a percentage, like 5 or -10.'),
+  /** The rounding step in minor units: 100 = ₹1, 500 = ₹5, 1000 = ₹10. */
+  stepMinor: z.union([z.literal(1), z.literal(100), z.literal(500), z.literal(1_000)]),
+});
+
+/** Every dish in a section moved by one percentage, rounded to a step. */
+export async function repriceSectionFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Reprice.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'That did not come through. Try again.' };
+  }
+  const { propertyId, outletId, categoryId, percent, stepMinor } = parsed.data;
+
+  return guard('reprice section', async () => {
+    const session = await requirePermission(propertyId, 'catalog:pricing');
+    const negative = percent.startsWith('-');
+    const bps = parseRateBps(percent.replace(/^[-+]/, '')) * (negative ? -1 : 1);
+    if (bps === 0) return { done: 'A change of 0% changes nothing.' };
+
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => repriceCategory(tx, {
+        tenantId: session.tenantId, propertyId, outletId, categoryId,
+        percentBps: bps, stepMinor, actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return {
+      done: result.changed
+        ? `${result.changed} ${result.changed === 1 ? 'dish' : 'dishes'} in ${result.category} repriced.`
+        : `Every price in ${result.category} already rounds to that. Nothing changed.`,
     };
   });
 }

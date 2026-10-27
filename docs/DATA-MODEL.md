@@ -445,6 +445,24 @@ the line also snapshots `list_price_minor` and `offer_name_snapshot`, so the
 receipt explains its own price after the offer is renamed or ended. A CHECK
 keeps the pair together and `list_price_minor >= unit_price_minor`.
 
+### Daily limits: `menu_items.daily_limit`, `menu_item_daily_sales` (D-086, migration 0012)
+
+"Only 20 today". `daily_limit` is portions a day (NULL is none, a CHECK
+keeps it positive). `menu_item_daily_sales` counts what has gone, keyed by
+`(menu_item_id, business_date)`, where the date is the hotel's at the
+moment of the order. It is a counter in the catalog module, not a count of
+`order_items`, because that would be a cross-module read (D-001) and a
+count-then-insert race.
+
+`placeOrder()` claims portions inside its own transaction with
+`claimDailyPortions()`: one upsert per limited dish that adds only if the
+total stays within the limit. Two orders for the last portion queue on the
+row lock and exactly one gets it; the other's whole order rolls back with
+"only N left today" (tested in parallel). `advanceOrder()` to REJECTED or
+CANCELLED calls `releaseDailyPortions()` in the same transaction, on the
+date the portions were taken. The menu read, `getDish()` and
+`getCartPricing()` report `remainingToday` and treat 0 as unavailable.
+
 ---
 
 ## 5. Money

@@ -10,6 +10,7 @@ import {
 } from './hours';
 import { bestOffer, type MenuOffer } from './offers';
 import { offersForOutlet } from './offers-read';
+import { portionsLeftToday } from './daily-limits';
 import type { LocalTime } from '@/lib/clock';
 
 /**
@@ -51,6 +52,12 @@ export interface MenuDish {
   listPriceMinor: number | null;
   /** The offer that set `priceMinor`, as the card names it ("20% off"). */
   offer: { name: string; label: string } | null;
+  /**
+   * D-086. Portions left today for a dish with a daily limit; null for the
+   * many dishes without one. At 0 the dish is also `isAvailable: false`, and
+   * the card says "sold out today" rather than the general "not available".
+   */
+  remainingToday: number | null;
   /**
    * Whether the menu LIST can add this straight to the cart, or has to send
    * the guest into the dish to answer something first.
@@ -271,6 +278,11 @@ async function buildMenu(
   // card and the bill cannot name different offers.
   const offers = await offersForOutlet(tx, input.outletId);
 
+  // D-086. A dish whose day's portions are gone is off, like an 86.
+  const portions = input.at.date
+    ? await portionsLeftToday(tx, { itemIds: dishes.map((d) => d.id), businessDate: input.at.date })
+    : new Map<string, { limit: number; left: number }>();
+
   const byId = new Map<string, MenuDish>(
     dishes.map((d) => [d.id, {
       id: d.id,
@@ -278,7 +290,9 @@ async function buildMenu(
       description: d.description,
       ...priceWithOffer(offers, d, input.at),
       currency: d.currency,
-      isAvailable: d.isAvailable && isItemOnNow(schedules.get(d.id) ?? [], input.at),
+      isAvailable: d.isAvailable && isItemOnNow(schedules.get(d.id) ?? [], input.at)
+        && (portions.get(d.id)?.left ?? 1) > 0,
+      remainingToday: portions.get(d.id)?.left ?? null,
       // jsonb comes back as unknown; the column defaults to '[]' and is only
       // ever written as an array of flag strings.
       dietaryFlags: Array.isArray(d.dietaryFlags) ? (d.dietaryFlags as string[]) : [],
@@ -678,6 +692,9 @@ export async function getDish(
   // Without a time there is no "now" for an offer to be live in: the console
   // reading a dish sees its list price, which is what it edits.
   const offers = input.at ? await offersForOutlet(tx, row.outletId) : [];
+  const portions = input.at?.date
+    ? (await portionsLeftToday(tx, { itemIds: [row.id], businessDate: input.at.date })).get(row.id)
+    : undefined;
 
   return {
     dish: {
@@ -688,7 +705,8 @@ export async function getDish(
         ? priceWithOffer(offers, row, input.at)
         : { priceMinor: row.priceMinor, listPriceMinor: null, offer: null }),
       currency: row.currency,
-      isAvailable: row.isAvailable && onNow,
+      isAvailable: row.isAvailable && onNow && (portions?.left ?? 1) > 0,
+      remainingToday: portions?.left ?? null,
       dietaryFlags: Array.isArray(row.dietaryFlags) ? (row.dietaryFlags as string[]) : [],
       spiceLevel: row.spiceLevel,
       prepTimeMinutes: row.prepTimeMinutes,
@@ -786,6 +804,13 @@ export async function getCartPricing(
      * stands. A cart's dishes are from one outlet; the map is per outlet so
      * that is an assumption, not a requirement.
      */
+    // D-086. Sold out today prices as unavailable, so the cart's total and
+    // placeOrder()'s check agree with the card. The CLAIM, which is what
+    // actually stops an oversell, happens at placement.
+    const portions = input.at?.date
+      ? await portionsLeftToday(tx, { itemIds: rows.map((r) => r.id), businessDate: input.at.date })
+      : new Map<string, { limit: number; left: number }>();
+
     const offersByOutlet = new Map<string, Awaited<ReturnType<typeof offersForOutlet>>>();
     if (input.at) {
       for (const outletId of new Set(rows.map((r) => r.outletId))) {
@@ -807,7 +832,8 @@ export async function getCartPricing(
         offer: applied ? { id: applied.offerId, name: applied.name } : null,
         currency: r.currency,
         isAvailable: r.isAvailable
-          && (!input.at || isItemOnNow(schedules.get(r.id) ?? [], input.at)),
+          && (!input.at || isItemOnNow(schedules.get(r.id) ?? [], input.at))
+          && (portions.get(r.id)?.left ?? 1) > 0,
         imageUrl: r.imageUrl,
       });
     }

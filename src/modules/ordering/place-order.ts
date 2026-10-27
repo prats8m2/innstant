@@ -3,7 +3,7 @@ import type { Tx } from '@/db';
 import { recordEvent } from '@/db';
 import { carts, cartItems, orders, orderItems, orderItemModifiers } from '@/db/schema/ordering';
 import { idempotencyKeys } from '@/db/schema/core';
-import { getInRoomDiningOutletConfig, getOutletConfig } from '@/modules/catalog';
+import { getInRoomDiningOutletConfig, getOutletConfig, claimDailyPortions } from '@/modules/catalog';
 import { postFolioLine } from '@/modules/billing';
 import { guestProfileForStay } from '@/modules/stay';
 import { findProperty } from '@/modules/identity';
@@ -238,6 +238,23 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       'Charges to this room are on hold. The front desk can take the order.',
     );
   }
+
+  /**
+   * D-086. The day's portions of any limited dish, taken here, after every
+   * check that could refuse the order and before anything is written.
+   *
+   * One statement per limited dish, and it adds only if the total stays
+   * within the limit, so two guests ordering the last laal maas at once
+   * cannot both get it: one claim waits on the other's row lock, then finds
+   * nothing left and throws, and THIS transaction rolls back whole. No
+   * order, no folio line, no ticket for a dish the kitchen cannot make.
+   * The business date is the hotel's, from the same clock as the schedules.
+   */
+  await claimDailyPortions(tx, {
+    tenantId: input.tenantId,
+    businessDate: at.date!,
+    lines: cart.lines.map((line) => ({ menuItemId: line.menuItemId, quantity: line.quantity })),
+  });
 
   const dietaryFlags = profile?.dietaryFlags ?? [];
 

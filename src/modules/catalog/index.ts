@@ -44,6 +44,7 @@ export {
   getAdminMenu, getAdminMenuItem, listModifierGroups,
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemPrice, setMenuItemAvailability, listUnavailableItems,
+  repriceCategory, duplicateMenuItem,
   archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours,
@@ -65,6 +66,12 @@ export type { ArrangedSection, ArrangementPlan } from './arrange-plan';
 export { listOffers, createOffer, updateOffer, archiveOffer } from './admin-offers';
 export type { AdminOffer, OfferWriteInput } from './admin-offers';
 export { bestOffer, discountFor, offerLabel } from './offers';
+export { adjustPrice } from './price-adjust';
+/** "Only 20 today" (D-086). */
+export {
+  claimDailyPortions, releaseDailyPortions, portionsLeftToday, setDailyLimit,
+} from './daily-limits';
+export type { PortionLine } from './daily-limits';
 export type { MenuOffer, OfferScope, OfferKind, AppliedOffer } from './offers';
 
 /** Editorial collections — what decides how the menu reads. */

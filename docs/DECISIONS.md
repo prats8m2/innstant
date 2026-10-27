@@ -2927,3 +2927,46 @@ happy hour ended in between. That is the existing rule (a cart is not a
 receipt) applied to offers, and it is the honest one, but a guest may want
 telling. The Expo app does not draw the strike-through yet. Coupon codes,
 "buy one get one" and minimum-spend offers are not built, by choice.
+
+### D-086 · Step 4: daily limits that cannot oversell, and the menu's loose ends
+The last of the menu studio's four steps, on the plan the user approved:
+"only 20 today", duplicate a dish, a warnings strip, and a section's prices
+changed in one go.
+
+**A daily limit is a counter, claimed atomically at placement.** A kitchen
+that makes twenty portions should not have to watch the twenty-first order
+come in and reject it. `menu_items.daily_limit` and a per-day
+`menu_item_daily_sales` counter, both owned by catalog (migration 0012).
+Counting `order_items` would be catalog reading ordering's table (D-001)
+and a count-then-insert race. Instead `placeOrder()` asks catalog to claim
+the portions with one conditional upsert per limited dish, inside its own
+transaction: two orders for the last portion queue on the row, exactly one
+gets it, and the other's ENTIRE order rolls back (no order, no folio line,
+no ticket) with "Only 1 Laal maas left today". Tested with two guests at
+once. A rejected or cancelled order releases its portions in the same
+transaction as the transition. The guest's card says "Only 3 left today"
+near the end and "Sold out today" after, not the general "not available".
+
+**A section repriced in one go is still one event per dish.**
+`adjustPrice()` is pure and tested: a signed percentage through
+`applyRateBps`, then rounded to the step a menu prints (₹10, ₹5, ₹1 or
+exactly), never below one step, and a free dish stays free.
+`repriceCategory()` runs it in one transaction through `setMenuItemPrice()`,
+so each dish writes the same `menu_item.repriced` with both numbers as a
+single edit. The board previews every new price with the same function
+before Apply.
+
+**A duplicate starts switched off,** directly under the original, with its
+options and its own hours. Two identical dishes on a guest's phone is a
+mistake on show; a copy is a draft.
+
+**"Needs attention" is only there when something is true and fixable:** no
+photo (with a filter that shows exactly those), nothing written under the
+name, an empty section, a schedule or offer that has ended but is still
+switched on, a dish sold out today. On a complete menu it is absent, so its
+presence means something.
+
+**Cost / when to revisit.** The business date is the calendar date, so a
+kitchen open past midnight starts a new day's count at 00:00, the same
+simplification as D-084's Today's special. A limit cannot be changed for
+one day only; it is the standing number.

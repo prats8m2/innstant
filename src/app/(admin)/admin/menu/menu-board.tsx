@@ -13,14 +13,19 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { CalendarClock, Flame, GripVertical, ImageOff, Pencil, Plus, Search, Sparkles } from 'lucide-react';
+import {
+  AlertTriangle, CalendarClock, Copy, Flame, GripVertical, ImageOff, Pencil, Percent, Plus, Search,
+  Sparkles,
+} from 'lucide-react';
+import { adjustPrice } from '@/modules/catalog/price-adjust';
 import type { AdminMenu, AdminMenuCategory, AdminMenuItem } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
 import {
   arrangeMenuFromBoard, setAvailabilityFromBoard, setPriceFromBoard,
   startTodaysSpecialFromBoard, addDishToCollectionFromBoard,
+  duplicateFromBoard, repriceSectionFromBoard,
 } from './actions';
-import type { ScheduledCard } from './menu-studio';
+import type { ScheduledCard, Warning } from './menu-studio';
 import { DishImage } from '@/app/(guest)/dish-image';
 import { ArchiveDish, ArchiveSection, NewSection, RenameSection } from './menu-forms';
 import styles from '../admin.module.css';
@@ -61,6 +66,8 @@ export function MenuBoard({
   scheduled,
   todaysSpecialOn,
   liveOffers,
+  portions,
+  warnings,
 }: {
   propertyId: string;
   menu: AdminMenu;
@@ -70,6 +77,9 @@ export function MenuBoard({
   todaysSpecialOn: boolean;
   /** Dish id → "20% off now · Happy hour" (D-085). */
   liveOffers: Record<string, string>;
+  /** D-086. Limited dishes: id → today's limit and what is left. */
+  portions: Record<string, { limit: number; left: number }>;
+  warnings: Warning[];
 }) {
   const outletId = menu.outlet.id;
   const dndId = useId();
@@ -274,8 +284,26 @@ export function MenuBoard({
     return null;
   };
 
+  const report = (result: { error?: string; done?: string }) => setMessage(result.error
+    ? { tone: 'error', text: result.error }
+    : { tone: 'done', text: result.done ?? 'Saved.' });
+
+  const duplicate = (item: AdminMenuItem) => {
+    startSaving(async () => report(await duplicateFromBoard({ propertyId, outletId, itemId: item.id })));
+  };
+
+  const repriceSection = (categoryId: string, percent: string, stepMinor: number) =>
+    new Promise<string | null>((resolve) => {
+      startSaving(async () => {
+        const result = await repriceSectionFromBoard({ propertyId, outletId, categoryId, percent, stepMinor });
+        report(result);
+        resolve(result.error ?? null);
+      });
+    });
+
   const rowProps = {
-    propertyId, outletId, permissions, liveOffers, onAvailable: setAvailable, onPrice: setPrice,
+    propertyId, outletId, permissions, liveOffers, portions,
+    onAvailable: setAvailable, onPrice: setPrice, onDuplicate: duplicate,
   };
 
   const startSpecial = () => {
@@ -328,6 +356,29 @@ export function MenuBoard({
         </p>
       </div>
 
+      {warnings.length ? (
+        <details className={studio.warnings}>
+          <summary className={studio.warningsHead}>
+            <AlertTriangle size={16} strokeWidth={1.75} aria-hidden="true" />
+            Needs attention
+            <span className={`${studio.chipCount} tabular`}>{warnings.length}</span>
+          </summary>
+          <ul className={studio.warningList}>
+            {warnings.map((w) => (
+              <li key={w.text}>
+                {w.text}{' '}
+                {w.filter ? (
+                  <button type="button" className={studio.linkButton} onClick={() => setFilter(w.filter!)}>
+                    Show them
+                  </button>
+                ) : null}
+                {w.href ? <Link href={w.href} className={studio.linkButton}>Fix it</Link> : null}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
       <DndContext
         id={dndId}
         sensors={sensors}
@@ -373,6 +424,7 @@ export function MenuBoard({
                 itemIds={section.itemIds}
                 shown={shown}
                 canArrange={canArrange}
+                onReprice={repriceSection}
                 {...rowProps}
               />
             );
@@ -513,6 +565,8 @@ interface RowProps {
   outletId: string;
   permissions: MenuPermissions;
   liveOffers: Record<string, string>;
+  portions: Record<string, { limit: number; left: number }>;
+  onDuplicate: (item: AdminMenuItem) => void;
   onAvailable: (item: AdminMenuItem, isAvailable: boolean) => void;
   onPrice: (item: AdminMenuItem, typed: string) => Promise<string | null>;
 }
@@ -522,12 +576,14 @@ function SortableSection({
   itemIds,
   shown,
   canArrange,
+  onReprice,
   ...row
 }: RowProps & {
   category: AdminMenuCategory;
   itemIds: string[];
   shown: AdminMenuItem[];
   canArrange: boolean;
+  onReprice: (categoryId: string, percent: string, stepMinor: number) => Promise<string | null>;
 }) {
   const {
     attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging,
@@ -567,8 +623,12 @@ function SortableSection({
           ) : null}
         </div>
 
-        {row.permissions.manage ? (
+        {row.permissions.manage || row.permissions.pricing ? (
           <span className={studio.sectionActions}>
+            {row.permissions.pricing && category.items.length ? (
+              <RepriceSection category={category} onReprice={onReprice} />
+            ) : null}
+            {row.permissions.manage ? (<>
             <RenameSection
               propertyId={row.propertyId}
               outletId={row.outletId}
@@ -582,6 +642,7 @@ function SortableSection({
               categoryId={category.id}
               itemCount={itemIds.length}
             />
+            </>) : null}
           </span>
         ) : null}
       </header>
@@ -650,6 +711,8 @@ function DishRow({
   outletId,
   permissions,
   liveOffers,
+  portions,
+  onDuplicate,
   onAvailable,
   onPrice,
 }: RowProps & {
@@ -696,6 +759,17 @@ function DishRow({
               {liveOffers[item.id]}
             </span>
           ) : null}
+          {portions[item.id] ? (
+            <span
+              className={studio.portionTag}
+              data-out={portions[item.id]!.left === 0 || undefined}
+              title="Portions left of today's limit. Set the limit on the dish's own page."
+            >
+              {portions[item.id]!.left === 0
+                ? 'sold out today'
+                : `${portions[item.id]!.left} of ${portions[item.id]!.limit} left today`}
+            </span>
+          ) : null}
         </span>
         {item.description ? <span className={studio.dishBlurb}>{item.description}</span> : null}
         {others.length || item.spiceLevel ? (
@@ -726,6 +800,17 @@ function DishRow({
           >
             <span className={studio.switchTrack} aria-hidden="true"><span className={studio.switchKnob} /></span>
             <span className={studio.switchText} aria-hidden="true">{item.isAvailable ? 'On' : 'Off'}</span>
+          </button>
+        ) : null}
+        {permissions.manage && permissions.pricing ? (
+          <button
+            type="button"
+            className={studio.iconButton}
+            aria-label={`Duplicate ${item.name}`}
+            title="Duplicate: a copy under this one, switched off"
+            onClick={() => onDuplicate(item)}
+          >
+            <Copy size={16} strokeWidth={1.75} aria-hidden="true" />
           </button>
         ) : null}
         {permissions.manage ? (
@@ -935,3 +1020,98 @@ const keyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
     context: { ...args.context, droppableContainers: scoped },
   });
 };
+
+/* ── A section's prices, in one go (step 4) ────────────────────────────── */
+
+const STEPS = [
+  { minor: 1_000, label: 'to the nearest ₹10' },
+  { minor: 500, label: 'to the nearest ₹5' },
+  { minor: 100, label: 'to the nearest ₹1' },
+  { minor: 1, label: 'exactly' },
+];
+
+/**
+ * "Everything in Sweets up 5%, to the nearest ₹10", previewed dish by dish
+ * before anything is saved, with the same `adjustPrice()` the server
+ * applies, so the preview cannot disagree with the result.
+ */
+function RepriceSection({
+  category,
+  onReprice,
+}: {
+  category: AdminMenuCategory;
+  onReprice: (categoryId: string, percent: string, stepMinor: number) => Promise<string | null>;
+}) {
+  const [percent, setPercent] = useState('');
+  const [step, setStep] = useState(1_000);
+  const [error, setError] = useState<string | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+
+  const bps = /^[-+]?\d{1,3}(\.\d{1,2})?$/.test(percent.trim())
+    ? Math.round(Number(percent.trim()) * 100)
+    : null;
+  const preview = bps !== null && bps !== 0 && bps >= -9_000 && bps <= 10_000
+    ? category.items.map((item) => ({ item, next: adjustPrice(item.priceMinor, bps, step) }))
+    : [];
+
+  return (
+    <details ref={detailsRef} className={studio.popover}>
+      <summary className={studio.iconButton} aria-label={`Change prices in ${category.name}`} title="Change prices">
+        <Percent size={16} strokeWidth={1.75} aria-hidden="true" />
+      </summary>
+      <div className={`${styles.stackedForm} ${studio.popoverPanel}`}>
+        <p className={styles.label}>Every dish in {category.name}</p>
+        <div className={studio.repriceRow}>
+          <input
+            className={`${styles.input} ${studio.amountInput}`}
+            inputMode="decimal"
+            aria-label="Change, in percent"
+            placeholder="5 or -10"
+            value={percent}
+            onChange={(event) => setPercent(event.target.value)}
+          />
+          <span>%</span>
+          <select
+            className={styles.input}
+            aria-label="Rounding"
+            value={step}
+            onChange={(event) => setStep(Number(event.target.value))}
+          >
+            {STEPS.map((s) => <option key={s.minor} value={s.minor}>{s.label}</option>)}
+          </select>
+        </div>
+        {preview.length ? (
+          <ul className={studio.repricePreview}>
+            {preview.map(({ item, next }) => (
+              <li key={item.id}>
+                <span>{item.name}</span>
+                <span className="tabular">
+                  {formatMoney(money(item.priceMinor, item.currency))} → {formatMoney(money(next, item.currency))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.hint}>Type a percentage to see every new price before it is saved.</p>
+        )}
+        {error ? <p className={styles.inlineError} role="alert">{error}</p> : null}
+        <button
+          type="button"
+          className={styles.primary}
+          disabled={!preview.length}
+          onClick={async () => {
+            setError(null);
+            const refusal = await onReprice(category.id, percent.trim(), step);
+            if (refusal) setError(refusal);
+            else {
+              setPercent('');
+              if (detailsRef.current) detailsRef.current.open = false;
+            }
+          }}
+        >
+          Apply to {category.items.length} {category.items.length === 1 ? 'dish' : 'dishes'}
+        </button>
+      </div>
+    </details>
+  );
+}

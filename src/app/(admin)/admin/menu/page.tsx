@@ -3,11 +3,11 @@ import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, listCollections, scheduleState, describeSchedule,
-  TODAYS_SPECIAL, listOffers, bestOffer,
+  TODAYS_SPECIAL, listOffers, bestOffer, portionsLeftToday,
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
-import { MenuStudio, type ScheduledCard } from './menu-studio';
+import { MenuStudio, type ScheduledCard, type Warning } from './menu-studio';
 import { scheduleLabel } from './schedule-label';
 import styles from '../admin.module.css';
 
@@ -36,14 +36,24 @@ export default async function MenuAdmin() {
 
   const mayPrice = can(session, propertyId, 'catalog:pricing');
 
-  const { property, outlet, menu, collections, offers } = await withTenant(
+  const { property, outlet, menu, collections, offers, portions } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
+      const loadedProperty = await findProperty(tx, propertyId);
+      const today = localTimeAt(new Date(), loadedProperty?.timezone ?? 'Asia/Kolkata').date!;
+      const adminMenu = found ? await getAdminMenu(tx, { outletId: found.id }) : null;
       return {
-        property: await findProperty(tx, propertyId),
+        // D-086: portions left today, for the limited dishes only.
+        portions: adminMenu
+          ? await portionsLeftToday(tx, {
+              itemIds: adminMenu.categories.flatMap((c) => c.items.map((i) => i.id)),
+              businessDate: today,
+            })
+          : new Map<string, { limit: number; left: number }>(),
+        property: loadedProperty,
         outlet: found,
-        menu: found ? await getAdminMenu(tx, { outletId: found.id }) : null,
+        menu: adminMenu,
         // The scheduled menus strip is curation, behind the same permission
         // as the collections page it links to.
         collections: found && mayCurate ? await listCollections(tx, { outletId: found.id }) : [],
@@ -97,6 +107,35 @@ export default async function MenuAdmin() {
     }
   }
 
+  // "Needs attention": the menu's loose ends, each one a sentence with the
+  // thing to do. Only what is true and fixable, so the strip can be trusted
+  // to be empty when the menu is in order.
+  const dishes = menu.categories.flatMap((c) => c.items);
+  const warnings: Warning[] = [];
+  const noPhoto = dishes.filter((d) => !d.imageUrl).length;
+  if (noPhoto) warnings.push({ text: `${noPhoto} ${noPhoto === 1 ? 'dish has' : 'dishes have'} no photo. Guests order less of what they cannot see.`, filter: 'nophoto' });
+  const noWords = dishes.filter((d) => !d.description).length;
+  if (noWords) warnings.push({ text: `${noWords} ${noWords === 1 ? 'dish has' : 'dishes have'} nothing written under the name.` });
+  for (const c of menu.categories) {
+    if (c.items.length === 0) warnings.push({ text: `${c.name} is empty, so guests do not see it. Add a dish or archive it.` });
+  }
+  for (const c of collections) {
+    if (!c.isActive) continue;
+    const state = scheduleState(c, now);
+    if (state.kind === 'ended') {
+      warnings.push({ text: `${c.name} ended on its last date and is still switched on. Give it new dates or archive it.`, href: `/admin/menu/collections#collection-${c.id}` });
+    } else if (c.items.length === 0) {
+      warnings.push({ text: `${c.name} has no dishes, so guests do not see it. Drag one onto its card.` });
+    }
+  }
+  for (const o of offers) {
+    if (o.isActive && scheduleState(o, now).kind === 'ended') {
+      warnings.push({ text: `The offer ${o.name} has ended. End it here too, or give it new dates.`, href: `/admin/menu/offers#offer-${o.id}` });
+    }
+  }
+  const soldOut = [...portions.values()].filter((p) => p.left === 0).length;
+  if (soldOut) warnings.push({ text: `${soldOut} ${soldOut === 1 ? 'dish has' : 'dishes have'} sold out today. They come back tomorrow.` });
+
   const todaysSpecialOn = collections.some((c) => c.name === TODAYS_SPECIAL
     && c.isActive && c.startsOn === now.date && c.endsOn === now.date);
 
@@ -110,6 +149,8 @@ export default async function MenuAdmin() {
         todaysSpecialOn={todaysSpecialOn}
         liveOffers={liveOffers}
         offerCount={mayPrice ? offers.length : null}
+        portions={Object.fromEntries(portions)}
+        warnings={mayCurate ? warnings : []}
         permissions={{
           manage: can(session, propertyId, 'catalog:manage'),
           pricing: can(session, propertyId, 'catalog:pricing'),

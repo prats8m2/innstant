@@ -81,6 +81,7 @@ export function apiDish(dish: MenuDish, ranks: DishRanks): ApiDish {
     price: apiMoney(dish.priceMinor, dish.currency),
     listPrice: dish.listPriceMinor === null ? null : apiMoney(dish.listPriceMinor, dish.currency),
     offer: dish.offer,
+    remainingToday: dish.remainingToday,
     isAvailable: dish.isAvailable,
     dietaryFlags: dish.dietaryFlags,
     spiceLevel: dish.spiceLevel,

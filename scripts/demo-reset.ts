@@ -195,7 +195,7 @@ const WIPE_ORDER = [
   'checkout_requests', 'guest_sessions', 'access_escalations',
   'verification_challenges', 'staff_vouches', 'access_policies',
   'itinerary_stops', 'itineraries', 'pois', 'notifications',
-  'menu_offers', 'collection_items', 'collections', 'menu_item_availability_windows',
+  'menu_item_daily_sales', 'menu_offers', 'collection_items', 'collections', 'menu_item_availability_windows',
   'menu_item_modifier_groups', 'modifier_options', 'modifier_groups',
   'menu_items', 'menu_categories', 'outlet_hours', 'outlets',
   'request_types', 'shift_zones', 'shifts',
