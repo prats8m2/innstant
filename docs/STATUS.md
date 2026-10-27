@@ -24,9 +24,10 @@ notes. A stale status file is worse than none.
 **The admin console revamp is under way, and none of it is deployed.**
 Production is unchanged since 25 October (`eae60bd`, see below). Everything
 in this section is on `main` locally, ahead of `origin/main` and not pushed,
-and was checked against the local database (Environment notes). Two
-migrations are NEW and not on production: `0010_collection_schedule` and
-`0011_menu_offers`. Run `pnpm db:migrate` before deploying any of this.
+and was checked against the local database (Environment notes). Three
+migrations are NEW and not on production: `0010_collection_schedule`,
+`0011_menu_offers` and `0012_daily_limits`. Run `pnpm db:migrate` before
+deploying any of this.
 
 What landed, in the order the user asked for it:
 
@@ -44,12 +45,14 @@ What landed, in the order the user asked for it:
 5. **Menu studio, step 3: offers** (`aabc59a`, D-085, migration 0011).
    Automatic % or ₹ off a dish, a section or the menu, on a schedule. Never
    stacked; struck-through on the guest's card; snapshotted on the receipt.
+6. **Menu studio, step 4** (`e993db4`, D-086, migration 0012). Daily limits
+   claimed atomically at placement (cannot oversell, tested with two guests
+   at once), duplicate a dish, a section's prices in one go, and a "needs
+   attention" strip.
 
 ### Next
 
-- **Step 4:** daily limits ("only 20 today"), duplicate a dish, a warnings
-  strip, and a bulk price change for a section. In progress.
-- Then the rest of the admin portal: per-screen phone layouts (Rooms is
+- The rest of the admin portal, in progress: per-screen phone layouts (Rooms is
   7,900px tall on a phone; the dish form scrolls sideways at 390px), the
   36px touch targets, skeletons for the console, and the stylesheet split.
 
