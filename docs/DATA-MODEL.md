@@ -383,7 +383,7 @@ Catalog rows change. Transactional rows must not.
 
 | Table | Snapshotted fields | Live FK kept for |
 |---|---|---|
-| `order_items` | `name_snapshot`, `unit_price_minor`, `image_url_snapshot` | analytics only, `ON DELETE SET NULL` |
+| `order_items` | `name_snapshot`, `unit_price_minor`, `image_url_snapshot`, and under an offer `list_price_minor` + `offer_name_snapshot` (D-085) | analytics only, `ON DELETE SET NULL` (`menu_item_id`, `offer_id`) |
 | `order_item_modifiers` | `name_snapshot`, `price_delta_minor` | analytics only |
 | `service_request_items` | `label_snapshot`, `unit_price_minor` | analytics only |
 | `orders` | `dietary_flags` copied from guest preferences | — |
@@ -420,6 +420,30 @@ without one sees no date-bounded collection rather than the wrong one.
 created by `startTodaysSpecial()`, which keeps one per outlet (it locks the
 outlet row, so two simultaneous taps make one) and rolls a previous day's
 forward EMPTIED.
+
+### Automatic offers: `menu_offers` (D-085, migration 0011)
+
+Money off the menu, by itself, while an offer is live. No coupon codes.
+**Not `promotions`**, which is reserved for the booking module (#12).
+
+| Column | Meaning |
+|---|---|
+| `scope` | `DISH` (`menu_item_id`), `CATEGORY` (`category_id`) or `MENU`; a CHECK keeps the ids honest to it |
+| `kind` | `PERCENT` (`percent_bps`, 1–10000) or `AMOUNT` (`amount_minor` > 0, in `currency`); a CHECK keeps exactly one set |
+| schedule | the same five columns as a collection, read by the same `isCollectionLive()` |
+
+It comes off the DISH's price, not its modifiers, never below zero, and
+never stacks: `bestOffer()` in `modules/catalog/offers.ts` picks the single
+biggest discount live for a dish (a tie goes to the more specific scope).
+Every price a guest is shown or charged passes through it: the menu read,
+`getDish()`, and `getCartPricing()`, which the cart, `placeOrder()` and
+re-order all price with. `placeOrder()` computes its own time, so no caller
+can forget it.
+
+`order_items.unit_price_minor` is already the price sold at. Under an offer
+the line also snapshots `list_price_minor` and `offer_name_snapshot`, so the
+receipt explains its own price after the offer is renamed or ended. A CHECK
+keeps the pair together and `list_price_minor >= unit_price_minor`.
 
 ---
 

@@ -284,6 +284,11 @@ export async function placeOrder(tx: Tx, input: PlaceOrderInput): Promise<Placed
       // snapshot taken later is not a snapshot (#6).
       imageUrlSnapshot: line.imageUrl,
       unitPriceMinor: line.unitPriceMinor,
+      // D-085: the price before the offer, and the offer's name AS IT WAS.
+      // A receipt reading ₹920 for a ₹1,150 dish must be able to say why.
+      listPriceMinor: line.offer ? line.listPriceMinor : null,
+      offerId: line.offer?.id ?? null,
+      offerNameSnapshot: line.offer?.name ?? null,
       currency,
       quantity: line.quantity,
       lineTotalMinor: (line.unitPriceMinor + modifiersMinor) * line.quantity,

@@ -60,6 +60,7 @@ export function MenuBoard({
   permissions,
   scheduled,
   todaysSpecialOn,
+  liveOffers,
 }: {
   propertyId: string;
   menu: AdminMenu;
@@ -67,6 +68,8 @@ export function MenuBoard({
   /** The menus on a schedule (D-084), already measured against now. */
   scheduled: ScheduledCard[];
   todaysSpecialOn: boolean;
+  /** Dish id → "20% off now · Happy hour" (D-085). */
+  liveOffers: Record<string, string>;
 }) {
   const outletId = menu.outlet.id;
   const dndId = useId();
@@ -271,7 +274,9 @@ export function MenuBoard({
     return null;
   };
 
-  const rowProps = { propertyId, outletId, permissions, onAvailable: setAvailable, onPrice: setPrice };
+  const rowProps = {
+    propertyId, outletId, permissions, liveOffers, onAvailable: setAvailable, onPrice: setPrice,
+  };
 
   const startSpecial = () => {
     startSaving(async () => {
@@ -507,6 +512,7 @@ interface RowProps {
   propertyId: string;
   outletId: string;
   permissions: MenuPermissions;
+  liveOffers: Record<string, string>;
   onAvailable: (item: AdminMenuItem, isAvailable: boolean) => void;
   onPrice: (item: AdminMenuItem, typed: string) => Promise<string | null>;
 }
@@ -643,6 +649,7 @@ function DishRow({
   propertyId,
   outletId,
   permissions,
+  liveOffers,
   onAvailable,
   onPrice,
 }: RowProps & {
@@ -684,6 +691,11 @@ function DishRow({
             item.name
           )}
           {item.isAvailable ? null : <span className={styles.offTag}>off tonight</span>}
+          {liveOffers[item.id] ? (
+            <span className={studio.offerTag} title="An offer is pricing this dish right now">
+              {liveOffers[item.id]}
+            </span>
+          ) : null}
         </span>
         {item.description ? <span className={studio.dishBlurb}>{item.description}</span> : null}
         {others.length || item.spiceLevel ? (

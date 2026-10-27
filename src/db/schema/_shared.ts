@@ -116,3 +116,7 @@ export const visitStatus = pgEnum('visit_status', ['OPEN', 'CLOSED']);
  * `stay_source` in EXTENSION-POINTS §3.
  */
 export const customerAuthMethod = pgEnum('customer_auth_method', ['OTP_SMS']);
+
+/** D-085: what a menu offer applies to, and how it is measured. */
+export const menuOfferScope = pgEnum('menu_offer_scope', ['DISH', 'CATEGORY', 'MENU']);
+export const menuOfferKind = pgEnum('menu_offer_kind', ['PERCENT', 'AMOUNT']);

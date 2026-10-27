@@ -3,7 +3,7 @@ import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, listCollections, scheduleState, describeSchedule,
-  TODAYS_SPECIAL,
+  TODAYS_SPECIAL, listOffers, bestOffer,
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { AdminShell } from '../admin-shell';
@@ -34,7 +34,9 @@ export default async function MenuAdmin() {
 
   const mayCurate = can(session, propertyId, 'catalog:manage');
 
-  const { property, outlet, menu, collections } = await withTenant(
+  const mayPrice = can(session, propertyId, 'catalog:pricing');
+
+  const { property, outlet, menu, collections, offers } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
@@ -45,6 +47,7 @@ export default async function MenuAdmin() {
         // The scheduled menus strip is curation, behind the same permission
         // as the collections page it links to.
         collections: found && mayCurate ? await listCollections(tx, { outletId: found.id }) : [],
+        offers: found ? await listOffers(tx, { outletId: found.id }) : [],
       };
     },
   );
@@ -82,6 +85,18 @@ export default async function MenuAdmin() {
       dishes: c.items.map((i) => i.name),
     };
   });
+  // Which dishes an offer is pricing THIS minute, by the same bestOffer() the
+  // guest's card and the cart use (D-085). The board shows the list price it
+  // edits, and this beside it, so nobody reprices a dish thinking ₹920 is
+  // what it costs.
+  const liveOffers: Record<string, string> = {};
+  for (const category of menu.categories) {
+    for (const item of category.items) {
+      const applied = bestOffer(offers, { ...item, categoryId: category.id }, now);
+      if (applied) liveOffers[item.id] = `${applied.label} now · ${applied.name}`;
+    }
+  }
+
   const todaysSpecialOn = collections.some((c) => c.name === TODAYS_SPECIAL
     && c.isActive && c.startsOn === now.date && c.endsOn === now.date);
 
@@ -93,6 +108,8 @@ export default async function MenuAdmin() {
         now={{ dayOfWeek: now.dayOfWeek, date: now.date! }}
         scheduled={scheduled}
         todaysSpecialOn={todaysSpecialOn}
+        liveOffers={liveOffers}
+        offerCount={mayPrice ? offers.length : null}
         permissions={{
           manage: can(session, propertyId, 'catalog:manage'),
           pricing: can(session, propertyId, 'catalog:pricing'),

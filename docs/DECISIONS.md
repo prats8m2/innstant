@@ -2877,3 +2877,53 @@ it at the kitchen's close would need the service day to come from
 demo's "Weekend brunch" is seeded by `demo-reset` only
 (`KESARI_DEMO_COLLECTIONS`), so the integration suites keep their three
 collections.
+
+### D-085 · Offers: automatic, never stacked, and the receipt says why
+The owner wanted discounts a manager can run: a happy hour, a festival week,
+something off one dish tonight. The scope they chose was **automatic offers
+only**, so no coupon codes and no stacking rules for a guest to discover.
+
+**One table, `menu_offers`, never `promotions`** (reserved, #12). An offer
+targets one dish, one section, or the whole menu, takes a % (basis points)
+or a ₹ amount (with its currency, #5), and runs on the same schedule as a
+collection (D-084): window, days, dates, through the same
+`isCollectionLive()`. CHECKs keep the target ids honest to the scope and
+exactly one of % or ₹ set.
+
+**One function prices every guest-facing number.** `bestOffer()` is pure
+and unit-tested. It comes off the dish's own price, not its extras (20% off
+the laal maas does not discount the roti), rounds once through
+`applyRateBps`, never takes a dish below zero, ignores an amount in another
+currency rather than converting it, and never stacks: the biggest single
+discount wins, and on a tie the more specific offer. The menu read,
+`getDish()` and `getCartPricing()` all call it, and the cart,
+`placeOrder()` and re-order all price through `getCartPricing()`. So the
+price on the card, in the cart, on the order and on the folio is the same
+number by construction. `placeOrder()` computes its own time, so an offer
+cannot be skipped by a caller forgetting one.
+
+**The receipt explains its own price (#6).** `unit_price_minor` was already
+the price sold at. A line sold under an offer also snapshots
+`list_price_minor` and `offer_name_snapshot`, so ₹920 for a ₹1,150 dish
+still says "Chef's week, was ₹1,150" after the offer is renamed or ended.
+`offer_id` is analytics only (`ON DELETE SET NULL`). Idempotency is
+unchanged: placement already holds the key (#8), and two simultaneous
+placements on one key make one order at the offer price (tested).
+
+**The API adds, it does not change** (D-080). `price` always meant what
+the guest pays, and it still does. `listPrice` and `offer` are new and
+optional, so an app installed before this shows and charges the right
+number, just without the strike-through.
+
+**On the console.** Offers have their own page behind `catalog:pricing`,
+because an offer is a price. Each one shows when it runs and whether it is
+live, in the same words as a collection, with Happy hour / Today only /
+Weekends presets. The board marks every dish an offer is pricing now, so
+nobody retypes ₹1,150 as ₹920 thinking that is the list price.
+
+**Cost / when to revisit.** The cart prices live, as it always has: a guest
+who filled a cart at 17:55 and pays at 18:05 pays the list price, because
+happy hour ended in between. That is the existing rule (a cart is not a
+receipt) applied to offers, and it is the honest one, but a guest may want
+telling. The Expo app does not draw the strike-through yet. Coupon codes,
+"buy one get one" and minimum-spend offers are not built, by choice.

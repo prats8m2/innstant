@@ -15,6 +15,7 @@ import { CategoryRail } from '../../../r/[qrCode]/menu/category-rail';
 import { DishStepper } from './dish-stepper';
 import styles from '../../../r/[qrCode]/menu/menu.module.css';
 import { DishImage } from '../../../dish-image';
+import { OfferPrice } from '../../../offer-price';
 
 /**
  * The restaurant's menu — what a property link opens onto. D-079.
@@ -182,6 +183,11 @@ export default async function VisitMenu({
                         <span className={`${styles.price} tabular`}>
                           {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
                         </span>
+                        <OfferPrice
+                          listPriceMinor={dish.listPriceMinor}
+                          offer={dish.offer}
+                          currency={dish.currency}
+                        />
                         {dish.isAvailable ? (
                           dish.prepTimeMinutes ? (
                             <span className={styles.tag}>{dish.prepTimeMinutes} min</span>

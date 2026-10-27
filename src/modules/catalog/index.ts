@@ -61,6 +61,12 @@ export { arrangeMenu } from './arrange';
 export { planArrangement } from './arrange-plan';
 export type { ArrangedSection, ArrangementPlan } from './arrange-plan';
 
+/** Automatic offers on the menu (D-085). */
+export { listOffers, createOffer, updateOffer, archiveOffer } from './admin-offers';
+export type { AdminOffer, OfferWriteInput } from './admin-offers';
+export { bestOffer, discountFor, offerLabel } from './offers';
+export type { MenuOffer, OfferScope, OfferKind, AppliedOffer } from './offers';
+
 /** Editorial collections — what decides how the menu reads. */
 export {
   listCollections, createCollection, updateCollection, archiveCollection,

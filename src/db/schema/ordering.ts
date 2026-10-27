@@ -6,7 +6,7 @@ import {
 } from './_shared';
 import { stays, guests } from './stay';
 import { visits } from './visit';
-import { outlets, menuItems, modifierOptions } from './catalog';
+import { outlets, menuItems, modifierOptions, menuOffers } from './catalog';
 
 /**
  * Ordering. Two things carry the weight here:
@@ -190,6 +190,16 @@ export const orderItems = pgTable('order_items', {
   quantity: integer('quantity').notNull().default(1),
   lineTotalMinor: integer('line_total_minor').notNull(),
   notes: text('notes'),
+
+  /**
+   * D-085 (migration 0011). Sold under an offer: what the dish would have
+   * cost, and the offer's name AS IT WAS, so the receipt explains its own
+   * price for ever (#6). Both or neither, and list ≥ unit (a CHECK).
+   * `offer_id` is analytics only, like `menu_item_id`.
+   */
+  listPriceMinor: integer('list_price_minor'),
+  offerId: uuid('offer_id').references(() => menuOffers.id, { onDelete: 'set null' }),
+  offerNameSnapshot: text('offer_name_snapshot'),
 
   createdAt: createdAt(),
 }, (t) => [index('order_items_order_idx').on(t.orderId)]);

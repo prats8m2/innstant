@@ -16,6 +16,8 @@ const dish = (id: string, over: Partial<MenuDish> = {}): MenuDish => ({
   name: id,
   description: null,
   priceMinor: 100_00,
+  listPriceMinor: null,
+  offer: null,
   currency: 'INR',
   isAvailable: true,
   dietaryFlags: [],

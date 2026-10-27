@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Eye, EyeOff, Layers, ListPlus, Plus, RotateCw, SlidersHorizontal, X } from 'lucide-react';
+import {
+  BadgePercent, Eye, EyeOff, Layers, ListPlus, Plus, RotateCw, SlidersHorizontal, X,
+} from 'lucide-react';
 import type { AdminMenu } from '@/modules/catalog';
 import { MenuBoard, type MenuPermissions } from './menu-board';
 import { OutletSwitch } from './menu-forms';
@@ -47,6 +49,8 @@ export function MenuStudio({
   now,
   scheduled,
   todaysSpecialOn,
+  liveOffers,
+  offerCount,
 }: {
   propertyId: string;
   menu: AdminMenu;
@@ -57,6 +61,10 @@ export function MenuStudio({
   scheduled: ScheduledCard[];
   /** Whether a "Today's special" dated today already exists. */
   todaysSpecialOn: boolean;
+  /** Dish id → "20% off now · Happy hour", for dishes an offer prices now. */
+  liveOffers: Record<string, string>;
+  /** How many offers exist, or null without `catalog:pricing`. */
+  offerCount: number | null;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const dishCount = menu.categories.reduce((n, c) => n + c.items.length, 0);
@@ -86,6 +94,12 @@ export function MenuStudio({
               <Link href="/admin/menu/collections" className={studio.headLink}>
                 <Layers size={16} strokeWidth={1.75} aria-hidden="true" />
                 Collections
+              </Link>
+            ) : null}
+            {offerCount !== null ? (
+              <Link href="/admin/menu/offers" className={studio.headLink}>
+                <BadgePercent size={16} strokeWidth={1.75} aria-hidden="true" />
+                Offers{offerCount ? ` (${offerCount})` : ''}
               </Link>
             ) : null}
             {permissions.manage && permissions.pricing ? (
@@ -124,6 +138,7 @@ export function MenuStudio({
           permissions={permissions}
           scheduled={scheduled}
           todaysSpecialOn={todaysSpecialOn}
+          liveOffers={liveOffers}
         />
         <PreviewPane
           menu={menu}

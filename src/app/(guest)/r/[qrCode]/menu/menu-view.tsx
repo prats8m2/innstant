@@ -10,6 +10,7 @@ import { CategoryRail } from './category-rail';
 import { DishStepper } from './dish-stepper';
 import styles from './menu.module.css';
 import { DishImage } from '../../../dish-image';
+import { OfferPrice } from '../../../offer-price';
 
 /**
  * The menu screen as a guest sees it, given everything it needs.
@@ -121,6 +122,11 @@ export function MenuView({
                         <span className={`${styles.price} tabular`}>
                           {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
                         </span>
+                        <OfferPrice
+                          listPriceMinor={dish.listPriceMinor}
+                          offer={dish.offer}
+                          currency={dish.currency}
+                        />
                         {/* One flag, two reasons: the kitchen has 86'd it, or it
                             is outside its own hours. "Not available now" is true
                             of both; "off tonight" was not true of a breakfast

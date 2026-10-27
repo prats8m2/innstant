@@ -152,7 +152,7 @@ const TENANT_SCOPED_TABLES = [
   'access_escalations', 'staff_vouches', 'verification_challenges',
   'guest_sessions', 'access_policies',
   'itinerary_stops', 'itineraries', 'pois', 'notifications',
-  'collection_items', 'collections', 'menu_item_availability_windows',
+  'menu_offers', 'collection_items', 'collections', 'menu_item_availability_windows',
   'menu_item_modifier_groups', 'modifier_options', 'modifier_groups',
   'menu_items', 'menu_categories', 'outlet_hours', 'outlets',
   'request_types', 'shift_zones', 'shifts',

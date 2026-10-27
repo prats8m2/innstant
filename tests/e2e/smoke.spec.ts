@@ -1044,6 +1044,48 @@ test.describe('collections', () => {
       .toContainText(/both a start and an end/i, { timeout: 20_000 });
   });
 
+  test('an offer prices the guest menu while it runs, and stops when it ends',
+    async ({ page, browser }) => {
+      // Offers are per outlet and every project shares the demo's one.
+      test.skip(test.info().project.name !== 'staff-desktop', 'one outlet, shared');
+
+      await page.goto('/admin/login');
+      await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+      await page.locator('input[name="password"]').fill('kesari-demo-2026');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+      // D-085: 20% off the Sweets section, today only.
+      await page.goto('/admin/menu/offers');
+      const add = page.locator('details').filter({ hasText: 'Add an offer' });
+      if ((await add.getAttribute('open')) === null) await add.locator('summary').click();
+      await add.getByRole('button', { name: 'Today only' }).click();
+      await add.locator('input[name="name"]').fill('Sweet tooth');
+      await add.locator('input[name="scope"][value="CATEGORY"]').check();
+      await add.locator('select[name="categoryId"]').selectOption({ label: 'Sweets' });
+      await add.locator('input[name="amount"]').fill('20');
+      await add.getByRole('button', { name: 'Add the offer' }).click();
+      const offer = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Sweet tooth' }) });
+      await expect(offer).toContainText('showing now', { timeout: 25_000 });
+
+      // The guest pays ₹304 for a ₹380 dish, and is told why.
+      const phone = await browser.newContext();
+      const guest = await phone.newPage();
+      await guest.goto(`/r/${seed!.qrCodes['214']}`);
+      await guest.goto(`/r/${seed!.qrCodes['214']}/menu`);
+      const card = guest.locator('li').filter({ hasText: 'Mawa kachori' }).first();
+      await expect(card).toContainText('₹304', { timeout: 25_000 });
+      await expect(card).toContainText('₹380');
+      await expect(card).toContainText(/20% off/i);
+
+      // Ended, it is the list price again.
+      await offer.getByRole('button', { name: 'End it' }).click();
+      await expect(page.getByRole('heading', { name: 'Sweet tooth' })).toHaveCount(0, { timeout: 25_000 });
+      await guest.reload();
+      await expect(guest.locator('li').filter({ hasText: 'Mawa kachori' }).first()).not.toContainText('₹304');
+      await phone.close();
+    });
+
   test('starts today’s special in one tap, and the guest menu leads with it',
     async ({ page, browser }) => {
       // One special per outlet, shared by every project running at once: two

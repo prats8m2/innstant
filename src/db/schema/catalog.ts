@@ -4,6 +4,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import {
   pk, createdAt, updatedAt, tenantId, propertyId, archivedAt, currency, outletKind,
+  menuOfferScope, menuOfferKind,
 } from './_shared';
 
 /**
@@ -209,3 +210,41 @@ export const menuItemAvailabilityWindows = pgTable('menu_item_availability_windo
 
   createdAt: createdAt(),
 }, (t) => [index('menu_item_availability_windows_item_idx').on(t.menuItemId)]);
+
+/**
+ * D-085 (migration 0011). An automatic offer: % or ₹ off a dish, a section,
+ * or the whole menu, on the same schedule a collection has (D-084). Never
+ * stacked: the best single live offer for a dish is the one that applies,
+ * decided by `bestOffer()` in modules/catalog/offers.ts. CHECKs keep the
+ * target ids honest to `scope`, and exactly one of percent / amount set.
+ * NOT `promotions`, which is reserved (CLAUDE.md #12).
+ */
+export const menuOffers = pgTable('menu_offers', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  outletId: uuid('outlet_id').notNull().references(() => outlets.id, { onDelete: 'cascade' }),
+
+  name: text('name').notNull(),
+  scope: menuOfferScope('scope').notNull(),
+  menuItemId: uuid('menu_item_id').references(() => menuItems.id),
+  categoryId: uuid('category_id').references(() => menuCategories.id),
+
+  kind: menuOfferKind('kind').notNull(),
+  /** PERCENT only. 2000 = 20%. */
+  percentBps: integer('percent_bps'),
+  /** AMOUNT only, in `currency`. Never takes a dish below zero. */
+  amountMinor: integer('amount_minor'),
+  currency: currency(),
+
+  availableFrom: text('available_from'),
+  availableUntil: text('available_until'),
+  daysOfWeek: smallint('days_of_week').array(),
+  startsOn: date('starts_on', { mode: 'string' }),
+  endsOn: date('ends_on', { mode: 'string' }),
+
+  isActive: boolean('is_active').notNull().default(true),
+  archivedAt: archivedAt(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [index('menu_offers_outlet_idx').on(t.outletId)]);

@@ -387,8 +387,11 @@
 
 .dishMeta {
   display: flex;
+  /* Wraps rather than overflows when an offer adds a struck price and a chip
+     beside the price on a narrow phone (D-085). */
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
   margin-top: 7px;
   /* Clear of the stepper in the corner — 34px of control plus its padding. */
   padding-right: 96px;

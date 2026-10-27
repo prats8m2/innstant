@@ -131,6 +131,12 @@ frame (D-083): beside the board from 1280px wide, over it below that.
 - **See it at another hour.** Breakfast, Lunch, Dinner, Late, or any date and
   time. *After 10pm* appears at 23:00 and not at 08:00; *Weekend brunch*
   appears on a Saturday at noon.
+- **Offers** (head of the page, with `catalog:pricing`): money off by itself,
+  no codes (D-085). Start from Happy hour, Today only or Weekends; aim it at
+  the whole menu, one section or one dish; % or ₹ off. The board marks every
+  dish an offer is pricing right now (*20% off now · Happy hour*), and the
+  guest's card shows the new price with the old one struck through. *End it*
+  and the next guest pays the list price; a receipt keeps the offer's name.
 - **Menus on a schedule** sit above the sections: one card per collection,
   with its schedule and whether it is showing now. **Today's special** is one
   tap: it appears at the top of the guest's menu as soon as a dish is in it,
