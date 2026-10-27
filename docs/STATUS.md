@@ -58,6 +58,28 @@ What landed, in the order the user asked for it:
    44px controls on touch screens; no gap under the top bar on short pages;
    the bell's hydration mismatch fixed.
 
+8. **A real console layout** (`5d9fc0d`). Sign-in and invite moved to a
+   `(staff-auth)` route group (same URLs) so the console has a `layout.tsx`;
+   the rail renders once and the bell no longer reconnects on every click.
+   Loading screens were built and REMOVED: behind Suspense the page sat
+   twice in the DOM for up to a second and the board answered the keyboard
+   late (four e2e tests caught it). Malformed guest/dish ids are 404s, but
+   a soft 404 (status 200) now that pages stream inside the layout.
+9. **Edit a dish beside the board** (`59a3926`): `?dish=<id>` opens the
+   dish form in a side panel; the full page stays for old links.
+10. **Property editor and desk tables on a phone** (`c487cb6`).
+11. **An overview that says how the day is going** (`49d0472`): sales
+    against yesterday by this time, orders by the hour (chart), the
+    kitchen's rail, top dishes, the menu right now. New ordering service
+    `daySummary()`, in the hotel's day via `AT TIME ZONE`.
+
+All of the above is on branch `feat/admin-revamp-menu-studio`, PR #1, not
+`main`. The user's rule: never push to `main`; a PR and their thumbs-up.
+Commits are authored as `amitcse09` (repo-local git config, set at the
+user's request); the branch was rewritten once to make that true and
+force-pushed. A backup of the pre-rewrite tip is the local branch
+`backup/before-author-rewrite` and can be deleted once PR #1 is merged.
+
 ### Next
 
 - Not done, and why: console loading skeletons need the shell moved into a
@@ -298,6 +320,12 @@ The things that still belong in a status file:
 ---
 
 ## Environment notes
+
+**Two GitHub accounts are logged in to `gh`** on this laptop: `amitcse09`
+(push to `prats8m2/innstant`) and `amit-velotio` (read-only there). A
+push that answers 403 means the active one changed: `gh auth switch -h
+github.com -u amitcse09`. This repo's commits are authored by a repo-local
+`user.email` (amitcse09's no-reply address); the global one is Velotio's.
 
 **A built server outlives `pkill -f server.js`.** Next renames its process
 to `next-server (v15.x)`, so a pattern on the command line never matches it.
