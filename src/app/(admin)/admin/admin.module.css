@@ -293,6 +293,10 @@
 }
 
 .stat {
+  /* The value sizes itself to the tile (see .statValue), so a long figure
+     shrinks to fit instead of running out of the box. */
+  container-type: inline-size;
+  min-width: 0;
   display: flex;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -331,12 +335,25 @@
 .statValue {
   display: flex;
   align-items: baseline;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  /* 2xl, not 3xl: six tiles share a row now, and a sales figure with
-     paise (₹3,160.50) overflowed a sixth of it at 3xl. */
-  font-size: var(--text-2xl);
-  line-height: 1;
+  /* Scales with the tile's own width (cqi), between the type scale's xl and
+     3xl: big where there is room, never wider than the box. */
+  font-size: clamp(var(--text-xl), 15cqi, var(--text-3xl));
+  line-height: 1.1;
   color: var(--text);
+  min-width: 0;
+}
+
+/* Figures in the page's own sans with tabular digits, not the mono face:
+   mono is the widest choice and reads as code; Public Sans with tabular
+   figures keeps columns of numbers aligned and fits the tile. */
+.statValue .tabular {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 .stat[data-attention='true'] .statValue { color: var(--accent); }
 
@@ -1679,7 +1696,6 @@ details[open] > .disclosureHead {
 @media (max-width: 640px) {
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
   .statLink { padding: var(--space-4); gap: var(--space-1); }
-  .statValue { font-size: var(--text-2xl); }
   .statNote { font-size: var(--text-xs); }
   .cards { padding: var(--space-4); gap: var(--space-3); }
 }
@@ -2107,4 +2123,10 @@ details[open] > .disclosureHead {
 @media (max-width: 640px) {
   .hourChart { padding: var(--space-3) var(--space-3) var(--space-3) var(--space-6); }
   .hourPlot { height: 140px; }
+}
+
+/* The overview's other figures in the same sans, tabular, as the tiles. */
+.stageCount, .topDishQty, .topDishSales, .statOf {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
 }

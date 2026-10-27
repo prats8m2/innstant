@@ -5,11 +5,15 @@ import { findProperty } from '@/modules/identity';
 import { localTimeAt, parseClock, dayOfWeekOf, type LocalTime } from '@/lib/clock';
 import { MenuView } from '@/app/(guest)/r/[qrCode]/menu/menu-view';
 import guestStyles from '@/app/(guest)/guest.module.css';
-import { adminAccess, AdminDenied } from '../../guard';
+import { adminAccess, AdminDenied } from '@/app/(admin)/admin/guard';
 import { PreviewGuard } from './preview-guard';
 
 /**
  * The guest's menu, as it would read at a moment the manager chooses.
+ *
+ * In its own route group, `(staff-bare)`, at the same URL, so the console's
+ * layout does NOT wrap it: inside the console group, the rail's top bar and
+ * drawer rendered INSIDE the studio's phone frame, above the guest's menu.
  *
  * Framed by the menu studio at phone width, and nothing else: no console
  * shell, the guest theme, and the guest screen's own component. It reads

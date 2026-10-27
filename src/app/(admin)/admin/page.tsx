@@ -101,7 +101,9 @@ export default async function AdminHome() {
   const now = new Date();
   const hour = Math.floor(at.minutes / 60);
   const currency = (day?.currency ?? 'INR') as CurrencyCode;
-  const rupees = (minor: number) => formatMoney(money(minor, currency));
+  // Whole rupees: a day's takings to the paisa is noise on a dashboard
+  // ("₹3,160.50" also overflowed its tile). Bills and receipts keep paise.
+  const rupees = (minor: number) => formatMoney(money(minor, currency), { showDecimals: false });
 
   const occupied = rooms.filter((room) => room.stay).length;
   const dueOutToday = rooms.filter(
