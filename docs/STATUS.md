@@ -23,31 +23,35 @@ notes. A stale status file is worse than none.
 
 **The admin console revamp is under way, and none of it is deployed.**
 Production is unchanged since 25 October (`eae60bd`, see below). Everything
-in this section is on `main` locally, four commits ahead of `origin/main`,
-and was checked against the local database (Environment notes).
+in this section is on `main` locally, ahead of `origin/main` and not pushed,
+and was checked against the local database (Environment notes). Two
+migrations are NEW and not on production: `0010_collection_schedule` and
+`0011_menu_offers`. Run `pnpm db:migrate` before deploying any of this.
 
 What landed, in the order the user asked for it:
 
 1. **The console on a phone** (`5ca5768`). Below 1024px the rail becomes a
    sticky top bar plus a drawer, every destination has a lucide mark, and
    the bell is rendered once beside the property name.
-2. **The menu studio, step 1 of 4** (`9a397cd`, D-083). A drag-and-drop
-   board, inline prices, a real on/off switch, search and filters, and the
-   guest's own menu in a phone frame that can be wound to any day and time.
+2. **Menu studio, step 1** (`9a397cd`, D-083). A drag-and-drop board, inline
+   prices, a real on/off switch, search and filters, and the guest's own
+   menu in a phone frame at any date and time.
+3. **Photos and the preview toggle** (`38ae3cc`). Dish photos on every web
+   guest screen over the drawn arch; the preview opens only when asked.
+4. **Menu studio, step 2: menus on a schedule** (`5618b9a`, D-084, migration
+   0010). Days and dates on collections, one-tap Today's special, a strip
+   of schedule cards on the board that a dish can be dropped onto.
+5. **Menu studio, step 3: offers** (`aabc59a`, D-085, migration 0011).
+   Automatic % or ₹ off a dish, a section or the menu, on a schedule. Never
+   stacked; struck-through on the guest's card; snapshotted on the receipt.
 
-### Next: the menu studio, steps 2 to 4
+### Next
 
-The user approved this order, the `@dnd-kit` dependency, and migrations for
-each step (each with `DATA-MODEL.md` in the same commit):
-
-2. **Menus on a schedule.** Collections gain days of the week and a date
-   range, and "Today's special" becomes one button that ends by itself at
-   closing. Bring collections onto the board.
-3. **Offers.** AUTOMATIC only, which is the user's choice: % or ₹ off a dish,
-   a section or the menu, optionally in a time window or date range. Never
-   stacked; the best single offer applies, shown struck through. A money
-   path (#5, #6, #8). It must NOT be named `promotions` (#12).
-4. **Daily limits** ("only 20 today"), duplicate a dish, a warnings strip.
+- **Step 4:** daily limits ("only 20 today"), duplicate a dish, a warnings
+  strip, and a bulk price change for a section. In progress.
+- Then the rest of the admin portal: per-screen phone layouts (Rooms is
+  7,900px tall on a phone; the dish form scrolls sideways at 390px), the
+  36px touch targets, skeletons for the console, and the stylesheet split.
 
 Done since: dish photos on every web guest screen, and the preview is now
 a toggle, closed by default. Still open from D-083: `/p/[code]/menu` is a
