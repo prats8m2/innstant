@@ -1,10 +1,16 @@
-import { withTenant } from '@/db';
+import { z } from 'zod';
+import { withTenant, readEventHistory } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, listCollections, scheduleState, describeSchedule,
   TODAYS_SPECIAL, listOffers, bestOffer, portionsLeftToday,
+  getAdminMenuItem, listModifierGroups, MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
+import { formatMoney, money } from '@/lib/money';
+import { SidePanel } from '../side-panel';
+import { DishForm } from './dish-form';
+import { DishHistory } from './dish-history';
 import { localTimeAt } from '@/lib/clock';
 import { MenuStudio, type ScheduledCard, type Warning } from './menu-studio';
 import { scheduleLabel } from './schedule-label';
@@ -23,7 +29,13 @@ import styles from '../admin.module.css';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function MenuAdmin() {
+export default async function MenuAdmin({
+  searchParams,
+}: {
+  /** `?dish=<id>` edits a dish beside the board; `?dish=new&section=<id>` adds one. */
+  searchParams: Promise<{ dish?: string; section?: string }>;
+}) {
+  const query = await searchParams;
   // Checked against the property being edited, not merely "is someone signed
   // in". Every button below is drawn from the same session's permissions and
   // re-checked by its action.
@@ -34,8 +46,13 @@ export default async function MenuAdmin() {
   const mayCurate = can(session, propertyId, 'catalog:manage');
 
   const mayPrice = can(session, propertyId, 'catalog:pricing');
+  // The dish form needs both, as the dish's own page does.
+  const mayEditDish = mayCurate && mayPrice;
+  const dishParam = mayEditDish && query.dish
+    ? (query.dish === 'new' ? 'new' : z.uuid().safeParse(query.dish).success ? query.dish : null)
+    : null;
 
-  const { property, outlet, menu, collections, offers, portions } = await withTenant(
+  const { property, outlet, menu, collections, offers, portions, editing } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
@@ -57,6 +74,14 @@ export default async function MenuAdmin() {
         // as the collections page it links to.
         collections: found && mayCurate ? await listCollections(tx, { outletId: found.id }) : [],
         offers: found ? await listOffers(tx, { outletId: found.id }) : [],
+        // The side panel's dish, read in the same transaction as the board.
+        editing: found && dishParam
+          ? {
+              item: dishParam === 'new' ? null : await getAdminMenuItem(tx, { outletId: found.id, itemId: dishParam }),
+              groups: await listModifierGroups(tx, { outletId: found.id }),
+              history: dishParam === 'new' ? [] : await readEventHistory(tx, 'menu_item', dishParam),
+            }
+          : null,
       };
     },
   );
@@ -154,6 +179,30 @@ export default async function MenuAdmin() {
           availability: can(session, propertyId, 'catalog:availability'),
         }}
       />
+
+      {/* Editing a dish without leaving the board. An id that is not a dish on
+          this menu opens nothing, rather than an empty form. */}
+      {editing && (dishParam === 'new' || editing.item) ? (
+        <SidePanel
+          closeHref="/admin/menu"
+          title={editing.item ? editing.item.name : 'A new dish'}
+          subtitle={editing.item
+            ? `On ${menu.outlet.name}, at ${formatMoney(money(editing.item.priceMinor, editing.item.currency))}.`
+            : `On ${menu.outlet.name}.`}
+        >
+          <DishForm
+            propertyId={propertyId}
+            outletId={menu.outlet.id}
+            currency={menu.outlet.currency}
+            categories={menu.categories}
+            modifierGroups={editing.groups}
+            dietaryFlags={MENU_DIETARY_FLAGS}
+            item={editing.item ?? undefined}
+            defaultCategoryId={query.section}
+          />
+          <DishHistory events={editing.history} />
+        </SidePanel>
+      ) : null}
     </>
   );
 }

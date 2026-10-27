@@ -136,7 +136,7 @@ export function MenuStudio({
               {previewOpen ? 'Hide preview' : 'Preview'}
             </button>
             {permissions.manage && permissions.pricing ? (
-              <Link href="/admin/menu/new" className={`${styles.primary} ${studio.addPrimary}`}>
+              <Link href="/admin/menu?dish=new" scroll={false} className={`${styles.primary} ${studio.addPrimary}`}>
                 <Plus size={16} strokeWidth={2} aria-hidden="true" />
                 Add a dish
               </Link>

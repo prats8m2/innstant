@@ -1784,3 +1784,90 @@ details[open] > .disclosureHead {
 
 @keyframes navPendingIn { to { opacity: 1; } }
 @keyframes navPendingSpin { to { transform: rotate(360deg); } }
+
+/* ── The side panel (side-panel.tsx) ───────────────────────────────────────
+   Edits over the right of a list, the list still visible to the left on a
+   desk, and the whole screen on a phone. */
+.sidePanelLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+}
+
+.sidePanelScrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--text) 32%, transparent);
+  animation: sidePanelFade var(--dur-base) var(--ease-out) both;
+}
+
+.sidePanel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(640px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  outline: none;
+  animation: sidePanelIn var(--dur-base) var(--ease-out) both;
+}
+
+.sidePanelHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.sidePanelTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.sidePanelSub {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sidePanelClose {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+.sidePanelClose:hover { background: var(--surface-hover); color: var(--text); }
+
+.sidePanelBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5) var(--space-6) var(--space-10);
+}
+
+/* Inside a 640px panel the form is narrow whatever the window is. */
+.sidePanelBody .formGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+@media (max-width: 640px) {
+  .sidePanelHead { padding: var(--space-4); }
+  .sidePanelBody { padding: var(--space-4) var(--space-4) var(--space-10); }
+  .sidePanelBody .formGrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@keyframes sidePanelIn { from { transform: translateX(32px); opacity: 0; } }
+@keyframes sidePanelFade { from { opacity: 0; } }

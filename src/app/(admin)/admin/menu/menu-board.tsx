@@ -662,7 +662,7 @@ function SortableSection({
 
       {/* The dish form needs both, so the way into it does too. */}
       {row.permissions.manage && row.permissions.pricing ? (
-        <Link href={`/admin/menu/new?category=${category.id}`} className={studio.addDish}>
+        <Link href={`/admin/menu?dish=new&section=${category.id}`} scroll={false} className={studio.addDish}>
           <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
           Add a dish to {category.name}
         </Link>
@@ -749,7 +749,7 @@ function DishRow({
         <span className={studio.dishName}>
           {diet ? <span className={studio.dietMark} data-diet={diet} title={DIET_LABEL[diet]} aria-label={DIET_LABEL[diet]} /> : null}
           {permissions.manage && permissions.pricing ? (
-            <Link href={`/admin/menu/${item.id}`} className={studio.dishLink}>{item.name}</Link>
+            <Link href={`/admin/menu?dish=${item.id}`} scroll={false} className={studio.dishLink}>{item.name}</Link>
           ) : (
             item.name
           )}

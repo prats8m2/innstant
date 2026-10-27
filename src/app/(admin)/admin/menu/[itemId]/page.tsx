@@ -8,6 +8,7 @@ import {
 } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
 import { DishForm } from '../dish-form';
+import { DishHistory } from '../dish-history';
 import styles from '../../admin.module.css';
 
 /**
@@ -67,57 +68,7 @@ export default async function EditDish({
         item={item}
       />
 
-      {history.length ? (
-        <section className={styles.history}>
-          <h2 className={styles.historyTitle}>What has happened to it</h2>
-          <ol className={styles.historyList}>
-            {history.slice().reverse().map((event, i) => (
-              <li key={`${event.occurred_at as string}-${i}`} className={styles.historyRow}>
-                <span className={`${styles.historyWhen} tabular`}>
-                  {new Date(event.occurred_at as string).toISOString().slice(0, 16).replace('T', ' ')}
-                </span>
-                <span className={styles.historyWhat}>
-                  {describe(event)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
+      <DishHistory events={history} />
     </>
   );
-}
-
-/**
- * The log, in words.
- *
- * Only the event types this module writes — anything unrecognised prints its raw
- * type rather than being swallowed, because a silently dropped audit row is
- * worse than an ugly one.
- */
-function describe(event: Record<string, unknown>): string {
-  const type = String(event.event_type);
-  const payload = (event.payload ?? {}) as Record<string, unknown>;
-
-  if (type === 'menu_item.repriced') {
-    const from = Number(payload.fromMinor);
-    const to = Number(payload.toMinor);
-    const currency = (payload.currency as 'INR') ?? 'INR';
-    return `Repriced from ${formatMoney(money(from, currency))} to ${formatMoney(money(to, currency))}`;
-  }
-
-  // Dragged into another section on the menu studio's board.
-  if (type === 'menu_item.moved') {
-    return payload.from && payload.to
-      ? `Moved from ${String(payload.from)} to ${String(payload.to)}`
-      : 'Moved to another section';
-  }
-
-  return {
-    'menu_item.created': 'Added to the menu',
-    'menu_item.updated': 'Edited',
-    'menu_item.available': 'Put back on',
-    'menu_item.unavailable': 'Taken off for the night',
-    'menu_item.archived': 'Taken off the menu',
-  }[type] ?? type;
 }

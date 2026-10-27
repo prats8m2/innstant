@@ -640,7 +640,8 @@ test.describe('the menu editor', () => {
 
     const dish = ownDish();
     await admin.getByRole('link', { name: dish }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
 
     const price = admin.locator('input[name="price"]');
     const before = await price.inputValue();
@@ -662,7 +663,8 @@ test.describe('the menu editor', () => {
 
     // And the reprice is in the audit trail, with both numbers.
     await admin.getByRole('link', { name: dish }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
     // `.first()` — the suite is repeatable, so this dish accumulates reprices.
     await expect(admin.getByText(/Repriced from ₹/).first()).toBeVisible({ timeout: 20_000 });
 
@@ -1253,7 +1255,8 @@ test.describe('option groups', () => {
     // Attach it to a dish, from the dish form — where attachment belongs.
     await admin.goto('/admin/menu');
     await admin.getByRole('link', { name: ownDish() }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
     await admin.locator(`label:has-text("${group}") input[type="checkbox"]`).first().check();
     await admin.getByRole('button', { name: 'Save the dish' }).click();
     await admin.waitForURL(/\/admin\/menu$/, { timeout: 25_000 });
