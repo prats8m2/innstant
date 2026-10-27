@@ -286,7 +286,9 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* Six tiles across a desk (the overview has up to six), wrapping evenly
+     rather than leaving one alone on a second row. */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-4);
 }
 
@@ -330,7 +332,9 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-2);
-  font-size: var(--text-3xl);
+  /* 2xl, not 3xl: six tiles share a row now, and a sales figure with
+     paise (₹3,160.50) overflowed a sixth of it at 3xl. */
+  font-size: var(--text-2xl);
   line-height: 1;
   color: var(--text);
 }
@@ -1882,4 +1886,225 @@ details[open] > .disclosureHead {
   .dish:not(.roomRow):has(> .dishBody:first-child + :is(.rowEnd, .dishActions):last-child):not(:has(> :is(.rowEnd, .dishActions) > :nth-child(3))) > .dishBody {
     grid-column: 1;
   }
+}
+
+/* ── The overview ─────────────────────────────────────────────────────────
+   How the day is going, then what is happening now, then what needs
+   somebody. Rows of two panels on a desk, stacked below 1100px. */
+.overviewDate {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.stats { margin-bottom: var(--space-6); }
+
+/* The one number the page leads with: first, and in the text colour rather
+   than the accent, which is kept for "somebody needs to act". */
+.stat[data-hero] .statValue { color: var(--text); }
+
+.overviewRow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.overviewRow > .section { margin-top: 0; }
+.overviewRow + .overviewRow, .overviewRow + .section, .section + .overviewRow { margin-top: var(--space-6); }
+.overviewRow > :only-child { grid-column: 1 / -1; }
+
+@media (max-width: 1100px) {
+  .overviewRow { grid-template-columns: minmax(0, 1fr); }
+}
+
+.sectionLink {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-min);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* The kitchen now: one line a stage, the count to the right. */
+.stageList { margin: 0; padding: var(--space-2) var(--space-5) var(--space-4); list-style: none; }
+.stage {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text);
+}
+.stage:last-child { border-bottom: 0; }
+.stage[data-empty] { color: var(--text-muted); }
+.stageCount { font-size: var(--text-xl); }
+.stage[data-empty] .stageCount { font-size: var(--text-base); }
+
+/* What is selling. */
+.topDishes { margin: 0; padding: var(--space-2) var(--space-5) var(--space-4); counter-reset: dish; list-style: none; }
+.topDishes li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.topDishes li:last-child { border-bottom: 0; }
+.topDishName { color: var(--text); font-weight: 600; }
+.topDishName::before {
+  counter-increment: dish;
+  content: counter(dish) '. ';
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.topDishQty { color: var(--text-secondary); }
+.topDishSales { color: var(--text-muted); font-size: var(--text-sm); }
+
+/* What the menu is doing: facts as links, each where it is fixed. */
+.menuNow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  list-style: none;
+}
+.menuFact {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.menuFact:hover { border-color: var(--ink-300); color: var(--text); }
+.menuFact[data-tone='on'] { border-color: var(--status-positive); color: var(--text); }
+.menuFact[data-tone='on'] svg { color: var(--status-positive); }
+.menuFact[data-tone='attention'] { border-color: var(--status-attention); color: var(--text); }
+.menuFact[data-tone='attention'] svg { color: var(--status-attention); }
+
+/* ── Orders by the hour (orders-by-hour.tsx) ────────────────────────────
+   Columns capped at 24px with a rounded top and a square foot on one
+   baseline; yesterday a 2px grey tick; hairline gridlines; text in text
+   colours only. */
+.hourChart { margin: 0; padding: var(--space-4) var(--space-5) var(--space-4) var(--space-8); }
+
+.hourLegend {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.hourLegend > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.hourSwatch { width: 10px; height: 10px; border-radius: var(--radius-xs); background: var(--accent); }
+.hourTickKey { width: 12px; height: 2px; background: var(--ink-300); }
+
+.hourPlot {
+  position: relative;
+  height: 180px;
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  align-items: end;
+}
+
+.hourGrid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--border-soft);
+  pointer-events: none;
+}
+.hourGrid > span {
+  position: absolute;
+  right: calc(100% + var(--space-2));
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.hourSlot {
+  position: relative;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  outline: none;
+  cursor: default;
+}
+.hourSlot:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); border-radius: var(--radius-xs); }
+.hourSlot[data-active] { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+
+.hourBar {
+  width: min(24px, 60%);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: var(--accent);
+}
+
+.hourTick {
+  position: absolute;
+  left: 50%;
+  width: min(24px, 70%);
+  height: 2px;
+  transform: translateX(-50%);
+  background: var(--ink-300);
+}
+
+.hourTip {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% + var(--space-2));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hourTip strong { color: var(--text); font-family: var(--font-mono); }
+
+.hourAxis {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.hourCaption { margin-top: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+
+.hourTable { margin-top: var(--space-2); font-size: var(--text-sm); color: var(--text-muted); }
+.hourTable summary { cursor: pointer; min-height: var(--touch-min); display: inline-flex; align-items: center; }
+.hourTable table { border-collapse: collapse; margin-top: var(--space-2); }
+.hourTable th, .hourTable td { padding: var(--space-1) var(--space-4) var(--space-1) 0; text-align: left; color: var(--text); }
+.hourTable th { font-weight: 600; color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .hourChart { padding: var(--space-3) var(--space-3) var(--space-3) var(--space-6); }
+  .hourPlot { height: 140px; }
 }

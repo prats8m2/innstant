@@ -77,3 +77,7 @@ export {
 export type {
   DishOrderCount, MostOrderedCounts, MostOrderedThresholds,
 } from './popularity';
+
+/** How the day is going, for the console's overview. */
+export { daySummary } from './day-summary';
+export type { DaySummary } from './day-summary';
