@@ -6,7 +6,6 @@ import {
   currencyIsStillOpen,
 } from '@/modules/identity';
 import { offeredTimezones } from '@/lib/timezones';
-import { AdminShell } from '../admin-shell';
 import {
   PropertyEditor,
   type FloorView, type RoomSetupView, type RoomTypeSetupView, type SettingsView,
@@ -117,12 +116,7 @@ export default async function PropertyAdmin({
   const timezones = offeredTimezones(settings.timezone);
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="property"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>The property</h1>
@@ -182,6 +176,6 @@ export default async function PropertyAdmin({
         sticker; bringing it back issues a new one, because the old sticker has
         been out of a guest&rsquo;s hands in the meantime.
       </p>
-    </AdminShell>
+    </>
   );
 }

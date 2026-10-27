@@ -8,7 +8,6 @@ import { listRoomsWithOccupancy, listCheckoutRequests } from '@/modules/stay';
 import { getOpenRequests } from '@/modules/requests';
 import { kitchenTickets } from '@/modules/ordering';
 import { nightsUntil } from '@/lib/clock';
-import { AdminShell } from './admin-shell';
 import { LiveConsole } from './live-console';
 import styles from './admin.module.css';
 
@@ -77,12 +76,7 @@ export default async function AdminHome() {
   const late = requests.filter((request) => request.breached).length;
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="home"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Overview</h1>
@@ -259,7 +253,7 @@ export default async function AdminHome() {
           ) : null}
         </ul>
       </section>
-    </AdminShell>
+    </>
   );
 }
 

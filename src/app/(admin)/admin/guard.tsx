@@ -69,17 +69,32 @@ export async function adminAccess(
   return { ok: true, session, propertyId };
 }
 
-/** What a refusal looks like: a sentence, inside the console, not a stack. */
-export function AdminDenied({ reason }: { reason: 'NO_PROPERTY' | 'NOT_PERMITTED' }) {
+/**
+ * What a refusal looks like: a sentence, not a stack.
+ *
+ * Inside the console layout (a page refusing one permission) it is only the
+ * sentence, because the rail is already around it. `framed` is for the
+ * layout itself, when there is no console to draw at all: an account with no
+ * property has no rail to show.
+ */
+export function AdminDenied({
+  reason,
+  framed = false,
+}: {
+  reason: 'NO_PROPERTY' | 'NOT_PERMITTED';
+  framed?: boolean;
+}) {
+  const sentence = (
+    <p className={styles.empty}>
+      {reason === 'NO_PROPERTY'
+        ? 'This account has no property assigned. Someone with staff admin can fix that.'
+        : 'This account cannot change this. Ask whoever manages roles at this property.'}
+    </p>
+  );
+  if (!framed) return sentence;
   return (
     <div className={styles.frame}>
-      <main className={styles.main}>
-        <p className={styles.empty}>
-          {reason === 'NO_PROPERTY'
-            ? 'This account has no property assigned. Someone with staff admin can fix that.'
-            : 'This account cannot change this. Ask whoever manages roles at this property.'}
-        </p>
-      </main>
+      <main className={styles.main}>{sentence}</main>
     </div>
   );
 }

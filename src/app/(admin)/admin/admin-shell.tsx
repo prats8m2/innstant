@@ -8,16 +8,18 @@ import { can, type StaffSession, type Permission } from '@/modules/identity';
 import { Alerts } from '@/components/alerts';
 import { signOut } from './actions';
 import { ConsoleRail } from './console-rail';
+import { ConsoleNavLink } from './console-nav-link';
 import { NavPending } from './nav-pending';
 import styles from './admin.module.css';
 
 /**
  * The ops console's frame.
  *
- * A component rather than a `layout.tsx`, deliberately: a layout at this level
- * would also wrap `/admin/login` and `/admin/invite`, and putting a signed-in
- * navigation rail with a sign-out button around a sign-in form is the kind of
- * thing that looks fine until someone screenshots it.
+ * Rendered by the console's `layout.tsx`, once, and kept across navigations.
+ * It was a component every page wrapped itself in, so that the sign-in and
+ * invite pages would not get a rail; those now live in their own route group,
+ * `(staff-auth)`, at the same URLs. Which item is current is read from the
+ * URL (`ConsoleNavLink`), because a layout is not told which page it holds.
  *
  * ─── Why a rail and not the top bar it replaced ────────────────────────────
  *
@@ -44,17 +46,11 @@ import styles from './admin.module.css';
  * This is presentation, never enforcement: every page re-checks server-side and
  * every action checks again (`adminAccess`, `requirePermission`).
  */
-export type AdminSection =
-  | 'home' | 'desk' | 'rooms' | 'checkouts'
-  | 'menu' | 'requests' | 'outlet' | 'links'
-  | 'property' | 'staff';
-
 interface NavItem {
   href: string;
   label: string;
   /** A mark the eye can find before it has read the word. */
   icon: LucideIcon;
-  section?: AdminSection;
   /** Everything here is visible without a permission. */
   needs?: Permission;
   /** Opens one of the always-on floor screens rather than a console page. */
@@ -70,32 +66,32 @@ const GROUPS: NavGroup[] = [
   {
     title: 'Today',
     items: [
-      { href: '/admin', label: 'Overview', icon: LayoutDashboard, section: 'home' },
+      { href: '/admin', label: 'Overview', icon: LayoutDashboard },
       /* The desk's one-room view. Above the key rack because it is where
          somebody answering a phone starts, and the rack is where somebody
          walking a floor starts. */
-      { href: '/admin/desk', label: 'Front desk', icon: ConciergeBell, section: 'desk', needs: 'stay:read' },
-      { href: '/admin/rooms', label: 'Rooms', icon: BedDouble, section: 'rooms', needs: 'stay:read' },
-      { href: '/admin/checkouts', label: 'Leaving', icon: DoorOpen, section: 'checkouts', needs: 'stay:read' },
+      { href: '/admin/desk', label: 'Front desk', icon: ConciergeBell, needs: 'stay:read' },
+      { href: '/admin/rooms', label: 'Rooms', icon: BedDouble, needs: 'stay:read' },
+      { href: '/admin/checkouts', label: 'Leaving', icon: DoorOpen, needs: 'stay:read' },
     ],
   },
   {
     title: 'Service',
     items: [
-      { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, section: 'menu', needs: 'catalog:read' },
-      { href: '/admin/requests', label: 'Requests', icon: ListChecks, section: 'requests', needs: 'request:read' },
-      { href: '/admin/outlet', label: 'The kitchen', icon: ChefHat, section: 'outlet', needs: 'catalog:read' },
+      { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, needs: 'catalog:read' },
+      { href: '/admin/requests', label: 'Requests', icon: ListChecks, needs: 'request:read' },
+      { href: '/admin/outlet', label: 'The kitchen', icon: ChefHat, needs: 'catalog:read' },
       /* D-079. Under Service rather than Setup: a table tent is reprinted
          mid-service by whoever is running the floor, not configured once by
          whoever set the property up. */
-      { href: '/admin/links', label: 'Links', icon: Link2, section: 'links', needs: 'catalog:read' },
+      { href: '/admin/links', label: 'Links', icon: Link2, needs: 'catalog:read' },
     ],
   },
   {
     title: 'Setup',
     items: [
-      { href: '/admin/property', label: 'Property', icon: Building2, section: 'property', needs: 'room:read' },
-      { href: '/admin/staff', label: 'Staff', icon: Users, section: 'staff', needs: 'staff:read' },
+      { href: '/admin/property', label: 'Property', icon: Building2, needs: 'room:read' },
+      { href: '/admin/staff', label: 'Staff', icon: Users, needs: 'staff:read' },
     ],
   },
   {
@@ -114,14 +110,11 @@ export async function AdminShell({
   session,
   propertyId,
   propertyName,
-  /** Which nav item is the current page. */
-  current,
   children,
 }: {
   session: StaffSession;
   propertyId: string;
   propertyName: string;
-  current: AdminSection;
   children: React.ReactNode;
 }) {
   const groups = GROUPS
@@ -151,14 +144,7 @@ export async function AdminShell({
             <div key={group.title} className={styles.navGroup}>
               <p className={styles.navGroupTitle}>{group.title}</p>
               {group.items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={styles.navLink}
-                  aria-current={
-                    item.section && item.section === current ? 'page' : undefined
-                  }
-                >
+                <ConsoleNavLink key={item.href} href={item.href} exact={item.href === '/admin'}>
                   <item.icon
                     className={styles.navIcon}
                     size={18}
@@ -180,7 +166,7 @@ export async function AdminShell({
                       aria-label="opens a floor screen"
                     />
                   ) : null}
-                </Link>
+                </ConsoleNavLink>
               ))}
             </div>
           ))}

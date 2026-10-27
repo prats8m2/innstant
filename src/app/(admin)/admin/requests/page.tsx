@@ -1,8 +1,7 @@
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
-import { can, findProperty, listRolesAtProperty } from '@/modules/identity';
+import { can, listRolesAtProperty } from '@/modules/identity';
 import { getAdminRequestTypes } from '@/modules/requests';
-import { AdminShell } from '../admin-shell';
 import { RequestTypeEditor } from './request-type-editor';
 
 /**
@@ -33,10 +32,9 @@ export default async function RequestTypesAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, types, roles } = await withTenant(
+  const { types, roles } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
-      property: await findProperty(tx, propertyId),
       types: await getAdminRequestTypes(tx, { propertyId }),
       // With the headcount, so routing at a role nobody holds is visible on the
       // form rather than discovered as requests that are never assigned.
@@ -45,18 +43,13 @@ export default async function RequestTypesAdmin() {
   );
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="requests"
-    >
+    <>
       <RequestTypeEditor
         propertyId={propertyId}
         types={types}
         roles={roles}
         mayManage={can(session, propertyId, 'request_type:manage')}
       />
-    </AdminShell>
+    </>
   );
 }

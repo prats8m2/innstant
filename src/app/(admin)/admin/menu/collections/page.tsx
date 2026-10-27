@@ -6,7 +6,6 @@ import {
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { adminAccess, AdminDenied } from '../../guard';
-import { AdminShell } from '../../admin-shell';
 import { CollectionEditor } from './collection-editor';
 import { scheduleLabel } from '../schedule-label';
 import styles from '../../admin.module.css';
@@ -25,7 +24,7 @@ export default async function CollectionsAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, menu, collections, at } = await withTenant(
+  const { menu, collections, at } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await findProperty(tx, propertyId);
@@ -39,14 +38,12 @@ export default async function CollectionsAdmin() {
     },
   );
 
-  const propertyName = property?.name ?? 'This property';
-
   if (!menu) {
     return (
-      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+      <>
         <h1 className={styles.title}>Collections</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
-      </AdminShell>
+      </>
     );
   }
 
@@ -65,7 +62,7 @@ export default async function CollectionsAdmin() {
     c.isActive && c.items.length > 0 && statuses[c.id]!.live).length;
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Collections</h1>
@@ -87,6 +84,6 @@ export default async function CollectionsAdmin() {
         statuses={statuses}
         today={at.date!}
       />
-    </AdminShell>
+    </>
   );
 }

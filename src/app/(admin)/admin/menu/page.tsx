@@ -6,7 +6,6 @@ import {
   TODAYS_SPECIAL, listOffers, bestOffer, portionsLeftToday,
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { MenuStudio, type ScheduledCard, type Warning } from './menu-studio';
 import { scheduleLabel } from './schedule-label';
 import styles from '../admin.module.css';
@@ -62,17 +61,15 @@ export default async function MenuAdmin() {
     },
   );
 
-  const propertyName = property?.name ?? 'This property';
-
   if (!outlet || !menu) {
     return (
-      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+      <>
         <h1 className={styles.title}>Menu</h1>
         <p className={styles.empty}>
           No in-room dining outlet is configured here. One is created with the
           property — see <code>provisionProperty()</code>.
         </p>
-      </AdminShell>
+      </>
     );
   }
 
@@ -140,7 +137,7 @@ export default async function MenuAdmin() {
     && c.isActive && c.startsOn === now.date && c.endsOn === now.date);
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+    <>
       <MenuStudio
         propertyId={propertyId}
         menu={menu}
@@ -157,6 +154,6 @@ export default async function MenuAdmin() {
           availability: can(session, propertyId, 'catalog:availability'),
         }}
       />
-    </AdminShell>
+    </>
   );
 }

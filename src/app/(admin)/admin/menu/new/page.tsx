@@ -1,11 +1,9 @@
 import { notFound } from 'next/navigation';
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../../guard';
-import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, listModifierGroups, MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
-import { AdminShell } from '../../admin-shell';
 import { DishForm } from '../dish-form';
 import styles from '../../admin.module.css';
 
@@ -24,12 +22,11 @@ export default async function NewDish({
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, outlet, menu, groups } = await withTenant(
+  const { outlet, menu, groups } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
       return {
-        property: await findProperty(tx, propertyId),
         outlet: found,
         menu: found ? await getAdminMenu(tx, { outletId: found.id }) : null,
         groups: found ? await listModifierGroups(tx, { outletId: found.id }) : [],
@@ -40,12 +37,7 @@ export default async function NewDish({
   if (!outlet || !menu) notFound();
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="menu"
-    >
+    <>
       <h1 className={styles.title}>A new dish</h1>
       <p className={styles.lede}>On {menu.outlet.name}.</p>
 
@@ -58,6 +50,6 @@ export default async function NewDish({
         dietaryFlags={MENU_DIETARY_FLAGS}
         defaultCategoryId={category}
       />
-    </AdminShell>
+    </>
   );
 }

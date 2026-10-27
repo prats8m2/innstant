@@ -5,7 +5,6 @@ import { can, findProperty } from '@/modules/identity';
 import { listRoomsWithOccupancy } from '@/modules/stay';
 import { formatMoney, money } from '@/lib/money';
 import { formatCheckoutShort, nightsUntil } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { RoomBoard, type RoomView } from './room-board';
 import styles from '../admin.module.css';
 
@@ -133,12 +132,7 @@ export default async function RoomsAdmin({
   const checkoutHours = [10, 11, 12, 14];
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="rooms"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Rooms</h1>
@@ -189,6 +183,6 @@ export default async function RoomsAdmin({
         Taking the payment is on the guest&rsquo;s page (their name, above), and
         anything unpaid stays on the bill until it is.
       </p>
-    </AdminShell>
+    </>
   );
 }

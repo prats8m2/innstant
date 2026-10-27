@@ -1,9 +1,7 @@
 import Link from 'next/link';
 import { withTenant } from '@/db';
-import { findProperty } from '@/modules/identity';
 import { getInRoomDiningOutlet, listModifierGroupsForAdmin } from '@/modules/catalog';
 import { adminAccess, AdminDenied } from '../../guard';
-import { AdminShell } from '../../admin-shell';
 import { OptionEditor } from './option-editor';
 import styles from '../../admin.module.css';
 
@@ -23,33 +21,30 @@ export default async function OptionsAdmin() {
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, outlet, groups } = await withTenant(
+  const { outlet, groups } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutlet(tx, propertyId);
       return {
-        property: await findProperty(tx, propertyId),
         outlet: found,
         groups: found ? await listModifierGroupsForAdmin(tx, { outletId: found.id }) : [],
       };
     },
   );
 
-  const propertyName = property?.name ?? 'This property';
-
   if (!outlet) {
     return (
-      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+      <>
         <h1 className={styles.title}>Option groups</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
-      </AdminShell>
+      </>
     );
   }
 
   const shared = groups.filter((g) => g.dishCount > 1).length;
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Option groups</h1>
@@ -63,6 +58,6 @@ export default async function OptionsAdmin() {
       </header>
 
       <OptionEditor propertyId={propertyId} outletId={outlet.id} groups={groups} />
-    </AdminShell>
+    </>
   );
 }

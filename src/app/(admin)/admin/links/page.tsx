@@ -1,9 +1,8 @@
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
-import { findProperty, can } from '@/modules/identity';
+import { can } from '@/modules/identity';
 import { listOutlets } from '@/modules/catalog';
 import { listVisitLinks, listOpenVisits } from '@/modules/visit';
-import { AdminShell } from '../admin-shell';
 import { CreateLinkForm, LinkField, LinkControls } from './link-forms';
 import styles from '../admin.module.css';
 
@@ -36,17 +35,14 @@ export default async function LinksAdmin() {
   // decides what to draw, exactly as the guard's own note says.
   const mayManage = can(session, propertyId, 'catalog:manage');
 
-  const { property, outlets, links, openVisits } = await withTenant(
+  const { outlets, links, openVisits } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
-      property: await findProperty(tx, propertyId),
       outlets: await listOutlets(tx, propertyId),
       links: await listVisitLinks(tx, { propertyId }),
       openVisits: await listOpenVisits(tx, { propertyId, limit: 20 }),
     }),
   );
-
-  const propertyName = property?.name ?? 'This property';
 
   /**
    * From `APP_URL` and NOT from this request: `output: 'standalone'` binds
@@ -61,7 +57,7 @@ export default async function LinksAdmin() {
   const revoked = links.filter((l) => l.revokedAt);
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="links">
+    <>
       <h1 className={styles.title}>Links</h1>
       <p className={styles.lede}>
         A code that is not on a nightstand. Somebody who opens one sees this
@@ -222,6 +218,6 @@ export default async function LinksAdmin() {
         counter or at the door, and the kitchen display shows where the tray
         goes rather than a room number.
       </p>
-    </AdminShell>
+    </>
   );
 }

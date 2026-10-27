@@ -708,6 +708,9 @@ test.describe('the menu editor', () => {
   });
 
   test('moves a section by keyboard, and the guest menu follows', async ({ page, browser }) => {
+    // One menu, shared by every project running at once: two projects moving
+    // Sweets up together see it move two places. Run it in one of them.
+    test.skip(test.info().project.name !== 'staff-desktop', 'one shared menu');
     await signInAsFnb(page);
 
     const boardOrder = () => page.locator('main section h2').evaluateAll(

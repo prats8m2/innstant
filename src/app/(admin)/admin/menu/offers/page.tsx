@@ -6,7 +6,6 @@ import {
 } from '@/modules/catalog';
 import { localTimeAt } from '@/lib/clock';
 import { adminAccess, AdminDenied } from '../../guard';
-import { AdminShell } from '../../admin-shell';
 import { scheduleLabel } from '../schedule-label';
 import { OfferEditor, type OfferStatus } from './offer-editor';
 import styles from '../../admin.module.css';
@@ -37,14 +36,12 @@ export default async function OffersAdmin() {
       };
     },
   );
-
-  const propertyName = property?.name ?? 'This property';
   if (!menu) {
     return (
-      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+      <>
         <h1 className={styles.title}>Offers</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
-      </AdminShell>
+      </>
     );
   }
 
@@ -64,7 +61,7 @@ export default async function OffersAdmin() {
   const live = Object.values(statuses).filter((s) => s.live).length;
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="menu">
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Offers</h1>
@@ -84,6 +81,6 @@ export default async function OffersAdmin() {
         categories={menu.categories}
         today={now.date!}
       />
-    </AdminShell>
+    </>
   );
 }
