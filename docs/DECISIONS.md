@@ -2761,3 +2761,212 @@ it is three collections. That is the feature, not a defect, but it means
 "which three" is a question with a time in it. And a property that uses no
 collections gets the first dish of each category, which is a weaker answer
 than curation and the reason the fallback is second rather than first.
+
+### D-083 · The menu studio: a board you arrange, beside the screen a guest reads
+`/admin/menu` was a list of forms. A manager could reprice, take a dish off
+and rename a section, but could not do the one thing a menu is mostly about:
+put things in an order. `sort_order` has been on `menu_categories` and
+`menu_items` since migration 0000, and nothing but the seeder ever wrote it.
+And the only way to see the result was to scan a room's QR code.
+
+**The board.** Sections and dishes drag by a handle: within a section, across
+sections, and by keyboard (space, arrows, space; Escape cancels). Only the
+handle drags, because a whole-row drag on a tablet turns every scroll into a
+pickup. `@dnd-kit` does the dragging (about 15–20KB shipped, approved),
+because accessible, touch-safe drag and drop is a solved problem
+(CLAUDE.md "Use a library"). Its keyboard and collision helpers are scoped
+so a section only ever moves among sections. Unscoped, six arrow presses
+moved a section three places, landing on dish rows in between.
+
+**A drop posts the whole arrangement** (`arrangeMenu()`), not "X goes after Y".
+A relative move is ambiguous once Y has moved too; the full list is
+idempotent. It must name exactly the sections and dishes on the menu now, so a
+board loaded before somebody added a dish elsewhere is refused with "the menu
+changed", and the board goes back to how it was. Merging would leave the new
+dish's `sort_order` colliding with a neighbour's. The rules are a pure
+function, `planArrangement()`, unit-tested apart from the database.
+
+A dish changing section writes `menu_item.moved` with both section NAMES, so
+its history reads "Moved from Drinks to Sweets" even after a rename. The drop
+as a whole writes one `menu.arranged` on the outlet.
+
+**Price and tonight's switch, in place.** The price is a cell: click, type,
+Enter. It uses its own service, `setMenuItemPrice()`, behind
+`catalog:pricing` alone, and writes the same `menu_item.repriced` with both
+numbers that the full form writes. The on/off is a real `role="switch"`
+behind `catalog:availability`, so the kitchen's account still sees the
+switch and nothing else. The small forms (rename, archive, add a section,
+close the kitchen) stay server-action forms that work without JavaScript.
+
+**The preview is the guest screen, not a picture of it.** The guest menu's
+markup moved into `MenuView`, and both `/r/[qrCode]/menu` and the staff-only
+`/admin/menu/preview` render it. The preview reads through
+`getInRoomDiningMenu()` at a property-local day and time the manager picks
+(Now, Breakfast, Lunch, Dinner, Late, or any moment), so "After 10pm" shows
+at 11 and not at 8. It sits in a phone frame beside the board at 1280px and
+up, and slides in from the right below that. A capture-phase guard makes its
+taps no-ops, apart from the section rail, which only scrolls.
+
+**Closed until asked for.** Open by default, the preview took a third of the
+screen from the board and loaded a second page on every visit to show
+something most visits never looked at. It is a toggle in the page head now:
+it docks beside the board from 1280px, slides over it below that, and its
+frame is not mounted while it is closed.
+
+**Photos on the web guest screens too.** `DishImage` lays `image_url` over
+the arch on the menu card, the dish page and the cart line, for room and
+property-link alike. The arch stays underneath as the fallback, so a dish
+with no photo, or with a URL that 404s, still shows the drawn jharokha and
+never a broken-image icon. The board uses the same component.
+
+**Cost / when to revisit.** The preview is the ROOM menu on the web. A
+property link's menu (`/p/[code]`) is a separate copy of the markup, and the
+Expo app is a third rendering, so neither is what the preview shows. Folding
+`/p` onto `MenuView` is small and would make the preview cover both.
+Collections, the curated sections that open the guest menu, are not on the
+board yet. Step 2 of the plan, menus on a schedule, brings them on.
+
+### D-084 · Menus on a schedule: days, dates, and a special that ends itself
+A collection could be held to a time of day and nothing else. "Weekend
+brunch" needed somebody to switch it on on Saturday and off on Monday,
+"Diwali, 1–5 November" needed somebody to remember the 6th, and a daily
+special was a collection that stayed up until a manager took it down. The
+guest saw Sunday's thali on a Tuesday when they forgot.
+
+**Days and dates on the collection** (migration 0010): `days_of_week`
+(NULL is every day; an empty array is refused, because "never" is already
+`is_active = false`) and inclusive property-local `starts_on` / `ends_on`.
+No separate "menus" or "schedules" table: a schedule with nothing to show
+has no meaning here, and a collection already is the thing that leads the
+menu, so the schedule belongs on it.
+
+**A late window belongs to the day it started.** Once there are days, "is
+it on" stops being a clock comparison: Friday 22:00–01:00 must be on at
+00:30 Saturday, and Thursday's tail must not count as Friday's.
+`isCollectionLive()` works out the service day first, the same rule as
+`outlet_hours.crosses_midnight`, and the guest menu, the API, the preview
+and the console's labels all call it. `LocalTime` gained an optional `date`.
+`localTimeAt()` always sets it; a caller without one sees no date-bounded
+collection, because Diwali's menu in March is the worse way to be wrong.
+
+**Today's special is one tap and needs nobody to end it.** It is an
+ordinary collection dated today to today, put at the top of the menu,
+empty until the manager drags dishes onto it. One per outlet: a second tap
+the same day returns the same one, and a tap on a later day rolls it
+forward EMPTIED, because last Tuesday's fish is not this Tuesday's special.
+Two simultaneous taps lock the outlet row and make one (tested in
+parallel).
+
+**On the board, as cards.** Collections sit above the sections in their
+menu order, each saying when it runs and whether it is showing now, and why
+not if it isn't ("later today · from 22:00", "ended 5 Nov"). A dish dropped
+on a card joins it and stays in its section. A collection is a view over
+dishes, not a place they live. The cards are articles in a region, not
+`<li>`s in a `<section>`: rows and sections are found by those tags, and a
+card listing "Mohan maas" must not read as his row.
+
+**The form went back to uncontrolled inputs.** Controlled, a `type="time"`
+field ignores a value set by autofill or a test tool (`.value =`, which
+React's tracker never sees), and "22:00" typed in saved as nothing. Presets
+remount the fields with new defaults instead.
+
+**Cost / when to revisit.** "Today" is a calendar date, so a special set at
+lunch disappears at midnight even if the kitchen runs until 01:00. Ending
+it at the kitchen's close would need the service day to come from
+`outlet_hours`, which is the honest next step if anybody notices. The
+demo's "Weekend brunch" is seeded by `demo-reset` only
+(`KESARI_DEMO_COLLECTIONS`), so the integration suites keep their three
+collections.
+
+### D-085 · Offers: automatic, never stacked, and the receipt says why
+The owner wanted discounts a manager can run: a happy hour, a festival week,
+something off one dish tonight. The scope they chose was **automatic offers
+only**, so no coupon codes and no stacking rules for a guest to discover.
+
+**One table, `menu_offers`, never `promotions`** (reserved, #12). An offer
+targets one dish, one section, or the whole menu, takes a % (basis points)
+or a ₹ amount (with its currency, #5), and runs on the same schedule as a
+collection (D-084): window, days, dates, through the same
+`isCollectionLive()`. CHECKs keep the target ids honest to the scope and
+exactly one of % or ₹ set.
+
+**One function prices every guest-facing number.** `bestOffer()` is pure
+and unit-tested. It comes off the dish's own price, not its extras (20% off
+the laal maas does not discount the roti), rounds once through
+`applyRateBps`, never takes a dish below zero, ignores an amount in another
+currency rather than converting it, and never stacks: the biggest single
+discount wins, and on a tie the more specific offer. The menu read,
+`getDish()` and `getCartPricing()` all call it, and the cart,
+`placeOrder()` and re-order all price through `getCartPricing()`. So the
+price on the card, in the cart, on the order and on the folio is the same
+number by construction. `placeOrder()` computes its own time, so an offer
+cannot be skipped by a caller forgetting one.
+
+**The receipt explains its own price (#6).** `unit_price_minor` was already
+the price sold at. A line sold under an offer also snapshots
+`list_price_minor` and `offer_name_snapshot`, so ₹920 for a ₹1,150 dish
+still says "Chef's week, was ₹1,150" after the offer is renamed or ended.
+`offer_id` is analytics only (`ON DELETE SET NULL`). Idempotency is
+unchanged: placement already holds the key (#8), and two simultaneous
+placements on one key make one order at the offer price (tested).
+
+**The API adds, it does not change** (D-080). `price` always meant what
+the guest pays, and it still does. `listPrice` and `offer` are new and
+optional, so an app installed before this shows and charges the right
+number, just without the strike-through.
+
+**On the console.** Offers have their own page behind `catalog:pricing`,
+because an offer is a price. Each one shows when it runs and whether it is
+live, in the same words as a collection, with Happy hour / Today only /
+Weekends presets. The board marks every dish an offer is pricing now, so
+nobody retypes ₹1,150 as ₹920 thinking that is the list price.
+
+**Cost / when to revisit.** The cart prices live, as it always has: a guest
+who filled a cart at 17:55 and pays at 18:05 pays the list price, because
+happy hour ended in between. That is the existing rule (a cart is not a
+receipt) applied to offers, and it is the honest one, but a guest may want
+telling. The Expo app does not draw the strike-through yet. Coupon codes,
+"buy one get one" and minimum-spend offers are not built, by choice.
+
+### D-086 · Step 4: daily limits that cannot oversell, and the menu's loose ends
+The last of the menu studio's four steps, on the plan the user approved:
+"only 20 today", duplicate a dish, a warnings strip, and a section's prices
+changed in one go.
+
+**A daily limit is a counter, claimed atomically at placement.** A kitchen
+that makes twenty portions should not have to watch the twenty-first order
+come in and reject it. `menu_items.daily_limit` and a per-day
+`menu_item_daily_sales` counter, both owned by catalog (migration 0012).
+Counting `order_items` would be catalog reading ordering's table (D-001)
+and a count-then-insert race. Instead `placeOrder()` asks catalog to claim
+the portions with one conditional upsert per limited dish, inside its own
+transaction: two orders for the last portion queue on the row, exactly one
+gets it, and the other's ENTIRE order rolls back (no order, no folio line,
+no ticket) with "Only 1 Laal maas left today". Tested with two guests at
+once. A rejected or cancelled order releases its portions in the same
+transaction as the transition. The guest's card says "Only 3 left today"
+near the end and "Sold out today" after, not the general "not available".
+
+**A section repriced in one go is still one event per dish.**
+`adjustPrice()` is pure and tested: a signed percentage through
+`applyRateBps`, then rounded to the step a menu prints (₹10, ₹5, ₹1 or
+exactly), never below one step, and a free dish stays free.
+`repriceCategory()` runs it in one transaction through `setMenuItemPrice()`,
+so each dish writes the same `menu_item.repriced` with both numbers as a
+single edit. The board previews every new price with the same function
+before Apply.
+
+**A duplicate starts switched off,** directly under the original, with its
+options and its own hours. Two identical dishes on a guest's phone is a
+mistake on show; a copy is a draft.
+
+**"Needs attention" is only there when something is true and fixable:** no
+photo (with a filter that shows exactly those), nothing written under the
+name, an empty section, a schedule or offer that has ended but is still
+switched on, a dish sold out today. On a complete menu it is absent, so its
+presence means something.
+
+**Cost / when to revisit.** The business date is the calendar date, so a
+kitchen open past midnight starts a new day's count at 00:00, the same
+simplification as D-084's Today's special. A limit cannot be changed for
+one day only; it is the standing number.

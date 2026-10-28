@@ -121,7 +121,21 @@ export interface ApiDish {
   id: string;
   name: string;
   description: string | null;
+  /** What the guest pays for the dish: AFTER any live offer (D-085). */
   price: ApiMoney;
+  /**
+   * Added with D-085. The price before the offer, for a client to strike
+   * through beside `price`; null when no offer applies. A client from before
+   * this field shows `price` alone, which is still what is charged.
+   */
+  listPrice?: ApiMoney | null;
+  /** Added with D-085. The offer that set `price`: "20% off", and its name. */
+  offer?: { name: string; label: string } | null;
+  /**
+   * Added with D-086. Portions left today for a dish with a daily limit;
+   * null for a dish without one. At 0, `isAvailable` is false too.
+   */
+  remainingToday?: number | null;
   isAvailable: boolean;
   /**
    * 'VEGETARIAN', 'NON_VEGETARIAN', 'VEGAN', 'CONTAINS_NUTS', … — rendered as

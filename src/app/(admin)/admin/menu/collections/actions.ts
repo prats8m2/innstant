@@ -27,6 +27,9 @@ export interface CollectionActionState {
 const window = z.string().trim().regex(/^(\d{1,2}:\d{2})?$/, 'Times are 24-hour, like 22:00.')
   .optional().transform((v) => (v ? v : null));
 
+const isoDate = z.string().trim().regex(/^(\d{4}-\d{2}-\d{2})?$/, 'Dates are written like 2026-11-05.')
+  .optional().transform((v) => (v ? v : null));
+
 const CollectionForm = z.object({
   propertyId: z.uuid(),
   outletId: z.uuid(),
@@ -35,6 +38,12 @@ const CollectionForm = z.object({
   editorialNote: z.string().trim().max(400).optional().transform((v) => (v ? v : null)),
   availableFrom: window,
   availableUntil: window,
+  /* D-084. The form always posts its seven day boxes, so an empty list is a
+     choice (refused by the service: "switch it off instead"), not an omission.
+     All seven is stored as every day. */
+  daysOfWeek: z.array(z.coerce.number().int().min(0).max(6)).max(7),
+  startsOn: isoDate,
+  endsOn: isoDate,
   isActive: z.boolean(),
   menuItemIds: z.array(z.uuid()),
 });
@@ -80,6 +89,9 @@ export async function saveCollection(
     editorialNote: formData.get('editorialNote') ?? undefined,
     availableFrom: formData.get('availableFrom') ?? undefined,
     availableUntil: formData.get('availableUntil') ?? undefined,
+    daysOfWeek: formData.getAll('daysOfWeek').map(String),
+    startsOn: formData.get('startsOn') ?? undefined,
+    endsOn: formData.get('endsOn') ?? undefined,
     // An unchecked checkbox posts nothing at all.
     isActive: formData.get('isActive') === 'on',
     menuItemIds: formData.getAll('menuItemIds').map(String),
@@ -103,6 +115,9 @@ export async function saveCollection(
           editorialNote: input.editorialNote,
           availableFrom: input.availableFrom,
           availableUntil: input.availableUntil,
+          daysOfWeek: input.daysOfWeek,
+          startsOn: input.startsOn,
+          endsOn: input.endsOn,
           isActive: input.isActive,
           actorStaffId: session.staffUserId,
         };

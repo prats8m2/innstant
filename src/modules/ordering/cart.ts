@@ -54,6 +54,13 @@ export interface CartLine {
   /** Carried so placement can snapshot it (#6) — a receipt shows the dish as it
    *  was sold. Nothing displays it yet; no screen has images until R2 exists. */
   imageUrl: string | null;
+  /**
+   * D-085. Set when an offer priced this line: `unitPriceMinor` is after it,
+   * this is before. Placement snapshots both with the offer's name, so the
+   * receipt explains its own price for ever (#6).
+   */
+  listPriceMinor: number | null;
+  offer: { id: string; name: string } | null;
 }
 
 export interface Cart {
@@ -425,6 +432,8 @@ export async function getCart(
       isAvailable:
         (item?.isAvailable ?? false) && chosen.every(({ option }) => option?.isAvailable ?? false),
       imageUrl: item?.imageUrl ?? null,
+      listPriceMinor: item?.listPriceMinor ?? null,
+      offer: item?.offer ?? null,
     };
   });
 

@@ -15,7 +15,7 @@ import pg from 'pg';
 import { withTenant, recordEvent, closePool } from '@/db';
 import { dbSsl } from '@/db/ssl';
 import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } from '@/modules/identity';
-import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
+import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_DEMO_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
 import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
 import { createStay } from '@/modules/stay';
 import { createVisitLink } from '@/modules/visit';
@@ -195,7 +195,7 @@ const WIPE_ORDER = [
   'checkout_requests', 'guest_sessions', 'access_escalations',
   'verification_challenges', 'staff_vouches', 'access_policies',
   'itinerary_stops', 'itineraries', 'pois', 'notifications',
-  'collection_items', 'collections', 'menu_item_availability_windows',
+  'menu_item_daily_sales', 'menu_offers', 'collection_items', 'collections', 'menu_item_availability_windows',
   'menu_item_modifier_groups', 'modifier_options', 'modifier_groups',
   'menu_items', 'menu_categories', 'outlet_hours', 'outlets',
   'request_types', 'shift_zones', 'shifts',
@@ -274,7 +274,7 @@ async function main(): Promise<void> {
       outletId: provisioned.outletId,
       categories: KESARI_CATEGORIES,
       items: KESARI_MENU,
-      collections: KESARI_COLLECTIONS,
+      collections: [...KESARI_COLLECTIONS, ...KESARI_DEMO_COLLECTIONS],
       modifierGroups: KESARI_MODIFIER_GROUPS,
     });
 

@@ -11,7 +11,6 @@ import { formatMoney } from '@/lib/money';
 import {
   formatCheckoutShort, formatFolioDate, formatMinutes, nightsUntil, spellCount,
 } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { LiveConsole } from '../live-console';
 import { DeskPanel } from './desk-panel';
 import type { FolioLineView, LateCheckoutView, PanelPermissions } from './desk-panel';
@@ -187,12 +186,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
   };
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="desk"
-    >
+    <>
       <div className={styles.desk}>
         <header className={styles.head}>
           <h1 className={styles.title}>Front desk</h1>
@@ -443,7 +437,7 @@ export default async function FrontDesk({ searchParams }: { searchParams: Search
           />
         </div>
       </div>
-    </AdminShell>
+    </>
   );
 }
 

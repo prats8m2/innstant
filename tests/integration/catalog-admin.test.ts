@@ -8,7 +8,8 @@ import {
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours, getOutletHours,
   outletOpenState, listCollections, createCollection, updateCollection,
-  archiveCollection, setCollectionItems,
+  archiveCollection, setCollectionItems, startTodaysSpecial, addDishToCollection,
+  TODAYS_SPECIAL,
   listModifierGroupsForAdmin, createModifierGroup, updateModifierGroup,
   archiveModifierGroup, createModifierOption, updateModifierOption,
   archiveModifierOption, setMenuItemAvailabilityWindows,
@@ -958,6 +959,156 @@ describe('catalog admin', () => {
       const events = await scoped((tx) => readEventHistory(tx, 'collection', id));
       expect(events.map((e) => e.event_type))
         .toEqual(['collection.created', 'collection.archived']);
+    });
+
+    /* ── On a schedule (D-084) ─────────────────────────────────────────── */
+
+    // A real date, so the date rules have something to test against.
+    const menuOn = (date: string, hhmm: string) => {
+      const [h, m] = hhmm.split(':').map(Number) as [number, number];
+      const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
+      return scoped((tx) => getInRoomDiningMenu(tx, a.propertyId, {
+        dayOfWeek, minutes: h * 60 + m, date,
+      }));
+    };
+    const titlesOn = async (date: string, hhmm: string) =>
+      (await menuOn(date, hhmm))!.sections.map((s) => s.title);
+
+    it('runs only on its days of the week', async () => {
+      const categoryId = await aCategory('Brunch');
+      const dish = await aDish(categoryId, 'Poha');
+      const id = await aCollectionWith('Weekend brunch', [dish], {
+        availableFrom: '11:00', availableUntil: '15:30',
+      });
+      await scoped((tx) => updateCollection(tx, {
+        ...base(), collectionId: id, name: 'Weekend brunch',
+        availableFrom: '11:00', availableUntil: '15:30', daysOfWeek: [0, 6],
+      }));
+
+      expect(await titlesOn('2026-10-31', '12:00')).toContain('Weekend brunch'); // Saturday
+      expect(await titlesOn('2026-10-28', '12:00')).not.toContain('Weekend brunch'); // Wednesday
+      expect(await titlesOn('2026-10-31', '16:00')).not.toContain('Weekend brunch');
+    });
+
+    it('runs only between its dates', async () => {
+      const categoryId = await aCategory('Festive');
+      const dish = await aDish(categoryId, 'Ghevar');
+      await scoped(async (tx) => {
+        const { id } = await createCollection(tx, {
+          ...base(), name: 'Diwali', startsOn: '2026-11-01', endsOn: '2026-11-05',
+        });
+        await setCollectionItems(tx, {
+          tenantId: a.tenantId, outletId: a.outletId, collectionId: id, menuItemIds: [dish],
+        });
+      });
+
+      expect(await titlesOn('2026-10-31', '20:00')).not.toContain('Diwali');
+      expect(await titlesOn('2026-11-01', '20:00')).toContain('Diwali');
+      expect(await titlesOn('2026-11-05', '20:00')).toContain('Diwali');
+      expect(await titlesOn('2026-11-06', '20:00')).not.toContain('Diwali');
+    });
+
+    it('refuses a schedule that cannot mean anything', async () => {
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Never', daysOfWeek: [],
+      }))).rejects.toBeInstanceOf(ValidationError);
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Day eight', daysOfWeek: [7],
+      }))).rejects.toBeInstanceOf(ValidationError);
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Backwards', startsOn: '2026-11-05', endsOn: '2026-11-01',
+      }))).rejects.toBeInstanceOf(ValidationError);
+      await expect(scoped((tx) => createCollection(tx, {
+        ...base(), name: 'Not a date', startsOn: '2026-02-30',
+      }))).rejects.toBeInstanceOf(ValidationError);
+
+      // All seven days is every day, stored as such.
+      const { id } = await scoped((tx) => createCollection(tx, {
+        ...base(), name: 'All week', daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      }));
+      expect((await collections()).find((c) => c.id === id)!.daysOfWeek).toBeNull();
+    });
+
+    it('starts today\'s special in one tap, at the top, for today only', async () => {
+      const categoryId = await aCategory('Mains');
+      const dish = await aDish(categoryId, 'Safed maas');
+      await aCollectionWith('Already here', [dish]);
+
+      const first = await scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-28' }));
+      expect(first).toMatchObject({ created: true, rolledOver: false });
+
+      // Empty, so nobody sees it yet: an empty collection is skipped.
+      expect(await titlesOn('2026-10-28', '20:00')).not.toContain(TODAYS_SPECIAL);
+
+      const added = await scoped((tx) => addDishToCollection(tx, {
+        ...base(), collectionId: first.id, menuItemId: dish,
+      }));
+      expect(added).toMatchObject({ added: true, dish: 'Safed maas' });
+
+      // Now it leads the menu, today, and not tomorrow.
+      expect((await titlesOn('2026-10-28', '20:00'))[0]).toBe(TODAYS_SPECIAL);
+      expect(await titlesOn('2026-10-29', '20:00')).not.toContain(TODAYS_SPECIAL);
+
+      // Tapping again today is the same special, dishes and all.
+      const again = await scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-28' }));
+      expect(again).toEqual({ id: first.id, created: false, rolledOver: false });
+      expect((await collections()).find((c) => c.id === first.id)!.items).toHaveLength(1);
+    });
+
+    it('rolls yesterday\'s special forward to today, emptied', async () => {
+      const categoryId = await aCategory('Mains');
+      const dish = await aDish(categoryId, 'Yesterday fish');
+      const yesterday = await scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-27' }));
+      await scoped((tx) => addDishToCollection(tx, {
+        ...base(), collectionId: yesterday.id, menuItemId: dish,
+      }));
+
+      const today = await scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-28' }));
+      expect(today).toEqual({ id: yesterday.id, created: false, rolledOver: true });
+
+      const found = (await collections()).find((c) => c.id === today.id)!;
+      expect(found).toMatchObject({ startsOn: '2026-10-28', endsOn: '2026-10-28' });
+      // Last Tuesday's fish does not quietly become this Tuesday's special.
+      expect(found.items).toEqual([]);
+    });
+
+    it('makes one special from two simultaneous taps', async () => {
+      const results = await Promise.all([
+        scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-28' })),
+        scoped((tx) => startTodaysSpecial(tx, { ...base(), today: '2026-10-28' })),
+      ]);
+      expect(results.filter((r) => r.created)).toHaveLength(1);
+      expect(results[0]!.id).toBe(results[1]!.id);
+      expect((await collections()).filter((c) => c.name === TODAYS_SPECIAL)).toHaveLength(1);
+    });
+
+    it('says a dish dropped twice was already there', async () => {
+      const categoryId = await aCategory('Mains');
+      const dish = await aDish(categoryId, 'Twice');
+      const id = await aCollectionWith('Once only', []);
+      const add = () => scoped((tx) => addDishToCollection(tx, {
+        ...base(), collectionId: id, menuItemId: dish,
+      }));
+
+      expect((await add()).added).toBe(true);
+      expect((await add()).added).toBe(false);
+      expect((await collections()).find((c) => c.id === id)!.items).toHaveLength(1);
+
+      const events = await scoped((tx) => readEventHistory(tx, 'collection', id));
+      expect(events.filter((e) => e.event_type === 'collection.dish_added')).toHaveLength(1);
+    });
+
+    it('will not drop a dish into another property\'s collection', async () => {
+      const categoryId = await aCategory('Mains');
+      const dish = await aDish(categoryId, 'Ours');
+      const id = await aCollectionWith('Ours too', []);
+      await expect(withTenant(
+        { tenantId: b.tenantId, propertyId: b.propertyId },
+        (tx) => addDishToCollection(tx, {
+          tenantId: b.tenantId, propertyId: b.propertyId, outletId: b.outletId,
+          collectionId: id, menuItemId: dish, actorStaffId: staff,
+        }),
+      )).rejects.toBeInstanceOf(NotFoundError);
     });
 
     it('will not edit a collection through another property\'s outlet', async () => {

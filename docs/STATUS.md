@@ -21,6 +21,117 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**The admin console revamp is under way, and none of it is deployed.**
+Production is unchanged since 25 October (`eae60bd`, see below). Everything
+in this section is on `main` locally, ahead of `origin/main` and not pushed,
+and was checked against the local database (Environment notes). Three
+migrations are NEW and not on production: `0010_collection_schedule`,
+`0011_menu_offers` and `0012_daily_limits`. Run `pnpm db:migrate` before
+deploying any of this.
+
+What landed, in the order the user asked for it:
+
+1. **The console on a phone** (`5ca5768`). Below 1024px the rail becomes a
+   sticky top bar plus a drawer, every destination has a lucide mark, and
+   the bell is rendered once beside the property name.
+2. **Menu studio, step 1** (`9a397cd`, D-083). A drag-and-drop board, inline
+   prices, a real on/off switch, search and filters, and the guest's own
+   menu in a phone frame at any date and time.
+3. **Photos and the preview toggle** (`38ae3cc`). Dish photos on every web
+   guest screen over the drawn arch; the preview opens only when asked.
+4. **Menu studio, step 2: menus on a schedule** (`5618b9a`, D-084, migration
+   0010). Days and dates on collections, one-tap Today's special, a strip
+   of schedule cards on the board that a dish can be dropped onto.
+5. **Menu studio, step 3: offers** (`aabc59a`, D-085, migration 0011).
+   Automatic % or ₹ off a dish, a section or the menu, on a schedule. Never
+   stacked; struck-through on the guest's card; snapshotted on the receipt.
+6. **Menu studio, step 4** (`e993db4`, D-086, migration 0012). Daily limits
+   claimed atomically at placement (cannot oversell, tested with two guests
+   at once), duplicate a dish, a section's prices in one go, and a "needs
+   attention" strip.
+
+7. **The console's busiest screens on phones and tablets** (`a2f0812`,
+   `1f0b34b`, `8e388f1`). Overview 2×2 with marks and the stale "folio not
+   built" tile gone; Rooms filters and two-line room cards (7,891px → about
+   5,000, no sideways scroll); desk rows that keep the guest's name; the dish
+   form no longer wider than the phone; general rows two lines not three;
+   44px controls on touch screens; no gap under the top bar on short pages;
+   the bell's hydration mismatch fixed.
+
+8. **A real console layout** (`5d9fc0d`). Sign-in and invite moved to a
+   `(staff-auth)` route group (same URLs) so the console has a `layout.tsx`;
+   the rail renders once and the bell no longer reconnects on every click.
+   Loading screens were built and REMOVED: behind Suspense the page sat
+   twice in the DOM for up to a second and the board answered the keyboard
+   late (four e2e tests caught it). Malformed guest/dish ids are 404s, but
+   a soft 404 (status 200) now that pages stream inside the layout.
+9. **Edit a dish beside the board** (`59a3926`): `?dish=<id>` opens the
+   dish form in a side panel; the full page stays for old links.
+10. **Property editor and desk tables on a phone** (`c487cb6`).
+11. **An overview that says how the day is going** (`49d0472`): sales
+    against yesterday by this time, orders by the hour (chart), the
+    kitchen's rail, top dishes, the menu right now. New ordering service
+    `daySummary()`, in the hotel's day via `AT TIME ZONE`.
+12. **Preview and overview fixes** (`777af8f`): the menu preview had been
+    picked up by the console layout (the console's top bar showed inside
+    the phone frame); it now lives in `(staff-bare)`. Any page that must
+    not get the console layout goes there. The overview's figures scale
+    with their tile (container query) and use the body sans with tabular
+    figures, so ₹ sales no longer overflow at 1280–1920px.
+    The guest menu's section pill (`8311275`) sits on its chip again; it
+    was 12px off and left the chip once the rail scrolled.
+
+All of the above is on branch `feat/admin-revamp-menu-studio`, PR #1, not
+`main`. The user's rule: never push to `main`; a PR and their thumbs-up.
+Commits are authored as `amitcse09` (repo-local git config, set at the
+user's request); the branch was rewritten once to make that true and
+force-pushed. A backup of the pre-rewrite tip is the local branch
+`backup/before-author-rewrite` and can be deleted once PR #1 is merged.
+
+### Next
+
+- Not done, and why: console loading skeletons need the shell moved into a
+  route-group layout (every console page renders its own `AdminShell`), so a
+  `loading.tsx` today would blank the rail on every navigation. That is a
+  restructuring to agree first. The stylesheet split (Phase 2) is
+  housekeeping with no visible change; left for a reviewed session.
+- The rest of the admin portal, in progress: per-screen phone layouts (Rooms is
+  7,900px tall on a phone; the dish form scrolls sideways at 390px), the
+  36px touch targets, skeletons for the console, and the stylesheet split.
+
+Done since: dish photos on every web guest screen, and the preview is now
+a toggle, closed by default. Still open from D-083: `/p/[code]/menu` is a
+separate copy of the markup rather than `MenuView`.
+
+The e2e test "opens a dish, prices the choice live" is flaky on both
+projects: it fails 5 runs in 6 on `5965da1`, before the photo change, on its
+last line, which asserts no `role="alert"` has text. Next's route announcer
+is that alert, and it reads out the page title after a client navigation.
+The assertion predates the announcer having anything to say. It joins the
+list below. (An earlier "three runs each" comparison was against a stale
+server; see Environment notes.)
+
+### The e2e suite was already red, and nothing knew
+
+With no CI running, 21 tests in `tests/e2e/smoke.spec.ts` had drifted. They
+fail identically on `7aea4e3`, before any menu work: the same suite was run
+on that commit in a worktree and the failure lists compared. None of them
+are menu tests. Every menu, collections, option-group and bell test passes
+on both projects. The failing ones:
+
+    an unusable code is a bare 404           (the app now serves a page)
+    a scanned sticker ×3                     (browse menu, dish 404, add)
+    asking for things ×3
+    the floor board · routing a request · the request catalog promise
+    room 210 · your stay · a charging hold · settling up · the building
+    the kitchen display (desktop; flaky on mobile)
+
+Fix these as their own piece of work, starting with the first, whose
+assertion predates the friendly 404 page.
+
+### Production, as of 25 October
+
+
 **Production is CURRENT and carries the whole redesign.** Deployed 25 October
 2026 from `eae60bd`, and the demo tenant reseeded the same day. No migration:
 phases 1 to 4 were deliberately schema-free, so production is still on
@@ -97,8 +208,11 @@ seventeen dishes still need photographing, which no amount of code finishes.
    photography. `docs/APP-REDESIGN-PLAN.md` carries the argument.
 2. **A real SMS provider**, which deletes `OTP_DEMO_CODE`. Until then anybody
    who knows a phone number can sign in as that person on production.
-3. **A git remote.** Still none, so CI never runs and `railway up` ships the
-   working tree rather than a commit. Carried for six sessions.
+3. **CI that actually runs.** There is a remote now (`origin`, GitHub, per
+   `pnpm status` on 26 October), and the workflow file is there. But 21 e2e
+   failures had built up unseen (see the top of Now), so either CI is not
+   running on push or nobody is reading it. Check that before trusting a
+   green tick. `railway up` still ships the working tree, not a commit.
 4. Ratings, offers and a rider map were each argued about and deferred —
    see the plan. None of them has become a better idea.
 
@@ -110,6 +224,9 @@ disagrees with this file, it is right and this file is stale.
 
 | Session | Commit | What landed |
 |---|---|---|
+| C1 | `9a397cd` | The menu studio, step 1 (D-083). `/admin/menu` is a board: sections and dishes drag by a handle (mouse, touch or keyboard), price is an inline cell behind `catalog:pricing` alone, and tonight's on/off is a real switch. A drop posts the whole arrangement to `arrangeMenu()`, which refuses a stale one; the rules are a pure `planArrangement()` with 10 unit tests. Beside the board is the guest's own menu in a phone frame, at any day and time: the guest screen's markup moved into `MenuView`, which both the guest route and `/admin/menu/preview` render. Found that `@dnd-kit`'s keyboard helper, unscoped, stepped onto dish rows, so six presses moved a section three places. Found that the e2e suite had 21 failures nobody knew about. |
+| C1 | `0eb3730` | `outputFileTracingRoot` pinned to the repo. A stray lockfile in a home directory had moved the standalone `server.js`, and `pnpm start` (and so the whole e2e suite) found nothing. |
+| C1 | `5ca5768` | The console on a phone: a sticky top bar and a drawer below 1024px instead of a sideways-scrolling strip that showed four of twelve destinations. lucide marks on every destination, the bell rendered once, Housekeeping under Floor screens. |
 | P6 | `cac2753` | Phase 1 of the app redesign, finished: modifier selection rises as a bottom sheet over the menu, skeletons in the shape of home, the menu, the orders list and the dish, pull-to-refresh on all three lists, and haptics on exactly three events. The selection rules moved into `useDishChoice()` so the sheet and the deep-linkable `/dish/:id` screen cannot disagree about which option replaces its siblings. The footer had to become a `BottomSheetFooter`: the sheet's content container is as tall as its LARGEST snap point, so a pinned footer at the bottom of a `flex: 1` child sat a third of a screen below the fold — visible in a screenshot, invisible to tsc. `--dur-shimmer` is a new token on both sides of the hand-kept copy, the one duration outside the 180–320 band because it times a loop rather than a transition. |
 | P6 | `4940194` | Phase 1, first half: the bottom tab bar — Order, Orders, Account — and dish photography on the home and menu rows through one `DishPhoto` wrapper over `expo-image`, blurhash-ready. Search is deliberately NOT a tab until there is an endpoint behind it. |
 | P6 | `0c47914` | Stand-in dish photography seeded from `kesari-menu.ts`, so the redesign has something to lay out while the real shoot is organised. |
@@ -211,6 +328,47 @@ The things that still belong in a status file:
 ---
 
 ## Environment notes
+
+**Two GitHub accounts are logged in to `gh`** on this laptop: `amitcse09`
+(push to `prats8m2/innstant`) and `amit-velotio` (read-only there). A
+push that answers 403 means the active one changed: `gh auth switch -h
+github.com -u amitcse09`. This repo's commits are authored by a repo-local
+`user.email` (amitcse09's no-reply address); the global one is Velotio's.
+
+**A built server outlives `pkill -f server.js`.** Next renames its process
+to `next-server (v15.x)`, so a pattern on the command line never matches it.
+A stale one on :3200 served an OLD build, every new one silently failed to
+bind, and an hour of e2e results were against a page with no JavaScript (its
+static files answered 400). Stop servers by port: `lsof -ti tcp:3200 | xargs
+kill`. Starting one by hand after sourcing `.env` also needs
+`NODE_ENV=production`, because `.env` says development.
+
+**Running e2e locally: use a production build, never the dev server.**
+`PORT=3200 APP_URL=http://localhost:3200 NEXT_DIST_DIR=.next-e2e pnpm test:e2e`.
+Against `next dev` the first visit to a route compiles it, a hot-reload
+"Compiled" event aborts the browser's navigation, and tests fail with
+`ERR_ABORTED` at 30s for no reason in the code. The suite reseeds whatever
+`DATABASE_URL` points at, which here is the local database. After a build,
+`git checkout next-env.d.ts`: the build rewrites it to point at `.next-e2e`.
+
+**A local database now exists on this laptop (26 October 2026).** It is the
+Homebrew Postgres 14 already running on `localhost:5432`, which also holds
+unrelated projects' databases. Only two things were added: a `guest_services`
+database and the roles `innstant_owner` (migrations) and `app_user` (the app,
+created by `pnpm db:bootstrap`, RLS-subject). The URLs are in the gitignored
+`.env`, with random passwords. CI and production run Postgres 18; all ten
+migrations apply cleanly on 14.
+
+`innstant_owner` is a SUPERUSER, and that is required, not a shortcut.
+`demo:reset` and the integration fixtures `SET session_replication_role`, which
+needs a superuser. The comment in `demo-reset.ts` calls it "owner-only", but
+that is wrong. The `SECURITY DEFINER` lookups also need the owner to bypass
+forced RLS, as `postgres` does on Railway. Point `.env` at the real database
+when you have it; the local one can stay for development.
+
+The default shell Node here is 20.14, which cannot run pnpm 11 (`node:sqlite`).
+Use `PATH="$HOME/.nvm/versions/node/v22.22.2/bin:$PATH"`. Playwright's
+Chromium was installed for screenshots; WebKit is still not usable locally.
 
 **SecureStore no-ops on the Expo web target.** Both tokens live in memory
 there, so a full page reload drops them and the app opens a fresh anonymous

@@ -30,6 +30,9 @@
     "bundle:static": "D=${NEXT_DIST_DIR:-.next}; rm -rf $D/standalone/$D/static $D/standalone/public && cp -r $D/static $D/standalone/$D/static && cp -r public $D/standalone/public 2>/dev/null || true"
   },
   "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
     "@node-rs/argon2": "^2.1.0",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.47.0",

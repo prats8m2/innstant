@@ -5,7 +5,6 @@ import {
   getInRoomDiningOutlet, getOutletSettings, outletOpenState, describeOpenState,
 } from '@/modules/catalog';
 import { localTimeAt, formatClock } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { OutletSettingsForm, OutletHoursForm } from './outlet-forms';
 import styles from '../admin.module.css';
 
@@ -37,14 +36,12 @@ export default async function OutletAdmin() {
     },
   );
 
-  const propertyName = property?.name ?? 'This property';
-
   if (!outlet) {
     return (
-      <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="outlet">
+      <>
         <h1 className={styles.title}>The kitchen</h1>
         <p className={styles.empty}>No in-room dining outlet is configured here.</p>
-      </AdminShell>
+      </>
     );
   }
 
@@ -56,7 +53,7 @@ export default async function OutletAdmin() {
   );
 
   return (
-    <AdminShell session={session} propertyId={propertyId} propertyName={propertyName} current="outlet">
+    <>
       <h1 className={styles.title}>The kitchen</h1>
       <p className={styles.lede}>
         A guest looking at the menu right now reads: <strong>{guestLine}</strong>
@@ -88,6 +85,6 @@ export default async function OutletAdmin() {
         snapshots the price it charged and the totals are stored on the order
         itself. Tonight&rsquo;s receipts stay tonight&rsquo;s receipts.
       </p>
-    </AdminShell>
+    </>
   );
 }

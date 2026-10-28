@@ -6,8 +6,11 @@ import {
   menuItemAvailabilityWindows,
 } from '@/db/schema/catalog';
 import {
-  isWithinWindow, isItemOnNow, type OutletHoursDay, type ItemAvailabilityWindow,
+  isCollectionLive, isItemOnNow, type OutletHoursDay, type ItemAvailabilityWindow,
 } from './hours';
+import { bestOffer, type MenuOffer } from './offers';
+import { offersForOutlet } from './offers-read';
+import { portionsLeftToday } from './daily-limits';
 import type { LocalTime } from '@/lib/clock';
 
 /**
@@ -41,6 +44,20 @@ export interface MenuDish {
   prepTimeMinutes: number | null;
   imageUrl: string | null;
   blurhash: string | null;
+  /**
+   * D-085. Set when an offer is live for this dish: `priceMinor` is then the
+   * price AFTER it, and this is the price before, for the card to strike
+   * through. Null when no offer applies, which is most of the time.
+   */
+  listPriceMinor: number | null;
+  /** The offer that set `priceMinor`, as the card names it ("20% off"). */
+  offer: { name: string; label: string } | null;
+  /**
+   * D-086. Portions left today for a dish with a daily limit; null for the
+   * many dishes without one. At 0 the dish is also `isAvailable: false`, and
+   * the card says "sold out today" rather than the general "not available".
+   */
+  remainingToday: number | null;
   /**
    * Whether the menu LIST can add this straight to the cart, or has to send
    * the guest into the dish to answer something first.
@@ -257,14 +274,25 @@ async function buildMenu(
    */
   const needsAChoice = await dishesNeedingAChoice(tx, dishes.map((d) => d.id));
 
+  // D-085. The same bestOffer() the cart and placeOrder() price with, so the
+  // card and the bill cannot name different offers.
+  const offers = await offersForOutlet(tx, input.outletId);
+
+  // D-086. A dish whose day's portions are gone is off, like an 86.
+  const portions = input.at.date
+    ? await portionsLeftToday(tx, { itemIds: dishes.map((d) => d.id), businessDate: input.at.date })
+    : new Map<string, { limit: number; left: number }>();
+
   const byId = new Map<string, MenuDish>(
     dishes.map((d) => [d.id, {
       id: d.id,
       name: d.name,
       description: d.description,
-      priceMinor: d.priceMinor,
+      ...priceWithOffer(offers, d, input.at),
       currency: d.currency,
-      isAvailable: d.isAvailable && isItemOnNow(schedules.get(d.id) ?? [], input.at),
+      isAvailable: d.isAvailable && isItemOnNow(schedules.get(d.id) ?? [], input.at)
+        && (portions.get(d.id)?.left ?? 1) > 0,
+      remainingToday: portions.get(d.id)?.left ?? null,
       // jsonb comes back as unknown; the column defaults to '[]' and is only
       // ever written as an array of flag strings.
       dietaryFlags: Array.isArray(d.dietaryFlags) ? (d.dietaryFlags as string[]) : [],
@@ -286,6 +314,9 @@ async function buildMenu(
       editorialNote: collections.editorialNote,
       availableFrom: collections.availableFrom,
       availableUntil: collections.availableUntil,
+      daysOfWeek: collections.daysOfWeek,
+      startsOn: collections.startsOn,
+      endsOn: collections.endsOn,
     })
     .from(collections)
     .where(and(
@@ -301,10 +332,12 @@ async function buildMenu(
      *
      * Filtered in memory rather than in SQL: the comparison crosses midnight,
      * which is three clauses and a `crosses_midnight`-shaped argument in SQL and
-     * one tested function here (`isWithinWindow`). There are at most a handful
+     * one tested function here (`isCollectionLive`). There are at most a handful
      * of collections per outlet.
      */
-    .filter((c) => isWithinWindow(c.availableFrom, c.availableUntil, input.at));
+    // And since D-084 the days and the dates, through one function that knows
+    // a late window belongs to the day it started.
+    .filter((c) => isCollectionLive(c, input.at));
 
   if (activeCollections.length) {
     const memberships = await tx
@@ -578,6 +611,8 @@ export async function getDish(
       prepTimeMinutes: menuItems.prepTimeMinutes,
       imageUrl: menuItems.imageUrl,
       blurhash: menuItems.blurhash,
+      categoryId: menuItems.categoryId,
+      outletId: menuItems.outletId,
       outlet: OUTLET_COLUMNS,
     })
     .from(menuItems)
@@ -654,14 +689,24 @@ export async function getDish(
     });
   }
 
+  // Without a time there is no "now" for an offer to be live in: the console
+  // reading a dish sees its list price, which is what it edits.
+  const offers = input.at ? await offersForOutlet(tx, row.outletId) : [];
+  const portions = input.at?.date
+    ? (await portionsLeftToday(tx, { itemIds: [row.id], businessDate: input.at.date })).get(row.id)
+    : undefined;
+
   return {
     dish: {
       id: row.id,
       name: row.name,
       description: row.description,
-      priceMinor: row.priceMinor,
+      ...(input.at
+        ? priceWithOffer(offers, row, input.at)
+        : { priceMinor: row.priceMinor, listPriceMinor: null, offer: null }),
       currency: row.currency,
-      isAvailable: row.isAvailable && onNow,
+      isAvailable: row.isAvailable && onNow && (portions?.left ?? 1) > 0,
+      remainingToday: portions?.left ?? null,
       dietaryFlags: Array.isArray(row.dietaryFlags) ? (row.dietaryFlags as string[]) : [],
       spiceLevel: row.spiceLevel,
       prepTimeMinutes: row.prepTimeMinutes,
@@ -688,7 +733,11 @@ export async function getDish(
 export interface CartPricing {
   items: Map<string, {
     name: string;
+    /** After any live offer (D-085). What the guest pays for the dish. */
     priceMinor: number;
+    /** Before the offer, and which offer, for the receipt's snapshot (#6). */
+    listPriceMinor: number | null;
+    offer: { id: string; name: string } | null;
     currency: string;
     isAvailable: boolean;
     /** For `order_items.image_url_snapshot` — a receipt shows the dish as it
@@ -738,6 +787,8 @@ export async function getCartPricing(
         currency: menuItems.currency,
         isAvailable: menuItems.isAvailable,
         imageUrl: menuItems.imageUrl,
+        categoryId: menuItems.categoryId,
+        outletId: menuItems.outletId,
       })
       .from(menuItems)
       .where(and(
@@ -745,17 +796,44 @@ export async function getCartPricing(
         inArray(menuItems.id, [...input.itemIds]),
         isNull(menuItems.archivedAt),
       ));
+
+    /*
+     * D-085. Offers apply only with a time, which every guest path passes
+     * (placeOrder() computes its own, so no caller can forget). Without one
+     * there is no "now" for an offer to be live in, and the list price
+     * stands. A cart's dishes are from one outlet; the map is per outlet so
+     * that is an assumption, not a requirement.
+     */
+    // D-086. Sold out today prices as unavailable, so the cart's total and
+    // placeOrder()'s check agree with the card. The CLAIM, which is what
+    // actually stops an oversell, happens at placement.
+    const portions = input.at?.date
+      ? await portionsLeftToday(tx, { itemIds: rows.map((r) => r.id), businessDate: input.at.date })
+      : new Map<string, { limit: number; left: number }>();
+
+    const offersByOutlet = new Map<string, Awaited<ReturnType<typeof offersForOutlet>>>();
+    if (input.at) {
+      for (const outletId of new Set(rows.map((r) => r.outletId))) {
+        offersByOutlet.set(outletId, await offersForOutlet(tx, outletId));
+      }
+    }
     const schedules = input.at
       ? await windowsByItem(tx, rows.map((r) => r.id))
       : new Map<string, ItemAvailabilityWindow[]>();
 
     for (const r of rows) {
+      const applied = input.at
+        ? bestOffer(offersByOutlet.get(r.outletId) ?? [], r, input.at)
+        : null;
       items.set(r.id, {
         name: r.name,
-        priceMinor: r.priceMinor,
+        priceMinor: applied?.priceMinor ?? r.priceMinor,
+        listPriceMinor: applied?.listPriceMinor ?? null,
+        offer: applied ? { id: applied.offerId, name: applied.name } : null,
         currency: r.currency,
         isAvailable: r.isAvailable
-          && (!input.at || isItemOnNow(schedules.get(r.id) ?? [], input.at)),
+          && (!input.at || isItemOnNow(schedules.get(r.id) ?? [], input.at))
+          && (portions.get(r.id)?.left ?? 1) > 0,
         imageUrl: r.imageUrl,
       });
     }
@@ -840,4 +918,20 @@ async function dishesNeedingAChoice(
              OR ${defaultsAvailable} > ${modifierGroups.maxSelections}`);
 
   return new Set(rows.map((r) => r.menuItemId));
+}
+
+/** A dish's price, after the best live offer if there is one (D-085). */
+function priceWithOffer(
+  offers: readonly MenuOffer[],
+  dish: { id: string; categoryId: string; priceMinor: number; currency: string },
+  at: LocalTime,
+): Pick<MenuDish, 'priceMinor' | 'listPriceMinor' | 'offer'> {
+  const applied = bestOffer(offers, dish, at);
+  return applied
+    ? {
+        priceMinor: applied.priceMinor,
+        listPriceMinor: applied.listPriceMinor,
+        offer: { name: applied.name, label: applied.label },
+      }
+    : { priceMinor: dish.priceMinor, listPriceMinor: null, offer: null };
 }

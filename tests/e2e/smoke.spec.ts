@@ -640,7 +640,8 @@ test.describe('the menu editor', () => {
 
     const dish = ownDish();
     await admin.getByRole('link', { name: dish }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
 
     const price = admin.locator('input[name="price"]');
     const before = await price.inputValue();
@@ -662,7 +663,8 @@ test.describe('the menu editor', () => {
 
     // And the reprice is in the audit trail, with both numbers.
     await admin.getByRole('link', { name: dish }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
     // `.first()` — the suite is repeatable, so this dish accumulates reprices.
     await expect(admin.getByText(/Repriced from ₹/).first()).toBeVisible({ timeout: 20_000 });
 
@@ -682,11 +684,17 @@ test.describe('the menu editor', () => {
       const name = ownDish();
       const row = () => page.locator('li').filter({ hasText: name }).first();
 
-      await row().getByRole('button', { name: 'Take off' }).click();
-      await expect(row()).toContainText('off tonight', { timeout: 20_000 });
+      // The menu studio's switch (role="switch"), not a "Take off" button.
+      const tonight = row().getByRole('switch', { name: `${name} on the menu tonight` });
+      await expect(tonight).toHaveAttribute('aria-checked', 'true', { timeout: 20_000 });
 
-      await row().getByRole('button', { name: 'Put back on' }).click();
+      await tonight.click();
+      await expect(row()).toContainText('off tonight', { timeout: 20_000 });
+      await expect(tonight).toHaveAttribute('aria-checked', 'false');
+
+      await tonight.click();
       await expect(row()).not.toContainText('off tonight', { timeout: 20_000 });
+      await expect(tonight).toHaveAttribute('aria-checked', 'true');
     });
 
   test('will not archive a section while it still holds dishes', async ({ page }) => {
@@ -701,6 +709,62 @@ test.describe('the menu editor', () => {
     });
   });
 
+  test('moves a section by keyboard, and the guest menu follows', async ({ page, browser }) => {
+    // One menu, shared by every project running at once: two projects moving
+    // Sweets up together see it move two places. Run it in one of them.
+    test.skip(test.info().project.name !== 'staff-desktop', 'one shared menu');
+    await signInAsFnb(page);
+
+    const boardOrder = () => page.locator('main section h2').evaluateAll(
+      (hs) => hs.map((h) => h.childNodes[0]?.textContent?.trim() ?? ''),
+    );
+    const before = await boardOrder();
+    const at = before.indexOf('Sweets');
+    expect(at).toBeGreaterThan(0);
+
+    // The handle is the drag, and the keyboard is a first-class way to use
+    // it: space lifts, an arrow moves one section, space drops.
+    const handle = page.getByRole('button', { name: 'Move section Sweets' });
+    await handle.focus();
+    await page.keyboard.press('Space');
+    // A frame between keys: the sensor measures the lifted section first.
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Space');
+    // By its text: dnd-kit keeps its own role="status" live region on the page.
+    await expect(page.getByText('Menu order saved.')).toBeVisible({ timeout: 20_000 });
+
+    await page.reload();
+    const after = await boardOrder();
+    expect(after.indexOf('Sweets')).toBe(at - 1);
+
+    // The guest's own menu reads the same order: the section that was above
+    // Sweets is below it now.
+    const above = before[at - 1]!;
+    const phone = await browser.newContext();
+    const guest = await phone.newPage();
+    const code = seed!.qrCodes['105'];
+    await guest.goto(`/r/${code}`);
+    await guest.goto(`/r/${code}/menu`);
+    const titles = await guest.locator('section h2').allTextContents();
+    expect(titles.indexOf('Sweets')).toBeLessThan(titles.indexOf(above));
+    await phone.close();
+
+    // Put it back, so the suite is repeatable.
+    await page.getByRole('button', { name: 'Move section Sweets' }).focus();
+    await page.keyboard.press('Space');
+    // A frame between keys: the sensor measures the lifted section first.
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Space');
+    // By its text: dnd-kit keeps its own role="status" live region on the page.
+    await expect(page.getByText('Menu order saved.')).toBeVisible({ timeout: 20_000 });
+    await page.reload();
+    expect(await boardOrder()).toEqual(before);
+  });
+
   test('a kitchen account can 86 a dish and nothing more', async ({ page }) => {
     // KITCHEN holds catalog:availability but not catalog:manage — the whole
     // point of splitting them (permissions.ts). The screen must reflect that
@@ -712,7 +776,7 @@ test.describe('the menu editor', () => {
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
     await page.goto('/admin/menu');
-    await expect(page.getByRole('button', { name: 'Take off' }).first())
+    await expect(page.getByRole('switch').first())
       .toBeVisible({ timeout: 25_000 });
     await expect(page.getByRole('button', { name: 'Remove' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Archive section' })).toHaveCount(0);
@@ -984,6 +1048,91 @@ test.describe('collections', () => {
     await expect(section.getByRole('alert').filter({ hasText: /\S/ }))
       .toContainText(/both a start and an end/i, { timeout: 20_000 });
   });
+
+  test('an offer prices the guest menu while it runs, and stops when it ends',
+    async ({ page, browser }) => {
+      // Offers are per outlet and every project shares the demo's one.
+      test.skip(test.info().project.name !== 'staff-desktop', 'one outlet, shared');
+
+      await page.goto('/admin/login');
+      await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+      await page.locator('input[name="password"]').fill('kesari-demo-2026');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+      // D-085: 20% off the Sweets section, today only.
+      await page.goto('/admin/menu/offers');
+      const add = page.locator('details').filter({ hasText: 'Add an offer' });
+      if ((await add.getAttribute('open')) === null) await add.locator('summary').click();
+      await add.getByRole('button', { name: 'Today only' }).click();
+      await add.locator('input[name="name"]').fill('Sweet tooth');
+      await add.locator('input[name="scope"][value="CATEGORY"]').check();
+      await add.locator('select[name="categoryId"]').selectOption({ label: 'Sweets' });
+      await add.locator('input[name="amount"]').fill('20');
+      await add.getByRole('button', { name: 'Add the offer' }).click();
+      const offer = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Sweet tooth' }) });
+      await expect(offer).toContainText('showing now', { timeout: 25_000 });
+
+      // The guest pays ₹304 for a ₹380 dish, and is told why.
+      const phone = await browser.newContext();
+      const guest = await phone.newPage();
+      await guest.goto(`/r/${seed!.qrCodes['214']}`);
+      await guest.goto(`/r/${seed!.qrCodes['214']}/menu`);
+      const card = guest.locator('li').filter({ hasText: 'Mawa kachori' }).first();
+      await expect(card).toContainText('₹304', { timeout: 25_000 });
+      await expect(card).toContainText('₹380');
+      await expect(card).toContainText(/20% off/i);
+
+      // Ended, it is the list price again.
+      await offer.getByRole('button', { name: 'End it' }).click();
+      await expect(page.getByRole('heading', { name: 'Sweet tooth' })).toHaveCount(0, { timeout: 25_000 });
+      await guest.reload();
+      await expect(guest.locator('li').filter({ hasText: 'Mawa kachori' }).first()).not.toContainText('₹304');
+      await phone.close();
+    });
+
+  test('starts today’s special in one tap, and the guest menu leads with it',
+    async ({ page, browser }) => {
+      // One special per outlet, shared by every project running at once: two
+      // projects tapping and archiving the same one would race each other.
+      test.skip(test.info().project.name !== 'staff-desktop', 'one special per outlet');
+
+      await page.goto('/admin/login');
+      await page.locator('input[name="email"]').fill('fnb@thekesari.example');
+      await page.locator('input[name="password"]').fill('kesari-demo-2026');
+      await page.getByRole('button', { name: 'Sign in' }).click();
+      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+      // One tap on the board (D-084). It is dated today and empty.
+      await page.goto('/admin/menu');
+      await page.getByRole('button', { name: /Today.s special/ }).click();
+      await expect(page.getByText(/Today.s special is ready/)).toBeVisible({ timeout: 20_000 });
+      const card = page.getByRole('article', { name: /^Today’s special:/ });
+      await expect(card).toContainText('Today only');
+      await expect(card).toContainText('empty, so not showing');
+
+      // A dish, from its edit form on the collections page.
+      await page.goto('/admin/menu/collections');
+      const section = page.locator('section').filter({
+        has: page.getByRole('heading', { name: 'Today’s special' }),
+      });
+      await section.locator('summary').click();
+      await section.locator(`label:has-text("${ownDish()}") input[type="checkbox"]`).first().check();
+      await section.getByRole('button', { name: 'Save the collection' }).click();
+      await expect(section.getByText(/showing now/)).toBeVisible({ timeout: 25_000 });
+
+      // The guest's menu opens on it.
+      const phone = await browser.newContext();
+      const guest = await phone.newPage();
+      await guest.goto(`/r/${seed!.qrCodes['214']}`);
+      await guest.goto(`/r/${seed!.qrCodes['214']}/menu`);
+      await expect(guest.locator('section h2').first()).toHaveText('Today’s special', { timeout: 25_000 });
+      await phone.close();
+
+      // Archived again, so the next run's tap starts a fresh one.
+      await section.getByRole('button', { name: 'Archive' }).click();
+      await expect(page.getByRole('heading', { name: 'Today’s special' })).toHaveCount(0, { timeout: 25_000 });
+    });
 });
 
 /**
@@ -1106,7 +1255,8 @@ test.describe('option groups', () => {
     // Attach it to a dish, from the dish form — where attachment belongs.
     await admin.goto('/admin/menu');
     await admin.getByRole('link', { name: ownDish() }).click();
-    await admin.waitForURL(/\/admin\/menu\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    // The board opens the dish in its side panel (?dish=…), not a new page.
+    await admin.waitForURL(/\/admin\/menu\?dish=[0-9a-f-]{36}$/, { timeout: 20_000 });
     await admin.locator(`label:has-text("${group}") input[type="checkbox"]`).first().check();
     await admin.getByRole('button', { name: 'Save the dish' }).click();
     await admin.waitForURL(/\/admin\/menu$/, { timeout: 25_000 });
@@ -1235,7 +1385,7 @@ test.describe('the kitchen board', () => {
       // admin menu instead so the guest assertion below still means something.
       await kds.goto('/admin/menu');
       await kds.locator('li').filter({ hasText: dish }).first()
-        .getByRole('button', { name: 'Take off' }).click();
+        .getByRole('switch').click();
       await kds.waitForTimeout(1500);
     }
 
@@ -1251,7 +1401,7 @@ test.describe('the kitchen board', () => {
     // Put it back, so the suite is repeatable.
     await kds.goto('/admin/menu');
     await kds.locator('li').filter({ hasText: dish }).first()
-      .getByRole('button', { name: 'Put back on' }).click();
+      .getByRole('switch').click();
     await expect(kds.locator('li').filter({ hasText: dish }).first())
       .not.toContainText('off tonight', { timeout: 20_000 });
 

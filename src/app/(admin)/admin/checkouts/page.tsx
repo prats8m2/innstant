@@ -4,7 +4,6 @@ import { can, findProperty } from '@/modules/identity';
 import { listCheckoutRequests } from '@/modules/stay';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { formatCheckoutDay } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { CheckoutQueue, type DeskRequestView } from './checkout-queue';
 import styles from '../admin.module.css';
 
@@ -64,12 +63,7 @@ export default async function CheckoutsAdmin() {
   });
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="checkouts"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Leaving</h1>
@@ -95,6 +89,6 @@ export default async function CheckoutsAdmin() {
         three can be true without the others. Declining charges nothing: the fee
         is only ever posted on a yes.
       </p>
-    </AdminShell>
+    </>
   );
 }

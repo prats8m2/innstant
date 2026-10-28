@@ -252,12 +252,12 @@ describe('cart', () => {
       modifierOptionIds: [await optionId(laal, 'As the chef makes it')],
     });
 
-    await owner.query(`UPDATE menu_items SET price_minor = 999_00 WHERE id = $1`, [item]);
+    await owner.query(`UPDATE menu_items SET price_minor = 99900 WHERE id = $1`, [item]);
     try {
       const cart = await read();
       expect(cart!.lines[0]!.unitPriceMinor).toBe(99_900);
     } finally {
-      await owner.query(`UPDATE menu_items SET price_minor = 115_000 WHERE id = $1`, [item]);
+      await owner.query(`UPDATE menu_items SET price_minor = 115000 WHERE id = $1`, [item]);
     }
   });
 

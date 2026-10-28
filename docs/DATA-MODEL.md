@@ -383,13 +383,85 @@ Catalog rows change. Transactional rows must not.
 
 | Table | Snapshotted fields | Live FK kept for |
 |---|---|---|
-| `order_items` | `name_snapshot`, `unit_price_minor`, `image_url_snapshot` | analytics only, `ON DELETE SET NULL` |
+| `order_items` | `name_snapshot`, `unit_price_minor`, `image_url_snapshot`, and under an offer `list_price_minor` + `offer_name_snapshot` (D-085) | analytics only, `ON DELETE SET NULL` (`menu_item_id`, `offer_id`) |
 | `order_item_modifiers` | `name_snapshot`, `price_delta_minor` | analytics only |
 | `service_request_items` | `label_snapshot`, `unit_price_minor` | analytics only |
 | `orders` | `dietary_flags` copied from guest preferences | — |
 
 A dish renamed or repriced next month must not silently rewrite last month's
 receipts. Catalog tables are archived (`archived_at`), never hard-deleted.
+
+### Menus on a schedule: `collections` (D-084, migration 0010)
+
+A collection is a curated view over dishes that leads the guest's menu
+("After 10pm", "Weekend brunch", "Today's special"). When it shows is four
+things, all property-local:
+
+| Column | Meaning | Empty means |
+|---|---|---|
+| `available_from` / `available_until` | a time window; until ≤ from runs past midnight | all day |
+| `days_of_week smallint[]` | 0 = Sunday … 6 = Saturday | every day (NULL; `{}` is refused) |
+| `starts_on` / `ends_on date` | inclusive calendar dates | open-ended |
+
+CHECKs: `collections_days_of_week_valid` (1–7 values, each 0–6) and
+`collections_dates_ordered` (`ends_on >= starts_on`). `date`, not
+`timestamptz`: "the 5th" at a hotel is the 5th where the hotel is, and there
+is no instant to store.
+
+A window past midnight belongs to the day it STARTED: Friday 22:00–01:00 is
+still Friday's at 00:30 on Saturday, by the same rule as
+`outlet_hours.crosses_midnight`. The rule is one function,
+`isCollectionLive()` in `modules/catalog/hours.ts`, and every reader (the
+guest menu, `/api/v1`, the console's preview and its status labels) goes
+through it. `LocalTime` carries the property-local `date` for it; a reader
+without one sees no date-bounded collection rather than the wrong one.
+
+"Today's special" is an ordinary collection, dated today to today and
+created by `startTodaysSpecial()`, which keeps one per outlet (it locks the
+outlet row, so two simultaneous taps make one) and rolls a previous day's
+forward EMPTIED.
+
+### Automatic offers: `menu_offers` (D-085, migration 0011)
+
+Money off the menu, by itself, while an offer is live. No coupon codes.
+**Not `promotions`**, which is reserved for the booking module (#12).
+
+| Column | Meaning |
+|---|---|
+| `scope` | `DISH` (`menu_item_id`), `CATEGORY` (`category_id`) or `MENU`; a CHECK keeps the ids honest to it |
+| `kind` | `PERCENT` (`percent_bps`, 1–10000) or `AMOUNT` (`amount_minor` > 0, in `currency`); a CHECK keeps exactly one set |
+| schedule | the same five columns as a collection, read by the same `isCollectionLive()` |
+
+It comes off the DISH's price, not its modifiers, never below zero, and
+never stacks: `bestOffer()` in `modules/catalog/offers.ts` picks the single
+biggest discount live for a dish (a tie goes to the more specific scope).
+Every price a guest is shown or charged passes through it: the menu read,
+`getDish()`, and `getCartPricing()`, which the cart, `placeOrder()` and
+re-order all price with. `placeOrder()` computes its own time, so no caller
+can forget it.
+
+`order_items.unit_price_minor` is already the price sold at. Under an offer
+the line also snapshots `list_price_minor` and `offer_name_snapshot`, so the
+receipt explains its own price after the offer is renamed or ended. A CHECK
+keeps the pair together and `list_price_minor >= unit_price_minor`.
+
+### Daily limits: `menu_items.daily_limit`, `menu_item_daily_sales` (D-086, migration 0012)
+
+"Only 20 today". `daily_limit` is portions a day (NULL is none, a CHECK
+keeps it positive). `menu_item_daily_sales` counts what has gone, keyed by
+`(menu_item_id, business_date)`, where the date is the hotel's at the
+moment of the order. It is a counter in the catalog module, not a count of
+`order_items`, because that would be a cross-module read (D-001) and a
+count-then-insert race.
+
+`placeOrder()` claims portions inside its own transaction with
+`claimDailyPortions()`: one upsert per limited dish that adds only if the
+total stays within the limit. Two orders for the last portion queue on the
+row lock and exactly one gets it; the other's whole order rolls back with
+"only N left today" (tested in parallel). `advanceOrder()` to REJECTED or
+CANCELLED calls `releaseDailyPortions()` in the same transaction, on the
+date the portions were taken. The menu read, `getDish()` and
+`getCartPricing()` report `remainingToday` and treat 0 as unavailable.
 
 ---
 

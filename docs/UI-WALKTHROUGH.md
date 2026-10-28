@@ -111,25 +111,60 @@ Do this in a **second window** so nothing reloads.
 4. **Handed over** → the guest reads *At your door* and the live indicator
    disappears: nothing more will happen that they need.
 
-## 4 · The menu, editable
+## 4 · The menu studio — `/admin/menu`
 
-Sign in as **fnb@thekesari.example** → `/admin/menu`.
+Sign in as **fnb@thekesari.example** → `/admin/menu`. The board fills the
+page. **Preview** in the page head opens the guest's own screen in a phone
+frame (D-083): beside the board from 1280px wide, over it below that.
 
-- **Change a price.** Click a dish, edit the price, save. Reload the guest menu:
-  the new price is there. Scroll the dish page: *Repriced from ₹620 to ₹680*, in
-  its history.
-- **Take a dish off tonight.** *Take off* on any row. The guest menu shows it as
-  unavailable rather than hiding it. *Put back on* undoes it.
-- **Add a dish** to any section, with modifiers and dietary flags.
-- **Add or rename a section.** Try archiving one that still holds dishes — it
-  refuses and names the count.
+- **Arrange it.** Drag a section by its handle (⋮⋮) to move it. Drag a dish
+  within its section or into another one. The preview reloads with the new
+  order. With the keyboard: Tab to a handle, Space, the arrows, Space.
+- **Change a price.** Click the price on any row, type, press Enter. Escape
+  puts it back. Open the dish and scroll: *Repriced from ₹620 to ₹680*, in
+  its history. Something that is not a price is refused under the cell.
+- **Take a dish off tonight.** Flip its switch. The row says *off tonight* and
+  the guest menu shows it as unavailable rather than hiding it.
+- **Find a dish, or narrow the board.** Search, or the chips: On, Off tonight,
+  Veg, Non-veg, No photo. Dragging is off while the board is narrowed, and
+  the board says so.
+- **See it at another hour.** Breakfast, Lunch, Dinner, Late, or any date and
+  time. *After 10pm* appears at 23:00 and not at 08:00; *Weekend brunch*
+  appears on a Saturday at noon.
+- **Offers** (head of the page, with `catalog:pricing`): money off by itself,
+  no codes (D-085). Start from Happy hour, Today only or Weekends; aim it at
+  the whole menu, one section or one dish; % or ₹ off. The board marks every
+  dish an offer is pricing right now (*20% off now · Happy hour*), and the
+  guest's card shows the new price with the old one struck through. *End it*
+  and the next guest pays the list price; a receipt keeps the offer's name.
+- **Needs attention** appears above the board only when something does:
+  dishes with no photo (*Show them* filters the board to exactly those), an
+  empty section, a schedule that ended but is still on, an ended offer, a
+  dish sold out today.
+- **Only 20 today.** Set *Most portions a day* on a dish's page. The board
+  says *8 of 20 left today*, the guest's card says *Only 3 left today* near
+  the end and *Sold out today* after it, and a rejected order gives its
+  portions back (D-086).
+- **Duplicate** (the copy icon on a row): a copy directly under the
+  original, switched off until you have looked at it.
+- **Change a section's prices** (the % icon on a section): *5* or *-10*,
+  rounded to ₹10, ₹5, ₹1 or exactly. Every new price is listed before
+  *Apply*, and each one is in that dish's history.
+- **Menus on a schedule** sit above the sections: one card per collection,
+  with its schedule and whether it is showing now. **Today's special** is one
+  tap: it appears at the top of the guest's menu as soon as a dish is in it,
+  and ends by itself tonight. Drag any dish onto a card to add it there; it
+  stays in its own section too.
+- **Add a dish** from the head or a section's foot. **Rename or archive a
+  section** with the pencil and box icons. Archiving one that still holds
+  dishes refuses and names the count.
 - **Close the kitchen** (top right) stops new orders immediately, without
   touching the hours.
 
-Sign in as **kitchen@thekesari.example** and open the same page: only the *Take
-off* buttons are there. No prices, no removing, no sections. That split is
-deliberate — a kitchen tablet left signed in overnight is the credential most
-likely to be misused.
+Sign in as **kitchen@thekesari.example** and open the same page: only the
+switches are there. No handles, no editable prices, no removing, no sections.
+That split is deliberate: a kitchen tablet left signed in overnight is the
+credential most likely to be misused.
 
 ## 5 · The kitchen's hours and rates — `/admin/outlet`
 
@@ -148,8 +183,14 @@ As the **GM** or **F&B manager**.
 
 The guest menu's sections **are** these.
 
-- Each heading says whether it is *showing now*, *outside its window* or
-  *switched off* — computed with the same function the guest read uses.
+- Each heading says whether it is *showing now*, *later today · from 22:00*,
+  *not showing today*, *starts 1 Nov*, *ended 5 Nov* or *switched off*,
+  computed with the same function the guest read uses (D-084), with the
+  schedule in words beside it: *Weekends · 11:00–15:30*.
+- **Days and dates.** Untick days to make it a weekend menu; set a first and
+  last day for a festival. It stops by itself after the last day.
+- **Start from** Breakfast, Weekend brunch or Today only: each fills the form,
+  and nothing is saved until you press Add.
 - **Add a collection**, write the line underneath, tick a few dishes, save.
   Reload the guest menu: a new section, with your words under the heading.
 - Give one a window of 22:00–01:00 and it disappears outside those hours. That

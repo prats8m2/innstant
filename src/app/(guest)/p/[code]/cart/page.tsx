@@ -11,6 +11,7 @@ import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { LineControls } from './line-controls';
 import { CheckoutForm } from './checkout-form';
 import styles from '../../../r/[qrCode]/cart/cart.module.css';
+import { DishImage } from '../../../dish-image';
 
 /**
  * The order sheet, for a property link. D-079.
@@ -126,7 +127,9 @@ export default async function VisitCartScreen({
             <ul className={styles.lines}>
               {lines.map((line) => (
                 <li key={line.id} className={styles.line} data-unavailable={!line.isAvailable}>
-                  <span className={styles.thumb} aria-hidden="true" />
+                  <span className={styles.thumb} aria-hidden="true">
+                    <DishImage src={line.imageUrl} />
+                  </span>
                   <div className={styles.lineBody}>
                     <p className={styles.lineName}>{line.name}</p>
                     {line.modifiers.some((m) => !m.isNoOp) ? (

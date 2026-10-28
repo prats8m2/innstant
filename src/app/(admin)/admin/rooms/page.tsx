@@ -1,10 +1,10 @@
+import Link from 'next/link';
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import { listRoomsWithOccupancy } from '@/modules/stay';
 import { formatMoney, money } from '@/lib/money';
 import { formatCheckoutShort, nightsUntil } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { RoomBoard, type RoomView } from './room-board';
 import styles from '../admin.module.css';
 
@@ -25,7 +25,26 @@ import styles from '../admin.module.css';
  */
 export const dynamic = 'force-dynamic';
 
-export default async function RoomsAdmin() {
+/**
+ * Which rooms the rack shows. Links with `?show=`, like the desk's views
+ * (D-061): the choice survives a reload and can be sent to somebody. All is
+ * the default, because the rack is the one screen that lists every key.
+ */
+const SHOWS = [
+  { key: 'all', label: 'All' },
+  { key: 'in', label: 'In house' },
+  { key: 'empty', label: 'Empty' },
+  { key: 'out', label: 'Out today' },
+] as const;
+type Show = (typeof SHOWS)[number]['key'];
+
+export default async function RoomsAdmin({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
+  const requested = (await searchParams).show;
+  const show: Show = SHOWS.some((s) => s.key === requested) ? (requested as Show) : 'all';
   const access = await adminAccess('stay:read');
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
@@ -97,6 +116,14 @@ export default async function RoomsAdmin() {
 
   const occupied = rooms.filter((room) => room.stay).length;
   const dueOutToday = rooms.filter((room) => room.stay?.nightsLeft === 0).length;
+  const shown = rooms.filter((room) =>
+    show === 'in' ? room.stay
+      : show === 'empty' ? !room.stay
+        : show === 'out' ? room.stay?.nightsLeft === 0
+          : true);
+  const counts: Record<Show, number> = {
+    all: rooms.length, in: occupied, empty: rooms.length - occupied, out: dueOutToday,
+  };
 
   // The hours a desk actually picks between, offered rather than hardcoded into
   // the action — there is no property-level standard checkout hour in the
@@ -105,12 +132,7 @@ export default async function RoomsAdmin() {
   const checkoutHours = [10, 11, 12, 14];
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="rooms"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Rooms</h1>
@@ -121,9 +143,30 @@ export default async function RoomsAdmin() {
         </div>
       </header>
 
+      <nav className={styles.views} aria-label="Show rooms">
+        {SHOWS.map((s) => (
+          <Link
+            key={s.key}
+            href={s.key === 'all' ? '/admin/rooms' : `/admin/rooms?show=${s.key}`}
+            className={styles.view}
+            aria-current={show === s.key ? 'page' : undefined}
+          >
+            {s.label}
+            <span className={`${styles.viewCount} tabular`}>{counts[s.key]}</span>
+          </Link>
+        ))}
+      </nav>
+
+      {shown.length === 0 ? (
+        <p className={styles.sectionEmpty}>
+          {show === 'out' ? 'Nobody is due out today.' : show === 'in' ? 'Nobody is in house.' : 'Every room is taken.'}{' '}
+          <Link href="/admin/rooms">Show every room</Link>
+        </p>
+      ) : null}
+
       <RoomBoard
         propertyId={propertyId}
-        rooms={rooms}
+        rooms={shown}
         checkoutHours={checkoutHours}
         permissions={{
           checkIn: can(session, propertyId, 'stay:check_in'),
@@ -137,9 +180,9 @@ export default async function RoomsAdmin() {
       <p className={styles.footnote}>
         Checking someone out frees the room, ends every session on their phone
         (#10) and records what was still on the folio at the moment they left.
-        It does not take the money — settlement is still the card machine, and
-        the balance stays on the bill until it is.
+        Taking the payment is on the guest&rsquo;s page (their name, above), and
+        anything unpaid stays on the bill until it is.
       </p>
-    </AdminShell>
+    </>
   );
 }

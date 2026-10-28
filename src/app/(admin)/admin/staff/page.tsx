@@ -4,7 +4,6 @@ import {
   can, findProperty, listStaffAtProperty, listRolesAtProperty,
 } from '@/modules/identity';
 import { formatFolioDate } from '@/lib/clock';
-import { AdminShell } from '../admin-shell';
 import { StaffBoard, type StaffView, type RoleOption } from './staff-board';
 import styles from '../admin.module.css';
 
@@ -80,12 +79,7 @@ export default async function StaffAdmin() {
   const waiting = views.filter((member) => member.status === 'INVITED').length;
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="staff"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>Staff</h1>
@@ -114,6 +108,6 @@ export default async function StaffAdmin() {
         property is never left without an active property admin: the last one
         cannot be switched off, and cannot have the role taken away.
       </p>
-    </AdminShell>
+    </>
   );
 }

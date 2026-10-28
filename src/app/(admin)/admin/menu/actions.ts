@@ -5,15 +5,19 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
+import { findProperty } from '@/modules/identity';
+import { localTimeAt } from '@/lib/clock';
 import {
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
   createMenuItem, updateMenuItem, setMenuItemAvailability, archiveMenuItem,
+  setMenuItemPrice, arrangeMenu, startTodaysSpecial, addDishToCollection,
+  setDailyLimit, repriceCategory, duplicateMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   setMenuItemAvailabilityWindows,
   MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
 import type { ItemAvailabilityWindow } from '@/modules/catalog';
-import { parseMoneyInput, MoneyInputError, type CurrencyCode } from '@/lib/money';
+import { parseMoneyInput, parseRateBps, MoneyInputError, type CurrencyCode } from '@/lib/money';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -66,6 +70,7 @@ const ItemForm = z.object({
   imageUrl: optionalText(500),
   spiceLevel: z.coerce.number().int().min(0).max(5).optional(),
   prepTimeMinutes: z.coerce.number().int().min(1).max(240).optional(),
+  dailyLimit: z.coerce.number().int().min(1, 'A daily limit is at least 1.').max(10_000).optional(),
   isAvailable: z.boolean(),
   dietaryFlags: z.array(Flags),
   modifierGroupIds: z.array(z.uuid()),
@@ -255,6 +260,7 @@ export async function saveItem(
     imageUrl: formData.get('imageUrl') ?? undefined,
     spiceLevel: formData.get('spiceLevel') || undefined,
     prepTimeMinutes: formData.get('prepTimeMinutes') || undefined,
+    dailyLimit: formData.get('dailyLimit') || undefined,
     // An unchecked checkbox posts nothing at all, which is the difference
     // between "off" and "not on the form".
     isAvailable: formData.get('isAvailable') === 'on',
@@ -307,6 +313,15 @@ export async function saveItem(
           outletId: input.outletId,
           itemId: id,
           groupIds: input.modifierGroupIds,
+        });
+
+        await setDailyLimit(tx, {
+          tenantId: session.tenantId,
+          propertyId: input.propertyId,
+          outletId: input.outletId,
+          itemId: id,
+          dailyLimit: input.dailyLimit ?? null,
+          actorStaffId: session.staffUserId,
         });
 
         await setMenuItemAvailabilityWindows(tx, {
@@ -431,6 +446,224 @@ export async function toggleOutletOpen(
       done: input.isAcceptingOrders
         ? 'The kitchen is taking orders.'
         : 'The kitchen is closed to new orders.',
+    };
+  });
+}
+
+/* ── The menu studio's board ────────────────────────────────────────────────
+ *
+ * Called directly by the board rather than posted by a form: a drop, a price
+ * typed into a cell and a switch flipped are each one gesture with a typed
+ * payload, and the board needs the answer in place, not a redirect. Same
+ * guard, same permissions as the forms above, re-checked here.
+ */
+
+const Ids = z.object({ propertyId: z.uuid(), outletId: z.uuid() });
+
+const Arrangement = Ids.extend({
+  sections: z.array(z.object({
+    categoryId: z.uuid(),
+    itemIds: z.array(z.uuid()).max(500),
+  })).min(1).max(100),
+});
+
+/** A drop on the board: the whole arrangement (see `arrangeMenu`). */
+export async function arrangeMenuFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Arrangement.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, sections } = parsed.data;
+
+  return guard('arrange menu', async () => {
+    // Moving a dish between sections changes how the menu reads, which is a
+    // menu edit, not a price and not tonight's availability.
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const { changed } = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => arrangeMenu(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        sections,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: changed ? 'Menu order saved.' : 'Nothing moved.' };
+  });
+}
+
+const BoardPrice = Ids.extend({ itemId: z.uuid(), price: z.string().max(20) });
+
+/** A price typed into a dish's cell on the board. */
+export async function setPriceFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = BoardPrice.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId, price } = parsed.data;
+
+  return guard('set price', async () => {
+    const session = await requirePermission(propertyId, 'catalog:pricing');
+    // INR is the only currency a property can hold today; see saveItem.
+    const parsedPrice = parseMoneyInput(price, 'INR');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => setMenuItemPrice(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        itemId,
+        priceMinor: parsedPrice.amountMinor,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: result.changed ? `${result.name} repriced.` : 'Same price — nothing changed.' };
+  });
+}
+
+const BoardAvailability = Ids.extend({ itemId: z.uuid(), isAvailable: z.boolean() });
+
+/** The on/off switch on a dish's row — tonight's 86, as on the kitchen board. */
+export async function setAvailabilityFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = BoardAvailability.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId, isAvailable } = parsed.data;
+
+  return guard('toggle availability', async () => {
+    const session = await requirePermission(propertyId, 'catalog:availability');
+    const { name } = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => setMenuItemAvailability(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        outletId,
+        itemId,
+        isAvailable,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: isAvailable ? `${name} is back on.` : `${name} is off tonight.` };
+  });
+}
+
+/* ── Menus on a schedule, from the board (D-084) ───────────────────────── */
+
+/** "Today's special", one tap. Today is the HOTEL's today, read here. */
+export async function startTodaysSpecialFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Ids.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId } = parsed.data;
+
+  return guard('start todays special', async () => {
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      async (tx) => {
+        const property = await findProperty(tx, propertyId);
+        const today = localTimeAt(new Date(), property?.timezone ?? 'Asia/Kolkata').date!;
+        return startTodaysSpecial(tx, {
+          tenantId: session.tenantId, propertyId, outletId, today,
+          actorStaffId: session.staffUserId,
+        });
+      },
+    );
+    revalidatePath('/admin/menu');
+    revalidatePath('/admin/menu/collections');
+    return {
+      done: result.created || result.rolledOver
+        ? 'Today’s special is ready. Drag dishes onto it; it ends by itself tonight.'
+        : 'Today’s special is already on. Drag more dishes onto it.',
+    };
+  });
+}
+
+const DropOnCollection = Ids.extend({ collectionId: z.uuid(), menuItemId: z.uuid() });
+
+/** A dish dropped on a collection's card: it joins it, and stays in its section. */
+export async function addDishToCollectionFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = DropOnCollection.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, collectionId, menuItemId } = parsed.data;
+
+  return guard('add dish to collection', async () => {
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => addDishToCollection(tx, {
+        tenantId: session.tenantId, propertyId, outletId, collectionId, menuItemId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    revalidatePath('/admin/menu/collections');
+    return {
+      done: result.added
+        ? `${result.dish} is in ${result.collection} now.`
+        : `${result.dish} was already in ${result.collection}.`,
+    };
+  });
+}
+
+/* ── Step 4, from the board: duplicate, reprice a section ──────────────── */
+
+const Duplicate = Ids.extend({ itemId: z.uuid() });
+
+/** A copy of a dish under the original, off the guest menu until reviewed. */
+export async function duplicateFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Duplicate.safeParse(input);
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const { propertyId, outletId, itemId } = parsed.data;
+
+  return guard('duplicate dish', async () => {
+    // A new dish carries a price, so it needs what the dish form needs.
+    const session = await requirePermission(propertyId, 'catalog:manage');
+    await requirePermission(propertyId, 'catalog:pricing');
+    const copy = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => duplicateMenuItem(tx, {
+        tenantId: session.tenantId, propertyId, outletId, itemId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return { done: `${copy.name} is under the original, switched off until you have looked at it.` };
+  });
+}
+
+const Reprice = Ids.extend({
+  categoryId: z.uuid(),
+  /** "5", "-10", "2.5": a signed percentage. */
+  percent: z.string().trim().regex(/^[-+]?\d{1,3}(\.\d{1,2})?$/, 'A change is a percentage, like 5 or -10.'),
+  /** The rounding step in minor units: 100 = ₹1, 500 = ₹5, 1000 = ₹10. */
+  stepMinor: z.union([z.literal(1), z.literal(100), z.literal(500), z.literal(1_000)]),
+});
+
+/** Every dish in a section moved by one percentage, rounded to a step. */
+export async function repriceSectionFromBoard(input: unknown): Promise<MenuActionState> {
+  const parsed = Reprice.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'That did not come through. Try again.' };
+  }
+  const { propertyId, outletId, categoryId, percent, stepMinor } = parsed.data;
+
+  return guard('reprice section', async () => {
+    const session = await requirePermission(propertyId, 'catalog:pricing');
+    const negative = percent.startsWith('-');
+    const bps = parseRateBps(percent.replace(/^[-+]/, '')) * (negative ? -1 : 1);
+    if (bps === 0) return { done: 'A change of 0% changes nothing.' };
+
+    const result = await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => repriceCategory(tx, {
+        tenantId: session.tenantId, propertyId, outletId, categoryId,
+        percentBps: bps, stepMinor, actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/menu');
+    return {
+      done: result.changed
+        ? `${result.changed} ${result.changed === 1 ? 'dish' : 'dishes'} in ${result.category} repriced.`
+        : `Every price in ${result.category} already rounds to that. Nothing changed.`,
     };
   });
 }

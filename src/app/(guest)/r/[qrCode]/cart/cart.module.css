@@ -118,6 +118,9 @@
 
 /* The arch again, smaller. Same shape language as the menu and the dish hero. */
 .thumb {
+  /* Clips the dish's photograph to the arch; see menu.module.css `.thumb`. */
+  position: relative;
+  overflow: hidden;
   width: 56px;
   height: 56px;
   flex: 0 0 56px;

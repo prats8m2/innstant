@@ -10,6 +10,8 @@ import { localTimeAt } from '@/lib/clock';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { DishForm } from './dish-form';
 import styles from './dish.module.css';
+import { DishImage } from '../../../../dish-image';
+import { OfferPrice } from '../../../../offer-price';
 
 /**
  * One dish. The screen a guest actually decides on.
@@ -86,7 +88,8 @@ export default async function DishScreen({
 
   return (
     <main className={styles.shell}>
-      <div className={styles.hero}>
+      <div className={styles.hero} data-photo={dish.imageUrl ? true : undefined}>
+        <DishImage src={dish.imageUrl} priority />
         <div className={styles.heroWash} aria-hidden="true" />
         <Link
           href={`/r/${encodeURIComponent(qrCode)}/menu`}
@@ -105,6 +108,8 @@ export default async function DishScreen({
         <h1 className={styles.name}>{dish.name}</h1>
         <p className={`${styles.price} tabular`}>
           {formatMoney(money(dish.priceMinor, currency))}
+          {' '}
+          <OfferPrice listPriceMinor={dish.listPriceMinor} offer={dish.offer} currency={dish.currency} />
         </p>
 
         {dish.description ? <p className={styles.note}>{dish.description}</p> : null}

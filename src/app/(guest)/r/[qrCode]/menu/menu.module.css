@@ -87,7 +87,7 @@
 .railPill {
   position: absolute;
   top: 0;
-  left: var(--space-3);
+  left: 0;
   height: 34px;
   width: 0;
   border-radius: var(--radius-pill-sm);
@@ -100,6 +100,7 @@
 .chip {
   display: flex;
   align-items: center;
+  justify-content: center;
   height: 34px;
   /* 34px is the design's chip height; the 44px touch minimum is met by the
      padding block below, which extends the hit area past the painted pill. */
@@ -345,6 +346,10 @@
 .thumb {
   /* Smaller inside a card than it was on the open page — the card's own
      padding now does the work the thumbnail's size used to. */
+  /* Positioned and clipped: a dish's photograph (DishImage) fills the arch
+     and takes its shape, and the drawing below shows when there is none. */
+  position: relative;
+  overflow: hidden;
   width: 84px;
   height: 84px;
   flex: 0 0 84px;
@@ -383,8 +388,11 @@
 
 .dishMeta {
   display: flex;
+  /* Wraps rather than overflows when an offer adds a struck price and a chip
+     beside the price on a narrow phone (D-085). */
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
   margin-top: 7px;
   /* Clear of the stepper in the corner — 34px of control plus its padding. */
   padding-right: 96px;

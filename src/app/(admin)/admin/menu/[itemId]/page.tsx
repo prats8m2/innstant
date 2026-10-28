@@ -1,14 +1,14 @@
 import { notFound } from 'next/navigation';
+import { z } from 'zod';
 import { withTenant, readEventHistory } from '@/db';
 import { adminAccess, AdminDenied } from '../../guard';
-import { findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getAdminMenu, getAdminMenuItem, listModifierGroups,
   MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
-import { AdminShell } from '../../admin-shell';
 import { DishForm } from '../dish-form';
+import { DishHistory } from '../dish-history';
 import styles from '../../admin.module.css';
 
 /**
@@ -26,19 +26,20 @@ export default async function EditDish({
   params: Promise<{ itemId: string }>;
 }) {
   const { itemId } = await params;
+  // Not an id at all is a 404, not a uuid cast failing inside the query.
+  if (!z.uuid().safeParse(itemId).success) notFound();
   const access = await adminAccess('catalog:manage', 'catalog:pricing');
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
 
-  const { property, menu, item, groups, history } = await withTenant(
+  const { menu, item, groups, history } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const outlet = await getInRoomDiningOutlet(tx, propertyId);
       if (!outlet) {
-        return { property: null, menu: null, item: null, groups: [], history: [] };
+        return { menu: null, item: null, groups: [], history: [] };
       }
       return {
-        property: await findProperty(tx, propertyId),
         menu: await getAdminMenu(tx, { outletId: outlet.id }),
         item: await getAdminMenuItem(tx, { outletId: outlet.id, itemId }),
         groups: await listModifierGroups(tx, { outletId: outlet.id }),
@@ -51,12 +52,7 @@ export default async function EditDish({
   if (!menu || !item) notFound();
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="menu"
-    >
+    <>
       <h1 className={styles.title}>{item.name}</h1>
       <p className={styles.lede}>
         On {menu.outlet.name}, at {formatMoney(money(item.priceMinor, item.currency))}.
@@ -72,50 +68,7 @@ export default async function EditDish({
         item={item}
       />
 
-      {history.length ? (
-        <section className={styles.history}>
-          <h2 className={styles.historyTitle}>What has happened to it</h2>
-          <ol className={styles.historyList}>
-            {history.slice().reverse().map((event, i) => (
-              <li key={`${event.occurred_at as string}-${i}`} className={styles.historyRow}>
-                <span className={`${styles.historyWhen} tabular`}>
-                  {new Date(event.occurred_at as string).toISOString().slice(0, 16).replace('T', ' ')}
-                </span>
-                <span className={styles.historyWhat}>
-                  {describe(event)}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-    </AdminShell>
+      <DishHistory events={history} />
+    </>
   );
-}
-
-/**
- * The log, in words.
- *
- * Only the event types this module writes — anything unrecognised prints its raw
- * type rather than being swallowed, because a silently dropped audit row is
- * worse than an ugly one.
- */
-function describe(event: Record<string, unknown>): string {
-  const type = String(event.event_type);
-  const payload = (event.payload ?? {}) as Record<string, unknown>;
-
-  if (type === 'menu_item.repriced') {
-    const from = Number(payload.fromMinor);
-    const to = Number(payload.toMinor);
-    const currency = (payload.currency as 'INR') ?? 'INR';
-    return `Repriced from ${formatMoney(money(from, currency))} to ${formatMoney(money(to, currency))}`;
-  }
-
-  return {
-    'menu_item.created': 'Added to the menu',
-    'menu_item.updated': 'Edited',
-    'menu_item.available': 'Put back on',
-    'menu_item.unavailable': 'Taken off for the night',
-    'menu_item.archived': 'Taken off the menu',
-  }[type] ?? type;
 }

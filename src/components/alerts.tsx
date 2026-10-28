@@ -36,9 +36,11 @@ import { NotificationBell, type BellItem } from './notification-bell';
 export async function Alerts({
   session,
   propertyId,
+  placement,
 }: {
   session: StaffSession;
   propertyId: string;
+  placement?: 'end' | 'rail';
 }) {
   const { rows, unseen } = await withTenant(
     { tenantId: session.tenantId, propertyId },
@@ -70,5 +72,5 @@ export async function Alerts({
     };
   });
 
-  return <NotificationBell propertyId={propertyId} items={items} unseen={unseen} />;
+  return <NotificationBell propertyId={propertyId} items={items} unseen={unseen} placement={placement} />;
 }

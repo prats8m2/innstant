@@ -31,7 +31,7 @@ export type {
 } from './menu';
 export type { OutletHoursSeed } from './provision';
 export {
-  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
+  KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_DEMO_COLLECTIONS, KESARI_MODIFIER_GROUPS,
   KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS,
 } from './kesari-menu';
 export type { MenuItemSeed, ModifierGroupSeed, ModifierOptionSeed } from './kesari-menu';
@@ -43,7 +43,8 @@ export type { MenuItemSeed, ModifierGroupSeed, ModifierOptionSeed } from './kesa
 export {
   getAdminMenu, getAdminMenuItem, listModifierGroups,
   createMenuCategory, updateMenuCategory, archiveMenuCategory,
-  createMenuItem, updateMenuItem, setMenuItemAvailability, listUnavailableItems,
+  createMenuItem, updateMenuItem, setMenuItemPrice, setMenuItemAvailability, listUnavailableItems,
+  repriceCategory, duplicateMenuItem,
   archiveMenuItem,
   setMenuItemModifierGroups, setOutletAcceptingOrders,
   getOutletSettings, updateOutletSettings, setOutletHours,
@@ -56,15 +57,33 @@ export type {
   AdminOutletSettings, OutletSettingsInput,
 } from './admin';
 
+/** The order of sections and dishes — the menu studio's drag and drop. */
+export { arrangeMenu } from './arrange';
+export { planArrangement } from './arrange-plan';
+export type { ArrangedSection, ArrangementPlan } from './arrange-plan';
+
+/** Automatic offers on the menu (D-085). */
+export { listOffers, createOffer, updateOffer, archiveOffer } from './admin-offers';
+export type { AdminOffer, OfferWriteInput } from './admin-offers';
+export { bestOffer, discountFor, offerLabel } from './offers';
+export { adjustPrice } from './price-adjust';
+/** "Only 20 today" (D-086). */
+export {
+  claimDailyPortions, releaseDailyPortions, portionsLeftToday, setDailyLimit,
+} from './daily-limits';
+export type { PortionLine } from './daily-limits';
+export type { MenuOffer, OfferScope, OfferKind, AppliedOffer } from './offers';
+
 /** Editorial collections — what decides how the menu reads. */
 export {
   listCollections, createCollection, updateCollection, archiveCollection,
-  setCollectionItems,
+  setCollectionItems, startTodaysSpecial, addDishToCollection, TODAYS_SPECIAL,
 } from './admin-collections';
 export type {
   AdminCollection, AdminCollectionItem, CollectionWriteInput,
 } from './admin-collections';
-export { isWithinWindow } from './hours';
+export { isWithinWindow, isCollectionLive, scheduleState, describeSchedule } from './hours';
+export type { CollectionSchedule, ScheduleState } from './hours';
 
 /** Modifier groups and their options — the choices a guest gets on a dish. */
 export {

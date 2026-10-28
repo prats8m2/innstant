@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { z } from 'zod';
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../../guard';
 import { can, findProperty } from '@/modules/identity';
@@ -8,7 +9,6 @@ import { getRequestsForStay } from '@/modules/requests';
 import { getFolioForStay, buildGuestStatement, PAYMENT_METHODS } from '@/modules/billing';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { formatCheckoutDay } from '@/lib/clock';
-import { AdminShell } from '../../admin-shell';
 import { GuestProfileForm } from './profile-form';
 import { TakePaymentForm } from './payment-form';
 import styles from '../../admin.module.css';
@@ -39,6 +39,9 @@ export default async function GuestPage({
   params: Promise<{ guestId: string }>;
 }) {
   const { guestId } = await params;
+  // Not an id at all is the same answer as an id that is not here: a 404,
+  // rather than a uuid cast failing inside the query and a 500.
+  if (!z.uuid().safeParse(guestId).success) notFound();
 
   const access = await adminAccess('guest:read');
   if (!access.ok) return <AdminDenied reason={access.reason} />;
@@ -92,12 +95,7 @@ export default async function GuestPage({
     : null;
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-      current="rooms"
-    >
+    <>
       <header className={styles.pageHead}>
         <div>
           <h1 className={styles.title}>
@@ -295,6 +293,6 @@ export default async function GuestPage({
         so their history follows them between your hotels. What you write here is
         this property&rsquo;s own: a hold set in Udaipur is not a hold in Jaipur.
       </p>
-    </AdminShell>
+    </>
   );
 }

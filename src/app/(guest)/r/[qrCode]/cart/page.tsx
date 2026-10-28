@@ -11,6 +11,7 @@ import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { LineControls } from './line-controls';
 import { SendOrder } from './send-order';
 import styles from './cart.module.css';
+import { DishImage } from '../../../dish-image';
 
 /**
  * The order, before it is an order.
@@ -117,7 +118,9 @@ export default async function CartScreen({
             <ul className={styles.lines}>
               {lines.map((line) => (
                 <li key={line.id} className={styles.line} data-unavailable={!line.isAvailable}>
-                  <span className={styles.thumb} aria-hidden="true" />
+                  <span className={styles.thumb} aria-hidden="true">
+                    <DishImage src={line.imageUrl} />
+                  </span>
                   <div className={styles.lineBody}>
                     <p className={styles.lineName}>{line.name}</p>
                     {/* "Nothing" under an optional group is a real choice and

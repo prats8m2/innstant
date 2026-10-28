@@ -12,6 +12,8 @@ import { DishForm } from './dish-form';
 // The room flow's stylesheet, imported rather than copied — the design is the
 // same design, and two copies is how one of them stops matching the other.
 import styles from '../../../../r/[qrCode]/menu/[itemId]/dish.module.css';
+import { DishImage } from '../../../../dish-image';
+import { OfferPrice } from '../../../../offer-price';
 
 /**
  * One dish, opened from a property link. D-079.
@@ -97,7 +99,8 @@ export default async function VisitDishScreen({
 
   return (
     <main className={styles.shell}>
-      <div className={styles.hero}>
+      <div className={styles.hero} data-photo={dish.imageUrl ? true : undefined}>
+        <DishImage src={dish.imageUrl} priority />
         <div className={styles.heroWash} aria-hidden="true" />
         <Link
           href={`/p/${encodeURIComponent(code)}/menu`}
@@ -116,6 +119,8 @@ export default async function VisitDishScreen({
         <h1 className={styles.name}>{dish.name}</h1>
         <p className={`${styles.price} tabular`}>
           {formatMoney(money(dish.priceMinor, currency))}
+          {' '}
+          <OfferPrice listPriceMinor={dish.listPriceMinor} offer={dish.offer} currency={dish.currency} />
         </p>
 
         {dish.description ? <p className={styles.note}>{dish.description}</p> : null}

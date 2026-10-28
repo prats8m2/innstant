@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import {
-  pgTable, uuid, text, integer, boolean, jsonb, index, uniqueIndex,
+  pgTable, uuid, text, integer, smallint, date, boolean, jsonb, index, uniqueIndex, primaryKey,
+  timestamp,
 } from 'drizzle-orm/pg-core';
 import {
   pk, createdAt, updatedAt, tenantId, propertyId, archivedAt, currency, outletKind,
+  menuOfferScope, menuOfferKind,
 } from './_shared';
 
 /**
@@ -93,6 +95,9 @@ export const menuItems = pgTable('menu_items', {
   spiceLevel: integer('spice_level'),
   prepTimeMinutes: integer('prep_time_minutes'),
 
+  /** D-086 (migration 0012). Portions a day; NULL is no limit. Counted in
+   *  `menu_item_daily_sales`, claimed atomically by placeOrder(). */
+  dailyLimit: integer('daily_limit'),
   isAvailable: boolean('is_available').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
 
@@ -168,6 +173,16 @@ export const collections = pgTable('collections', {
   availableFrom: text('available_from'),
   availableUntil: text('available_until'),
 
+  /**
+   * D-084 (migration 0010). Which days it runs, 0 = Sunday; NULL is every
+   * day, and an empty array is refused by a CHECK. Property-local dates,
+   * inclusive, either end open. A window past midnight belongs to the day it
+   * started — isCollectionLive() in modules/catalog/hours.ts.
+   */
+  daysOfWeek: smallint('days_of_week').array(),
+  startsOn: date('starts_on', { mode: 'string' }),
+  endsOn: date('ends_on', { mode: 'string' }),
+
   isActive: boolean('is_active').notNull().default(true),
   sortOrder: integer('sort_order').notNull().default(0),
 
@@ -199,3 +214,55 @@ export const menuItemAvailabilityWindows = pgTable('menu_item_availability_windo
 
   createdAt: createdAt(),
 }, (t) => [index('menu_item_availability_windows_item_idx').on(t.menuItemId)]);
+
+/**
+ * D-085 (migration 0011). An automatic offer: % or ₹ off a dish, a section,
+ * or the whole menu, on the same schedule a collection has (D-084). Never
+ * stacked: the best single live offer for a dish is the one that applies,
+ * decided by `bestOffer()` in modules/catalog/offers.ts. CHECKs keep the
+ * target ids honest to `scope`, and exactly one of percent / amount set.
+ * NOT `promotions`, which is reserved (CLAUDE.md #12).
+ */
+export const menuOffers = pgTable('menu_offers', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  outletId: uuid('outlet_id').notNull().references(() => outlets.id, { onDelete: 'cascade' }),
+
+  name: text('name').notNull(),
+  scope: menuOfferScope('scope').notNull(),
+  menuItemId: uuid('menu_item_id').references(() => menuItems.id),
+  categoryId: uuid('category_id').references(() => menuCategories.id),
+
+  kind: menuOfferKind('kind').notNull(),
+  /** PERCENT only. 2000 = 20%. */
+  percentBps: integer('percent_bps'),
+  /** AMOUNT only, in `currency`. Never takes a dish below zero. */
+  amountMinor: integer('amount_minor'),
+  currency: currency(),
+
+  availableFrom: text('available_from'),
+  availableUntil: text('available_until'),
+  daysOfWeek: smallint('days_of_week').array(),
+  startsOn: date('starts_on', { mode: 'string' }),
+  endsOn: date('ends_on', { mode: 'string' }),
+
+  isActive: boolean('is_active').notNull().default(true),
+  archivedAt: archivedAt(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [index('menu_offers_outlet_idx').on(t.outletId)]);
+
+/**
+ * D-086 (migration 0012). How many of a limited dish have gone today, per
+ * property-local business date. Written only by claimDailyPortions() (one
+ * conditional upsert, so the last portion goes to exactly one order) and
+ * releaseDailyPortions() (a rejected or cancelled order gives them back).
+ */
+export const menuItemDailySales = pgTable('menu_item_daily_sales', {
+  tenantId: tenantId(),
+  menuItemId: uuid('menu_item_id').notNull().references(() => menuItems.id, { onDelete: 'cascade' }),
+  businessDate: date('business_date', { mode: 'string' }).notNull(),
+  sold: integer('sold').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.menuItemId, t.businessDate] })]);

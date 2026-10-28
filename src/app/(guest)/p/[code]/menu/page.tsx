@@ -14,6 +14,8 @@ import type { CurrencyCode } from '@/lib/money';
 import { CategoryRail } from '../../../r/[qrCode]/menu/category-rail';
 import { DishStepper } from './dish-stepper';
 import styles from '../../../r/[qrCode]/menu/menu.module.css';
+import { DishImage } from '../../../dish-image';
+import { OfferPrice } from '../../../offer-price';
 
 /**
  * The restaurant's menu — what a property link opens onto. D-079.
@@ -169,7 +171,9 @@ export default async function VisitMenu({
                   data-available={dish.isAvailable}
                 >
                   <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
-                    <span className={styles.thumb} aria-hidden="true" />
+                    <span className={styles.thumb} aria-hidden="true">
+                      <DishImage src={dish.imageUrl} />
+                    </span>
                     <span className={styles.dishBody}>
                       <span className={styles.dishName}>{dish.name}</span>
                       {dish.description ? (
@@ -179,13 +183,25 @@ export default async function VisitMenu({
                         <span className={`${styles.price} tabular`}>
                           {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
                         </span>
+                        <OfferPrice
+                          listPriceMinor={dish.listPriceMinor}
+                          offer={dish.offer}
+                          currency={dish.currency}
+                        />
                         {dish.isAvailable ? (
                           dish.prepTimeMinutes ? (
                             <span className={styles.tag}>{dish.prepTimeMinutes} min</span>
                           ) : null
                         ) : (
-                          <span className={styles.soldOut}>Not available now</span>
+                          // D-086: when the day's portions are what ran out,
+                          // say so, so the guest knows to try tomorrow.
+                          <span className={styles.soldOut}>
+                            {dish.remainingToday === 0 ? 'Sold out today' : 'Not available now'}
+                          </span>
                         )}
+                        {dish.isAvailable && dish.remainingToday !== null && dish.remainingToday <= 5 ? (
+                          <span className={styles.soldOut}>Only {dish.remainingToday} left today</span>
+                        ) : null}
                       </span>
                     </span>
                   </Link>

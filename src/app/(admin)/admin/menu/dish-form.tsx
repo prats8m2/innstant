@@ -143,6 +143,22 @@ export function DishForm({
           <span className={styles.hint}>Leave blank to use the kitchen&rsquo;s default.</span>
         </label>
 
+        <label className={styles.field}>
+          <span className={styles.label}>Most portions a day</span>
+          <input
+            name="dailyLimit"
+            className={styles.input}
+            type="number"
+            min={1}
+            max={10000}
+            defaultValue={item?.dailyLimit ?? ''}
+          />
+          <span className={styles.hint}>
+            Leave blank for no limit. After the last one the guest&rsquo;s menu says
+            &ldquo;sold out today&rdquo;, and it comes back tomorrow (D-086).
+          </span>
+        </label>
+
         <label className={`${styles.field} ${styles.wide}`}>
           <span className={styles.label}>Image URL</span>
           <input
