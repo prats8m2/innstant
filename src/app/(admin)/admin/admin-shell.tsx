@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { can, type StaffSession, type Permission } from '@/modules/identity';
 import { Alerts } from '@/components/alerts';
+import { SessionWatch } from '@/components/session-watch';
 import { signOut } from './actions';
 import { ConsoleRail } from './console-rail';
 import { ConsoleNavLink } from './console-nav-link';
@@ -186,6 +187,7 @@ export async function AdminShell({
           <form action={signOut}>
             <button type="submit" className={styles.signOut}>Sign out</button>
           </form>
+          <SessionWatch staffUserId={session.staffUserId} />
         </div>
       </ConsoleRail>
 

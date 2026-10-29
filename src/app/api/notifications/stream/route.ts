@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { subscribeToChannel, type Subscription } from '@/db';
 import { getStaffSession } from '@/lib/auth-context';
 import { NOTIFICATION_CHANNEL, type StaffNotifiedPayload } from '@/modules/notifications';
+import { streamSessionCheck } from '@/lib/stream-session';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest): Promise<Response> {
 
   const staffUserId = session.staffUserId;
 
+  const stillAllowed = streamSessionCheck(request, propertyId, null);
   const encoder = new TextEncoder();
   let subscription: Subscription | undefined;
   let heartbeat: NodeJS.Timeout | undefined;
@@ -101,12 +103,27 @@ export async function GET(request: NextRequest): Promise<Response> {
         send('ready', { propertyId, at: new Date().toISOString() });
       });
 
+      // The heartbeat also re-asks whether the session is still good — a
+      // stream outlives a sign-out otherwise (see `streamSessionCheck`).
       heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(': keep-alive\n\n'));
-        } catch {
+        void stillAllowed().then((ok) => {
+          if (!heartbeat) return;
+          if (ok) {
+            try {
+              controller.enqueue(encoder.encode(': keep-alive\n\n'));
+            } catch {
+              cleanup();
+            }
+            return;
+          }
+          send('signed-out', {});
           cleanup();
-        }
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the runtime.
+          }
+        });
       }, HEARTBEAT_MS);
       heartbeat.unref?.();
 

@@ -3112,3 +3112,26 @@ was a text box on every card, for the rarest action on the board. A finished
 request is no longer drawn red for having finished late; that is the report's
 business, not an alarm. One clock drives every card, seeded from the server's
 render time so hydration agrees.
+
+### D-091 · A session change reaches every open screen
+The user found that signing out, or signing in as somebody else, left other
+tabs drawing the old screen with the kitchen's live feed still open.
+
+The cookie is one per browser, and the live streams checked the session only
+when they opened. So: each stream (`/api/kds/stream`, `/api/requests/stream`,
+`/api/notifications/stream`) re-resolves the session it was opened with on
+every heartbeat (`streamSessionCheck`), and when it has ended sends
+`signed-out` and closes. `useLiveRefresh` answers that, or a refused
+reconnect, with one `router.refresh()`, which sends a signed-out page to the
+sign-in form and renders a switched one as the new person. Within one
+browser it is immediate: every staff screen mounts `SessionWatch`, which
+says over a BroadcastChannel whom it was drawn for, and a tab that hears a
+different answer re-renders; the sign-in page is the announcement after a
+sign-out. A database error in the check keeps the stream open, deliberately.
+
+Signing in over an existing session now revokes that session, and the
+sign-in page says who is signed in and that signing in switches every tab.
+The KDS, runner and housekeeping screens get a Sign out button — they had
+none, so a kitchen tablet could only be signed out from the console. The KDS
+and runner clocks start from the server's render time, which ended a
+hydration warning on `/kds`.

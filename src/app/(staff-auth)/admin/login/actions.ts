@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import {
-  login, LOGIN_FAILED_MESSAGE, SESSION_COOKIE_OPTIONS, STAFF_SESSION_COOKIE,
+  login, LOGIN_FAILED_MESSAGE, revokeStaffSession, SESSION_COOKIE_OPTIONS, STAFF_SESSION_COOKIE,
 } from '@/modules/identity';
 import { AppError, UnauthenticatedError, publicPayloadFor, ValidationError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -77,6 +77,10 @@ export async function signIn(
     );
 
     const store = await cookies();
+    // Signing in over somebody else's session replaces the cookie; without
+    // this the session it pointed at stayed valid in the database, and a copy
+    // of that cookie kept working after its owner believed they had left.
+    await revokeStaffSession(store.get(STAFF_SESSION_COOKIE)?.value);
     store.set(STAFF_SESSION_COOKIE, issued.cookieValue, {
       ...SESSION_COOKIE_OPTIONS,
       expires: issued.expiresAt,

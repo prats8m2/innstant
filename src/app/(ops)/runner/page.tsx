@@ -112,6 +112,7 @@ export default async function RunnerApp() {
     <main className={styles.shell}>
       <FloorHeader
         propertyId={propertyId}
+        staffUserId={session.staffUserId}
         fullName={session.fullName}
         shift={shift}
         floors={floors}
@@ -157,6 +158,7 @@ export default async function RunnerApp() {
         propertyId={propertyId}
         staffUserId={session.staffUserId}
         tickets={tickets}
+        renderedAt={Date.now()}
       />
     </main>
   );

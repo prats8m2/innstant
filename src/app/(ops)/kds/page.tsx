@@ -129,6 +129,7 @@ export default async function KitchenDisplay() {
     availability: mayChangeAvailability,
   };
 
+  const renderedAt = Date.now();
   return (
     <KitchenBoard
       propertyId={propertyId}
@@ -139,7 +140,9 @@ export default async function KitchenDisplay() {
       timeZone={timeZone}
       /* Resolved here, not in the browser: a kitchen tablet that boots at
          23:00 must not paint a white screen at somebody before it hydrates. */
-      initialScheme={isNight(Date.now(), timeZone) ? 'dark' : 'light'}
+      initialScheme={isNight(renderedAt, timeZone) ? 'dark' : 'light'}
+      renderedAt={renderedAt}
+      staffUserId={session.staffUserId}
       tickets={tickets}
       unavailable={unavailable}
       permissions={permissions}

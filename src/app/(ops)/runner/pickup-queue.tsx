@@ -29,12 +29,15 @@ export function PickupQueue({
   propertyId,
   staffUserId,
   tickets,
+  renderedAt,
 }: {
   propertyId: string;
   staffUserId: string;
   tickets: KitchenTicket[];
+  /** The server's clock at render — the first tick, so hydration agrees. */
+  renderedAt: number;
 }) {
-  const now = useMinute();
+  const now = useMinute(renderedAt);
 
   if (!tickets.length) {
     return (
@@ -185,9 +188,10 @@ function Since({ readyAt, now, mine }: { readyAt: Date | null; now: number; mine
 }
 
 /** The minute, ticking, so a tray's age moves without a refresh. */
-function useMinute(): number {
-  const [now, setNow] = useState(() => Date.now());
+function useMinute(renderedAt: number): number {
+  const [now, setNow] = useState(renderedAt);
   useEffect(() => {
+    setNow(Date.now());
     const tick = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(tick);
   }, []);

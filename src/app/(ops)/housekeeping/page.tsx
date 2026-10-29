@@ -115,6 +115,7 @@ export default async function HousekeepingBoard() {
     <main className={styles.shell}>
       <FloorHeader
         propertyId={propertyId}
+        staffUserId={session.staffUserId}
         fullName={session.fullName}
         shift={shift}
         floors={floors}

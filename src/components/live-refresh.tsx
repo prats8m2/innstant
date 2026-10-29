@@ -51,6 +51,9 @@ export function useLiveRefresh({
 }): { connected: boolean } {
   const router = useRouter();
   const [connected, setConnected] = useState(false);
+  // Bumped to open a fresh stream after the server closed one on a sign-out:
+  // the page may now belong to whoever signed in next, and needs their feed.
+  const [generation, setGeneration] = useState(0);
   // A ref, not state: changing it must not re-render and tear the stream down.
   const pending = useRef<number | null>(null);
 
@@ -77,15 +80,33 @@ export function useLiveRefresh({
       }, coalesceMs);
     });
 
+    /**
+     * The session that opened this stream has ended — signed out here or in
+     * another tab, revoked, or switched off (`streamSessionCheck`). Re-render
+     * the page: a staff page with no session sends itself to the sign-in form,
+     * and one with a different person's session renders as them. Then open a
+     * stream again with whatever cookie the browser now holds.
+     */
+    source.addEventListener('signed-out', () => {
+      source.close();
+      setConnected(false);
+      router.refresh();
+      setGeneration((n) => n + 1);
+    });
+
     source.onerror = () => {
       setConnected(false);
+      // CLOSED means the browser gave up rather than retrying — the stream was
+      // refused (401, 403), which is a session question the page can answer.
+      // One refresh, not a loop: this effect does not re-run on a refresh.
+      if (source.readyState === EventSource.CLOSED) router.refresh();
     };
 
     return () => {
       if (pending.current !== null) window.clearTimeout(pending.current);
       source.close();
     };
-  }, [streamUrl, eventName, coalesceMs, router]);
+  }, [streamUrl, eventName, coalesceMs, router, generation]);
 
   return { connected };
 }

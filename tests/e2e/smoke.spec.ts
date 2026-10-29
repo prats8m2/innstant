@@ -3206,3 +3206,42 @@ test.describe('the building', () => {
     ).toHaveCount(0);
   });
 });
+
+/**
+ * One browser, one session, every tab.
+ *
+ * The cookie is per browser, so signing out in one tab signs out all of them —
+ * and before this the other tabs kept drawing the old screen, with the kitchen
+ * stream still open, until somebody reloaded. Each staff screen now listens
+ * for the change and re-renders.
+ */
+test.describe('signing out', () => {
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'a tablet-shaped flow; one project is enough',
+  );
+
+  test('in one tab takes the kitchen screen in another tab to sign-in', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const console_ = await ctx.newPage();
+    await console_.goto('/admin/login');
+    await console_.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await console_.locator('input[name="password"]').fill('kesari-demo-2026');
+    await console_.getByRole('button', { name: 'Sign in' }).click();
+    await console_.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    const kds = await ctx.newPage();
+    await kds.goto('/kds');
+    const signOut = kds.getByRole('button', { name: 'Sign out' });
+    await expect(signOut).toBeVisible({ timeout: 25_000 });
+
+    // The floor screens have their own Sign out now; use the console's to
+    // prove the OTHER tab notices.
+    await console_.goto('/admin');
+    await console_.getByRole('button', { name: 'Sign out' }).click();
+    await console_.waitForURL(/\/admin\/login/, { timeout: 25_000 });
+
+    await expect(kds).toHaveURL(/\/admin\/login/, { timeout: 15_000 });
+    await ctx.close();
+  });
+});

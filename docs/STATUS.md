@@ -52,6 +52,10 @@ anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
    floors, with "N more on other floors"; a strip with done today, on time
    and nobody has (`housekeeperDay()`); an SLA bar per card; "Cannot do it"
    behind a tap.
+6. **Sign-out across tabs** (D-091). Streams re-check the session on each
+   heartbeat and close on sign-out; tabs follow a sign-in/out in another tab
+   at once; sign-in revokes the session it replaces; Sign out on the KDS,
+   runner and housekeeping screens; the KDS hydration warning is gone.
 
 Migration `0013_property_guest_info` is applied locally only. Run
 `pnpm db:migrate` on production BEFORE deploying this branch, or the

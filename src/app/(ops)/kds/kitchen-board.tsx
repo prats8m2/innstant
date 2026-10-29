@@ -9,6 +9,8 @@ import { setDishAvailability, type BumpState } from './actions';
 import { LiveTickets } from './live-tickets';
 import { TicketCard, type TicketPermissions } from './ticket-card';
 import { isNight } from './night';
+import { SignOutButton } from '@/components/sign-out-button';
+import { SessionWatch } from '@/components/session-watch';
 import styles from './kds.module.css';
 
 /**
@@ -68,6 +70,8 @@ export function KitchenBoard({
   tickets,
   unavailable,
   permissions,
+  renderedAt,
+  staffUserId,
 }: {
   propertyId: string;
   outletName: string;
@@ -79,8 +83,12 @@ export function KitchenBoard({
   tickets: KitchenTicket[];
   unavailable: ReadonlyArray<{ id: string; name: string }>;
   permissions: TicketPermissions;
+  /** The server's clock at render — the first tick, so hydration agrees. */
+  renderedAt: number;
+  /** Who this screen was drawn for — so another tab signing out is noticed. */
+  staffUserId: string;
 }) {
-  const now = useClock();
+  const now = useClock(renderedAt);
   const scheme = useScheme(initialScheme, timeZone, now);
   const [trayOpen, setTrayOpen] = useState(false);
   const [allDayOpen, setAllDayOpen] = useState(true);
@@ -240,6 +248,9 @@ export function KitchenBoard({
               {fullscreen.on ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
             </button>
           ) : null}
+
+          <SignOutButton className={styles.iconButton} />
+          <SessionWatch staffUserId={staffUserId} />
         </div>
       </header>
 
@@ -382,9 +393,10 @@ function PutBackButton({ name }: { name: string }) {
  * showing nothing new and a ticket is quietly getting older, and 20s is fine
  * enough that a badge changes colour when it should.
  */
-function useClock(): number {
-  const [now, setNow] = useState(() => Date.now());
+function useClock(renderedAt: number): number {
+  const [now, setNow] = useState(renderedAt);
   useEffect(() => {
+    setNow(Date.now());
     const tick = window.setInterval(() => setNow(Date.now()), 20_000);
     return () => window.clearInterval(tick);
   }, []);
