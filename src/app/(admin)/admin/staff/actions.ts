@@ -6,7 +6,7 @@ import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
 import {
   inviteStaff, reissueInvite, updateStaff, deactivateStaff, reactivateStaff,
-  assignRole, revokeRole,
+  assignRole, revokeRole, can,
 } from '@/modules/identity';
 import { endShiftFor } from '@/modules/housekeeping';
 import { AppError, publicPayloadFor } from '@/lib/errors';
@@ -202,9 +202,9 @@ export async function setStaffActive(
   return guard(reactivate ? 'reactivate staff' : 'deactivate staff', async () => {
     const session = await requirePermission(parsed.data.propertyId, 'staff:deactivate');
 
-    const done = await withTenant(
+    return withTenant(
       { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
-      async (tx) => {
+      async (tx): Promise<StaffState> => {
         const common = {
           tenantId: session.tenantId,
           propertyId: parsed.data.propertyId,
@@ -213,18 +213,27 @@ export async function setStaffActive(
         };
 
         if (reactivate) {
-          await reactivateStaff(tx, common);
-          // Deliberately NOT straight back to their old password (D-044).
-          return 'Back on. Send them a new link — they need a new password.';
+          const back = await reactivateStaff(tx, common);
+          revalidatePath('/admin/staff');
+          // Deliberately NOT straight back to their old password (D-044) —
+          // so the link they need is made in the same breath, rather than
+          // left for the manager to find a second button for. Only for a
+          // manager who could have made it anyway.
+          if (!can(session, parsed.data.propertyId, 'staff:invite')) {
+            return { done: 'Back on. They need a new sign-in link to set a password — ask somebody who can invite.' };
+          }
+          const issued = await reissueInvite(tx, common);
+          return {
+            done: 'Back on.',
+            invite: { token: issued.token, name: back.fullName },
+          };
         }
 
         const off = await deactivateStaff(tx, common);
-        return `${off.fullName} is switched off. Every device they were signed in on stopped just now.`;
+        revalidatePath('/admin/staff');
+        return { done: `${off.fullName} is switched off. Every device they were signed in on stopped just now.` };
       },
     );
-
-    revalidatePath('/admin/staff');
-    return { done };
   });
 }
 

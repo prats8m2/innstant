@@ -3135,3 +3135,30 @@ The KDS, runner and housekeeping screens get a Sign out button — they had
 none, so a kitchen tablet could only be signed out from the console. The KDS
 and runner clocks start from the server's render time, which ended a
 hydration warning on `/kds`.
+
+### D-092 · Every click that navigates says so; switching somebody back on hands over their link
+The user reported that, across the guest app, the console and the floor
+screens, a click looked like nothing happened, and that it felt slow.
+
+**Measured first.** Against a production build every console page answers in
+130–220 ms; on `next dev` the same clicks take 1.5–2.5× that, and the first
+visit to a page compiles it, which takes seconds. So the slowness the user felt
+was mostly the dev server, and the real defect was silence: the pages render
+on the server, and until the next one arrives the old one sits still. The
+console's rail had a 14px spinner (`NavPending`); nothing else — in-page tabs,
+a person's panel, the floor screens' tabs, the `/p` links — said a click had
+been heard.
+
+**A bar across the top, everywhere.** `nextjs-toploader` (3.9.17, ~8KB
+shipped), mounted once in the root layout in the theme's accent: it starts on
+any internal link click and finishes when the URL changes. Not `loading.tsx`
+in the console, which was tried and taken out (see the console layout: the page
+sat twice in the DOM while it streamed in). The guest app keeps its skeletons;
+the bar sits above them. Forms already had pending states on their buttons.
+
+**Switch on issues the sign-in link in the same click.** D-044's rule stands —
+switching back on clears the password — but the manager then had to find a
+second button, and the user read the result ("not signed in", the old password
+refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
+manager also holds `staff:invite`, and the panel shows the link once, with what
+it is for.

@@ -425,7 +425,7 @@ export async function deactivateStaff(
 export async function reactivateStaff(
   tx: Tx,
   input: { tenantId: string; propertyId: string; targetStaffId: string; staffUserId: string },
-): Promise<{ needsInvite: boolean }> {
+): Promise<{ needsInvite: boolean; fullName: string }> {
   const target = await requireStaffAtProperty(tx, input);
   if (target.status !== 'DISABLED') {
     throw new ConflictError(`${target.fullName} is not switched off.`);
@@ -448,7 +448,7 @@ export async function reactivateStaff(
     payload: { email: target.email },
   });
 
-  return { needsInvite: true };
+  return { needsInvite: true, fullName: target.fullName };
 }
 
 /* ── Roles ──────────────────────────────────────────────────────────────── */

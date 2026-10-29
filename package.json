@@ -38,6 +38,7 @@
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.47.0",
     "next": "^15.5.24",
+    "nextjs-toploader": "3.9.17",
     "pg": "^8.23.0",
     "pino": "^10.3.1",
     "react": "^19.2.8",

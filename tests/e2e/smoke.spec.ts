@@ -2869,6 +2869,13 @@ test.describe('staff and roles', () => {
       await joiner.goto('/admin/rooms');
       await expect(joiner).toHaveURL(/\/admin\/login/, { timeout: 25_000 });
 
+      // Back on, without their old password (D-044) — so the link they need
+      // to set a new one is made by the same click, not a second button.
+      await admin.locator(`[data-staff-panel="${NEW_STAFF}"]`)
+        .getByRole('button', { name: 'Switch on' }).click();
+      await expect(admin.locator(`[data-staff-panel="${NEW_STAFF}"] [data-invite-link]`))
+        .toBeVisible({ timeout: 25_000 });
+
       await desk.close();
       await theirs.close();
     });

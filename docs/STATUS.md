@@ -56,6 +56,10 @@ anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
    heartbeat and close on sign-out; tabs follow a sign-in/out in another tab
    at once; sign-in revokes the session it replaces; Sign out on the KDS,
    runner and housekeeping screens; the KDS hydration warning is gone.
+7. **Click feedback and Switch on** (D-092). A top progress bar on every
+   navigation (`nextjs-toploader`); Switch on makes and shows the sign-in
+   link. Dev-server navigation is 1.5–2.5× a production build's — judge
+   speed on a build.
 
 Migration `0013_property_guest_info` is applied locally only. Run
 `pnpm db:migrate` on production BEFORE deploying this branch, or the

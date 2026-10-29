@@ -282,6 +282,16 @@ function ActiveSwitch({ propertyId, person }: { propertyId: string; person: Staf
         {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
         {state.done ? <span className={styles.inlineDone}>{state.done}</span> : null}
       </div>
+      {/* Switching on clears the password (D-044), so the link is the way
+          back in — made with the switch, and shown here once. */}
+      {state.invite ? (
+        <>
+          <p className={styles.hint}>
+            {state.invite.name} needs this link to set a new password. Their old one no longer works.
+          </p>
+          <InviteLink invite={state.invite} />
+        </>
+      ) : null}
     </form>
   );
 }
