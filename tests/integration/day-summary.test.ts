@@ -4,7 +4,9 @@ import { withTenant } from '@/db';
 import {
   seedMenu, getDish, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
-import { addToCart, placeOrder, advanceOrder, daySummary, stayContext } from '@/modules/ordering';
+import {
+  addToCart, placeOrder, advanceOrder, daySummary, stageTimesToday, stayContext,
+} from '@/modules/ordering';
 import { localTimeAt } from '@/lib/clock';
 import { ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, type Fixture } from './setup';
 
@@ -103,5 +105,42 @@ describe('daySummary', () => {
     // Yesterday-so-far counts it only if yesterday at that hour was still yesterday.
     const local = localTimeAt(new Date(), 'Asia/Kolkata');
     expect(day.yesterdaySoFar.orders).toBe(local.minutes >= 60 ? 1 : 0);
+  });
+  /**
+   * D-089: where the time goes, stage by stage, from the timestamps
+   * advanceOrder() writes. The stamps are set by hand afterwards so the
+   * averages are known numbers rather than whatever the test machine took.
+   */
+  it('averages each stage over the orders that passed through it', async () => {
+    const one = await order('Masala chai', 1, 'stage-1');
+    const two = await order('Masala chai', 1, 'stage-2');
+    for (const placed of [one, two]) {
+      for (const to of ['ACCEPTED', 'PREPARING', 'READY'] as const) {
+        await scoped((tx) => advanceOrder(tx, {
+          tenantId: a.tenantId, propertyId: a.propertyId, orderId: placed.orderId,
+          to, actor: { kind: 'STAFF', staffUserId: staff },
+        }));
+      }
+    }
+    // One: accepted after 2m, ready 20m later. Two: 4m and 30m. Neither picked up.
+    await owner.query(`
+      UPDATE orders SET accepted_at = placed_at + interval '2 minutes',
+                        ready_at = placed_at + interval '22 minutes'
+       WHERE id = $1`, [one.orderId]);
+    await owner.query(`
+      UPDATE orders SET accepted_at = placed_at + interval '4 minutes',
+                        ready_at = placed_at + interval '34 minutes'
+       WHERE id = $1`, [two.orderId]);
+
+    const stages = await scoped((tx) => stageTimesToday(tx, { propertyId: a.propertyId, timeZone: 'Asia/Kolkata' }));
+    expect(stages.inKitchen).toBe(25);
+    expect(stages.counts.inKitchen).toBe(2);
+    // Nothing has been carried yet, so there is no average to show, not a zero.
+    expect(stages.atPass).toBeNull();
+    expect(stages.toDoor).toBeNull();
+    expect(stages.counts.toDoor).toBe(0);
+    // The earlier orders were never accepted; only these two count.
+    expect(stages.counts.toAccept).toBe(2);
+    expect(stages.toAccept).toBe(3);
   });
 });
