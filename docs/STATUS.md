@@ -60,6 +60,10 @@ anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
    navigation (`nextjs-toploader`); Switch on makes and shows the sign-in
    link. Dev-server navigation is 1.5–2.5× a production build's — judge
    speed on a build.
+8. **CI's unit job is green again.** `mobile-format.test.ts` had failed to
+   compile since D-080 (mobile/'s tsconfig extends an Expo config CI never
+   installs), which failed `main`'s CI on every push and stopped it before
+   the build step. `vitest.config.ts` now compiles without reading tsconfig.
 
 Migration `0013_property_guest_info` is applied locally only. Run
 `pnpm db:migrate` on production BEFORE deploying this branch, or the
