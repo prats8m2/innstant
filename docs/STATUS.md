@@ -22,8 +22,9 @@ notes. A stale status file is worse than none.
 ## Now
 
 **29 October: Setup and the floor screens, redesigned — local only, not
-pushed.** The user asked to test locally before anything is pushed. Branch
-`feat/admin-setup-floor` (from `main` at `fdfb52a`), four commits, no PR yet:
+pushed.** The user will test the whole flow locally, in one go, before
+anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
+`fdfb52a`), no PR yet:
 
 1. **Property as a settings page** (`02c509a`, D-087, migration **0013**).
    Six sections down the side (General, Branding, Guest info, Hours &
@@ -46,6 +47,11 @@ pushed.** The user asked to test locally before anything is pushed. Branch
    destination icons, tap-to-strike lines, late/oldest counts, full screen.
    Runner: With you / At the pass / With other runners, and today's
    handovers and pass-to-door.
+5. **Housekeeping board** (D-090). Yours / Waiting for someone / With others
+   (folded) / Done, not checked; floor chips defaulting to the shift's
+   floors, with "N more on other floors"; a strip with done today, on time
+   and nobody has (`housekeeperDay()`); an SLA bar per card; "Cannot do it"
+   behind a tap.
 
 Migration `0013_property_guest_info` is applied locally only. Run
 `pnpm db:migrate` on production BEFORE deploying this branch, or the

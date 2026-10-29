@@ -3077,3 +3077,38 @@ first, one tap from "Handed over"; then the pass, coldest first; then trays
 other runners have, small and without a button. A strip at the top says
 how many trays they have handed over today and their average pass-to-door
 (`runnerDay()`, from `assigned_runner_id` and the stamps).
+
+### D-090 · The housekeeping board is grouped by who has the work, and narrowed to your floors
+The user asked for the Housekeeping screen to be redesigned with the rest of
+the floor screens (D-089), in the same PR.
+
+**Grouped the way the runner's phone is.** Yours first — what you said you
+would do, on every floor, because a claim does not stop being yours when you
+walk upstairs. Then Waiting for someone: nobody has it, the only state that is
+a problem by itself. Then With others, folded, so it is there to check but
+nobody walks to a room that is already being seen to. Then Done, not checked,
+open for whoever holds `request:verify` and folded for whoever does not. The
+order inside each group is still the server's SLA order; a card moves group
+only when it was the card tapped.
+
+**Floor chips, defaulting to the shift's floors.** A housekeeper clocked in on
+Second does not need First's towels at the top of their phone — routing
+already does not send them there. "My floors" is the default whenever the
+shift covers fewer than all floors, and the default follows the shift until
+somebody taps a chip, so clocking in narrows the board without a second tap.
+What the filter hides is never silent: "1 more waiting on other floors · Show
+all" sits under the group. Yours is never filtered.
+
+**A strip that answers "how am I doing".** Done today, on time ("4 of 5"), and
+nobody has — the unclaimed count, tinted when it is not zero.
+`housekeeperDay()` counts `completed_at` today by `assigned_staff_id`, and on
+time means inside the request type's own SLA target rather than an average in
+minutes: towels at twelve and a plumber at forty do not average to anything.
+
+**Each card says more and asks less.** A bar under the head shows how much of
+the SLA window is spent, in the KDS's colours. "Asked 6 min ago" sits with the
+photo link and the assignee on one line. "Cannot do it" moved behind a tap — it
+was a text box on every card, for the rarest action on the board. A finished
+request is no longer drawn red for having finished late; that is the report's
+business, not an alarm. One clock drives every card, seeded from the server's
+render time so hydration agrees.
