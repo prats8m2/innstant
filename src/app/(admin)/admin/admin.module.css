@@ -348,7 +348,7 @@
 /* Figures in the page's own sans with tabular digits, not the mono face:
    mono is the widest choice and reads as code; Public Sans with tabular
    figures keeps columns of numbers aligned and fits the tile. */
-.statValue .tabular {
+.statValue :global(.tabular) {
   font-family: var(--font-body);
   font-variant-numeric: tabular-nums;
   font-weight: 600;
