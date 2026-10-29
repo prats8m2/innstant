@@ -39,6 +39,9 @@ export {
 export type { AdvanceRequestInput, AdvancedRequest, RequestDetail, RequestLine }
   from './advance-request';
 
+export { housekeeperDay } from './day';
+export type { HousekeeperDay } from './day';
+
 export {
   canTransition, nextStatuses, isTerminal, reasonRequiredFor, slaState,
   REQUEST_STATUSES, OPEN_REQUEST_STATUSES, SLA_ACTIVE_STATUSES,

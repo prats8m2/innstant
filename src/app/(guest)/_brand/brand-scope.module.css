@@ -1,0 +1,2 @@
+/* Inherits the hotel's tokens down the tree without becoming a box. */
+.scope { display: contents; }

@@ -3,13 +3,13 @@ import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
 import { can, findProperty, listFloors } from '@/modules/identity';
-import { getOpenRequests, OPEN_REQUEST_STATUSES } from '@/modules/requests';
+import { getOpenRequests, housekeeperDay, OPEN_REQUEST_STATUSES } from '@/modules/requests';
 import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets } from '@/modules/ordering';
 import { Alerts } from '@/components/alerts';
 import { FloorHeader, OffShiftNotice } from '../floor-header';
-import { RequestBoard } from './request-board';
+import { FloorRequests } from './request-board';
 import { LiveBoard } from './live-board';
 import styles from './housekeeping.module.css';
 
@@ -59,36 +59,44 @@ export default async function HousekeepingBoard() {
 
   const maySeePickups = can(session, propertyId, 'order:read');
 
-  const { property, all, floors, shift, onDuty, pickups } = await withTenant(
+  const { property, all, floors, shift, onDuty, pickups, myDay } = await withTenant(
     { tenantId: session.tenantId, propertyId },
-    async (tx) => ({
-      property: await findProperty(tx, propertyId),
-      floors: await listFloors(tx, propertyId),
-      // The shift of whoever is holding this phone, and how many people are on
-      // the floors at all — the second number is what tells a lone housekeeper
-      // that nobody else is covering.
-      shift: await getCurrentShift(tx, { propertyId, staffUserId: session.staffUserId }),
-      onDuty: await onDutyCount(tx, propertyId),
-      /**
-       * COMPLETED as well as the live ones.
-       *
-       * The state machine has VERIFIED because the person who did the work and
-       * the person who checks it are different people — and a board that drops a
-       * request the moment it is completed makes that button unreachable. So
-       * completed-but-unchecked gets its own section below, and the count in the
-       * header stays the work still to do.
-       */
-      all: await getOpenRequests(tx, {
-        propertyId,
-        statuses: [...OPEN_REQUEST_STATUSES, 'COMPLETED'],
-      }),
-      /**
-       * Only to put a number on the other tab — the trays waiting at the pass
-       * while somebody is looking at this board. A tab that only counts itself
-       * is a tab nobody switches to.
-       */
-      pickups: maySeePickups ? await countPickups(tx, propertyId) : null,
-    }),
+    async (tx) => {
+      const property = await findProperty(tx, propertyId);
+      return {
+        property,
+        floors: await listFloors(tx, propertyId),
+        // The shift of whoever is holding this phone, and how many people are on
+        // the floors at all — the second number is what tells a lone housekeeper
+        // that nobody else is covering.
+        shift: await getCurrentShift(tx, { propertyId, staffUserId: session.staffUserId }),
+        onDuty: await onDutyCount(tx, propertyId),
+        /**
+         * COMPLETED as well as the live ones.
+         *
+         * The state machine has VERIFIED because the person who did the work and
+         * the person who checks it are different people — and a board that drops a
+         * request the moment it is completed makes that button unreachable. So
+         * completed-but-unchecked gets its own section below, and the count in the
+         * header stays the work still to do.
+         */
+        all: await getOpenRequests(tx, {
+          propertyId,
+          statuses: [...OPEN_REQUEST_STATUSES, 'COMPLETED'],
+        }),
+        /**
+         * Only to put a number on the other tab — the trays waiting at the pass
+         * while somebody is looking at this board. A tab that only counts itself
+         * is a tab nobody switches to.
+         */
+        pickups: maySeePickups ? await countPickups(tx, propertyId) : null,
+        myDay: await housekeeperDay(tx, {
+          propertyId,
+          staffUserId: session.staffUserId,
+          timeZone: property?.timezone ?? 'Asia/Kolkata',
+        }),
+      };
+    },
   );
 
   const permissions = {
@@ -98,7 +106,6 @@ export default async function HousekeepingBoard() {
   };
 
   const requests = all.filter((r) => r.status !== 'COMPLETED');
-  const toCheck = all.filter((r) => r.status === 'COMPLETED');
   const breached = requests.filter((r) => r.breached).length;
   const unclaimed = requests.filter((r) => r.status === 'OPEN').length;
 
@@ -108,6 +115,7 @@ export default async function HousekeepingBoard() {
     <main className={styles.shell}>
       <FloorHeader
         propertyId={propertyId}
+        staffUserId={session.staffUserId}
         fullName={session.fullName}
         shift={shift}
         floors={floors}
@@ -143,26 +151,33 @@ export default async function HousekeepingBoard() {
           (`onDutyCovering`), so an off-shift board is empty for a reason. */}
       {shift ? null : <OffShiftNotice />}
 
-      <RequestBoard
+      {/* Your day. "How many have I done" and "am I quick", which nothing
+          else on this screen says, plus the one number that is a problem by
+          itself — work nobody has picked up. */}
+      <dl className={styles.myDay}>
+        <div>
+          <dt>Done today</dt>
+          <dd className="tabular">{myDay.done}</dd>
+        </div>
+        <div>
+          <dt>On time</dt>
+          <dd className="tabular">{myDay.done ? `${myDay.onTime} of ${myDay.done}` : '—'}</dd>
+        </div>
+        <div data-alert={unclaimed > 0}>
+          <dt>Nobody has</dt>
+          <dd className="tabular">{unclaimed}</dd>
+        </div>
+      </dl>
+
+      <FloorRequests
         propertyId={propertyId}
         staffUserId={session.staffUserId}
-        requests={requests}
+        requests={all}
+        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
+        myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
         permissions={permissions}
+        renderedAt={Date.now()}
       />
-
-      {toCheck.length ? (
-        <section className={styles.checked}>
-          <h2 className={styles.checkedHeading}>
-            Done, not checked ({toCheck.length})
-          </h2>
-          <RequestBoard
-            propertyId={propertyId}
-            staffUserId={session.staffUserId}
-            requests={toCheck}
-            permissions={permissions}
-          />
-        </section>
-      ) : null}
     </main>
   );
 }

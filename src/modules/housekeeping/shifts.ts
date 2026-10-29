@@ -258,3 +258,76 @@ function endOfLocalDay(now: Date): Date {
   end.setUTCHours(23, 59, 0, 0);
   return end > now ? end : new Date(now.getTime() + 8 * 60 * 60 * 1000);
 }
+
+export interface OnShift {
+  shiftId: string;
+  staffUserId: string;
+  clockedInAt: Date | null;
+  zones: ShiftZone[];
+}
+
+/**
+ * Everyone clocked in at the property right now, with the floors they cover.
+ * The Staff screen's "on shift" column and the console's Live floor read this.
+ */
+export async function listOnShift(tx: Tx, propertyId: string): Promise<OnShift[]> {
+  // Raw SQL for the join onto `floors` (identity, D-001) — the same narrow,
+  // read-only exception `getCurrentShift()` takes, with RLS on every row.
+  const rows = await tx.execute<{
+    id: string; staff_user_id: string; clocked_in_at: string | Date | null; zones: unknown;
+  }>(sql`
+    SELECT s.id, s.staff_user_id, s.clocked_in_at,
+      COALESCE(
+        (SELECT jsonb_agg(jsonb_build_object('floorId', f.id, 'floorName', f.name)
+                          ORDER BY f.sort_order, f.level)
+         FROM shift_zones z JOIN floors f ON f.id = z.floor_id
+         WHERE z.shift_id = s.id),
+        '[]'::jsonb) AS zones
+    FROM shifts s
+    WHERE s.property_id = ${propertyId}
+      AND s.status = 'ON_DUTY'
+      AND s.clocked_out_at IS NULL
+    ORDER BY s.clocked_in_at ASC NULLS LAST
+  `);
+
+  return rows.rows.map((row) => ({
+    shiftId: row.id,
+    staffUserId: row.staff_user_id,
+    clockedInAt: row.clocked_in_at ? new Date(row.clocked_in_at) : null,
+    zones: (row.zones as ShiftZone[]) ?? [],
+  }));
+}
+
+/**
+ * A manager clocks somebody else out (`shift:manage`, checked by the caller).
+ *
+ * The case is the runner who went home without tapping Clock out: until
+ * somebody closes the shift, routing (role ∩ on shift ∩ covers floor) keeps
+ * sending them requests from an empty corridor. The event names the manager
+ * as the actor and the person whose shift it was, so the record shows it was
+ * not them.
+ */
+export async function endShiftFor(
+  tx: Tx,
+  input: { tenantId: string; propertyId: string; targetStaffId: string; actorStaffId: string },
+): Promise<void> {
+  const existing = await currentShiftRow(tx, { propertyId: input.propertyId, staffUserId: input.targetStaffId });
+  if (!existing) throw new NotFoundError('They are not clocked in.');
+
+  const now = new Date();
+  await tx.update(shifts)
+    .set({ status: 'OFF_DUTY', clockedOutAt: now, updatedAt: now })
+    .where(eq(shifts.id, existing.id));
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'shift',
+    entityId: existing.id,
+    eventType: 'shift.clocked_out',
+    fromStatus: 'ON_DUTY',
+    toStatus: 'OFF_DUTY',
+    actor: { kind: 'STAFF', staffUserId: input.actorStaffId },
+    payload: { staffUserId: input.targetStaffId, byManager: true },
+  });
+}

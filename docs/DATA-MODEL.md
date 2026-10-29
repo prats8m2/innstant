@@ -278,6 +278,25 @@ currency (#5), nothing converts a past bill, and there is no exchange rate
 anywhere in this product. `currencyIsStillOpen()` is asked by both the screen and
 the save guard, the second inside the write's own transaction.
 
+**What a guest reads about the hotel (D-087, migration 0013).**
+`properties.contact_phone`, `.contact_whatsapp`, `.contact_email`,
+`.check_in_time`, `.check_out_time` (`HH:MM`, property-local, CHECK-ed),
+`.wifi_network` and `.wifi_password`, beside the existing `address_line` and
+`city`. All nullable: a blank one is a row the guest's Stay screen does not
+draw. The check-in and check-out times are the hotel's STANDARD times; a stay's
+own `scheduled_checkout_at` still wins for that stay. The wifi password is
+shown to a room session only, never on a property link, and the event the save
+writes (`property.guest_info_updated`) names the fields that changed, never
+their values. Edited under `property:update`.
+
+`properties.branding` (jsonb since 0000) now has a shape: `{ accent, logoUrl,
+coverUrl }`. The accent is `#RRGGBB` and refused unless it clears 3:1 on the
+guest app's indigo ground AND some ink clears 4.5:1 on it (`cleanBranding()`,
+identity module); the pictures are https URLs. Edited under
+`property:branding`, logged as `property.branding_updated` with both values.
+The guest layouts under `/r/[qrCode]` and `/p/[code]` redeclare the accent
+tokens from it.
+
 ---
 
 ## 3. Guest identity
@@ -653,6 +672,7 @@ Every hot query is property-scoped, so composite indexes lead with
 | Menu render | `menu_items (category_id, sort_order)`, `menu_items (outlet_id, is_available)` |
 | PMS sync sweep | `folio_lines (property_id, pms_posted_at)` |
 | Audit trail | `event_log (entity_type, entity_id, occurred_at)` |
+| A person's recent activity (Staff screen) | `event_log (actor_staff_id, occurred_at) WHERE actor_staff_id IS NOT NULL` (0013) |
 
 `event_log` is the only table with real growth. Partition it by month once it
 passes a few million rows; nothing else needs partitioning at hotel scale.

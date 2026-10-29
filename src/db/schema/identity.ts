@@ -44,6 +44,19 @@ export const properties = pgTable('properties', {
   latitude: text('latitude'),
   longitude: text('longitude'),
 
+  /** D-087 (migration 0013) — what a guest would otherwise ask the desk.
+   *  All optional; a blank one is simply not shown to a guest. */
+  contactPhone: text('contact_phone'),
+  contactWhatsapp: text('contact_whatsapp'),
+  contactEmail: text('contact_email'),
+  /** `HH:MM`, property-local. The hotel's standard times; a stay's own
+   *  scheduled checkout still wins for that stay. */
+  checkInTime: text('check_in_time'),
+  checkOutTime: text('check_out_time'),
+  wifiNetwork: text('wifi_network'),
+  /** Shown to a room session only, never on a property link. */
+  wifiPassword: text('wifi_password'),
+
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [

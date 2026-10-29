@@ -112,7 +112,7 @@ export async function saveOutletSettings(
       }),
     );
 
-    revalidatePath('/admin/outlet');
+    revalidatePath('/admin/property');
     revalidatePath('/admin/menu');
     return { done: 'Saved. New orders use these from now on.' };
   });
@@ -135,14 +135,24 @@ export async function saveOutletHours(
     return { error: 'That did not come through. Try again.' };
   }
 
+  /**
+   * "Past midnight" is WORKED OUT, not asked (D-087). A kitchen that opens at
+   * 19:00 and closes at 02:00 can only mean two in the morning, and the old
+   * form's separate tick-box was a way to store a window the open-state logic
+   * skips — so the kitchen read as shut all evening until somebody noticed.
+   * Closing at or before the opening time is the next day; there is no other
+   * reading of it.
+   */
   const days: unknown[] = [];
   for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek += 1) {
     if (formData.get(`open-${dayOfWeek}`) !== 'on') continue;
+    const opensAt = padClock(String(formData.get(`opensAt-${dayOfWeek}`) ?? ''));
+    const closesAt = padClock(String(formData.get(`closesAt-${dayOfWeek}`) ?? ''));
     days.push({
       dayOfWeek,
-      opensAt: String(formData.get(`opensAt-${dayOfWeek}`) ?? ''),
-      closesAt: String(formData.get(`closesAt-${dayOfWeek}`) ?? ''),
-      crossesMidnight: formData.get(`crossesMidnight-${dayOfWeek}`) === 'on',
+      opensAt,
+      closesAt,
+      crossesMidnight: closesAt <= opensAt,
     });
   }
 
@@ -165,11 +175,18 @@ export async function saveOutletHours(
       }),
     );
 
-    revalidatePath('/admin/outlet');
+    revalidatePath('/admin/property');
     return {
       done: parsed.data.length
         ? 'Hours saved. The guest menu says so now.'
         : 'Saved — the outlet is now marked closed every day.',
     };
   });
+}
+
+/** `7:00` → `07:00`, so two clocks compare as strings. Anything else is left
+ *  for the schema to refuse. */
+function padClock(value: string): string {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  return match ? `${match[1]!.padStart(2, '0')}:${match[2]}` : value.trim();
 }

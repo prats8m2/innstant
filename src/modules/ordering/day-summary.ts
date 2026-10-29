@@ -133,3 +133,98 @@ export async function daySummary(
     topDishes: dishes.map((d) => ({ name: d.name, quantity: d.quantity, salesMinor: d.sales })),
   };
 }
+
+export interface StageTimes {
+  /** Average minutes per stage, for orders that passed through it today.
+   *  Null with nothing to average. */
+  toAccept: number | null;
+  inKitchen: number | null;
+  atPass: number | null;
+  toDoor: number | null;
+  /** How many orders each average is over — a 40-minute average of one order
+   *  is an anecdote, and the screen says so. */
+  counts: { toAccept: number; inKitchen: number; atPass: number; toDoor: number };
+}
+
+/**
+ * Where the time goes today, stage by stage (D-089, the console's Live floor):
+ * placed → accepted (somebody noticed), accepted → ready (the kitchen),
+ * ready → picked up (the pass), picked up → delivered (the corridor).
+ *
+ * From the stage timestamps on `orders`, which `advanceOrder()` writes in the
+ * same transaction as each transition — so this is what happened, not what
+ * the screen thought happened. The hotel's own day, as in `daySummary()`.
+ */
+export async function stageTimesToday(
+  tx: Tx,
+  input: { propertyId: string; timeZone: string },
+): Promise<StageTimes> {
+  const tz = input.timeZone;
+  const todayStart = sql`(date_trunc('day', now() AT TIME ZONE ${tz}) AT TIME ZONE ${tz})`;
+  const minutes = (from: string, to: string) => sql.raw(
+    `round(avg(extract(epoch FROM ${to} - ${from}) / 60) FILTER (WHERE ${from} IS NOT NULL AND ${to} IS NOT NULL AND ${to} >= ${from}))::int`,
+  );
+  const count = (from: string, to: string) => sql.raw(
+    `count(*) FILTER (WHERE ${from} IS NOT NULL AND ${to} IS NOT NULL AND ${to} >= ${from})::int`,
+  );
+
+  const [row] = (await tx.execute<{
+    to_accept: number | null; in_kitchen: number | null; at_pass: number | null; to_door: number | null;
+    n_accept: number; n_kitchen: number; n_pass: number; n_door: number;
+  }>(sql`
+    SELECT
+      ${minutes('placed_at', 'accepted_at')} AS to_accept,
+      ${minutes('accepted_at', 'ready_at')} AS in_kitchen,
+      ${minutes('ready_at', 'out_for_delivery_at')} AS at_pass,
+      ${minutes('out_for_delivery_at', 'delivered_at')} AS to_door,
+      ${count('placed_at', 'accepted_at')} AS n_accept,
+      ${count('accepted_at', 'ready_at')} AS n_kitchen,
+      ${count('ready_at', 'out_for_delivery_at')} AS n_pass,
+      ${count('out_for_delivery_at', 'delivered_at')} AS n_door
+    FROM orders
+    WHERE property_id = ${input.propertyId} AND placed_at >= ${todayStart}
+  `)).rows;
+
+  return {
+    toAccept: row?.to_accept ?? null,
+    inKitchen: row?.in_kitchen ?? null,
+    atPass: row?.at_pass ?? null,
+    toDoor: row?.to_door ?? null,
+    counts: {
+      toAccept: row?.n_accept ?? 0,
+      inKitchen: row?.n_kitchen ?? 0,
+      atPass: row?.n_pass ?? 0,
+      toDoor: row?.n_door ?? 0,
+    },
+  };
+}
+
+export interface RunnerDay {
+  /** Trays this runner handed over today. */
+  delivered: number;
+  /** Picked up to handed over, on average. Null with none. */
+  averageMinutesToDoor: number | null;
+}
+
+/**
+ * One runner's day (D-089), for the strip at the top of their phone: how many
+ * trays they carried and how long the walk took. From `assigned_runner_id`,
+ * which `advanceOrder()` sets when a tray is taken up, and the stage stamps.
+ */
+export async function runnerDay(
+  tx: Tx,
+  input: { propertyId: string; staffUserId: string; timeZone: string },
+): Promise<RunnerDay> {
+  const tz = input.timeZone;
+  const todayStart = sql`(date_trunc('day', now() AT TIME ZONE ${tz}) AT TIME ZONE ${tz})`;
+  const [row] = (await tx.execute<{ delivered: number; minutes: number | null }>(sql`
+    SELECT count(*)::int AS delivered,
+           round(avg(extract(epoch FROM delivered_at - out_for_delivery_at) / 60)
+                 FILTER (WHERE out_for_delivery_at IS NOT NULL))::int AS minutes
+    FROM orders
+    WHERE property_id = ${input.propertyId}
+      AND assigned_runner_id = ${input.staffUserId}
+      AND delivered_at >= ${todayStart}
+  `)).rows;
+  return { delivered: row?.delivered ?? 0, averageMinutesToDoor: row?.minutes ?? null };
+}

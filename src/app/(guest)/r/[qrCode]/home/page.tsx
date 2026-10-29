@@ -12,6 +12,7 @@ import {
 import { listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession } from '@/modules/ordering';
 import { getRequestsForStay, REQUEST_OPEN_TO_A_GUEST } from '@/modules/requests';
 import { localTimeAt, formatClock, formatCheckoutDay } from '@/lib/clock';
+import { guestBranding } from '../../../_brand/brand-scope';
 import styles from './room-home.module.css';
 
 /**
@@ -136,6 +137,10 @@ export default async function RoomHome({
     },
   );
 
+  // D-087: the hotel's logo in place of its wordmark, its photograph behind
+  // the arch. Shared with the brand scope's read, so no second query.
+  const branding = await guestBranding();
+
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
   const hour = localTimeAt(new Date(), timeZone).minutes / 60;
 
@@ -232,7 +237,14 @@ export default async function RoomHome({
 
       <header className={styles.masthead}>
         {/* The property's own name, not a literal. */}
-        <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
+        {branding.logoUrl ? (
+          <p className={styles.logoMark}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- any host, until uploads land */}
+            <img src={branding.logoUrl} alt={property?.name ?? 'The hotel'} className={styles.logo} />
+          </p>
+        ) : (
+          <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
+        )}
         <p className={`${styles.roomChip} tabular`}>Room {session.roomNumber}</p>
       </header>
 
@@ -259,6 +271,10 @@ export default async function RoomHome({
         curve nobody is measuring is invisible.
       */}
       <section className={styles.arch} aria-labelledby="kitchen-state">
+        {branding.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- any host, until uploads land
+          <img src={branding.coverUrl} alt="" className={styles.archCover} />
+        ) : null}
         <svg
           className={styles.archArt}
           viewBox="0 0 358 180"

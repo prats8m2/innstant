@@ -248,3 +248,21 @@
   background: var(--surface-raised);
   border-radius: var(--radius-lg);
 }
+
+/* Sign out — an icon beside the clock button, because a shared phone changes
+   hands at the end of every shift. */
+.signOut {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.signOut:hover:not(:disabled) { color: var(--text); border-color: var(--text-muted); }
+.signOut:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.signOut:disabled { opacity: 0.6; cursor: progress; }

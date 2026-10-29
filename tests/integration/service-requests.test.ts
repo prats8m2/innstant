@@ -3,7 +3,7 @@ import type pg from 'pg';
 import { withTenant, readEventHistory } from '@/db';
 import {
   getRequestCatalog, getRequestTypeByKey, raiseServiceRequest, advanceRequest,
-  getRequestsForStay, getRequestForStay, getOpenRequests, CALL_SERVICE_KEY,
+  getRequestsForStay, getRequestForStay, getOpenRequests, CALL_SERVICE_KEY, housekeeperDay,
 } from '@/modules/requests';
 import { getFolioForStay } from '@/modules/billing';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
@@ -485,5 +485,36 @@ describe('service requests', () => {
     expect(call!.priceMinor).toBe(0);
     // The whole point: one tap, no queue, no reason needed, and no prompt.
     expect(call!.isChargeable).toBe(false);
+  });
+
+  /* ── The housekeeper's day (D-090) ───────────────────────────────────── */
+
+  it('counts what one person finished today, and how much of it was on time', async () => {
+    const day = () => scoped((tx) => housekeeperDay(tx, {
+      propertyId: a.propertyId, staffUserId: staff.staffUserId, timeZone: 'Asia/Kolkata',
+    }));
+    expect(await day()).toEqual({ done: 0, onTime: 0 });
+
+    const quick = await raise('EXTRA_TOWELS');
+    await advance(quick.requestId, 'IN_PROGRESS', { assignedStaffId: staff.staffUserId });
+    await advance(quick.requestId, 'COMPLETED');
+
+    // Finished, but after its target: done, not on time.
+    const slow = await raise('EXTRA_TOWELS');
+    await advance(slow.requestId, 'IN_PROGRESS', { assignedStaffId: staff.staffUserId });
+    await owner.query(`UPDATE service_requests SET sla_target_at = now() - interval '5 minutes'
+                       WHERE id = $1`, [slow.requestId]);
+    await advance(slow.requestId, 'COMPLETED');
+
+    // Still going: not counted.
+    const open = await raise('EXTRA_TOWELS');
+    await advance(open.requestId, 'IN_PROGRESS', { assignedStaffId: staff.staffUserId });
+
+    expect(await day()).toEqual({ done: 2, onTime: 1 });
+
+    // Nobody else's day, and nobody else's hotel.
+    const theirs = await withTenant({ tenantId: b.tenantId, propertyId: b.propertyId },
+      (tx) => housekeeperDay(tx, { propertyId: a.propertyId, staffUserId: staff.staffUserId, timeZone: 'Asia/Kolkata' }));
+    expect(theirs).toEqual({ done: 0, onTime: 0 });
   });
 });

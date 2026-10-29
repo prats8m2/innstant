@@ -92,7 +92,7 @@
 .board {
   list-style: none;
   margin: 0;
-  padding: var(--space-2) var(--space-4) 0;
+  padding: 0 var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -142,6 +142,7 @@
 }
 
 .ref {
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.04em;
@@ -213,7 +214,9 @@
 }
 
 .photo {
-  margin-top: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
@@ -222,7 +225,7 @@
 }
 
 .assignee {
-  margin: var(--space-3) 0 0;
+  margin-left: auto;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
@@ -247,10 +250,17 @@
   margin-top: var(--space-3);
 }
 
+.actionRow {
+  display: flex;
+  gap: var(--space-2);
+}
+.actionRow:empty { display: none; }
+
 .actionForm {
   display: flex;
   gap: var(--space-2);
 }
+.actionForm[data-grow='true'] { flex: 1; }
 
 .primary,
 .secondary {
@@ -305,26 +315,6 @@
 .reason:focus { border-color: var(--accent); }
 
 /*
- * Done, not checked. Below the live work and visibly quieter — it is a second
- * signature, not a job.
- */
-.checked {
-  margin-top: var(--space-8);
-  padding: var(--space-4) var(--space-4) 0;
-  border-top: 1px solid var(--border-soft);
-}
-
-.checkedHeading {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/*
  * Escalation, next to the countdown rather than instead of it. Level 1 is the
  * card already reddening; level 2 says a manager knows, which is the thing that
  * stops two people chasing the same request.
@@ -349,3 +339,192 @@
 
 /* Three is the top of the scale and the card should look like it. */
 .card[data-escalation='3'] { border-color: var(--status-critical); }
+
+/* ── D-090: your day, the floors, the groups ────────────────────────────── */
+
+.myDay {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-4);
+}
+
+.myDay > div {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-width: 0;
+}
+.myDay > div[data-alert='true'] {
+  border-color: var(--status-attention-mark);
+  background: var(--status-attention-tint);
+}
+
+.myDay dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.myDay dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.groups {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* A row of floors that scrolls sideways on a phone rather than wrapping into
+   three lines of chips above the work. */
+.floors {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: 0 var(--space-4) var(--space-1);
+  scrollbar-width: none;
+}
+.floors::-webkit-scrollbar { display: none; }
+
+.chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+.chip > span { font-weight: 400; color: var(--text-muted); }
+.chip[aria-pressed='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.chip[aria-pressed='true'] > span { color: var(--accent-ink); }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.group[data-quiet='true'] > .board { opacity: 0.9; }
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* A folded group's heading is its button, so it gets a touch target and a
+   chevron that turns. */
+summary.groupTitle {
+  align-items: center;
+  min-height: var(--touch-min);
+  padding-bottom: 0;
+  cursor: pointer;
+  list-style: none;
+}
+summary.groupTitle::-webkit-details-marker { display: none; }
+summary.groupTitle::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(45deg);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+details[open] > summary.groupTitle::after { transform: rotate(-135deg); }
+details[open] > summary.groupTitle { margin-bottom: var(--space-2); }
+summary.groupTitle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.groupCount { font-weight: 400; color: var(--text-muted); }
+
+.groupEmpty {
+  list-style: none;
+  padding: var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.elsewhere {
+  justify-self: start;
+  margin: calc(-1 * var(--space-3)) var(--space-4) 0;
+  min-height: var(--touch-min);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* How much of the promised time is gone. */
+.sla {
+  display: block;
+  height: 4px;
+  margin-top: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+.sla > span {
+  display: block;
+  height: 100%;
+  background: var(--status-positive);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+.sla[data-heat='soon'] > span { background: var(--status-attention-mark); }
+.sla[data-heat='late'] > span { background: var(--status-critical); }
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* "Cannot do it", behind a tap. */
+.cannot > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+.cannot > summary::-webkit-details-marker { display: none; }
+.cannot > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cannot[open] > summary { color: var(--text); }

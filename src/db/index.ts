@@ -21,7 +21,8 @@ export {
 export type { Tx, TenantContext, QrRouting, VisitLinkRouting, SweepTarget } from './client';
 export { subscribeToChannel, closeNotifyConnection, notifyStatus } from './notify';
 export type { Subscription } from './notify';
-export { recordEvent, readEventHistory } from './events';
+export { recordEvent, readEventHistory, readStaffActivity } from './events';
+export type { ActorEvent } from './events';
 
 /** `integration_outbox` — what we still owe an external system (D-019, §8). */
 export {

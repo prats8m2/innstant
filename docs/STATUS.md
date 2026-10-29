@@ -21,13 +21,63 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**The admin console revamp is under way, and none of it is deployed.**
-Production is unchanged since 25 October (`eae60bd`, see below). Everything
-in this section is on `main` locally, ahead of `origin/main` and not pushed,
-and was checked against the local database (Environment notes). Three
-migrations are NEW and not on production: `0010_collection_schedule`,
-`0011_menu_offers` and `0012_daily_limits`. Run `pnpm db:migrate` before
-deploying any of this.
+**29 October: Setup and the floor screens, redesigned — local only, not
+pushed.** The user will test the whole flow locally, in one go, before
+anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
+`fdfb52a`), no PR yet:
+
+1. **Property as a settings page** (`02c509a`, D-087, migration **0013**).
+   Six sections down the side (General, Branding, Guest info, Hours &
+   service, Room types, Floors & rooms), each behind its own permission.
+   Branding is one accent (contrast-checked against the guest indigo), a
+   logo and a cover, with a live phone preview; guest pages under `/r` and
+   `/p` wear it. Guest info (desk phone, WhatsApp, email, address, standard
+   check-in/out, wifi) shows on the guest's Stay screen. "The kitchen" page
+   folded into Hours & service (`/admin/outlet` redirects) and past midnight
+   is worked out from the times. `colord` added (~2KB shipped).
+2. **Staff as a directory and a panel** (`d17c638`, D-088). Search and
+   filters, stat cards (working, on shift, roles nobody holds), and a side
+   panel per person (`?person=`) with details, roles, shift (a manager can
+   clock somebody out), recent activity from the event log, and switching
+   off. Inviting is `?person=new`.
+3. **Live floor** (`03e0c25`, D-089). `/admin/floor`, read-only: open orders
+   in four lanes with ages against the promise, stats, where the time went
+   today stage by stage, who is on shift.
+4. **KDS and runner** (`4f4f739`, D-089). KDS: All day totals, promise bars,
+   destination icons, tap-to-strike lines, late/oldest counts, full screen.
+   Runner: With you / At the pass / With other runners, and today's
+   handovers and pass-to-door.
+5. **Housekeeping board** (D-090). Yours / Waiting for someone / With others
+   (folded) / Done, not checked; floor chips defaulting to the shift's
+   floors, with "N more on other floors"; a strip with done today, on time
+   and nobody has (`housekeeperDay()`); an SLA bar per card; "Cannot do it"
+   behind a tap.
+6. **Sign-out across tabs** (D-091). Streams re-check the session on each
+   heartbeat and close on sign-out; tabs follow a sign-in/out in another tab
+   at once; sign-in revokes the session it replaces; Sign out on the KDS,
+   runner and housekeeping screens; the KDS hydration warning is gone.
+7. **Click feedback and Switch on** (D-092). A top progress bar on every
+   navigation (`nextjs-toploader`); Switch on makes and shows the sign-in
+   link. Dev-server navigation is 1.5–2.5× a production build's — judge
+   speed on a build.
+8. **CI's unit job is green again.** `mobile-format.test.ts` had failed to
+   compile since D-080 (mobile/'s tsconfig extends an Expo config CI never
+   installs), which failed `main`'s CI on every push and stopped it before
+   the build step. `vitest.config.ts` now compiles without reading tsconfig.
+
+Migration `0013_property_guest_info` is applied locally only. Run
+`pnpm db:migrate` on production BEFORE deploying this branch, or the
+property and guest pages will fail on the new columns.
+
+PR #1 (the menu studio and console revamp below) was merged on 28 October
+(`fdfb52a`) and deployed by the user; production has migrations up to 0012.
+PR #2 (`fix/overview-figure-font`, the overview tiles' font) is open and
+not merged.
+
+**The admin console revamp (merged as PR #1).** Production was unchanged
+since 25 October (`eae60bd`, see below) until that merge. Three migrations
+came with it: `0010_collection_schedule`, `0011_menu_offers` and
+`0012_daily_limits`, all applied on production since 28 October.
 
 What landed, in the order the user asked for it:
 
@@ -328,6 +378,17 @@ The things that still belong in a status file:
 ---
 
 ## Environment notes
+
+- **29 October: the user replaced `.env`.** The old one is `.env_old` (the
+  local Homebrew PG14 on 5432, the roles in "Local database" below). The new
+  `.env` points both database URLs at `localhost:55432`, which nothing was
+  listening on when checked. So every local command in this session ran with
+  `set -a; . ./.env_old; set +a` first, and checked the host was localhost
+  before anything that writes (`demo:reset`, the integration suite). Never
+  print either file's values.
+- **The active `gh` account keeps flipping back to `amit-velotio`**, which
+  cannot push (403). Before every push: `gh auth switch -h github.com -u
+  amitcse09`. Commits are authored as amitcse09 by the repo-local git config.
 
 **Two GitHub accounts are logged in to `gh`** on this laptop: `amitcse09`
 (push to `prats8m2/innstant`) and `amit-velotio` (read-only there). A

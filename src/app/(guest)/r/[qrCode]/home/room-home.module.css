@@ -28,6 +28,21 @@
   animation: riseIn var(--dur-slow) var(--ease-out) both;
 }
 
+/* D-087: a hotel's logo, in the wordmark's place and at its height. */
+.logoMark {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.logo {
+  display: block;
+  max-height: 36px;
+  max-width: 180px;
+  object-fit: contain;
+}
+
 .wordmark {
   margin: 0;
   font-family: var(--font-display);
@@ -76,6 +91,18 @@
   background: color-mix(in srgb, var(--surface) 55%, var(--bg));
   animation: archIn var(--dur-slower) var(--ease-out) both;
   animation-delay: 60ms;
+}
+
+/* D-087: a hotel's photograph behind the arch. Dimmed, because the kitchen's
+   state is written on top of it and the wash alone cannot rescue a bright
+   picture. */
+.archCover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
 }
 
 .archArt {

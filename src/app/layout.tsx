@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import {
   publicSans, redHatMono, marcellus, mukta, dmMono, instrumentSerif, figtree,
 } from './fonts';
+import NextTopLoader from 'nextjs-toploader';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -37,7 +38,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           own), and React reports the mismatch as a hydration error on every
           page. This ignores attribute differences on <body> ITSELF only; a
           real mismatch anywhere inside the app is still reported. */}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {/*
+          Every click that navigates — the guest app, the console, the floor
+          screens — starts a thin bar across the top the moment it is heard,
+          and finishes it when the next page arrives. Pages here are rendered
+          on the server, so until the new one lands the old one sits still,
+          and a click on a slow connection looked like it had done nothing;
+          people clicked again. A bar rather than `loading.tsx` skeletons in
+          the console, which were tried and removed (see the console layout).
+          The colour is the theme's accent, read where the bar is painted.
+        */}
+        <NextTopLoader
+          color="var(--accent)"
+          height={3}
+          showSpinner={false}
+          shadow={false}
+          zIndex={2000}
+        />
+        {children}
+      </body>
     </html>
   );
 }

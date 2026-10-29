@@ -6,8 +6,9 @@ import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
 import {
   inviteStaff, reissueInvite, updateStaff, deactivateStaff, reactivateStaff,
-  assignRole, revokeRole,
+  assignRole, revokeRole, can,
 } from '@/modules/identity';
+import { endShiftFor } from '@/modules/housekeeping';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -201,9 +202,9 @@ export async function setStaffActive(
   return guard(reactivate ? 'reactivate staff' : 'deactivate staff', async () => {
     const session = await requirePermission(parsed.data.propertyId, 'staff:deactivate');
 
-    const done = await withTenant(
+    return withTenant(
       { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
-      async (tx) => {
+      async (tx): Promise<StaffState> => {
         const common = {
           tenantId: session.tenantId,
           propertyId: parsed.data.propertyId,
@@ -212,18 +213,27 @@ export async function setStaffActive(
         };
 
         if (reactivate) {
-          await reactivateStaff(tx, common);
-          // Deliberately NOT straight back to their old password (D-044).
-          return 'Back on. Send them a new link — they need a new password.';
+          const back = await reactivateStaff(tx, common);
+          revalidatePath('/admin/staff');
+          // Deliberately NOT straight back to their old password (D-044) —
+          // so the link they need is made in the same breath, rather than
+          // left for the manager to find a second button for. Only for a
+          // manager who could have made it anyway.
+          if (!can(session, parsed.data.propertyId, 'staff:invite')) {
+            return { done: 'Back on. They need a new sign-in link to set a password — ask somebody who can invite.' };
+          }
+          const issued = await reissueInvite(tx, common);
+          return {
+            done: 'Back on.',
+            invite: { token: issued.token, name: back.fullName },
+          };
         }
 
         const off = await deactivateStaff(tx, common);
-        return `${off.fullName} is switched off. Every device they were signed in on stopped just now.`;
+        revalidatePath('/admin/staff');
+        return { done: `${off.fullName} is switched off. Every device they were signed in on stopped just now.` };
       },
     );
-
-    revalidatePath('/admin/staff');
-    return { done };
   });
 }
 
@@ -267,5 +277,38 @@ export async function changeRole(
 
     revalidatePath('/admin/staff');
     return { done: remove ? 'Taken away.' : 'Added. It applies the next time they load a screen.' };
+  });
+}
+
+/**
+ * A manager closes somebody else's shift — the runner who went home without
+ * tapping Clock out, and is still being routed requests (D-088).
+ * `shift:manage`, which is PROPERTY_ADMIN's.
+ */
+export async function clockOutStaff(
+  _previous: StaffState,
+  formData: FormData,
+): Promise<StaffState> {
+  const parsed = z.object({ propertyId: z.uuid(), targetStaffId: z.uuid() }).safeParse({
+    propertyId: formData.get('propertyId'),
+    targetStaffId: formData.get('targetStaffId'),
+  });
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const input = parsed.data;
+
+  return guard('clock out staff', async () => {
+    const session = await requirePermission(input.propertyId, 'shift:manage');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: input.propertyId },
+      (tx) => endShiftFor(tx, {
+        tenantId: session.tenantId,
+        propertyId: input.propertyId,
+        targetStaffId: input.targetStaffId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/staff');
+    revalidatePath('/admin/floor');
+    return { done: 'Clocked out. Nothing routes to them until they clock in again.' };
   });
 }

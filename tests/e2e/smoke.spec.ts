@@ -809,6 +809,11 @@ test.describe('the kitchen settings', () => {
   // Its own room, because the suite runs fully parallel against one database.
   const ROOM = '214';
 
+  /**
+   * D-087: the kitchen's settings live in Property → Hours & service now, and
+   * `/admin/outlet` redirects there — which this also proves, by starting at
+   * the old address.
+   */
   async function signInAsGm(page: Page): Promise<void> {
     await page.goto('/admin/outlet');
     await expect(page).toHaveURL(/\/admin\/login/);
@@ -819,7 +824,8 @@ test.describe('the kitchen settings', () => {
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
     await page.goto('/admin/outlet');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('The kitchen', {
+    await expect(page).toHaveURL(/\/admin\/property\?tab=service/, { timeout: 25_000 });
+    await expect(page.getByRole('heading', { name: 'When the kitchen is open' })).toBeVisible({
       timeout: 25_000,
     });
   }
@@ -847,7 +853,6 @@ test.describe('the kitchen settings', () => {
       await admin.locator(`input[name="open-${day}"]`).setChecked(true);
       await admin.locator(`input[name="opensAt-${day}"]`).fill('07:00');
       await admin.locator(`input[name="closesAt-${day}"]`).fill('22:45');
-      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(false);
     }
     await admin.getByRole('button', { name: 'Save the hours' }).click();
     await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
@@ -881,7 +886,6 @@ test.describe('the kitchen settings', () => {
     // Put the seeded hours back so the suite is repeatable.
     for (let day = 0; day < 7; day += 1) {
       await admin.locator(`input[name="closesAt-${day}"]`).fill('01:00');
-      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(true);
     }
     await admin.getByRole('button', { name: 'Save the hours' }).click();
     await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
@@ -890,21 +894,26 @@ test.describe('the kitchen settings', () => {
     await phone.close();
   });
 
-  test('refuses hours that would silently read as closed', async ({ page }) => {
+  test('works out a kitchen that closes past midnight', async ({ page }) => {
     await signInAsGm(page);
 
-    // 19:00 to 02:00 without ticking "past midnight": the open-state logic
-    // skips that window, so the kitchen would read as shut all evening.
+    // 19:00 to 02:00. This used to need a separate "past midnight" tick, and
+    // without it the kitchen read as shut all evening. Now there is nothing
+    // to tick: closing before opening IS the next day (D-087).
     await page.locator('input[name="open-1"]').setChecked(true);
     await page.locator('input[name="opensAt-1"]').fill('19:00');
     await page.locator('input[name="closesAt-1"]').fill('02:00');
-    await page.locator('input[name="crossesMidnight-1"]').setChecked(false);
+    const monday = page.locator('li', { hasText: 'Monday' }).first();
+    await expect(monday.getByText('next day')).toBeVisible();
+    await expect(monday.getByText('7h open')).toBeVisible();
     await page.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(page.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
 
-    // `.filter` because Next renders an always-present, always-empty route
-    // announcer with role="alert" — the same trap as the login test above.
-    await expect(page.getByRole('alert').filter({ hasText: /\S/ }))
-      .toContainText(/past midnight/i, { timeout: 20_000 });
+    // Put the seeded Monday back.
+    await page.locator('input[name="opensAt-1"]').fill('07:00');
+    await page.locator('input[name="closesAt-1"]').fill('01:00');
+    await page.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(page.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
   });
 
   test('will not let a kitchen account near the rates', async ({ page }) => {
@@ -2769,9 +2778,10 @@ test.describe('staff and roles', () => {
       await signInAsGm(admin);
       await admin.goto('/admin/staff');
 
-      await admin.getByRole('group').filter({ hasText: 'Add somebody' })
-        .locator('summary').click();
-      const form = admin.locator('details').filter({ hasText: 'Add somebody' });
+      // D-088: inviting is a panel the header's button opens.
+      await admin.getByRole('link', { name: 'Invite someone' }).click();
+      await admin.waitForURL(/person=new/);
+      const form = admin.locator('[data-invite-form]');
       await form.locator('input[name="fullName"]').fill('New Joiner');
       await form.locator('input[name="email"]').fill(NEW_STAFF);
       await form.locator('select[name="roleKey"]').selectOption('FRONT_DESK');
@@ -2843,7 +2853,10 @@ test.describe('staff and roles', () => {
       const admin = await desk.newPage();
       await signInAsGm(admin);
       await admin.goto('/admin/staff');
-      await admin.locator(`li[data-staff="${NEW_STAFF}"]`)
+      // Everything you can do to a person is in their panel (D-088).
+      await admin.locator(`li[data-staff="${NEW_STAFF}"] a`).click();
+      await admin.waitForURL(/person=/);
+      await admin.locator(`[data-staff-panel="${NEW_STAFF}"]`)
         .getByRole('button', { name: 'Switch off' }).click();
       await expect(admin.locator(`li[data-staff="${NEW_STAFF}"]`))
         .toContainText('switched off', { timeout: 25_000 });
@@ -2855,6 +2868,13 @@ test.describe('staff and roles', () => {
        */
       await joiner.goto('/admin/rooms');
       await expect(joiner).toHaveURL(/\/admin\/login/, { timeout: 25_000 });
+
+      // Back on, without their old password (D-044) — so the link they need
+      // to set a new one is made by the same click, not a second button.
+      await admin.locator(`[data-staff-panel="${NEW_STAFF}"]`)
+        .getByRole('button', { name: 'Switch on' }).click();
+      await expect(admin.locator(`[data-staff-panel="${NEW_STAFF}"] [data-invite-link]`))
+        .toBeVisible({ timeout: 25_000 });
 
       await desk.close();
       await theirs.close();
@@ -2868,11 +2888,13 @@ test.describe('staff and roles', () => {
     await signInAsGm(page);
     await page.goto('/admin/staff');
 
-    const me = page.locator('li[data-staff="gm@thekesari.example"]');
-    // No Switch off at all for your own row — the service refuses too.
+    await page.locator('li[data-staff="gm@thekesari.example"] a').click();
+    await page.waitForURL(/person=/);
+    const me = page.locator('[data-staff-panel="gm@thekesari.example"]');
+    // No Switch off at all for yourself — the service refuses too.
     await expect(me.getByRole('button', { name: 'Switch off' })).toHaveCount(0);
 
-    await me.getByRole('group').filter({ hasText: 'Roles' }).locator('summary').click();
+    // The roles they hold come first, so this is Property admin.
     await me.getByRole('button', { name: 'Take away' }).first().click();
     await expect(page.getByText(/only property admin here|only role here/))
       .toBeVisible({ timeout: 25_000 });
@@ -3189,5 +3211,44 @@ test.describe('the building', () => {
     await expect(
       page.locator('select[name="roomTypeId"]').first().locator('option', { hasText: 'Courtyard' }),
     ).toHaveCount(0);
+  });
+});
+
+/**
+ * One browser, one session, every tab.
+ *
+ * The cookie is per browser, so signing out in one tab signs out all of them —
+ * and before this the other tabs kept drawing the old screen, with the kitchen
+ * stream still open, until somebody reloaded. Each staff screen now listens
+ * for the change and re-renders.
+ */
+test.describe('signing out', () => {
+  test.skip(
+    () => test.info().project.name !== 'staff-desktop',
+    'a tablet-shaped flow; one project is enough',
+  );
+
+  test('in one tab takes the kitchen screen in another tab to sign-in', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const console_ = await ctx.newPage();
+    await console_.goto('/admin/login');
+    await console_.locator('input[name="email"]').fill('kitchen@thekesari.example');
+    await console_.locator('input[name="password"]').fill('kesari-demo-2026');
+    await console_.getByRole('button', { name: 'Sign in' }).click();
+    await console_.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+
+    const kds = await ctx.newPage();
+    await kds.goto('/kds');
+    const signOut = kds.getByRole('button', { name: 'Sign out' });
+    await expect(signOut).toBeVisible({ timeout: 25_000 });
+
+    // The floor screens have their own Sign out now; use the console's to
+    // prove the OTHER tab notices.
+    await console_.goto('/admin');
+    await console_.getByRole('button', { name: 'Sign out' }).click();
+    await console_.waitForURL(/\/admin\/login/, { timeout: 25_000 });
+
+    await expect(kds).toHaveURL(/\/admin\/login/, { timeout: 15_000 });
+    await ctx.close();
   });
 });

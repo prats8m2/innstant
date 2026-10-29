@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+import { BedDouble, Bike, ShoppingBag, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import type { KitchenTicket, OrderStatus } from '@/modules/ordering';
 import { formatMinutes } from '@/lib/clock';
@@ -49,6 +50,14 @@ const REJECT_REASONS: readonly string[] = [
 ];
 const OTHER = 'Something else';
 
+/** Where the tray goes, as a mark a cook reads before the words (D-089). */
+const FULFILMENT: Record<KitchenTicket['fulfilment'], { icon: LucideIcon; label: string }> = {
+  IN_ROOM: { icon: BedDouble, label: 'Room service' },
+  DINE_IN: { icon: UtensilsCrossed, label: 'Table' },
+  TAKEAWAY: { icon: ShoppingBag, label: 'Takeaway' },
+  DELIVERY: { icon: Bike, label: 'Delivery' },
+};
+
 export function TicketCard({
   propertyId,
   ticket,
@@ -57,7 +66,12 @@ export function TicketCard({
   fresh,
   unavailable,
   permissions,
+  struck,
+  onToggleLine,
 }: {
+  /** Lines struck through on this tablet, keyed `ticketId:index`. */
+  struck: ReadonlySet<string>;
+  onToggleLine: (key: string) => void;
   propertyId: string;
   ticket: KitchenTicket;
   /** The board's shared clock. One timer for the screen, not one per ticket. */
@@ -83,6 +97,11 @@ export function TicketCard({
     && (ticket.status === 'PLACED' || ticket.status === 'ACCEPTED');
 
   const heat = heatOf(ticket, now);
+  const fulfilment = FULFILMENT[ticket.fulfilment];
+  const FulfilmentIcon = fulfilment.icon;
+  const progress = progressOf(ticket, now);
+  // A line can be struck once the kitchen has said yes, and until it plates.
+  const mayStrike = ticket.status === 'ACCEPTED' || ticket.status === 'PREPARING';
 
   return (
     <li className={styles.ticket} data-status={ticket.status} data-fresh={fresh} data-heat={heat}>
@@ -99,6 +118,28 @@ export function TicketCard({
         <Age ticket={ticket} now={now} heat={heat} />
       </header>
 
+      {/* How much of the promise is gone. The bar is the same colour as the
+          age badge and the left edge; it says "how close", where they say
+          "how bad". */}
+      {progress != null ? (
+        <div
+          className={styles.promise}
+          data-heat={heat}
+          role="progressbar"
+          aria-label="Time used of the promise"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress * 100)}
+        >
+          <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
+        </div>
+      ) : null}
+
+      <p className={styles.fulfilment}>
+        <FulfilmentIcon size={14} strokeWidth={2} aria-hidden="true" />
+        {fulfilment.label}
+      </p>
+
       {/* Above the dishes, never below: this is the line that stops someone
           being taken to hospital, and a cook reads top-down under pressure. */}
       {ticket.dietaryFlags.length ? (
@@ -112,8 +153,10 @@ export function TicketCard({
           const pulled = line.menuItemId
             ? unavailable.some((u) => u.id === line.menuItemId)
             : false;
-          return (
-            <li key={`${ticket.id}-${i}`} className={styles.line} data-pulled={pulled}>
+          const key = `${ticket.id}:${i}`;
+          const done = struck.has(key);
+          const body = (
+            <>
               <span className={`${styles.quantity} tabular`}>{line.quantity}×</span>
               <span className={styles.lineBody}>
                 <span className={styles.lineName}>{line.name}</span>
@@ -122,6 +165,25 @@ export function TicketCard({
                 ) : null}
                 {line.notes ? <span className={styles.lineNote}>“{line.notes}”</span> : null}
               </span>
+            </>
+          );
+          return (
+            <li key={`${ticket.id}-${i}`} className={styles.line} data-pulled={pulled} data-done={done}>
+              {/* Tap a dish to strike it: "the dal is plated, the lassi is
+                  not". A note on this tablet only — see `struck` on the board. */}
+              {mayStrike ? (
+                <button
+                  type="button"
+                  className={styles.lineToggle}
+                  aria-pressed={done}
+                  aria-label={`${line.quantity} ${line.name}${done ? ', done' : ''}`}
+                  onClick={() => onToggleLine(key)}
+                >
+                  {body}
+                </button>
+              ) : (
+                <span className={styles.lineToggle}>{body}</span>
+              )}
               {/*
                 86 the dish, from the screen the cook is already looking at. Only
                 offered while the ticket is still the kitchen's — once it is on the
@@ -346,6 +408,18 @@ function heatOf(ticket: KitchenTicket, now: number): 'fresh' | 'soon' | 'late' {
   if (!promise || promise <= placed) return 'fresh';
   if (now > promise) return 'late';
   return (now - placed) / (promise - placed) > 0.75 ? 'soon' : 'fresh';
+}
+
+/** Elapsed over the promise, 0–1+. At the pass, against ten minutes cold. */
+function progressOf(ticket: KitchenTicket, now: number): number | null {
+  if (ticket.status === 'READY') {
+    if (!ticket.readyAt) return null;
+    return (now - new Date(ticket.readyAt).getTime()) / (10 * 60_000);
+  }
+  if (!ticket.placedAt || !ticket.promisedByAt) return null;
+  const placed = new Date(ticket.placedAt).getTime();
+  const span = new Date(ticket.promisedByAt).getTime() - placed;
+  return span > 0 ? Math.max(0, (now - placed) / span) : null;
 }
 
 /**

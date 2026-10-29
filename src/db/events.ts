@@ -83,3 +83,44 @@ export async function readEventHistory(
   `);
   return rows.rows as Array<Record<string, unknown>>;
 }
+
+export interface ActorEvent {
+  eventType: string;
+  entityType: string;
+  entityId: string;
+  payload: Record<string, unknown>;
+  occurredAt: Date;
+}
+
+/**
+ * What one member of staff did here, newest first. Backs the Staff screen's
+ * "Recent activity" (D-088). The (actor_staff_id, occurred_at) index from
+ * migration 0013 is what makes this a lookup rather than a scan of the
+ * property's whole history.
+ *
+ * Sign-ins are left out: they are most of the rows and none of the work.
+ */
+export async function readStaffActivity(
+  tx: Tx,
+  input: { propertyId: string; staffUserId: string; limit?: number },
+): Promise<ActorEvent[]> {
+  const rows = await tx.execute<{
+    event_type: string; entity_type: string; entity_id: string;
+    payload: Record<string, unknown> | null; occurred_at: string | Date;
+  }>(sql`
+    SELECT event_type, entity_type, entity_id, payload, occurred_at
+    FROM ${eventLog}
+    WHERE actor_staff_id = ${input.staffUserId}
+      AND property_id = ${input.propertyId}
+      AND event_type <> 'staff.logged_in'
+    ORDER BY occurred_at DESC
+    LIMIT ${input.limit ?? 20}
+  `);
+  return rows.rows.map((row) => ({
+    eventType: row.event_type,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    payload: row.payload ?? {},
+    occurredAt: new Date(row.occurred_at),
+  }));
+}

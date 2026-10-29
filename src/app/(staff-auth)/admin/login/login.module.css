@@ -83,3 +83,13 @@
 }
 .submit:hover:not(:disabled) { background: var(--accent-hover); }
 .submit:disabled { opacity: 0.7; cursor: progress; }
+
+.current {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--status-attention-tint);
+  color: var(--text);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}

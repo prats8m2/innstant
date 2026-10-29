@@ -5,6 +5,7 @@ import { requirePermission } from '@/lib/auth-context';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { ORDER_CHANNEL, type OrderChangedPayload } from '@/modules/ordering';
 import { httpStatusFor, publicPayloadFor } from '@/lib/errors';
+import { streamSessionCheck } from '@/lib/stream-session';
 import { REQUEST_ID_HEADER, newRequestId } from '@/lib/request-id';
 import { requestLogger } from '@/lib/logger';
 
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest): Promise<Response> {
     return Response.json(publicPayloadFor(error), { status: httpStatusFor(error) });
   }
 
+  const stillAllowed = streamSessionCheck(request, parsed.data.propertyId, 'order:read');
   const encoder = new TextEncoder();
   let subscription: Subscription | undefined;
   let heartbeat: NodeJS.Timeout | undefined;
@@ -112,12 +114,27 @@ export async function GET(request: NextRequest): Promise<Response> {
         send('ready', { outletId, at: new Date().toISOString() });
       });
 
+      // The heartbeat also re-asks whether the session is still good — a
+      // stream outlives a sign-out otherwise (see `streamSessionCheck`).
       heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(': keep-alive\n\n'));
-        } catch {
+        void stillAllowed().then((ok) => {
+          if (!heartbeat) return;
+          if (ok) {
+            try {
+              controller.enqueue(encoder.encode(': keep-alive\n\n'));
+            } catch {
+              cleanup();
+            }
+            return;
+          }
+          send('signed-out', {});
           cleanup();
-        }
+          try {
+            controller.close();
+          } catch {
+            // Already closed by the runtime.
+          }
+        });
       }, HEARTBEAT_MS);
       heartbeat.unref?.();
 

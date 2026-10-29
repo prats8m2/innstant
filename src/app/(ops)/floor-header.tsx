@@ -5,6 +5,8 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { StaffShift } from '@/modules/housekeeping';
 import { startShift, endShift, type BoardState } from './housekeeping/actions';
+import { SignOutButton } from '@/components/sign-out-button';
+import { SessionWatch } from '@/components/session-watch';
 import styles from './floor-header.module.css';
 
 /**
@@ -46,6 +48,7 @@ export interface FloorOption {
 
 export function FloorHeader({
   propertyId,
+  staffUserId,
   fullName,
   shift,
   floors,
@@ -55,6 +58,8 @@ export function FloorHeader({
   timeZone,
 }: {
   propertyId: string;
+  /** Who this screen was drawn for — so another tab signing out is noticed. */
+  staffUserId: string;
   fullName: string;
   shift: StaffShift | null;
   floors: FloorOption[];
@@ -91,7 +96,9 @@ export function FloorHeader({
         {mayClock ? (
           <ClockControl propertyId={propertyId} floors={floors} shift={shift} />
         ) : null}
+        <SignOutButton className={styles.signOut} />
       </div>
+      <SessionWatch staffUserId={staffUserId} />
 
       {tabs.length > 1 ? (
         <nav className={styles.tabs} aria-label="Floor screens">

@@ -5,5 +5,7 @@
  * covering a floor; the board asks it what shift the person holding the phone is
  * on. Nothing else touches those tables.
  */
-export { clockIn, clockOut, getCurrentShift, onDutyCovering, onDutyCount } from './shifts';
-export type { StaffShift, ShiftZone, OnDutyStaff } from './shifts';
+export {
+  clockIn, clockOut, getCurrentShift, onDutyCovering, onDutyCount, listOnShift, endShiftFor,
+} from './shifts';
+export type { StaffShift, ShiftZone, OnDutyStaff, OnShift } from './shifts';

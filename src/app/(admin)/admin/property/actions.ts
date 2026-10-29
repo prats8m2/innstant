@@ -8,7 +8,7 @@ import {
   createFloor, renameFloor, deleteFloor,
   createRoom, updateRoom, archiveRoom, restoreRoom,
   createRoomType, updateRoomType, archiveRoomType, restoreRoomType,
-  updatePropertySettings,
+  updatePropertySettings, updateGuestInfo, updateBranding,
 } from '@/modules/identity';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -209,6 +209,115 @@ export async function savePropertySettings(
      */
     revalidatePath('/', 'layout');
     return { done: 'Saved. Every screen reads the new clock from here.' };
+  });
+}
+
+/* ── What a guest reads, and what it looks like (D-087) ──────────────────── */
+
+const GuestInfoForm = z.object({
+  propertyId: z.uuid(),
+  contactPhone: z.string().max(40),
+  contactWhatsapp: z.string().max(40),
+  contactEmail: z.string().max(200),
+  addressLine: z.string().max(200),
+  city: z.string().max(80),
+  checkInTime: z.string().max(5),
+  checkOutTime: z.string().max(5),
+  wifiNetwork: z.string().max(64),
+  wifiPassword: z.string().max(128),
+});
+
+/**
+ * `property:update`, like the hotel's name: the desk's number and the wifi are
+ * the hotel speaking to every guest, not a shift-level setting. The domain
+ * (`cleanGuestInfo`) owns what a valid phone number is; this only checks the
+ * form arrived in one piece.
+ */
+export async function saveGuestInfo(
+  _previous: PropertyState,
+  formData: FormData,
+): Promise<PropertyState> {
+  const field = (name: string) => String(formData.get(name) ?? '');
+  const parsed = GuestInfoForm.safeParse({
+    propertyId: formData.get('propertyId'),
+    contactPhone: field('contactPhone'),
+    contactWhatsapp: field('contactWhatsapp'),
+    contactEmail: field('contactEmail'),
+    addressLine: field('addressLine'),
+    city: field('city'),
+    checkInTime: field('checkInTime'),
+    checkOutTime: field('checkOutTime'),
+    wifiNetwork: field('wifiNetwork'),
+    wifiPassword: field('wifiPassword'),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check the details.' };
+  }
+  const { propertyId, ...info } = parsed.data;
+
+  return guard('save guest info', async () => {
+    const session = await requirePermission(propertyId, 'property:update');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => updateGuestInfo(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        staffUserId: session.staffUserId,
+        info: {
+          contactPhone: info.contactPhone,
+          contactWhatsapp: info.contactWhatsapp,
+          contactEmail: info.contactEmail,
+          addressLine: info.addressLine,
+          city: info.city,
+          checkInTime: info.checkInTime,
+          checkOutTime: info.checkOutTime,
+          wifiNetwork: info.wifiNetwork,
+          wifiPassword: info.wifiPassword,
+        },
+      }),
+    );
+    revalidatePath('/admin/property');
+    return { done: 'Saved. Guests see it on their Stay screen now.' };
+  });
+}
+
+const BrandingForm = z.object({
+  propertyId: z.uuid(),
+  accent: z.string().max(7),
+  logoUrl: z.string().max(500),
+  coverUrl: z.string().max(500),
+});
+
+/** `property:branding` — PROPERTY_ADMIN's alone, as it has been since S5. */
+export async function saveBranding(
+  _previous: PropertyState,
+  formData: FormData,
+): Promise<PropertyState> {
+  const parsed = BrandingForm.safeParse({
+    propertyId: formData.get('propertyId'),
+    accent: String(formData.get('accent') ?? ''),
+    logoUrl: String(formData.get('logoUrl') ?? ''),
+    coverUrl: String(formData.get('coverUrl') ?? ''),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check the branding.' };
+  }
+  const { propertyId, ...branding } = parsed.data;
+
+  return guard('save branding', async () => {
+    const session = await requirePermission(propertyId, 'property:branding');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId },
+      (tx) => updateBranding(tx, {
+        tenantId: session.tenantId,
+        propertyId,
+        staffUserId: session.staffUserId,
+        branding,
+      }),
+    );
+    // Every guest screen reads it, through the brand scope in their layouts.
+    revalidatePath('/', 'layout');
+    return { done: 'Saved. Every guest screen wears it from the next tap.' };
   });
 }
 

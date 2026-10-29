@@ -2970,3 +2970,195 @@ presence means something.
 kitchen open past midnight starts a new day's count at 00:00, the same
 simplification as D-084's Today's special. A limit cannot be changed for
 one day only; it is the standing number.
+
+### D-087 · The property as a settings page: branding, guest info, and the kitchen's hours
+The user asked for Setup to be redesigned "more useful from the admin's
+point of view", and chose three things to add to the property: branding,
+hours and service, and contact and guest info.
+
+**Six sections down the side, not three tabs across the top.** `?tab=` is
+still the switch (D-061), now `hotel`, `branding`, `guest`, `service`,
+`types` and `rooms`, each with a line saying what it holds; on a phone the
+list is a strip that scrolls and brings the current entry into view. The
+page asks only for `property:read` and every section for its own
+permission, so an F&B manager (no `room:read`) can reach the kitchen's hours
+and a front desk sees floors and rooms without a branding form that would
+refuse them. The nav entry's permission moved from `room:read` to
+`property:read` for that reason.
+
+**"The kitchen" page folded into Hours & service.** It held the same
+outlet's hours and charges as a separate nav entry; `/admin/outlet` now
+redirects. The hours editor works out "past midnight" itself — closing at
+or before the opening time is the next day, on the screen and again in the
+action — because the old separate tick-box was how a 19:00–02:00 kitchen
+was stored as shut all evening. The e2e test that asserted the refusal now
+asserts the derivation.
+
+**Branding is one accent, a logo and a cover, validated against the ground
+it sits on.** A hotel choosing ground, text and accent independently is
+three colours nobody checks against each other. The accent must clear 3:1
+on the guest indigo and give one of the two inks 4.5:1 on a button; the
+screen shows both numbers live and the save refuses rather than adjusting
+somebody's brand colour. Eight presets, each asserted to pass. A
+`var()` resolves where it is declared (theme.css, "Derived"), so the guest
+layouts' wrapper redeclares the aliases (`--accent`, `--saffron`, …), not
+just `--teal-600`. Colour maths is `colord` (~2KB shipped), per CLAUDE.md's
+"use a library for a solved problem". The preview phone uses the same
+`brandingStyle()` the guest layouts do.
+
+**Guest info is columns, not jsonb** (migration 0013), because the guest
+screens read them by name and the times are CHECK-ed. The wifi password
+reaches a room session only, and the audit row names changed fields, not
+values — the event log is readable by READ_ONLY.
+
+**Cost / when to revisit.** Pictures are pasted URLs until R2 uploads land,
+the same as dishes. The standard check-out time does not yet seed a new
+stay's `scheduled_checkout_at`; createStay() still takes it from the desk.
+
+### D-088 · Staff: a directory and a panel, with who is on shift and what they did
+Part of the same Setup redesign as D-087; the user chose a table with a side
+panel, shifts and presence, and activity per person.
+
+**Read in a directory, act in a panel.** Every row used to carry Edit, Roles
+and Switch off, each opening a form under it. The list is now a directory —
+person, roles, status, shift, last seen — with a search and role and status
+filters (local: a hotel has tens of staff), and a row opens `?person=<id>`,
+the same URL-driven SidePanel as the menu's dish editor. The panel holds
+details, every role with Give or Take away beside it (held ones first),
+the shift, the sign-in link, recent activity, and switching off at the
+bottom, never for yourself. Inviting is `?person=new` from the header.
+
+**Presence comes from `shifts`, not a flag.** `listOnShift()`
+(housekeeping) answers "who is clocked in, since when, covering which
+floors". A manager can close somebody else's shift (`endShiftFor()`,
+`shift:manage`) for the runner who went home without clocking out and is
+still being routed requests; the event's actor is the manager and its
+payload names whose shift it was.
+
+**Activity is the event log, read by actor.** `readStaffActivity()` (in
+`src/db/events.ts`, beside `readEventHistory()`, D-019's exemption) with the
+index from migration 0013, sign-ins left out. `describeActivity()` (pure,
+tested) turns an event into a sentence — "Accepted order KE-1185", "Took Laal
+maas off the menu" — and drops what it cannot say plainly rather than
+showing an event name.
+
+**Roles nobody holds are a stat, not a footnote.** Requests route by role
+(`route_to_role_key`), so a role nobody holds is a queue that waits for
+ever; the card names them. READ_ONLY is left out — nothing routes to it.
+
+### D-089 · The floor: a Live floor page, and a kitchen display and runner app that say more
+The user asked for the floor screens to be redesigned, and for a console
+page as well as the two apps.
+
+**Live floor (`/admin/floor`) is read-only.** It is the view from the office
+or the GM's phone, not a fourth kitchen display: every open order in four
+lanes (new, cooking, at the pass, on the way) with its age against its
+promise — the SAME rule as the KDS, so the two never disagree about what is
+late — stat cards (open, running late, oldest, delivered today, requests),
+"where the time goes today" stage by stage, and who is on shift. Every
+control stays on the KDS or the runner's phone, where the person doing the
+work is. `stageTimesToday()` averages the stage stamps `advanceOrder()`
+writes; a stage with nothing to average shows a dash, not a zero, and
+"slowest" is only said with two stages to compare.
+
+**The kitchen display gains what a pass actually asks.** An "All day" panel
+totals every dish still to make across New and Cooking ("4 Laal maas"),
+which no single ticket shows and is what a cook batches by. A thin bar under
+each ticket's head shows how much of the promise is gone, in the age's own
+colour. Each ticket says where it is going (room, table, takeaway,
+delivery) with an icon. A cook can tap a dish to strike it once the ticket
+is accepted — a note on THAT tablet, kept like "seen" is and for the same
+reason (a second screen must not lose its notes because somebody tapped
+here). The bar shows how many are late and the oldest wait, and offers full
+screen where the browser allows it. Nothing here changes a state machine.
+
+**The runner's phone is grouped by what their hands need.** With you
+first, one tap from "Handed over"; then the pass, coldest first; then trays
+other runners have, small and without a button. A strip at the top says
+how many trays they have handed over today and their average pass-to-door
+(`runnerDay()`, from `assigned_runner_id` and the stamps).
+
+### D-090 · The housekeeping board is grouped by who has the work, and narrowed to your floors
+The user asked for the Housekeeping screen to be redesigned with the rest of
+the floor screens (D-089), in the same PR.
+
+**Grouped the way the runner's phone is.** Yours first — what you said you
+would do, on every floor, because a claim does not stop being yours when you
+walk upstairs. Then Waiting for someone: nobody has it, the only state that is
+a problem by itself. Then With others, folded, so it is there to check but
+nobody walks to a room that is already being seen to. Then Done, not checked,
+open for whoever holds `request:verify` and folded for whoever does not. The
+order inside each group is still the server's SLA order; a card moves group
+only when it was the card tapped.
+
+**Floor chips, defaulting to the shift's floors.** A housekeeper clocked in on
+Second does not need First's towels at the top of their phone — routing
+already does not send them there. "My floors" is the default whenever the
+shift covers fewer than all floors, and the default follows the shift until
+somebody taps a chip, so clocking in narrows the board without a second tap.
+What the filter hides is never silent: "1 more waiting on other floors · Show
+all" sits under the group. Yours is never filtered.
+
+**A strip that answers "how am I doing".** Done today, on time ("4 of 5"), and
+nobody has — the unclaimed count, tinted when it is not zero.
+`housekeeperDay()` counts `completed_at` today by `assigned_staff_id`, and on
+time means inside the request type's own SLA target rather than an average in
+minutes: towels at twelve and a plumber at forty do not average to anything.
+
+**Each card says more and asks less.** A bar under the head shows how much of
+the SLA window is spent, in the KDS's colours. "Asked 6 min ago" sits with the
+photo link and the assignee on one line. "Cannot do it" moved behind a tap — it
+was a text box on every card, for the rarest action on the board. A finished
+request is no longer drawn red for having finished late; that is the report's
+business, not an alarm. One clock drives every card, seeded from the server's
+render time so hydration agrees.
+
+### D-091 · A session change reaches every open screen
+The user found that signing out, or signing in as somebody else, left other
+tabs drawing the old screen with the kitchen's live feed still open.
+
+The cookie is one per browser, and the live streams checked the session only
+when they opened. So: each stream (`/api/kds/stream`, `/api/requests/stream`,
+`/api/notifications/stream`) re-resolves the session it was opened with on
+every heartbeat (`streamSessionCheck`), and when it has ended sends
+`signed-out` and closes. `useLiveRefresh` answers that, or a refused
+reconnect, with one `router.refresh()`, which sends a signed-out page to the
+sign-in form and renders a switched one as the new person. Within one
+browser it is immediate: every staff screen mounts `SessionWatch`, which
+says over a BroadcastChannel whom it was drawn for, and a tab that hears a
+different answer re-renders; the sign-in page is the announcement after a
+sign-out. A database error in the check keeps the stream open, deliberately.
+
+Signing in over an existing session now revokes that session, and the
+sign-in page says who is signed in and that signing in switches every tab.
+The KDS, runner and housekeeping screens get a Sign out button — they had
+none, so a kitchen tablet could only be signed out from the console. The KDS
+and runner clocks start from the server's render time, which ended a
+hydration warning on `/kds`.
+
+### D-092 · Every click that navigates says so; switching somebody back on hands over their link
+The user reported that, across the guest app, the console and the floor
+screens, a click looked like nothing happened, and that it felt slow.
+
+**Measured first.** Against a production build every console page answers in
+130–220 ms; on `next dev` the same clicks take 1.5–2.5× that, and the first
+visit to a page compiles it, which takes seconds. So the slowness the user felt
+was mostly the dev server, and the real defect was silence: the pages render
+on the server, and until the next one arrives the old one sits still. The
+console's rail had a 14px spinner (`NavPending`); nothing else — in-page tabs,
+a person's panel, the floor screens' tabs, the `/p` links — said a click had
+been heard.
+
+**A bar across the top, everywhere.** `nextjs-toploader` (3.9.17, ~8KB
+shipped), mounted once in the root layout in the theme's accent: it starts on
+any internal link click and finishes when the URL changes. Not `loading.tsx`
+in the console, which was tried and taken out (see the console layout: the page
+sat twice in the DOM while it streamed in). The guest app keeps its skeletons;
+the bar sits above them. Forms already had pending states on their buttons.
+
+**Switch on issues the sign-in link in the same click.** D-044's rule stands —
+switching back on clears the password — but the manager then had to find a
+second button, and the user read the result ("not signed in", the old password
+refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
+manager also holds `staff:invite`, and the panel shows the link once, with what
+it is for.
