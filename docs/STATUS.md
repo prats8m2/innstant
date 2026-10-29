@@ -21,9 +21,28 @@ notes. A stale status file is worse than none.
 
 ## Now
 
-**29 October: Setup and the floor screens, redesigned — local only, not
-pushed.** The user will test the whole flow locally, in one go, before
-anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
+**29 October, evening: deployed.** PR #3 (`baf1956`, everything listed
+below) and PR #2 (`a62f873`, the overview tiles' font) are merged into
+`main` and live on https://innstant.in as Railway deployment `1133a5b9`.
+Migration `0013_property_guest_info` was applied to production first (the
+user ran `pnpm db:migrate` against the Postgres service's
+`DATABASE_PUBLIC_URL`); health reads ok, 14 of 14. Checked on production
+after the deploy: GM sign-in, overview font, the progress bar, Staff and its
+panel, the property tabs, the `/admin/outlet` redirect, Live floor, KDS with
+Sign out, runner, housekeeping (empty, as production had no open requests),
+the sign-in page's "Signed in as", and the guest home and Stay pages; no
+console errors.
+
+**Deploying now has a token.** A Railway project token for production lives
+in `~/.config/innstant/railway.env` (outside the repo, mode 600); the CLI is
+`@railway/cli` 5.71 under the nvm Node. Claude Code's auto mode refuses to
+run the production migration or `railway up` itself, so the user runs those
+two commands; everything else (status, variables by NAME, deployment list)
+works from the session.
+
+
+**29 October: Setup and the floor screens, redesigned** (now merged and
+deployed, above). The user tested the whole flow locally first. Branch `feat/admin-setup-floor` (from `main` at
 `fdfb52a`), no PR yet:
 
 1. **Property as a settings page** (`02c509a`, D-087, migration **0013**).
