@@ -2970,3 +2970,47 @@ presence means something.
 kitchen open past midnight starts a new day's count at 00:00, the same
 simplification as D-084's Today's special. A limit cannot be changed for
 one day only; it is the standing number.
+
+### D-087 · The property as a settings page: branding, guest info, and the kitchen's hours
+The user asked for Setup to be redesigned "more useful from the admin's
+point of view", and chose three things to add to the property: branding,
+hours and service, and contact and guest info.
+
+**Six sections down the side, not three tabs across the top.** `?tab=` is
+still the switch (D-061), now `hotel`, `branding`, `guest`, `service`,
+`types` and `rooms`, each with a line saying what it holds; on a phone the
+list is a strip that scrolls and brings the current entry into view. The
+page asks only for `property:read` and every section for its own
+permission, so an F&B manager (no `room:read`) can reach the kitchen's hours
+and a front desk sees floors and rooms without a branding form that would
+refuse them. The nav entry's permission moved from `room:read` to
+`property:read` for that reason.
+
+**"The kitchen" page folded into Hours & service.** It held the same
+outlet's hours and charges as a separate nav entry; `/admin/outlet` now
+redirects. The hours editor works out "past midnight" itself — closing at
+or before the opening time is the next day, on the screen and again in the
+action — because the old separate tick-box was how a 19:00–02:00 kitchen
+was stored as shut all evening. The e2e test that asserted the refusal now
+asserts the derivation.
+
+**Branding is one accent, a logo and a cover, validated against the ground
+it sits on.** A hotel choosing ground, text and accent independently is
+three colours nobody checks against each other. The accent must clear 3:1
+on the guest indigo and give one of the two inks 4.5:1 on a button; the
+screen shows both numbers live and the save refuses rather than adjusting
+somebody's brand colour. Eight presets, each asserted to pass. A
+`var()` resolves where it is declared (theme.css, "Derived"), so the guest
+layouts' wrapper redeclares the aliases (`--accent`, `--saffron`, …), not
+just `--teal-600`. Colour maths is `colord` (~2KB shipped), per CLAUDE.md's
+"use a library for a solved problem". The preview phone uses the same
+`brandingStyle()` the guest layouts do.
+
+**Guest info is columns, not jsonb** (migration 0013), because the guest
+screens read them by name and the times are CHECK-ed. The wifi password
+reaches a room session only, and the audit row names changed fields, not
+values — the event log is readable by READ_ONLY.
+
+**Cost / when to revisit.** Pictures are pasted URLs until R2 uploads land,
+the same as dishes. The standard check-out time does not yet seed a new
+stay's `scheduled_checkout_at`; createStay() still takes it from the desk.

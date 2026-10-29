@@ -4,10 +4,8 @@ import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { AdminOutletSettings } from '@/modules/catalog';
 import { formatMoney, money, formatRateBps } from '@/lib/money';
-import { saveOutletSettings, saveOutletHours, type OutletActionState } from './actions';
+import { saveOutletSettings, type OutletActionState } from './service-actions';
 import styles from '../admin.module.css';
-
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
  * What the kitchen charges.
@@ -115,99 +113,6 @@ export function OutletSettingsForm({
 
       <div className={styles.formActions}>
         <SaveButton label="Save what it charges" />
-      </div>
-    </form>
-  );
-}
-
-/**
- * When it is open.
- *
- * All seven days post together, and an unticked day posts nothing — which is
- * how "closed on Tuesdays" is stored (there is no `is_closed` column, and
- * `00:00`–`00:00` would be a lie the open-state logic has to guess about).
- */
-export function OutletHoursForm({
-  propertyId,
-  outlet,
-}: {
-  propertyId: string;
-  outlet: AdminOutletSettings;
-}) {
-  const [state, action] = useActionState<OutletActionState, FormData>(saveOutletHours, {});
-  const byDay = new Map(outlet.hours.map((h) => [h.dayOfWeek, h]));
-
-  return (
-    <form action={action} className={styles.hoursForm}>
-      <input type="hidden" name="propertyId" value={propertyId} />
-      <input type="hidden" name="outletId" value={outlet.id} />
-
-      <table className={styles.hoursTable}>
-        <thead>
-          <tr>
-            <th scope="col">Day</th>
-            <th scope="col">Open</th>
-            <th scope="col">From</th>
-            <th scope="col">Until</th>
-            <th scope="col">Past midnight</th>
-          </tr>
-        </thead>
-        <tbody>
-          {DAYS.map((day, dayOfWeek) => {
-            const hours = byDay.get(dayOfWeek);
-            return (
-              <tr key={day}>
-                <th scope="row" className={styles.hoursDay}>{day}</th>
-                <td>
-                  <input
-                    type="checkbox"
-                    name={`open-${dayOfWeek}`}
-                    defaultChecked={Boolean(hours)}
-                    aria-label={`Open on ${day}`}
-                  />
-                </td>
-                <td>
-                  <input
-                    name={`opensAt-${dayOfWeek}`}
-                    type="time"
-                    className={styles.timeInput}
-                    defaultValue={hours?.opensAt ?? '07:00'}
-                    aria-label={`${day} opens at`}
-                  />
-                </td>
-                <td>
-                  <input
-                    name={`closesAt-${dayOfWeek}`}
-                    type="time"
-                    className={styles.timeInput}
-                    defaultValue={hours?.closesAt ?? '23:00'}
-                    aria-label={`${day} closes at`}
-                  />
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    name={`crossesMidnight-${dayOfWeek}`}
-                    defaultChecked={hours?.crossesMidnight ?? false}
-                    aria-label={`${day} closes after midnight`}
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-
-      <p className={styles.hint}>
-        Times are the property&rsquo;s own clock. A kitchen open until 1am closes
-        <em> past midnight</em> — tick that column, or the day reads as closed.
-      </p>
-
-      {state.error ? <p className={styles.formError} role="alert">{state.error}</p> : null}
-      {state.done ? <p className={styles.formDone}>{state.done}</p> : null}
-
-      <div className={styles.formActions}>
-        <SaveButton label="Save the hours" />
       </div>
     </form>
   );

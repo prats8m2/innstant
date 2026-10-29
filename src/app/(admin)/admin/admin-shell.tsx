@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import {
-  ArrowUpRight, BedDouble, Building2, ChefHat, ConciergeBell, DoorOpen,
+  Activity, ArrowUpRight, BedDouble, Building2, ConciergeBell, DoorOpen,
   Footprints, LayoutDashboard, Link2, ListChecks, MonitorPlay, SprayCan,
   UtensilsCrossed, Users, type LucideIcon,
 } from 'lucide-react';
@@ -80,7 +80,6 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed, needs: 'catalog:read' },
       { href: '/admin/requests', label: 'Requests', icon: ListChecks, needs: 'request:read' },
-      { href: '/admin/outlet', label: 'The kitchen', icon: ChefHat, needs: 'catalog:read' },
       /* D-079. Under Service rather than Setup: a table tent is reprinted
          mid-service by whoever is running the floor, not configured once by
          whoever set the property up. */
@@ -90,13 +89,19 @@ const GROUPS: NavGroup[] = [
   {
     title: 'Setup',
     items: [
-      { href: '/admin/property', label: 'Property', icon: Building2, needs: 'room:read' },
+      /* `property:read`, not `room:read`: Hours & service lives here now (the
+         kitchen's settings moved in, D-087) and the F&B manager who owns them
+         holds no room permission. Each section asks for its own. */
+      { href: '/admin/property', label: 'Property', icon: Building2, needs: 'property:read' },
       { href: '/admin/staff', label: 'Staff', icon: Users, needs: 'staff:read' },
     ],
   },
   {
     title: 'Floor screens',
     items: [
+      /* The one entry here that is a console page: the floor as a manager sees
+         it — every ticket's stage and age, who is on shift, what is slow. */
+      { href: '/admin/floor', label: 'Live floor', icon: Activity, needs: 'order:read' },
       { href: '/kds', label: 'Kitchen display', icon: MonitorPlay, needs: 'order:read', away: true },
       { href: '/runner', label: 'Runner', icon: Footprints, needs: 'order:read', away: true },
       /* The board the overview's "Requests open" card already led to, and the

@@ -58,6 +58,16 @@ export type { StaffMember, InviteInput, IssuedInvite, InviteDetails } from './st
 /** P3.5 — the hotel's own name, timezone and currency. */
 export { updatePropertySettings, currencyIsStillOpen } from './property-settings';
 export type { PropertySettingsInput } from './property-settings';
+
+/** D-087 — what a guest reads about the hotel, and how it looks to them. */
+export { getPropertyProfile, updateGuestInfo, updateBranding } from './property-profile';
+export type { PropertyProfile } from './property-profile';
+export { cleanGuestInfo, dialable } from './guest-info';
+export type { GuestInfo } from './guest-info';
+export {
+  readBranding, cleanBranding, brandingStyle, accentContrast, NO_BRANDING, BRAND_PRESETS,
+} from './branding';
+export type { PropertyBranding, AccentContrast } from './branding';
 export type {
   ProvisionPropertyInput, ProvisionedProperty, RoomSeed, RoomTypeSeed, FloorSeed,
 } from './provision';

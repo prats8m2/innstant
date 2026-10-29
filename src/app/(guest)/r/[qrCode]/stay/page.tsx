@@ -5,7 +5,8 @@ import { withTenant } from '@/db';
 import {
   resolveStaySession, GUEST_SESSION_COOKIE, tierAtLeast, tierForAction,
 } from '@/modules/access';
-import { findProperty, describeRoom } from '@/modules/identity';
+import { findProperty, describeRoom, getPropertyProfile } from '@/modules/identity';
+import { HotelInfo } from '../../../_brand/hotel-info';
 import { getFolioForStay, buildGuestStatement } from '@/modules/billing';
 import { getCheckoutOptions, checkoutCtaFor } from '@/modules/stay';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
@@ -65,13 +66,16 @@ export default async function StayScreen({
   const base = `/r/${encodeURIComponent(qrCode)}`;
   const verified = tierAtLeast(session.accessTier, tierForAction('view_folio'));
 
-  const { property, room, folio, leaving } = await withTenant(
+  const { property, profile, room, folio, leaving } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
       const found = await findProperty(tx, session.propertyId);
       const zone = found?.timezone ?? 'Asia/Kolkata';
       return {
         property: found,
+        // D-087: the wifi, the desk's number, the standard times. Needs no
+        // verification — it is what the desk would tell anyone in the room.
+        profile: await getPropertyProfile(tx, session.propertyId),
         room: await describeRoom(tx, {
           propertyId: session.propertyId, roomId: session.roomId,
         }),
@@ -200,6 +204,10 @@ export default async function StayScreen({
             {pendingView?.status === 'REQUESTED' ? null : <CheckOutNow qrCode={qrCode} />}
           </section>
         ) : null}
+
+        {/* A room session holds the room, so it is shown the wifi password
+            too — this is the card on the nightstand, on the phone. */}
+        {profile ? <HotelInfo info={profile.guestInfo} showWifiPassword /> : null}
       </div>
     </main>
   );

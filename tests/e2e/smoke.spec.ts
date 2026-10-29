@@ -809,6 +809,11 @@ test.describe('the kitchen settings', () => {
   // Its own room, because the suite runs fully parallel against one database.
   const ROOM = '214';
 
+  /**
+   * D-087: the kitchen's settings live in Property → Hours & service now, and
+   * `/admin/outlet` redirects there — which this also proves, by starting at
+   * the old address.
+   */
   async function signInAsGm(page: Page): Promise<void> {
     await page.goto('/admin/outlet');
     await expect(page).toHaveURL(/\/admin\/login/);
@@ -819,7 +824,8 @@ test.describe('the kitchen settings', () => {
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
     await page.goto('/admin/outlet');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('The kitchen', {
+    await expect(page).toHaveURL(/\/admin\/property\?tab=service/, { timeout: 25_000 });
+    await expect(page.getByRole('heading', { name: 'When the kitchen is open' })).toBeVisible({
       timeout: 25_000,
     });
   }
@@ -847,7 +853,6 @@ test.describe('the kitchen settings', () => {
       await admin.locator(`input[name="open-${day}"]`).setChecked(true);
       await admin.locator(`input[name="opensAt-${day}"]`).fill('07:00');
       await admin.locator(`input[name="closesAt-${day}"]`).fill('22:45');
-      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(false);
     }
     await admin.getByRole('button', { name: 'Save the hours' }).click();
     await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
@@ -881,7 +886,6 @@ test.describe('the kitchen settings', () => {
     // Put the seeded hours back so the suite is repeatable.
     for (let day = 0; day < 7; day += 1) {
       await admin.locator(`input[name="closesAt-${day}"]`).fill('01:00');
-      await admin.locator(`input[name="crossesMidnight-${day}"]`).setChecked(true);
     }
     await admin.getByRole('button', { name: 'Save the hours' }).click();
     await expect(admin.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
@@ -890,21 +894,26 @@ test.describe('the kitchen settings', () => {
     await phone.close();
   });
 
-  test('refuses hours that would silently read as closed', async ({ page }) => {
+  test('works out a kitchen that closes past midnight', async ({ page }) => {
     await signInAsGm(page);
 
-    // 19:00 to 02:00 without ticking "past midnight": the open-state logic
-    // skips that window, so the kitchen would read as shut all evening.
+    // 19:00 to 02:00. This used to need a separate "past midnight" tick, and
+    // without it the kitchen read as shut all evening. Now there is nothing
+    // to tick: closing before opening IS the next day (D-087).
     await page.locator('input[name="open-1"]').setChecked(true);
     await page.locator('input[name="opensAt-1"]').fill('19:00');
     await page.locator('input[name="closesAt-1"]').fill('02:00');
-    await page.locator('input[name="crossesMidnight-1"]').setChecked(false);
+    const monday = page.locator('li', { hasText: 'Monday' }).first();
+    await expect(monday.getByText('next day')).toBeVisible();
+    await expect(monday.getByText('7h open')).toBeVisible();
     await page.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(page.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
 
-    // `.filter` because Next renders an always-present, always-empty route
-    // announcer with role="alert" — the same trap as the login test above.
-    await expect(page.getByRole('alert').filter({ hasText: /\S/ }))
-      .toContainText(/past midnight/i, { timeout: 20_000 });
+    // Put the seeded Monday back.
+    await page.locator('input[name="opensAt-1"]').fill('07:00');
+    await page.locator('input[name="closesAt-1"]').fill('01:00');
+    await page.getByRole('button', { name: 'Save the hours' }).click();
+    await expect(page.getByText(/Hours saved/)).toBeVisible({ timeout: 20_000 });
   });
 
   test('will not let a kitchen account near the rates', async ({ page }) => {

@@ -49,6 +49,9 @@ export const eventLog = pgTable('event_log', {
   // DATA-MODEL §9 — the audit trail lookup.
   index('event_log_entity_idx').on(t.entityType, t.entityId, t.occurredAt),
   index('event_log_property_idx').on(t.propertyId, t.occurredAt),
+  // D-087 (0013): "what did this person do", for the Staff screen.
+  index('event_log_actor_staff_idx').on(t.actorStaffId, t.occurredAt)
+    .where(sql`actor_staff_id IS NOT NULL`),
 ]);
 
 /**
