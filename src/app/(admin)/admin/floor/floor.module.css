@@ -178,6 +178,8 @@
   text-overflow: ellipsis;
 }
 
+.cardRunner { font-size: var(--text-xs); color: var(--text-secondary); }
+
 .allergy {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);

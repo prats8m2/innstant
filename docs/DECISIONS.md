@@ -3045,3 +3045,35 @@ showing an event name.
 **Roles nobody holds are a stat, not a footnote.** Requests route by role
 (`route_to_role_key`), so a role nobody holds is a queue that waits for
 ever; the card names them. READ_ONLY is left out — nothing routes to it.
+
+### D-089 · The floor: a Live floor page, and a kitchen display and runner app that say more
+The user asked for the floor screens to be redesigned, and for a console
+page as well as the two apps.
+
+**Live floor (`/admin/floor`) is read-only.** It is the view from the office
+or the GM's phone, not a fourth kitchen display: every open order in four
+lanes (new, cooking, at the pass, on the way) with its age against its
+promise — the SAME rule as the KDS, so the two never disagree about what is
+late — stat cards (open, running late, oldest, delivered today, requests),
+"where the time goes today" stage by stage, and who is on shift. Every
+control stays on the KDS or the runner's phone, where the person doing the
+work is. `stageTimesToday()` averages the stage stamps `advanceOrder()`
+writes; a stage with nothing to average shows a dash, not a zero, and
+"slowest" is only said with two stages to compare.
+
+**The kitchen display gains what a pass actually asks.** An "All day" panel
+totals every dish still to make across New and Cooking ("4 Laal maas"),
+which no single ticket shows and is what a cook batches by. A thin bar under
+each ticket's head shows how much of the promise is gone, in the age's own
+colour. Each ticket says where it is going (room, table, takeaway,
+delivery) with an icon. A cook can tap a dish to strike it once the ticket
+is accepted — a note on THAT tablet, kept like "seen" is and for the same
+reason (a second screen must not lose its notes because somebody tapped
+here). The bar shows how many are late and the oldest wait, and offers full
+screen where the browser allows it. Nothing here changes a state machine.
+
+**The runner's phone is grouped by what their hands need.** With you
+first, one tap from "Handed over"; then the pass, coldest first; then trays
+other runners have, small and without a button. A strip at the top says
+how many trays they have handed over today and their average pass-to-door
+(`runnerDay()`, from `assigned_runner_id` and the stamps).

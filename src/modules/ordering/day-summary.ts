@@ -198,3 +198,33 @@ export async function stageTimesToday(
     },
   };
 }
+
+export interface RunnerDay {
+  /** Trays this runner handed over today. */
+  delivered: number;
+  /** Picked up to handed over, on average. Null with none. */
+  averageMinutesToDoor: number | null;
+}
+
+/**
+ * One runner's day (D-089), for the strip at the top of their phone: how many
+ * trays they carried and how long the walk took. From `assigned_runner_id`,
+ * which `advanceOrder()` sets when a tray is taken up, and the stage stamps.
+ */
+export async function runnerDay(
+  tx: Tx,
+  input: { propertyId: string; staffUserId: string; timeZone: string },
+): Promise<RunnerDay> {
+  const tz = input.timeZone;
+  const todayStart = sql`(date_trunc('day', now() AT TIME ZONE ${tz}) AT TIME ZONE ${tz})`;
+  const [row] = (await tx.execute<{ delivered: number; minutes: number | null }>(sql`
+    SELECT count(*)::int AS delivered,
+           round(avg(extract(epoch FROM delivered_at - out_for_delivery_at) / 60)
+                 FILTER (WHERE out_for_delivery_at IS NOT NULL))::int AS minutes
+    FROM orders
+    WHERE property_id = ${input.propertyId}
+      AND assigned_runner_id = ${input.staffUserId}
+      AND delivered_at >= ${todayStart}
+  `)).rows;
+  return { delivered: row?.delivered ?? 0, averageMinutesToDoor: row?.minutes ?? null };
+}

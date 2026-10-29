@@ -79,5 +79,5 @@ export type {
 } from './popularity';
 
 /** How the day is going, for the console's overview. */
-export { daySummary, stageTimesToday } from './day-summary';
-export type { DaySummary, StageTimes } from './day-summary';
+export { daySummary, stageTimesToday, runnerDay } from './day-summary';
+export type { DaySummary, StageTimes, RunnerDay } from './day-summary';

@@ -272,8 +272,8 @@ function TicketChip({ ticket, now }: { ticket: FloorTicket; now: number }) {
         </span>
         <span className={s.cardMeta}>
           {ticket.orderNumber} · {ticket.items} {ticket.items === 1 ? 'item' : 'items'}
-          {ticket.runner ? ` · ${ticket.runner}` : ''}
         </span>
+        {ticket.runner ? <span className={s.cardRunner}>with {ticket.runner}</span> : null}
       </span>
       {age != null ? (
         <span className={`${s.age} tabular`} data-heat={heat}>

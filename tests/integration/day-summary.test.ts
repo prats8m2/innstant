@@ -5,7 +5,7 @@ import {
   seedMenu, getDish, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_MODIFIER_GROUPS,
 } from '@/modules/catalog';
 import {
-  addToCart, placeOrder, advanceOrder, daySummary, stageTimesToday, stayContext,
+  addToCart, placeOrder, advanceOrder, daySummary, stageTimesToday, runnerDay, stayContext,
 } from '@/modules/ordering';
 import { localTimeAt } from '@/lib/clock';
 import { ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, type Fixture } from './setup';
@@ -142,5 +142,19 @@ describe('daySummary', () => {
     // The earlier orders were never accepted; only these two count.
     expect(stages.counts.toAccept).toBe(2);
     expect(stages.toAccept).toBe(3);
+  });
+  it('counts one runner\'s trays today and their walk', async () => {
+    const runner = '22222222-2222-4222-8222-222222222222';
+    const placed = await order('Masala chai', 1, 'run-1');
+    await owner.query(`
+      UPDATE orders SET status = 'DELIVERED', assigned_runner_id = $2,
+             out_for_delivery_at = now() - interval '6 minutes', delivered_at = now()
+       WHERE id = $1`, [placed.orderId, runner]);
+
+    const mine = await scoped((tx) => runnerDay(tx, { propertyId: a.propertyId, staffUserId: runner, timeZone: 'Asia/Kolkata' }));
+    expect(mine).toEqual({ delivered: 1, averageMinutesToDoor: 6 });
+
+    const theirs = await scoped((tx) => runnerDay(tx, { propertyId: a.propertyId, staffUserId: staff, timeZone: 'Asia/Kolkata' }));
+    expect(theirs).toEqual({ delivered: 0, averageMinutesToDoor: null });
   });
 });

@@ -25,6 +25,39 @@
 
 /* ── The bar ──────────────────────────────────────────────────────────── */
 
+/* D-089: the two numbers a pass reads across the room — how many are late,
+   and how long the oldest has waited. */
+.statPill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill-sm);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.statPill .tabular { font-weight: 700; color: var(--text); }
+
+.statPill[data-tone='critical'] { background: var(--status-critical); color: var(--accent-ink); }
+.statPill[data-tone='critical'] .tabular { color: var(--accent-ink); }
+
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.iconButton:hover { color: var(--text); border-color: var(--text-muted); }
+.iconButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .bar {
   flex: 0 0 auto;
   min-height: 64px;
@@ -123,6 +156,10 @@
 }
 
 .trayToggle {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   min-height: var(--touch-min);
   padding: 0 var(--space-4);
   border: 1px solid var(--border);
@@ -133,6 +170,13 @@
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+/* A view that is switched on (All day): quiet, not the 86 list's alarm. */
+.trayToggle[aria-pressed='true'] {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Something is off the menu right now. The button becomes the notice. */
@@ -214,14 +258,58 @@
 
 /* ── The three columns ────────────────────────────────────────────────── */
 
-.columns {
+.board {
   flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.board[data-all-day='true'] { grid-template-columns: minmax(0, 1fr) 260px; }
+
+.columns {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5) var(--space-5);
 }
+
+/* ── All day: every dish still to make, totalled (D-089) ───────────────── */
+
+.allDay {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5) 0;
+}
+
+.allDayList {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.allDayRow {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.allDayRow + .allDayRow { border-top: 1px solid var(--border-soft); }
+
+.allDayQty { font-size: var(--text-xl); font-weight: 700; color: var(--accent); }
+
+.allDayName { font-size: var(--text-base); font-weight: 600; color: var(--text); }
+
+.allDayTickets { grid-column: 2; font-size: var(--text-xs); color: var(--text-muted); }
 
 .column {
   display: flex;
@@ -399,7 +487,62 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
+  padding: var(--space-1) var(--space-4);
+}
+
+/* The dish itself is the button: the whole name is the target, not a box. */
+.lineToggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.lineToggle { cursor: pointer; border-radius: var(--radius-sm); }
+button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.line[data-done='true'] .lineName,
+.line[data-done='true'] .quantity {
+  text-decoration: line-through;
+  opacity: 0.45;
+}
+
+/* ── How much of the promise is gone, and where the tray is going ──────── */
+
+.promise {
+  height: 4px;
+  background: var(--surface-raised);
+}
+
+.promise > span {
+  display: block;
+  height: 100%;
+  background: var(--status-positive);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.promise[data-heat='soon'] > span { background: var(--status-attention-mark); }
+.promise[data-heat='late'] > span { background: var(--status-critical); }
+
+.fulfilment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-2) var(--space-4) 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* 86'd since the ticket landed. Still has to be cooked or refused — struck
@@ -670,6 +813,12 @@
 
   .column { min-height: 0; }
 
+  /* All day sits above the columns on a narrow screen, not beside them. */
+  .board[data-all-day='true'] { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+  .board { overflow-y: auto; }
+  .allDay { order: -1; padding: var(--space-4) var(--space-5) 0; }
+  .allDayList { max-height: 220px; }
+
   /*
    * `flex: 0 0 auto` here, not just `overflow: visible`.
    *
@@ -700,5 +849,11 @@
    * klaxon is about.
    */
   .bar { flex-wrap: wrap; row-gap: var(--space-2); }
-  .barRight { margin-left: 0; width: 100%; justify-content: space-between; }
+  .barRight {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
 }

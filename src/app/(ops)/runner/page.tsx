@@ -4,7 +4,7 @@ import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
 import { can, findProperty, listFloors } from '@/modules/identity';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
-import { runnerTickets } from '@/modules/ordering';
+import { runnerTickets, runnerDay } from '@/modules/ordering';
 import { getOpenRequests } from '@/modules/requests';
 import { getCurrentShift } from '@/modules/housekeeping';
 import { FloorHeader, OffShiftNotice } from '../floor-header';
@@ -68,12 +68,17 @@ export default async function RunnerApp() {
 
   const maySeeRequests = can(session, propertyId, 'request:read');
 
-  const { property, outlet, tickets, floors, shift, myRequests } = await withTenant(
+  const { property, outlet, tickets, floors, shift, myRequests, myDay } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutletConfig(tx, propertyId);
+      const here = await findProperty(tx, propertyId);
       return {
-        property: await findProperty(tx, propertyId),
+        property: here,
+        // D-089: the strip at the top — what this runner has carried today.
+        myDay: await runnerDay(tx, {
+          propertyId, staffUserId: session.staffUserId, timeZone: here?.timezone ?? 'Asia/Kolkata',
+        }),
         floors: await listFloors(tx, propertyId),
         shift: await getCurrentShift(tx, { propertyId, staffUserId: session.staffUserId }),
         outlet: found,
@@ -134,6 +139,19 @@ export default async function RunnerApp() {
           still shown off shift — what changes is that nothing is ROUTED to
           them, and the notice says so rather than leaving a quiet screen. */}
       {shift ? null : <OffShiftNotice />}
+
+      {/* Your run today. Two numbers, because a runner asks "how many have I
+          done" and "am I quick", and nothing else on this screen says either. */}
+      <dl className={styles.myDay}>
+        <div>
+          <dt>Handed over today</dt>
+          <dd className="tabular">{myDay.delivered}</dd>
+        </div>
+        <div>
+          <dt>Pass to door</dt>
+          <dd className="tabular">{myDay.averageMinutesToDoor == null ? '—' : `${myDay.averageMinutesToDoor} min`}</dd>
+        </div>
+      </dl>
 
       <PickupQueue
         propertyId={propertyId}

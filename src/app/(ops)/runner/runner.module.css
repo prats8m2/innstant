@@ -260,3 +260,87 @@
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
+
+/* ── D-089: the run today, and the queue in groups ─────────────────────── */
+
+.myDay {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-3);
+}
+
+.myDay > div {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.myDay dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.myDay dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.groups { display: grid; gap: var(--space-5); padding-bottom: var(--space-8); }
+
+.group[data-quiet='true'] { opacity: 0.8; }
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.groupCount { font-weight: 400; color: var(--text-muted); }
+
+.groupEmpty {
+  list-style: none;
+  padding: var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.fulfilment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.otherTray {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.otherDest { font-weight: 600; font-size: var(--text-sm); color: var(--text); }
