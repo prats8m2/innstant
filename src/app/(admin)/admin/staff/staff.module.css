@@ -1,0 +1,378 @@
+/*
+ * The Staff screen (D-088): stat cards, a directory that reads like a table on
+ * a wide screen and like cards on a phone, and the person panel. Every value
+ * is a token from theme.css.
+ */
+
+.inviteButton { gap: var(--space-2); text-decoration: none; margin-left: auto; align-self: center; }
+
+/* ── Stats ──────────────────────────────────────────────────────────────── */
+
+.stats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.stat {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.stat[data-tone='positive'] { border-color: color-mix(in srgb, var(--status-positive) 40%, var(--border)); }
+.stat[data-tone='critical'] { border-color: color-mix(in srgb, var(--status-critical) 45%, var(--border)); }
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.stat[data-tone='positive'] .statValue { color: var(--status-positive); }
+.stat[data-tone='critical'] .statValue { color: var(--status-critical); }
+
+.statSub {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+/* ── Directory ──────────────────────────────────────────────────────────── */
+
+.directory { overflow: hidden; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.search {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput,
+.roleFilter {
+  width: 100%;
+  min-height: var(--touch-min);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+
+.searchInput { padding: 0 var(--space-3) 0 calc(var(--space-3) * 2 + 16px); }
+.roleFilter { width: auto; padding: 0 var(--space-3); }
+
+.searchInput:focus-visible,
+.roleFilter:focus-visible,
+.segment:focus-visible,
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.segments {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.segment[aria-pressed='true'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+}
+
+.segmentCount { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* One grid template for the head and every row, so the columns line up. */
+.tableHead,
+.row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1.4fr) 128px 140px 150px 20px;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-5);
+}
+
+.tableHead {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.rows { list-style: none; margin: 0; padding: 0; }
+
+.rows > li + li { border-top: 1px solid var(--border-soft); }
+
+.row {
+  color: inherit;
+  text-decoration: none;
+  min-height: 64px;
+}
+
+.row:hover { background: var(--surface-hover); }
+.rows > li[data-muted='true'] .row { opacity: 0.6; }
+
+.person { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.personText { display: grid; min-width: 0; }
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.email {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.you {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill-sm);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-tint);
+  color: var(--accent);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.avatar[data-muted='true'] { background: var(--surface-raised); color: var(--text-muted); }
+.avatar[data-large='true'] { width: 56px; height: 56px; font-size: var(--text-base); }
+
+.roles { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
+
+.roleChip {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill-sm);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.noRole { font-size: var(--text-xs); color: var(--status-critical); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge[data-tone='positive'] { background: var(--status-positive-tint); color: var(--status-positive); }
+.badge[data-tone='attention'] { background: var(--status-attention-tint); color: var(--status-attention); }
+.badge[data-tone='critical'] { background: var(--status-critical-tint); color: var(--status-critical); }
+
+.onShift {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--status-positive);
+  white-space: nowrap;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-positive);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--status-positive) 22%, transparent);
+}
+
+.offShift { font-size: var(--text-sm); color: var(--text-muted); }
+
+.lastSeen { font-size: var(--text-sm); color: var(--text-muted); white-space: nowrap; }
+
+.chevron { color: var(--text-muted); }
+
+/* A phone: each person is a card, the columns become lines. */
+@media (max-width: 1023px) {
+  .tableHead { display: none; }
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'person chevron'
+      'roles roles'
+      'meta meta';
+    gap: var(--space-2);
+    padding: var(--space-4);
+  }
+  .person { grid-area: person; }
+  .chevron { grid-area: chevron; }
+  .roles { grid-area: roles; padding-left: calc(36px + var(--space-3)); }
+  .statusCell, .shiftCell, .lastSeen { grid-row: 3; padding-left: 0; }
+  .statusCell { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-left: calc(36px + var(--space-3)); }
+  /* On shift is the line a manager on a phone is looking for; "off shift"
+     on every other card is noise. */
+  .shiftCell { grid-row: 4; grid-column: 1 / -1; padding-left: calc(36px + var(--space-3)); }
+  .shiftCell:not(:has(.onShift)) { display: none; }
+  .lastSeen { display: none; }
+}
+
+/* Three numbers side by side on a phone, not three cards a screen tall. */
+@media (max-width: 639px) {
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+  .stat { padding: var(--space-3); }
+  .statLabel { font-size: var(--text-2xs); letter-spacing: 0.06em; }
+  .statValue { font-size: var(--text-xl); }
+  .statSub { display: none; }
+}
+
+/* ── The person panel ───────────────────────────────────────────────────── */
+
+.panel { display: grid; gap: 0; }
+
+.panelHero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+
+.panelHeroText { display: grid; gap: var(--space-1); justify-items: start; min-width: 0; }
+
+.panelSection {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.panelSection[data-danger='true'] .panelTitle { color: var(--status-critical); }
+
+.panelTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.panelForm { display: grid; gap: var(--space-3); }
+
+.formRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--text-sm); }
+.facts dt { color: var(--text-muted); }
+.facts dd { margin: 0; color: var(--text); }
+
+.roleList { list-style: none; margin: 0; padding: 0; }
+
+.roleRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 52px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.roleRow:last-child { border-bottom: 0; }
+
+.roleIcon { color: var(--text-muted); }
+.roleRow[data-held='true'] .roleIcon { color: var(--accent); }
+.roleRowName { font-size: var(--text-sm); color: var(--text-muted); }
+.roleRow[data-held='true'] .roleRowName { color: var(--text); font-weight: 600; }
+
+.shiftLine { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+.shiftLine strong { color: var(--text); }
+
+.activity { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+
+.activityRow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  font-size: var(--text-sm);
+}
+
+.activityIcon { color: var(--text-muted); align-self: center; }
+.activityText { color: var(--text); }
+.activityWhen { color: var(--text-muted); font-size: var(--text-xs); white-space: nowrap; }
+
+.inviteLink { display: grid; gap: var(--space-2); }

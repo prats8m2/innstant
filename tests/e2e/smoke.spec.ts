@@ -2778,9 +2778,10 @@ test.describe('staff and roles', () => {
       await signInAsGm(admin);
       await admin.goto('/admin/staff');
 
-      await admin.getByRole('group').filter({ hasText: 'Add somebody' })
-        .locator('summary').click();
-      const form = admin.locator('details').filter({ hasText: 'Add somebody' });
+      // D-088: inviting is a panel the header's button opens.
+      await admin.getByRole('link', { name: 'Invite someone' }).click();
+      await admin.waitForURL(/person=new/);
+      const form = admin.locator('[data-invite-form]');
       await form.locator('input[name="fullName"]').fill('New Joiner');
       await form.locator('input[name="email"]').fill(NEW_STAFF);
       await form.locator('select[name="roleKey"]').selectOption('FRONT_DESK');
@@ -2852,7 +2853,10 @@ test.describe('staff and roles', () => {
       const admin = await desk.newPage();
       await signInAsGm(admin);
       await admin.goto('/admin/staff');
-      await admin.locator(`li[data-staff="${NEW_STAFF}"]`)
+      // Everything you can do to a person is in their panel (D-088).
+      await admin.locator(`li[data-staff="${NEW_STAFF}"] a`).click();
+      await admin.waitForURL(/person=/);
+      await admin.locator(`[data-staff-panel="${NEW_STAFF}"]`)
         .getByRole('button', { name: 'Switch off' }).click();
       await expect(admin.locator(`li[data-staff="${NEW_STAFF}"]`))
         .toContainText('switched off', { timeout: 25_000 });
@@ -2877,11 +2881,13 @@ test.describe('staff and roles', () => {
     await signInAsGm(page);
     await page.goto('/admin/staff');
 
-    const me = page.locator('li[data-staff="gm@thekesari.example"]');
-    // No Switch off at all for your own row — the service refuses too.
+    await page.locator('li[data-staff="gm@thekesari.example"] a').click();
+    await page.waitForURL(/person=/);
+    const me = page.locator('[data-staff-panel="gm@thekesari.example"]');
+    // No Switch off at all for yourself — the service refuses too.
     await expect(me.getByRole('button', { name: 'Switch off' })).toHaveCount(0);
 
-    await me.getByRole('group').filter({ hasText: 'Roles' }).locator('summary').click();
+    // The roles they hold come first, so this is Property admin.
     await me.getByRole('button', { name: 'Take away' }).first().click();
     await expect(page.getByText(/only property admin here|only role here/))
       .toBeVisible({ timeout: 25_000 });

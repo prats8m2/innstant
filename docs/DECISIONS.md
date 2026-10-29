@@ -3014,3 +3014,34 @@ values — the event log is readable by READ_ONLY.
 **Cost / when to revisit.** Pictures are pasted URLs until R2 uploads land,
 the same as dishes. The standard check-out time does not yet seed a new
 stay's `scheduled_checkout_at`; createStay() still takes it from the desk.
+
+### D-088 · Staff: a directory and a panel, with who is on shift and what they did
+Part of the same Setup redesign as D-087; the user chose a table with a side
+panel, shifts and presence, and activity per person.
+
+**Read in a directory, act in a panel.** Every row used to carry Edit, Roles
+and Switch off, each opening a form under it. The list is now a directory —
+person, roles, status, shift, last seen — with a search and role and status
+filters (local: a hotel has tens of staff), and a row opens `?person=<id>`,
+the same URL-driven SidePanel as the menu's dish editor. The panel holds
+details, every role with Give or Take away beside it (held ones first),
+the shift, the sign-in link, recent activity, and switching off at the
+bottom, never for yourself. Inviting is `?person=new` from the header.
+
+**Presence comes from `shifts`, not a flag.** `listOnShift()`
+(housekeeping) answers "who is clocked in, since when, covering which
+floors". A manager can close somebody else's shift (`endShiftFor()`,
+`shift:manage`) for the runner who went home without clocking out and is
+still being routed requests; the event's actor is the manager and its
+payload names whose shift it was.
+
+**Activity is the event log, read by actor.** `readStaffActivity()` (in
+`src/db/events.ts`, beside `readEventHistory()`, D-019's exemption) with the
+index from migration 0013, sign-ins left out. `describeActivity()` (pure,
+tested) turns an event into a sentence — "Accepted order KE-1185", "Took Laal
+maas off the menu" — and drops what it cannot say plainly rather than
+showing an event name.
+
+**Roles nobody holds are a stat, not a footnote.** Requests route by role
+(`route_to_role_key`), so a role nobody holds is a queue that waits for
+ever; the card names them. READ_ONLY is left out — nothing routes to it.

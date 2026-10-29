@@ -8,6 +8,7 @@ import {
   inviteStaff, reissueInvite, updateStaff, deactivateStaff, reactivateStaff,
   assignRole, revokeRole,
 } from '@/modules/identity';
+import { endShiftFor } from '@/modules/housekeeping';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
@@ -267,5 +268,38 @@ export async function changeRole(
 
     revalidatePath('/admin/staff');
     return { done: remove ? 'Taken away.' : 'Added. It applies the next time they load a screen.' };
+  });
+}
+
+/**
+ * A manager closes somebody else's shift — the runner who went home without
+ * tapping Clock out, and is still being routed requests (D-088).
+ * `shift:manage`, which is PROPERTY_ADMIN's.
+ */
+export async function clockOutStaff(
+  _previous: StaffState,
+  formData: FormData,
+): Promise<StaffState> {
+  const parsed = z.object({ propertyId: z.uuid(), targetStaffId: z.uuid() }).safeParse({
+    propertyId: formData.get('propertyId'),
+    targetStaffId: formData.get('targetStaffId'),
+  });
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  const input = parsed.data;
+
+  return guard('clock out staff', async () => {
+    const session = await requirePermission(input.propertyId, 'shift:manage');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: input.propertyId },
+      (tx) => endShiftFor(tx, {
+        tenantId: session.tenantId,
+        propertyId: input.propertyId,
+        targetStaffId: input.targetStaffId,
+        actorStaffId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/staff');
+    revalidatePath('/admin/floor');
+    return { done: 'Clocked out. Nothing routes to them until they clock in again.' };
   });
 }
