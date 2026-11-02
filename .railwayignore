@@ -12,7 +12,16 @@
 
 # Design sources: exports, their browser runtime, fonts for the web build are
 # in src/, not here. Read by humans and by `pnpm design:decode`.
-design/
+#
+# Listed one by one, NOT as `design/`: design/tokens/ is the app's colour
+# source since D-100 and `next build` imports it. Excluding the whole folder
+# failed the first Railway build of the redesign with "Can't resolve
+# '../../../design/tokens/innstant-themes.json'". No negation (`!`) either —
+# be explicit, so no ignore-file dialect can get it wrong.
+design/UX/
+design/reference/
+design/fonts/
+design/*.md
 
 # The Expo app is built by EAS, never by Railway.
 mobile/
