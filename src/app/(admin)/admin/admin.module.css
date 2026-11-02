@@ -26,99 +26,142 @@
  *                      meaning "look" and "danger" at the same time
  */
 
-/* ── Shell ──────────────────────────────────────────────────────────────── */
+/* ── Shell ──────────────────────────────────────────────────────────────────
+ *
+ * Direction A (D-100), from design/reference/direction-a/ConsoleOverview: a
+ * 248px sidebar (property, search, four named groups, the person) beside a
+ * canvas with a 60px top bar. Sizes are the board's, in px; colours are the
+ * token file's roles only. The frame element carries `data-console` and
+ * `data-accent` (appearance-toggle.tsx), so every var() below is this
+ * person's light or dark and this property's accent.
+ */
 .frame {
+  --rail-w: 248px;
+  --bar-h: 60px;
+  --gutter: clamp(16px, 3vw, 32px);
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: var(--nav-w) minmax(0, 1fr);
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
   background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
 }
+/* A refusal with no console around it (guard.tsx, `framed`). */
+.frame > .main:only-child { grid-column: 1 / -1; }
 
 .rail {
   position: sticky;
   top: 0;
-  /* Above the canvas, so the bell's panel can hang over the page. */
+  /* Above the canvas, so anything hanging off the sidebar sits over the page. */
   z-index: 20;
   align-self: start;
   height: 100dvh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  padding: 14px 12px;
   background: var(--surface);
   border-right: 1px solid var(--border);
 }
 
-/* The property's name, and the bell beside it. Below 1024px this same row is
-   the sticky top bar, with the menu button in front. */
-.railHead {
+/* The property, as the board's card. A link home rather than a switcher:
+   there is nothing to switch to (admin-shell.tsx). */
+.propertyCard {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) var(--space-3) var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--border-soft);
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.propertyCard:hover { color: var(--text); border-color: var(--border-strong); }
+
+.propertyMark {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
 }
 
-.railBrand {
+.propertyText {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
-/* Only below 1024px, where the groups are a drawer. */
-.railToggle {
-  display: none;
+.propertyName {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.propertyMeta {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+/* The sidebar's search, drawn as a field; it is a button that opens ⌘K. */
+.searchField {
   flex: 0 0 auto;
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: var(--touch-min);
-  height: var(--touch-min);
-  margin-left: calc(var(--space-2) * -1);
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
+  gap: 8px;
+  height: 36px;
+  margin-bottom: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: left;
   cursor: pointer;
 }
-.railToggle:hover { background: var(--surface-hover); }
+.searchField:hover { border-color: var(--border-strong); color: var(--text-2); }
 
-/* The groups and the foot. A column of the rail on a desk; the drawer below
-   1024px. */
-.railBody {
+.searchFieldText {
   flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.railScrim { display: none; }
-
-.brand {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  line-height: 1.2;
-  color: var(--text);
-  text-wrap: balance;
-}
-.brand:hover { color: var(--accent); }
-
-.brandSub {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
+.kbd {
+  flex: 0 0 auto;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--text-3);
 }
 
 .nav {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-4) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  /* Room for the focus ring on the first and last items. */
+  margin-inline: -4px;
+  padding-inline: 4px;
 }
 
 .navGroup {
@@ -128,100 +171,429 @@
 }
 
 .navGroupTitle {
-  margin: 0 0 var(--space-2);
-  padding-inline: var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
+  margin: 0;
+  padding: 14px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--plaster-faint);
+  color: var(--text-3);
 }
 
 .navLink {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  min-height: var(--touch-min);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-base);
-  color: var(--text-muted);
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-2);
   transition: background var(--dur-fast) var(--ease-out),
               color var(--dur-fast) var(--ease-out);
 }
-.navLink:hover { background: var(--surface-hover); color: var(--text); }
+.navLink:hover { background: var(--surface-2); color: var(--text); }
 
 .navLink[aria-current='page'] {
-  color: var(--text);
-  background: color-mix(in srgb, var(--saffron) 12%, transparent);
-}
-/* A saffron edge rather than only a tint: the tint alone is a 12% wash that
-   disappears on a dim screen in a back office, which is where this is read. */
-.navLink[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 2px;
-  border-radius: var(--radius-xs);
-  background: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
 }
 
-.navIcon {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-}
-.navLink:hover .navIcon,
-.navLink[aria-current='page'] .navIcon { color: var(--accent); }
+.navIcon { flex: 0 0 auto; }
 
 .navLabel { flex: 1; min-width: 0; }
 
 .navAway {
   flex: 0 0 auto;
-  color: var(--plaster-faint);
+  color: var(--text-3);
 }
 
+/* The person signed in, and the way out. */
 .railFoot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 12px 0 0 8px;
+  border-top: 1px solid var(--border);
+}
+
+.whoAvatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.whoText {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--border-soft);
 }
 
-.whoName {
-  min-width: 0;
-  font-size: var(--text-sm);
-  color: var(--text);
+.whoName,
+.whoRole {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.whoName {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.whoRole {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-3);
+}
+
 .signOut {
-  /* The text lines up with the name above it; the 44px target does not. */
-  margin-left: calc(var(--space-2) * -1);
-  min-height: var(--touch-min);
-  padding: 0 var(--space-2);
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 0;
+  border-radius: 6px;
   background: transparent;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  color: var(--text-3);
   cursor: pointer;
 }
-.signOut:hover { color: var(--text); background: var(--surface-hover); }
+.signOut:hover { color: var(--text); background: var(--surface-2); }
 
-.canvas { min-width: 0; }
+.railScrim { display: none; }
+
+.canvas {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The top bar: where you are, then search, your light or dark, the bell. */
+.topBar {
+  /* Above the page, so the bell's and the appearance panel hang over it. */
+  position: relative;
+  z-index: 15;
+  flex: 0 0 auto;
+  min-height: var(--bar-h);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 var(--gutter);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Only below 1024px, where the sidebar is a drawer. */
+.railToggle {
+  display: none;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.railToggle:hover { background: var(--surface-2); }
+
+.crumbs {
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.crumbGroup,
+.crumbSep { color: var(--text-3); }
+.crumbPage {
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topSpacer { flex: 1; }
+
+/* The top bar's square controls, as the board draws them: 40px, bordered. */
+.topIcon {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.topIcon:hover { color: var(--text); border-color: var(--border-strong); }
+.topIcon[aria-expanded='true'] { color: var(--text); background: var(--surface-2); }
+
+/* The sidebar has the search on a desk; the bar has it on a phone. */
+.topSearch { display: none; }
+
+/* The bell is shared with the floor board and draws its own trigger; inside
+   the top bar it takes the bar's square, bordered shape. */
+.bellSlot { flex: 0 0 auto; display: flex; }
+.bellSlot summary {
+  box-sizing: border-box;
+  min-width: 40px;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-2);
+}
+
+/* Light / Dark / Match device. */
+.appearance { position: relative; flex: 0 0 auto; }
+
+.appearancePanel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: 220px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.appearancePanel[hidden] { display: none; }
+
+.appearanceLegend {
+  float: left;
+  width: 100%;
+  padding: 6px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.appearanceOption {
+  clear: both;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.appearanceOption:hover { background: var(--surface-2); color: var(--text); }
+.appearanceOption:has(input:checked) {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+/* The radio itself is the whole row; its ring shows on the row. */
+.appearanceOption input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.appearanceOption:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.appearanceNote {
+  margin: 4px 0 0;
+  padding: 6px 10px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
 
 .main {
+  width: 100%;
   max-width: var(--content-max);
-  margin-inline: auto;
-  padding: var(--space-8) var(--space-8) var(--space-10);
+  box-sizing: border-box;
+  padding: 24px var(--gutter) 40px;
 }
+
+/* ── ⌘K: the search dialog (console-search.tsx) ─────────────────────────── */
+.searchDialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: min(560px, calc(100dvh - 24vh));
+  margin: 12vh auto auto;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.searchDialog[open] { display: flex; flex-direction: column; }
+.searchDialog::backdrop {
+  background: rgb(0 0 0 / 0.32);
+}
+
+.searchBox {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchInputRow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body);
+  /* 16px: anything smaller and iOS zooms the page on focus. */
+  font-size: 16px;
+  outline: none;
+}
+.searchInput::placeholder { color: var(--text-3); }
+.searchInput::-webkit-search-cancel-button { display: none; }
+.searchInputRow:has(.searchInput:focus-visible) { box-shadow: inset 0 -2px 0 var(--accent); }
+
+.searchSpin { animation: navPendingSpin var(--dur-shimmer) linear infinite; }
+
+.searchBody {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 0;
+}
+
+.searchHint {
+  margin: 0;
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--text-3);
+}
+
+.searchList,
+.searchGroupList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.searchList[hidden] { display: none; }
+
+.searchGroup {
+  margin: 0;
+  padding: 10px 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.searchOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin: 0 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.searchOption[aria-selected='true'] { background: var(--accent-soft); }
+
+.searchOptionIcon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.searchOption[aria-selected='true'] .searchOptionIcon { color: var(--accent-text); }
+
+.searchOptionText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.searchOptionTitle {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchOptionDetail {
+  font-size: 12.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.searchOptionEnter {
+  flex: 0 0 auto;
+  color: var(--text-3);
+  visibility: hidden;
+}
+.searchOption[aria-selected='true'] .searchOptionEnter { visibility: visible; }
 
 /* ── Page furniture ────────────────────────────────────────────────────── */
 .pageHead {
@@ -1492,55 +1864,29 @@ details[open] > .disclosureHead {
   color: var(--text);
 }
 
-/* ── The rail as a top bar and a drawer ───────────────────────────────────
+/* ── The sidebar as a drawer ─────────────────────────────────────────────
  *
- * Below 1024px the rail's head is a sticky bar across the top (menu, the
- * property, the bell) and the groups open as a drawer beneath it. It used to
- * lie down into a sideways-scrolling strip that showed four of twelve
- * destinations on a phone and scrolled away with the page; console-rail.tsx
- * has the rest. The 1024px here must match RAIL_QUERY there.
+ * Below 1024px the sidebar folds away behind the menu button at the start of
+ * the top bar, which becomes sticky, and opens as a drawer under it;
+ * console-rail.tsx has the rest. The 1024px here must match RAIL_QUERY there.
  */
 @media (max-width: 1023px) {
-  /* Two rows now, bar and page. The page's row takes the spare height: left
-     to share it, a short page (the desk at 768px) grew the BAR's row and
-     opened a 40px gap under it. */
-  .frame { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  /* One column; the drawer is fixed, out of the flow. */
+  .frame { grid-template-columns: minmax(0, 1fr); }
 
   .rail {
-    --bar-h: 60px;
-    position: sticky;
-    top: 0;
-    height: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .railHead {
-    min-height: var(--bar-h);
-    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
-    border-bottom: 0;
-  }
-
-  .railToggle { display: inline-flex; }
-
-  .brand {
-    font-size: var(--text-md);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .railBody {
     position: fixed;
     top: var(--bar-h);
     bottom: 0;
     left: 0;
-    z-index: 2;
-    width: min(320px, 86vw);
+    z-index: 40;
+    width: min(300px, 86vw);
+    height: auto;
+    /* The sidebar's `align-self: start` applies to a fixed box too, and
+       sizes it to its content instead of to top/bottom: back to stretch. */
+    align-self: stretch;
     overflow-y: auto;
     overscroll-behavior: contain;
-    background: var(--surface);
-    border-right: 1px solid var(--border);
     box-shadow: var(--shadow-md);
     transform: translateX(-100%);
     /* Hidden as well as moved, so a closed drawer's links are not in the
@@ -1549,27 +1895,54 @@ details[open] > .disclosureHead {
     transition: transform var(--dur-base) var(--ease-out),
                 visibility 0s linear var(--dur-base);
   }
-  .railBody[data-open='true'] {
+  .rail[data-open='true'] {
     transform: none;
     visibility: visible;
     transition: transform var(--dur-base) var(--ease-out);
   }
 
+  /* In a drawer the whole column scrolls, not the nav inside it. */
   .nav { flex: 0 0 auto; overflow: visible; }
-
   .railFoot { margin-top: auto; }
+
+  /* Thumb-sized, everything a finger presses in the drawer. */
+  .navLink,
+  .searchField { min-height: var(--touch-min); }
+  .signOut { width: var(--touch-min); height: var(--touch-min); }
+  /* The bar carries the search on a phone. */
+  .searchField { display: none; }
 
   .railScrim {
     display: block;
     position: fixed;
     inset: var(--bar-h) 0 0 0;
-    z-index: 1;
+    z-index: 39;
     background: color-mix(in srgb, var(--text) 32%, transparent);
     opacity: 0;
     pointer-events: none;
     transition: opacity var(--dur-base) var(--ease-out);
   }
   .railScrim[data-open='true'] { opacity: 1; pointer-events: auto; }
+
+  .topBar {
+    position: sticky;
+    top: 0;
+    z-index: 41;
+    gap: 8px;
+    padding: 0 12px 0 16px;
+  }
+  .railToggle { display: inline-flex; }
+  /* Only the page's name: the group is in the drawer. */
+  .crumbGroup, .crumbSep { display: none; }
+
+  .topIcon { width: var(--touch-min); height: var(--touch-min); }
+  /* min-, not fixed: the bell widens to fit its count. */
+  .bellSlot summary { min-width: var(--touch-min); min-height: var(--touch-min); }
+  .topSearch { display: flex; }
+
+  .main { padding: 20px 16px 40px; }
+
+  .searchDialog { margin-top: 8px; max-height: calc(100dvh - 16px); }
 }
 
 /* ── Narrow screens ─────────────────────────────────────────────────────
@@ -1578,8 +1951,6 @@ details[open] > .disclosureHead {
  * a usable page. This block is the PAGES' half; the shell's is above.
  */
 @media (max-width: 960px) {
-  .main { padding: var(--space-5) var(--space-4) var(--space-10); }
-
   .formGrid { grid-template-columns: minmax(0, 1fr); }
 
   .pageHead { flex-direction: column; }
