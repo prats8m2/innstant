@@ -21,6 +21,19 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**CI made green (same branch), D-099.** The e2e suite was 24 red against
+this branch; it is now 111 passed / 0 failed on a production build run the
+way CI runs it (2 workers, 2 retries). Mostly stale assertions after the
+admin redesign (tabs, panels, wording). Three real fixes: (1) the order,
+request and "Your requests" screens lost their `loading.tsx` — with one,
+`router.refresh()` fetched the new state and Next 15.5 never committed it,
+so a guest's timeline froze on "Order received" (D-099); (2) CI's e2e job
+sets `DATABASE_POOL_MAX=40`, because the default of 10 starved under parallel
+workers; (3) `formatRate` moved into the pure `desk-bill.ts`, so the unit
+job (no `DATABASE_URL`) no longer loads the db client. The kitchen-settings
+tests now run serially. CI only runs on a PR or main, so the WebKit
+(`guest-ios`) project has not been seen yet — it runs when the PR is raised.
+
 **D-098 (same branch):** a request can only be assigned to somebody clocked
 in — enforced in `advanceRequest()`; the console's assign list shows on-shift
 people (with an icon and their floors) and greys out the rest.
@@ -418,6 +431,15 @@ The things that still belong in a status file:
 
 ## Environment notes
 
+- **2 November: running e2e like CI, locally.** Start a production server on
+  3200 with `DATABASE_POOL_MAX=40` (`PORT=3200 APP_URL=http://localhost:3200
+  NEXT_DIST_DIR=.next-e2e NODE_ENV=production pnpm build && … pnpm start`), then
+  `npx playwright test --workers=2 --retries=2` with the same PORT/APP_URL —
+  it reuses the server. Load `.env_old` first: the global setup runs
+  `demo:reset`, which fails silently-ish without `DATABASE_URL`. At 4 workers
+  a room-210 test can stall on "Checking…" under load; at CI's 2 it does not.
+  Afterwards `git checkout next-env.d.ts tsconfig.json` — the build rewrites
+  them for the custom dist dir.
 - **29 October: the user replaced `.env`.** The old one is `.env_old` (the
   local Homebrew PG14 on 5432, the roles in "Local database" below). The new
   `.env` points both database URLs at `localhost:55432`, which nothing was
