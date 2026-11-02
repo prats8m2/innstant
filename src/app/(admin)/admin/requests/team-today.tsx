@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import q from './requests.module.css';
-import { initials, ShiftMark } from './live-requests';
+import { initials } from '@/lib/initials';
+import { ShiftMark } from './live-requests';
 
 /**
  * Who is carrying what, and how today has gone (D-097).

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { initials } from '@/lib/initials';
 import { useRouter } from 'next/navigation';
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
@@ -91,10 +92,6 @@ export function ShiftMark({ onShift }: { onShift: boolean }) {
   );
 }
 
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1]![0] : parts[0]?.[1] ?? '')).toUpperCase();
-}
 
 /* ── The clock ───────────────────────────────────────────────────────────── */
 
