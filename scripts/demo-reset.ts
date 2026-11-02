@@ -530,8 +530,9 @@ async function main(): Promise<void> {
 
     const folioSeed = [
       // Desk lines say what they are (0015), so the checkout screen groups
-      // them as Room and Other charges, as a desk adding them today would.
-      { description: 'Room · Lake view · 2 × ₹9,000', amountMinor: 1_800_000, source: 'MANUAL' as const, category: 'ROOM' },
+      // them as Room and Other charges. The wording is unchanged: the guest's
+      // stay screen and its e2e read these exact descriptions.
+      { description: 'Room charge · Lake view', amountMinor: 1_800_000, source: 'MANUAL' as const, category: 'ROOM' },
       { description: 'In-room dining · KE-1180', amountMinor: 247_000, source: 'ORDER' as const, category: null },
       { description: 'Laundry service', amountMinor: 45_000, source: 'SERVICE_REQUEST' as const, category: null },
       { description: 'Minibar', amountMinor: 62_000, source: 'MANUAL' as const, category: 'MINIBAR' },
@@ -560,7 +561,7 @@ async function main(): Promise<void> {
     }).returning({ id: folios.id });
 
     for (const line of [
-      { description: 'Room · Lake view', amountMinor: 1_200_000, source: 'MANUAL' as const, category: 'ROOM' },
+      { description: 'Room charge · Lake view', amountMinor: 1_200_000, source: 'MANUAL' as const, category: 'ROOM' },
       { description: 'In-room dining · KE-1179', amountMinor: 118_000, source: 'ORDER' as const, category: null },
     ]) {
       await tx.insert(folioLines).values({
