@@ -53,7 +53,7 @@
 
 .title {
   margin: 0;
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   font-weight: 700;
   line-height: 1.1;
   color: var(--text);
@@ -72,7 +72,7 @@
 .clockStack { display: flex; flex-direction: column; gap: 2px; }
 
 .clock {
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   line-height: 1.1;
   color: var(--text);
 }
@@ -90,7 +90,7 @@
 
 .loadLine {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 0.9375rem;
   color: var(--text-2);
   white-space: nowrap;
 }
@@ -130,7 +130,7 @@
   background: var(--warn);
   color: var(--bg);
   font-family: var(--font-body);
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
@@ -192,7 +192,7 @@
   background: transparent;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -260,7 +260,7 @@
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -303,14 +303,14 @@
 
 .columnTitle {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-2);
 }
 
-.columnCount { font-size: 1.125rem; color: var(--text-2); }
+.columnCount { font-size: 0.9375rem; color: var(--text-2); }
 
 /*
  * Each column scrolls on its own. A single page scroll would mean a cook
@@ -341,7 +341,7 @@
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   color: var(--text-2);
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   text-align: center;
 }
 
@@ -374,7 +374,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) 0;
-  font-size: 1.3125rem;
+  font-size: 1rem;
   border-bottom: 1px solid var(--border);
 }
 
@@ -386,7 +386,7 @@
 
 .allDayQty { font-weight: 700; color: var(--text); }
 
-.allDayEmpty { margin: 0; font-size: 1.0625rem; color: var(--text-2); }
+.allDayEmpty { margin: 0; font-size: 0.9375rem; color: var(--text-2); }
 
 /* "Safed maas: last one tonight." */
 .lastCalls {
@@ -396,7 +396,7 @@
   flex-direction: column;
   gap: var(--space-1);
   color: var(--warn);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -453,7 +453,7 @@
 }
 
 .room {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 500;
   line-height: 1;
   color: var(--text);
@@ -462,7 +462,7 @@
 /* A table, a takeaway, a delivery: words, so they wrap rather than shrink. */
 .destination {
   min-width: 0;
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   font-weight: 700;
   line-height: 1.15;
   color: var(--text);
@@ -474,7 +474,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 1rem;
+  font-size: 0.875rem;
   color: var(--text);
   white-space: nowrap;
 }
@@ -530,14 +530,14 @@
 .allergy {
   border: 2px solid var(--crit);
   color: var(--crit);
-  font-size: 1.125rem;
+  font-size: 0.9375rem;
 }
 
 /* Jain, vegan, gluten free: a rule for the dish, not a hospital. */
 .diet {
   border: 1px solid var(--warn);
   color: var(--warn);
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .allergy svg,
@@ -570,7 +570,7 @@
   background: transparent;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1.3125rem;
+  font-size: 1rem;
   line-height: 1.25;
   text-align: left;
 }
@@ -593,9 +593,9 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
 .lineName { overflow-wrap: anywhere; }
 
 /* "— milder". A change to the dish is what gets a plate sent back. */
-.lineMods { font-size: 1rem; color: var(--warn); }
+.lineMods { font-size: 0.875rem; color: var(--warn); }
 
-.lineNote { flex-basis: 100%; font-size: 1rem; color: var(--text-2); font-style: italic; }
+.lineNote { flex-basis: 100%; font-size: 0.875rem; color: var(--text-2); font-style: italic; }
 
 /* Struck on this tablet, or plated and at the pass. */
 .line[data-done='true'] .lineToggle,
@@ -635,7 +635,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* The guest's own words: "No onions in the chutney". */
 .guestNote {
   margin: 0;
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   line-height: 1.35;
   color: var(--warn);
   overflow-wrap: anywhere;
@@ -658,7 +658,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   min-height: var(--touch-floor);
   border-radius: var(--radius-xs);
   font-family: var(--font-body);
-  font-size: 1.1875rem;
+  font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -677,7 +677,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--text);
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
 }
 
 .primary:disabled,
@@ -692,7 +692,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   background: transparent;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -704,7 +704,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-size: 1.0625rem;
+  font-size: 0.9375rem;
   color: var(--text-2);
 }
 
@@ -729,7 +729,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
 
 .rejectLead {
   margin: 0;
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--text-2);
 }
@@ -769,7 +769,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   background: var(--surface);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .rejectActions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: 2px; }
@@ -780,7 +780,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   min-height: var(--touch-floor);
   border-radius: var(--radius-xs);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 0.875rem;
   cursor: pointer;
 }
 
@@ -838,7 +838,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   margin: auto;
   padding: var(--space-10);
   color: var(--text-2);
-  font-size: 1rem;
+  font-size: 0.875rem;
   text-align: center;
 }
 
@@ -879,7 +879,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
     border: 0;
     padding: 0;
     gap: var(--space-2);
-    font-size: 1.0625rem;
+    font-size: 0.9375rem;
     flex-direction: row-reverse;
   }
 
@@ -888,8 +888,8 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   .lastCalls { margin: 0; padding: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-3); }
 
   .ticket { padding: var(--space-3); }
-  .room { font-size: 1.375rem; }
-  .lineToggle { font-size: 1.1875rem; }
+  .room { font-size: 1.125rem; }
+  .lineToggle { font-size: 1rem; }
 }
 
 /*
