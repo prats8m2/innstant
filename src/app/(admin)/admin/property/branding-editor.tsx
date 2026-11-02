@@ -4,7 +4,9 @@ import { useActionState, useEffect, useRef, useState, useTransition } from 'reac
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Copy, Moon, MonitorSmartphone, Sun } from 'lucide-react';
-import type { GuestThemeKey, PropertyBranding } from '@/modules/identity/branding';
+import { GUEST_GROUND, type GuestThemeKey, type PropertyBranding } from '@/modules/identity/branding';
+import { mediaSrcSet } from '@/modules/media/paths';
+import { ImageField } from '../image-field';
 import type { GuestThemeSheet } from '@/modules/identity/theme-sheet';
 import {
   saveBranding, pickThemeDraft, discardThemeDraftAction, publishThemeAction, type PropertyState,
@@ -38,12 +40,15 @@ export function BrandingEditor({
   branding,
   sheets,
   mayEdit,
+  uploads,
 }: {
   propertyId: string;
   propertyName: string;
   branding: PropertyBranding;
   sheets: GuestThemeSheet[];
   mayEdit: boolean;
+  /** False when this server has nowhere to keep pictures (D-093). */
+  uploads: boolean;
 }) {
   const router = useRouter();
   const live = branding.theme;
@@ -199,7 +204,7 @@ export function BrandingEditor({
 
           <DeveloperTokens css={`${sheet.guestCss}\n\n${sheet.consoleCss[mode]}`} />
 
-          <Pictures propertyId={propertyId} branding={branding} mayEdit={mayEdit} />
+          <Pictures propertyId={propertyId} branding={branding} mayEdit={mayEdit} uploads={uploads} />
         </div>
 
         <Preview
@@ -376,8 +381,8 @@ function DeveloperTokens({ css }: { css: string }) {
 
 /* ── Logo and cover ──────────────────────────────────────────────────────── */
 
-function Pictures({ propertyId, branding, mayEdit }: {
-  propertyId: string; branding: PropertyBranding; mayEdit: boolean;
+function Pictures({ propertyId, branding, mayEdit, uploads }: {
+  propertyId: string; branding: PropertyBranding; mayEdit: boolean; uploads: boolean;
 }) {
   const [state, action] = useActionState<PropertyState, FormData>(saveBranding, {});
   const [logoUrl, setLogoUrl] = useState(branding.logoUrl ?? '');
@@ -393,32 +398,32 @@ function Pictures({ propertyId, branding, mayEdit }: {
       <form action={action} className={b.form}>
         <input type="hidden" name="propertyId" value={propertyId} />
         <fieldset disabled={!mayEdit} className={b.fieldset}>
-          <label className={b.field}>
-            <span className={b.label}>Logo</span>
-            <input
-              name="logoUrl"
-              className={b.input}
-              value={logoUrl}
-              onChange={(event) => setLogoUrl(event.target.value)}
-              placeholder="https://…/logo.png"
-              inputMode="url"
-            />
-            <span className={b.hint}>
-              Replaces the hotel&rsquo;s name at the top of the guest home. A light logo on a transparent background works best.
-            </span>
-          </label>
-          <label className={b.field}>
-            <span className={b.label}>Cover photo</span>
-            <input
-              name="coverUrl"
-              className={b.input}
-              value={coverUrl}
-              onChange={(event) => setCoverUrl(event.target.value)}
-              placeholder="https://…/courtyard.jpg"
-              inputMode="url"
-            />
-            <span className={b.hint}>Behind the arch on the guest home, dimmed so the kitchen&rsquo;s hours stay readable.</span>
-          </label>
+          {/* Uploaded, checked and cut to size by the server (D-093); a link
+              box instead while this server has no storage. The logo is shown
+              on the guest app's own ground, where it will actually sit. */}
+          <ImageField
+            name="logoUrl"
+            label="Logo"
+            hint="Replaces the hotel’s name at the top of the guest home. A light logo on a transparent background (PNG) works best."
+            propertyId={propertyId}
+            purpose="logo"
+            value={logoUrl}
+            onChange={setLogoUrl}
+            aspect="3 / 1"
+            ground={GUEST_GROUND}
+            uploads={uploads}
+          />
+          <ImageField
+            name="coverUrl"
+            label="Cover photo"
+            hint="Behind the arch on the guest home, dimmed so the kitchen’s hours stay readable."
+            propertyId={propertyId}
+            purpose="cover"
+            value={coverUrl}
+            onChange={setCoverUrl}
+            aspect="16 / 9"
+            uploads={uploads}
+          />
         </fieldset>
         {mayEdit ? (
           <div className={b.formFoot}>
@@ -466,8 +471,8 @@ function Preview({
         <div className={b.screen} data-theme="kesari" data-guest-theme={theme}>
           <div className={b.pMast}>
             {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- a preview of any host the hotel pastes
-              <img src={logoUrl} alt={propertyName} className={b.pLogo} />
+              // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
+              <img src={logoUrl} srcSet={mediaSrcSet(logoUrl)} sizes="120px" alt={propertyName} className={b.pLogo} />
             ) : (
               <span className={b.pWordmark}>{propertyName.toUpperCase()}</span>
             )}
@@ -476,8 +481,8 @@ function Preview({
           <div className={b.pHero}>
             <span className={b.pArchWrap}>
               {coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- a preview of any host the hotel pastes
-                <img src={coverUrl} alt="" className={b.pCover} />
+                // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
+                <img src={coverUrl} srcSet={mediaSrcSet(coverUrl)} sizes="80px" alt="" className={b.pCover} />
               ) : null}
               <svg width="74" height="96" viewBox="0 0 200 260" className={b.pArch} aria-hidden="true">
                 <path d="M2 260 V110 C2 60 50 30 100 2 C150 30 198 60 198 110 V260" strokeWidth="4" />

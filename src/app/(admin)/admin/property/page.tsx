@@ -17,6 +17,7 @@ import {
   PropertyEditor,
   type FloorView, type RoomSetupView, type RoomTypeSetupView, type SettingsView,
 } from './property-editor';
+import { mediaUploadsAvailable } from '@/modules/media';
 import { BrandingEditor } from './branding-editor';
 import { GuestInfoForm } from './guest-info-form';
 import { OutletSettingsForm } from './service-forms';
@@ -178,6 +179,7 @@ async function BrandingSection({ session, propertyId }: { session: StaffSession;
       // mirror — worked out here so the browser gets numbers, not a library.
       sheets={guestThemeSheets()}
       mayEdit={can(session, propertyId, 'property:branding')}
+      uploads={mediaUploadsAvailable()}
     />
   );
 }

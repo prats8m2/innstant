@@ -48,7 +48,9 @@ export default defineConfig({
   webServer: {
     command: 'pnpm build && pnpm start',
     url: `${BASE_URL}/api/health`,
-    env: { PORT },
+    // A production build stores uploaded pictures nowhere unless told to
+    // (D-093): the suite gets a folder, as development does by default.
+    env: { PORT, MEDIA_DIR: process.env.MEDIA_DIR ?? '.media-e2e' },
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
   },

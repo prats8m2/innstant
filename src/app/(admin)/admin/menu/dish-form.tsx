@@ -8,6 +8,7 @@ import type {
 } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
 import { saveItem, type MenuActionState } from './actions';
+import { ImageField } from '../image-field';
 import styles from '../admin.module.css';
 
 /**
@@ -29,6 +30,7 @@ const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 
 
 export function DishForm({
   propertyId,
+  uploads = true,
   outletId,
   currency,
   categories,
@@ -38,6 +40,8 @@ export function DishForm({
   defaultCategoryId,
 }: {
   propertyId: string;
+  /** False when this server has nowhere to keep pictures (D-093). */
+  uploads?: boolean;
   outletId: string;
   currency: 'INR';
   categories: AdminMenuCategory[];
@@ -159,25 +163,20 @@ export function DishForm({
           </span>
         </label>
 
-        <label className={`${styles.field} ${styles.wide}`}>
-          <span className={styles.label}>Image URL</span>
-          <input
+        <div className={styles.wide}>
+          {/* Uploaded, checked and cut to size by the server (D-093). The
+              frame is 4:3, the shape of the menu card and the dish page. */}
+          <ImageField
             name="imageUrl"
-            className={styles.input}
+            uploads={uploads}
+            label="Photo"
+            hint="Shown on the menu card and the dish page. A photo in daylight, from a little above, works best."
+            propertyId={propertyId}
+            purpose="dish"
             defaultValue={item?.imageUrl ?? ''}
-            maxLength={500}
-            placeholder="https://…"
+            aspect="4 / 3"
           />
-          {/*
-            Honest about what is missing. Upload to R2 with an enforced aspect
-            ratio and a generated blurhash is in P1's checklist and blocked on
-            credentials — see docs/STATUS.md. A URL field works today and the
-            column is the same one upload will write.
-          */}
-          <span className={styles.hint}>
-            Paste a CDN URL for now — upload lands when image hosting is configured.
-          </span>
-        </label>
+        </div>
       </div>
 
       <fieldset className={styles.fieldset}>

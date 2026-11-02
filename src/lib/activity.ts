@@ -37,6 +37,7 @@ const PLAIN: Record<string, ActivityLine> = {
   'property.branding_updated': { text: 'Changed the branding', kind: 'setup' },
   'property.guest_info_updated': { text: 'Changed the guest info', kind: 'setup' },
   'outlet.hours_updated': { text: 'Changed the kitchen’s hours', kind: 'setup' },
+  'media.uploaded': { text: 'Uploaded a picture', kind: 'setup' },
   'outlet.settings_updated': { text: 'Changed what the kitchen charges', kind: 'setup' },
   'staff.invite_accepted': { text: 'Set their password', kind: 'staff' },
 };

@@ -4,6 +4,7 @@ import { adminAccess, AdminDenied } from '../../guard';
 import {
   getInRoomDiningOutlet, getAdminMenu, listModifierGroups, MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
+import { mediaUploadsAvailable } from '@/modules/media';
 import { DishForm } from '../dish-form';
 import styles from '../../admin.module.css';
 
@@ -42,6 +43,7 @@ export default async function NewDish({
       <p className={styles.lede}>On {menu.outlet.name}.</p>
 
       <DishForm
+        uploads={mediaUploadsAvailable()}
         propertyId={propertyId}
         outletId={menu.outlet.id}
         currency={menu.outlet.currency}

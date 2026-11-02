@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
+import { checkOwnMedia } from '@/modules/media';
 import { requirePermission } from '@/lib/auth-context';
 import {
   createFloor, renameFloor, deleteFloor,
@@ -312,12 +313,17 @@ export async function saveBranding(
     const session = await requirePermission(propertyId, 'property:branding');
     await withTenant(
       { tenantId: session.tenantId, propertyId },
-      (tx) => updateBranding(tx, {
-        tenantId: session.tenantId,
-        propertyId,
-        staffUserId: session.staffUserId,
-        branding,
-      }),
+      async (tx) => {
+        // An uploaded logo or cover must be one uploaded HERE (D-093).
+        await checkOwnMedia(tx, { propertyId, value: branding.logoUrl, label: 'The logo' });
+        await checkOwnMedia(tx, { propertyId, value: branding.coverUrl, label: 'The cover photo' });
+        await updateBranding(tx, {
+          tenantId: session.tenantId,
+          propertyId,
+          staffUserId: session.staffUserId,
+          branding,
+        });
+      },
     );
     // Every guest screen reads it, through the brand scope in their layouts.
     revalidatePath('/', 'layout');

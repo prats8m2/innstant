@@ -3163,6 +3163,44 @@ refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
 manager also holds `staff:invite`, and the panel shows the link once, with what
 it is for.
 
+### D-093 · Pictures are uploaded, into a Railway bucket, through the app
+The user asked for uploads in place of pasted image links, for the console
+only — menu photos, the logo, the cover and the like; no guest photos — and
+chose Railway's storage over Cloudflare R2 for now.
+
+**Through the app, not straight into the bucket.** `/api/admin/media` takes
+the file (a Route Handler: a Server Action caps a body at 1MB and cannot
+report upload progress), reads the FORMAT from the bytes, refuses anything
+but JPEG, PNG, WebP and AVIF (so SVG, which can carry script, never gets in),
+rotates it upright, drops all metadata — a phone photo carries the GPS
+position it was taken at, and these go on a public menu — and stores three
+WebP widths per purpose plus a blurhash. Nothing unchecked is ever in storage.
+8MB is the ceiling, under the middleware's 10MB body buffer.
+
+**Served by the app, because Railway buckets are private.** `/media/<id>/<w>.webp`
+reads the object and returns it with `immutable` and a year's max-age: a
+path is never reused, so a browser downloads each picture once. Presigned
+URLs were rejected because they expire, which would defeat that cache. The
+cost is the app's egress on pictures, which at 30–80KB a thumbnail is small.
+
+**A path, not a foreign key.** Uploads write `/media/<id>/<largest>.webp`
+into the `image_url` / `logoUrl` / `coverUrl` that already existed, and
+`media_assets` is the record behind it (DATA-MODEL §4). Every existing reader,
+the order line's snapshot included, keeps working, and moving to R2 later is
+copying objects and changing where `/media` reads from. Because the widths
+are fixed per purpose and always all written, a `srcset` is built from the
+path alone. Saves check the upload is this property's.
+
+**Storage picks itself.** `MEDIA_BUCKET` (+ endpoint and keys) → the bucket;
+otherwise a folder (`MEDIA_DIR`, default `.media`) outside production; and
+in production with neither, uploads answer 503 "not set up" rather than
+writing to a container disk the next deploy wipes.
+
+`sharp`, `@aws-sdk/client-s3` and `blurhash` are server-only; the browser
+bundle did not change. One reusable `ImageField` replaces every URL field
+in the console. Collections, outlets and nearby places store an image but
+have no console field for one yet; when they get one it is this component.
+
 ### D-094 · The front office: Rooms as a grid, Leaving as today's departures, Requests live
 The user asked for the console's front-office screens next: Rooms, the Front
 desk, Leaving and Requests had not been reworked since the layout refactor.
@@ -3505,3 +3543,23 @@ at READY), no arrival time on a room to make up (there are no reservations),
 and no claiming a room to make up (rooms have no assignee). "Charged to room.
 Nothing to collect." appears on room orders only. "No answer at the door" is
 not built (the user's call). Work buttons are 56px or more.
+
+### D-104 · Picture uploads join the redesign, and work with no bucket yet
+D-093 (PR #5) is merged into the combined branch instead of shipping on its
+own: its picker now sits in the redesigned Branding & themes card and the
+dish form. The Railway bucket does not exist yet, so the case that matters
+first is production with no `MEDIA_BUCKET`. There, storage is `none`, and the
+console now asks `mediaUploadsAvailable()` before drawing the picker: with no
+storage it is a plain link box that says uploads are not switched on yet,
+rather than an upload button that fails after somebody has chosen a file.
+Turning uploads on is configuration only — the bucket's `MEDIA_*` variables
+on Railway and a restart. A half-configured bucket counts as off on the
+settings screens; the upload route still names the missing variable.
+
+**Your stay lost its loading screen too (D-099).** Under the suite's two
+workers the bill's four digits were accepted by the server and the screen
+stayed on "Checking…" about one run in four; with `stay/loading.tsx` gone it
+passed six runs in six, and faster. It is the same freeze D-099 found on the
+live screens, here on a server action's result, so the rule is wider than
+"live screens": a screen whose form result the guest is waiting on should
+not carry a loading boundary either.

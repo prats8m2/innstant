@@ -427,6 +427,9 @@ export interface MenuItemWriteInput {
   spiceLevel?: number | null;
   prepTimeMinutes?: number | null;
   imageUrl?: string | null;
+  /** Undefined leaves the dish's blurhash as it is; null clears it. An upload
+   *  brings its own (D-093). */
+  blurhash?: string | null;
   isAvailable?: boolean;
   sortOrder?: number;
   actorStaffId: string;
@@ -453,6 +456,7 @@ export async function createMenuItem(
     spiceLevel: input.spiceLevel ?? null,
     prepTimeMinutes: input.prepTimeMinutes ?? null,
     imageUrl: input.imageUrl?.trim() || null,
+    blurhash: input.blurhash ?? null,
     isAvailable: input.isAvailable ?? true,
     sortOrder: input.sortOrder ?? await nextSortOrder(tx, {
       table: 'menu_items', column: 'category_id', id: input.categoryId,
@@ -512,6 +516,7 @@ export async function updateMenuItem(
       spiceLevel: input.spiceLevel ?? null,
       prepTimeMinutes: input.prepTimeMinutes ?? null,
       imageUrl: input.imageUrl?.trim() || null,
+      ...(input.blurhash !== undefined ? { blurhash: input.blurhash } : {}),
       ...(input.isAvailable !== undefined ? { isAvailable: input.isAvailable } : {}),
       ...(input.sortOrder !== undefined ? { sortOrder: input.sortOrder } : {}),
       updatedAt: new Date(),

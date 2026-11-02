@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, ChevronRight } from 'lucide-react';
+import { mediaSrcSet } from '@/modules/media/paths';
 import { withTenant } from '@/db';
 import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE } from '@/modules/demo';
@@ -202,8 +203,14 @@ export default async function RoomHome({
       <header className={styles.masthead}>
         {branding.logoUrl ? (
           <p className={styles.logoMark}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- any host, until uploads land */}
-            <img src={branding.logoUrl} alt={property?.name ?? 'The hotel'} className={styles.logo} />
+            {/* eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093) */}
+            <img
+              src={branding.logoUrl}
+              srcSet={mediaSrcSet(branding.logoUrl)}
+              sizes="200px"
+              alt={property?.name ?? 'The hotel'}
+              className={styles.logo}
+            />
           </p>
         ) : (
           <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
@@ -225,8 +232,14 @@ export default async function RoomHome({
         <div className={styles.archFrame} aria-hidden="true">
           <div className={styles.archPhoto}>
             {branding.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- any host, until uploads land
-              <img src={branding.coverUrl} alt="" className={styles.archCover} />
+              // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
+              <img
+                src={branding.coverUrl}
+                srcSet={mediaSrcSet(branding.coverUrl)}
+                sizes="132px"
+                alt=""
+                className={styles.archCover}
+              />
             ) : null}
           </div>
           <svg

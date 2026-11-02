@@ -159,6 +159,8 @@ const TENANT_SCOPED_TABLES = [
   'stays', 'guest_property_profiles', 'guests',
   'room_status',
   'room_qr_codes', 'rooms', 'floors', 'room_types',
+  // D-093 — references staff_users, so before them.
+  'media_assets',
   'staff_sessions', 'staff_property_roles', 'role_permissions', 'roles', 'staff_users',
   'idempotency_keys', 'integration_outbox', 'properties',
 ];

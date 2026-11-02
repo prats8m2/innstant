@@ -1,0 +1,158 @@
+/*
+ * The console's picture picker (image-field.tsx, D-093). Label and hint match
+ * the form fields around it; the frame is the picture's own shape, so what a
+ * manager sees here is how it will be cut on the guest's screen.
+ */
+.field { display: block; min-width: 0; max-width: 480px; }
+
+.label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Off-screen rather than display:none, so the browser still opens it from a
+   click on the visible button. */
+.file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.frame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+.frame[data-empty] { border-style: dashed; }
+.frame[data-dragging] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-tint);
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A logo is shown whole, never cropped. */
+.field[data-purpose='logo'] .preview {
+  object-fit: contain;
+  padding: var(--space-4);
+}
+
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+.empty:hover:not(:disabled) { color: var(--accent); }
+.empty:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; border-radius: var(--radius-lg); }
+
+.emptyTitle { font-size: var(--text-base); font-weight: 600; color: var(--text); }
+.emptyHint { font-size: var(--text-sm); }
+
+.uploading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.bar {
+  width: 60%;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+.bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur-fast) var(--ease-out);
+}
+
+.spin { color: var(--accent); animation: spin var(--dur-shimmer) linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.action:hover:not(:disabled) { border-color: var(--text-muted); }
+.action[data-tone='danger'] { color: var(--status-critical); }
+.action:disabled { opacity: 0.6; cursor: not-allowed; }
+.action:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.error {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--status-critical);
+}
+
+.hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  color: var(--plaster-faint);
+  text-wrap: pretty;
+}
+
+/* Uploads switched off (no storage on this server): a plain link box. */
+.link {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+}
+.link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

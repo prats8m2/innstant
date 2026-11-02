@@ -34,7 +34,15 @@ rebuilt, menu search; e2e 111/111) → 3 console ✅ (D-102; shell, ⌘K search,
 per-person light/dark — migration **0017**, applied locally only; Overview
 with revenue; Rooms; Checkout; Requests; Branding with draft/publish) → 4 floor screens ✅ (D-103; kitchen,
 runner, housekeeping; dark after 7pm on the property's clock). The redesign
-plan is complete; e2e 111/111 on a production build shell and its five pages → 4 floor screens.
+plan is complete; e2e 111/111 on a production build.
+
+**Picture uploads folded in (D-093, from PR #5).** The uploads branch is
+merged into this one; its picker sits in the redesigned Branding and Menu
+screens. With no `MEDIA_BUCKET` in production the picker is a link box that
+says uploads are not switched on yet; setting the Railway bucket's `MEDIA_*`
+variables and restarting turns uploads on with no code change. Migration
+**0014** (`media_assets`) joins 0015–0017 for production (D-104). Your
+stay's loading screen was removed for the D-099 freeze.
 
 **CI made green (same branch), D-099.** The e2e suite was 24 red against
 this branch; it is now 111 passed / 0 failed on a production build run the
@@ -86,6 +94,17 @@ check, refuse and cancel, and the catalog moved to `?tab=catalog`. No
 migration. The e2e tests for rooms moved to the panel; the catalog tests to
 the tab. Picture uploads (`feat/media-uploads`, PR #5) are separate and wait
 on the Railway bucket.
+
+**2 November: picture uploads (D-093), branch `feat/media-uploads`.** The
+console's dish photo, logo and cover fields are one `ImageField` picker
+instead of a pasted URL; uploads are checked, stripped of metadata and cut to
+three WebP widths, stored in object storage and served at `/media/...`.
+Migration **0014** (`media_assets`) is applied locally only. Before deploying:
+create a Railway bucket in production (the project token cannot — "Bad
+Access"), give `kesari` the variables `MEDIA_BUCKET`, `MEDIA_ENDPOINT`,
+`MEDIA_ACCESS_KEY_ID`, `MEDIA_SECRET_ACCESS_KEY` (and `MEDIA_REGION=auto`)
+referencing the bucket's own, and run the migration. Without the bucket,
+production uploads answer "not set up"; nothing else breaks.
 
 
 **29 October: Setup and the floor screens, redesigned — local only, not
