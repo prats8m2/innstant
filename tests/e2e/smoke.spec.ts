@@ -1216,8 +1216,14 @@ test.describe('option groups', () => {
 
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
+  /**
+   * Per project AND per attempt: a retry runs against the data the failed
+   * attempt left, and a second "Sides guest-ios" with a second "Rice" in it
+   * made the retry fail on two matches rather than on whatever went wrong.
+   */
   function ownGroup(): string {
-    return `Sides ${test.info().project.name}`;
+    const { project, retry } = test.info();
+    return `Sides ${project.name}${retry ? ` r${retry}` : ''}`;
   }
 
   /**
@@ -1266,6 +1272,9 @@ test.describe('option groups', () => {
   });
 
   test('a new group prices a dish on the guest screen', async ({ browser }) => {
+    // Builds a group, two options and a dish as a manager, then orders it as a
+    // guest — past 30s on WebKit in CI.
+    test.slow();
     const desk = await browser.newContext({ viewport: { width: 1280, height: 1400 } });
     const admin = await desk.newPage();
     await signInAsFnb(admin);
@@ -1290,9 +1299,10 @@ test.describe('option groups', () => {
      * own suffix — the seeded "Add" group already has a "Steamed rice", and the
      * dish carries it, so a bare name matches twice on the guest screen.
      */
-    const paidOption = `Rice ${test.info().project.name}`;
+    const suffix = group.replace(/^Sides /, '');
+    const paidOption = `Rice ${suffix}`;
     for (const [name, delta, isDefault] of [
-      [`None ${test.info().project.name}`, '0', true],
+      [`None ${suffix}`, '0', true],
       [paidOption, '120', false],
     ] as const) {
       const form = section.locator('details').filter({ hasText: 'Add an option' }).first();
