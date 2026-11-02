@@ -32,15 +32,19 @@ export function CheckoutQueue({
   decided,
   mayDecide,
   mayOverride,
+  part = 'both',
 }: {
   propertyId: string;
   open: DeskRequestView[];
   decided: DeskRequestView[];
   mayDecide: boolean;
   mayOverride: boolean;
+  /** The Leaving page puts today's departures between the two (D-094). */
+  part?: 'waiting' | 'answered' | 'both';
 }) {
   return (
     <>
+      {part === 'answered' ? null : (
       <section className={styles.section}>
         <header className={styles.sectionHead}>
           <h2 className={styles.sectionTitle}>Waiting</h2>
@@ -64,8 +68,9 @@ export function CheckoutQueue({
           </p>
         )}
       </section>
+      )}
 
-      {decided.length ? (
+      {part !== 'waiting' && decided.length ? (
         <section className={styles.section}>
           <header className={styles.sectionHead}>
             <h2 className={styles.sectionTitle}>Already answered</h2>

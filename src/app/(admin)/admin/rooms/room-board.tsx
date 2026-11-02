@@ -1,17 +1,26 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
+import { Search, IndianRupee } from 'lucide-react';
 import { checkInGuest, checkOutGuest, vouchForRoom, type DeskState } from './actions';
 import { GuestLink } from './guest-link';
 import styles from '../admin.module.css';
+import r from './rooms.module.css';
 
 /**
- * The key rack.
+ * The key rack, as a grid (D-094).
  *
- * Every string is formatted on the server — a client component importing a value
- * from a `modules/*` index drags `pg` into the browser bundle, and money
+ * It was a table: thirty-four rows, each carrying Copy link, Open, Reprint and
+ * Check someone in at the same weight — 3,100px on a desk and 5,000 on a
+ * phone, to answer "which rooms are free" and "who is in 214". Now every room
+ * is a tile in key-rack order, coloured by what it is (empty, in house, out
+ * today), and everything you can DO to a room is in its panel (`?room=`),
+ * where there is room to say what each action does.
+ *
+ * Every string is formatted on the server — a client component importing a
+ * value from a `modules/*` index drags `pg` into the browser bundle, and money
  * formatting belongs in one place (#5).
  */
 export interface RoomView {
@@ -42,129 +51,197 @@ export interface DeskPermissions {
   reprintQr: boolean;
 }
 
-export function RoomBoard({
-  propertyId,
+type State = 'empty' | 'in' | 'out';
+
+function stateOf(room: RoomView): State {
+  if (!room.stay) return 'empty';
+  return room.stay.nightsLeft <= 0 ? 'out' : 'in';
+}
+
+/**
+ * The grid, with a search over room numbers and guest names.
+ *
+ * The search is local — every room is already on the page, and a desk typing
+ * "kap" while a guest spells their name should see the rack narrow as they
+ * type, not after a round trip.
+ */
+export function RoomGrid({
   rooms,
-  checkoutHours,
-  permissions,
+  linkFor,
+  selected,
 }: {
-  propertyId: string;
   rooms: RoomView[];
-  checkoutHours: number[];
-  permissions: DeskPermissions;
+  /** The room's panel, keeping whatever filter is on. */
+  linkFor: Record<string, string>;
+  selected: string | null;
 }) {
-  const floors = [...new Set(rooms.map((room) => room.floorName))];
+  const [query, setQuery] = useState('');
+  const needle = query.trim().toLowerCase();
+  const shown = useMemo(() => needle
+    ? rooms.filter((room) => room.number.toLowerCase().startsWith(needle)
+      || room.stay?.guestName.toLowerCase().includes(needle))
+    : rooms, [rooms, needle]);
+  const floors = [...new Set(shown.map((room) => room.floorName))];
 
   return (
-    <>
-      {floors.map((floor) => (
-        <section key={floor} className={styles.section}>
-          <header className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>{floor}</h2>
-          </header>
-          {/* The list owns the tracks; every row borrows them (`subgrid`). */}
-          <ul className={`${styles.dishes} ${styles.roomTable}`}>
-            <RoomsHead />
-            {rooms.filter((room) => room.floorName === floor).map((room) => (
-              <Room
-                key={room.id}
-                propertyId={propertyId}
-                room={room}
-                checkoutHours={checkoutHours}
-                permissions={permissions}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
-    </>
+    <div className={r.rack}>
+      <label className={r.search}>
+        <Search size={16} className={r.searchIcon} aria-hidden="true" />
+        <input
+          type="search"
+          className={r.searchInput}
+          placeholder="Room number or guest name"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          aria-label="Find a room or a guest"
+        />
+      </label>
+
+      {floors.length === 0 ? (
+        <p className={styles.sectionEmpty}>No room or guest matches &ldquo;{query}&rdquo;.</p>
+      ) : null}
+
+      {floors.map((floor) => {
+        const onFloor = shown.filter((room) => room.floorName === floor);
+        const taken = onFloor.filter((room) => room.stay).length;
+        return (
+          <section key={floor} className={r.floor} aria-label={floor}>
+            <h2 className={r.floorTitle}>
+              {floor}
+              <span className={`${r.floorCount} tabular`}>{taken} of {onFloor.length} taken</span>
+            </h2>
+            <ul className={r.grid}>
+              {onFloor.map((room) => (
+                <Tile
+                  key={room.id}
+                  room={room}
+                  href={linkFor[room.number]!}
+                  current={room.number === selected}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function Tile({ room, href, current }: { room: RoomView; href: string; current: boolean }) {
+  const state = stateOf(room);
+  const stay = room.stay;
+  return (
+    <li
+      className={r.tileItem}
+      /* Stable hooks for a desk's Ctrl-F and for the e2e suite: the room number
+         is the one thing about a tile that never changes. */
+      data-room={room.number}
+      data-occupied={stay ? 'true' : 'false'}
+      data-state={state}
+    >
+      <Link href={href} scroll={false} className={r.tile} aria-current={current ? 'true' : undefined}>
+        <span className={r.tileTop}>
+          <span className={`${r.tileNumber} tabular`}>{room.number}</span>
+          {stay?.owes ? (
+            <span className={r.owes} title={`${stay.balance} on the folio`}>
+              <IndianRupee size={12} aria-hidden="true" />
+              <span className={r.srOnly}>owes {stay.balance}</span>
+            </span>
+          ) : null}
+        </span>
+        <span className={r.tileGuest}>{stay ? stay.guestName : 'empty'}</span>
+        <span className={r.tileMeta}>
+          {stay
+            ? state === 'out' ? 'Out today' : `Out ${stay.dueOut}`
+            : room.roomTypeName ?? 'Room'}
+        </span>
+      </Link>
+    </li>
   );
 }
 
 /**
- * One room, as a table row.
+ * One room, and everything that can be done to it.
  *
- * Explicit cells rather than "whatever children happen to be here", because the
- * desk reads DOWN this list: thirty-four rooms whose guest name starts at a
- * different x each line is thirty-four separate searches. The grid template is
- * in `.roomRow`, and `RoomsHead` prints the same tracks as a header.
- *
- * It also fixes the shape that made every empty room two lines tall — the
- * check-in disclosure was the third child of a two-column grid, so it wrapped.
+ * Rendered inside the console's `SidePanel` by the page. The check-in form is
+ * open, not behind a disclosure: opening an empty room's panel IS the step
+ * that said "check someone in".
  */
-function Room({
+export function RoomPanel({
   propertyId,
   room,
   checkoutHours,
   permissions,
+  deskHref,
 }: {
   propertyId: string;
   room: RoomView;
   checkoutHours: number[];
   permissions: DeskPermissions;
+  /** The same room on the Front desk, where its orders, requests and bill are. */
+  deskHref: string;
 }) {
   const stay = room.stay;
+  const state = stateOf(room);
 
   return (
-    <li
-      className={`${styles.dish} ${styles.roomRow}`}
-      /* A stable hook for a desk's Ctrl-F and for the e2e suite: the room number
-         is inside a name that changes the moment somebody checks in. */
-      data-room={room.number}
-      data-occupied={stay ? 'true' : 'false'}
-    >
-      <span className={styles.roomCell}>
-        <span className={`${styles.roomNumber} tabular`}>{room.number}</span>
-        <span className={styles.roomType}>{room.roomTypeName ?? 'Room'}</span>
-      </span>
+    <div className={r.panel} data-room-panel={room.number}>
+      <div className={r.panelHero} data-state={state}>
+        <span className={`${r.panelNumber} tabular`}>{room.number}</span>
+        <span className={r.panelHeroText}>
+          <span className={r.panelStatus}>
+            {state === 'empty' ? 'Empty' : state === 'out' ? 'In house · out today' : 'In house'}
+          </span>
+          <span className={r.panelSub}>{room.roomTypeName ?? 'Room'} · {room.floorName}</span>
+        </span>
+      </div>
 
-      <span className={styles.roomCell}>
-        {stay ? (
-          <>
-            {/* Straight to what the desk needs when a guest rings down about a
-                charge, or when something has gone wrong. */}
-            <Link href={`/admin/guests/${stay.guestId}`} className={styles.guestName}>
-              {stay.guestName}
-            </Link>
-            {stay.guestPhone ? (
-              <span className={styles.roomMeta}>{stay.guestPhone}</span>
-            ) : null}
-          </>
-        ) : (
-          <span className={styles.roomEmpty}>empty</span>
-        )}
-      </span>
+      {stay ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>Guest</h3>
+          <dl className={r.facts}>
+            <dt>Name</dt>
+            <dd>
+              {/* Straight to what the desk needs when a guest rings down about
+                  a charge, or when something has gone wrong. */}
+              <Link href={`/admin/guests/${stay.guestId}`}>{stay.guestName}</Link>
+            </dd>
+            {stay.guestPhone ? (<><dt>Phone</dt><dd className="tabular">{stay.guestPhone}</dd></>) : null}
+            <dt>Due out</dt>
+            <dd>{state === 'out' ? 'Today' : stay.dueOut}{stay.nightsLeft > 0 ? ` · ${stay.nightsLeft} ${stay.nightsLeft === 1 ? 'night' : 'nights'} left` : ''}</dd>
+            <dt>Folio</dt>
+            {/* "nothing yet" rather than ₹0: a guest who has bought nothing and
+                one who has paid up look different to a desk. */}
+            <dd className="tabular" data-owes={stay.owes}>{stay.balance ?? 'nothing yet'}</dd>
+          </dl>
+          <p className={r.panelLinks}>
+            <Link href={deskHref}>Orders, requests and the bill on the Front desk →</Link>
+          </p>
+        </section>
+      ) : null}
 
-      <span className={styles.roomCell}>
-        {stay ? (
-          <>
-            {/* Zero nights left is today, which is the only value a desk scans
-                this column for — so it says so rather than printing a date. */}
-            <span className={stay.nightsLeft === 0 ? styles.dueToday : styles.roomMeta}>
-              {stay.nightsLeft === 0 ? 'out today' : stay.dueOut}
-            </span>
-          </>
-        ) : null}
-      </span>
+      {stay && (permissions.checkOut || permissions.vouch) ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>At the desk</h3>
+          <div className={r.panelActions}>
+            {permissions.checkOut ? <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} /> : null}
+            {permissions.vouch ? <Vouch propertyId={propertyId} stayId={stay.id} roomNumber={room.number} /> : null}
+          </div>
+        </section>
+      ) : null}
 
-      {/*
-        * Deliberately not saffron. Nearly every guest owes something in the
-        * middle of their stay, and colouring all of them would light the whole
-        * board up — saffron means "somebody needs to do something" everywhere
-        * else in this console. The number is enough here, and the check-out
-        * button's own title says it again before the desk presses it.
-        *
-        * "nothing yet" rather than ₹0: a guest who has bought nothing and one
-        * who has paid up look different to a desk.
-        */}
-      <span className={`${styles.roomBalance} tabular`}>
-        {stay ? stay.balance ?? 'nothing yet' : null}
-      </span>
+      {!stay && permissions.checkIn ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>Check someone in</h3>
+          <CheckIn propertyId={propertyId} room={room} checkoutHours={checkoutHours} />
+        </section>
+      ) : null}
 
       {/* The sticker's own link, whoever is in the room and whether anybody is —
           a desk reprints stickers for empty rooms more often than full ones. */}
-      <span className={styles.roomSticker}>
-        {room.qr ? (
+      {room.qr ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>The sticker on the nightstand</h3>
           <GuestLink
             propertyId={propertyId}
             roomId={room.id}
@@ -174,61 +251,9 @@ function Room({
             mayReprint={permissions.reprintQr}
             occupied={stay != null}
           />
-        ) : null}
-      </span>
-
-      <span className={styles.roomActions}>
-        {stay
-          ? <Occupied propertyId={propertyId} room={room} permissions={permissions} />
-          : permissions.checkIn
-            ? <CheckIn propertyId={propertyId} room={room} checkoutHours={checkoutHours} />
-            : null}
-      </span>
-    </li>
-  );
-}
-
-/**
- * The column names, printed once per floor.
- *
- * `aria-hidden` and not a `<th>`: this is a list of rooms, not a data table —
- * each row's own text already names what it holds ("out today", "₹15,680"), and
- * a screen reader hearing six column names before every floor would be read a
- * header it cannot use to navigate. It is a sighted-scanning aid.
- */
-function RoomsHead() {
-  return (
-    <li className={`${styles.dish} ${styles.roomRow} ${styles.rowHead}`} aria-hidden="true">
-      <span>Room</span>
-      <span>Guest</span>
-      <span>Due out</span>
-      <span className={styles.roomBalance}>Balance</span>
-      <span>Sticker</span>
-      <span />
-    </li>
-  );
-}
-
-function Occupied({
-  propertyId,
-  room,
-  permissions,
-}: {
-  propertyId: string;
-  room: RoomView;
-  permissions: DeskPermissions;
-}) {
-  const stay = room.stay!;
-
-  return (
-    <>
-      {permissions.vouch ? (
-        <Vouch propertyId={propertyId} stayId={stay.id} roomNumber={room.number} />
+        </section>
       ) : null}
-      {permissions.checkOut ? (
-        <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} />
-      ) : null}
-    </>
+    </div>
   );
 }
 
@@ -244,65 +269,62 @@ function CheckIn({
   const [state, action] = useActionState<DeskState, FormData>(checkInGuest, {});
 
   return (
-    <details className={styles.roomForm}>
-      <summary className={styles.disclosureHead}>Check someone in</summary>
-      <form action={action} className={styles.stackedForm}>
-        <input type="hidden" name="propertyId" value={propertyId} />
-        <input type="hidden" name="roomId" value={room.id} />
+    <form action={action} className={styles.stackedForm}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="roomId" value={room.id} />
 
-        <div className={styles.formGrid}>
-          <label className={styles.field}>
-            <span className={styles.label}>Name</span>
-            <input name="fullName" className={styles.input} required maxLength={160} />
-          </label>
+      <div className={styles.formGrid}>
+        <label className={`${styles.field} ${styles.wide}`}>
+          <span className={styles.label}>Name</span>
+          <input name="fullName" className={styles.input} required maxLength={160} autoComplete="off" />
+        </label>
 
-          <label className={styles.field}>
-            <span className={styles.label}>Phone</span>
-            <input
-              name="phone"
-              className={styles.input}
-              inputMode="tel"
-              maxLength={32}
-              placeholder="+91…"
-            />
-            {/* The identity key (EXTENSION-POINTS §2), and what the guest answers
-                the one verification prompt with (D-012). */}
-            <span className={styles.hint}>
-              How a returning guest is recognised, and what they verify with.
-            </span>
-          </label>
+        <label className={`${styles.field} ${styles.wide}`}>
+          <span className={styles.label}>Phone</span>
+          <input
+            name="phone"
+            className={styles.input}
+            inputMode="tel"
+            maxLength={32}
+            placeholder="+91…"
+          />
+          {/* The identity key (EXTENSION-POINTS §2), and what the guest answers
+              the one verification prompt with (D-012). */}
+          <span className={styles.hint}>
+            How a returning guest is recognised, and what they verify with.
+          </span>
+        </label>
 
-          <label className={styles.field}>
-            <span className={styles.label}>Nights</span>
-            <input
-              name="nights"
-              type="number"
-              min={1}
-              max={60}
-              defaultValue={1}
-              className={styles.input}
-              required
-            />
-          </label>
+        <label className={styles.field}>
+          <span className={styles.label}>Nights</span>
+          <input
+            name="nights"
+            type="number"
+            min={1}
+            max={60}
+            defaultValue={1}
+            className={styles.input}
+            required
+          />
+        </label>
 
-          <label className={styles.field}>
-            <span className={styles.label}>Out at</span>
-            <select name="checkoutHour" defaultValue={11} className={styles.input}>
-              {checkoutHours.map((hour) => (
-                <option key={hour} value={hour}>
-                  {hour > 12 ? `${hour - 12}pm` : `${hour}am`}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className={styles.field}>
+          <span className={styles.label}>Out at</span>
+          <select name="checkoutHour" defaultValue={11} className={styles.input}>
+            {checkoutHours.map((hour) => (
+              <option key={hour} value={hour}>
+                {hour > 12 ? `${hour - 12}pm` : `${hour}am`}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
-        {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
-        {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+      {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+      {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
 
-        <SubmitButton label={`Check in to ${room.number}`} primary />
-      </form>
-    </details>
+      <SubmitButton label={`Check in to ${room.number}`} primary />
+    </form>
   );
 }
 
@@ -318,17 +340,17 @@ function CheckOut({
   const [state, action] = useActionState<DeskState, FormData>(checkOutGuest, {});
 
   return (
-    <form action={action} className={styles.inlineForm}>
+    <form action={action} className={r.checkOut}>
       <input type="hidden" name="propertyId" value={propertyId} />
       <input type="hidden" name="stayId" value={stay.id} />
-      <SubmitButton
-        label="Check out"
-        title={
-          stay.owes
-            ? `${stay.balance} is still on room ${roomNumber}. Take it at the desk first.`
-            : `Free room ${roomNumber} and end every session on it`
-        }
-      />
+      {/* Said before the button, not in a tooltip a tablet never shows: the
+          one thing a desk must not learn after pressing it. */}
+      <p className={styles.hint}>
+        {stay.owes
+          ? `${stay.balance} is still on the folio. It stays on the bill after they leave; take it at the desk first if you can.`
+          : `Frees ${roomNumber} and ends every session on the guest’s phone.`}
+      </p>
+      <SubmitButton label="Check out" />
       {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
     </form>
   );

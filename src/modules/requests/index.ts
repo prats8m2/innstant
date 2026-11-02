@@ -34,7 +34,7 @@ export type {
 } from './raise-request';
 
 export {
-  advanceRequest, getRequestsForStay, getRequestForStay, getOpenRequests,
+  advanceRequest, getRequestsForStay, getRequestForStay, getOpenRequests, getRequestsClosedToday,
 } from './advance-request';
 export type { AdvanceRequestInput, AdvancedRequest, RequestDetail, RequestLine }
   from './advance-request';

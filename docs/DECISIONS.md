@@ -3162,3 +3162,49 @@ second button, and the user read the result ("not signed in", the old password
 refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
 manager also holds `staff:invite`, and the panel shows the link once, with what
 it is for.
+
+### D-094 · The front office: Rooms as a grid, Leaving as today's departures, Requests live
+The user asked for the console's front-office screens next: Rooms, the Front
+desk, Leaving and Requests had not been reworked since the layout refactor.
+
+**Rooms is a grid of tiles, with a panel per room.** It was a table of 34
+rows, each carrying Copy link, Open, Reprint and Check someone in at the same
+weight — 3,100px on a desk and 5,000 on a phone, eight buttons under the
+touch minimum. Now a tile per room in key-rack order, its left edge the state
+(empty, in house, out today) and its text the same, with a small mark for a
+folio with money on it rather than a colour flood (saffron still means "act").
+Everything you can do to a room — check in (open, not behind a disclosure:
+opening an empty room's panel IS that step), check out with the balance said
+before the button, vouch, copy and open the sticker's link, reprint — is in
+the console's `SidePanel` at `?room=<number>`, by number because that is what
+a desk says aloud. A search narrows by room or guest as you type. 1,315px on a
+desk, 1,822 on a phone.
+
+**The Front desk's table sizes to its own column.** Beside the panel on a
+laptop it is ~520px, which gave a guest's name 70px and ran two headings into
+one ("GUESTSTATUS"). A container query on the list drops Checkout and Folio —
+both shown in the panel beside it — when the list is narrow, whatever the
+window is.
+
+**Leaving is today's departures.** It was only the late-checkout queue, which
+on most mornings is empty while rooms are leaving. `listDeparturesToday()`
+returns who is due out today (overdue included — still checked in after their
+time, the row a desk most needs) and who left since midnight, property-local,
+with the folio balance. The screen shows due, overdue, left and what today's
+departures still owe; each due row says what is still on its way to the room
+and offers Take payment and Check out. The queue keeps its place at the top
+when somebody is waiting, and "Already answered" goes to the bottom. Room
+numbers are bare there, never "Room 210", which the queue's rows are named by.
+
+**Requests opens on a live view; the catalog is a tab.** The console had only
+"What guests can ask for", so the request that was late lived on a
+housekeeper's phone. The live view lists every open request with filters
+(open, late, nobody has it, done not checked, finished today), floor and
+search, and stats with the average time from asking to done. A request's
+panel offers what the floor board offers, through the same `advanceRequest()`,
+plus the one thing the board cannot do: choosing WHO, with people on shift
+first. Reassigning is ASSIGNED → OPEN → ASSIGNED in one transaction rather
+than a new edge in the state machine, so the log says it was taken from one
+person and given to another. "Mark done" is offered only on a request
+somebody has, so the work stays attributed to them. `getRequestsClosedToday()`
+reads done, checked, refused and cancelled since midnight.

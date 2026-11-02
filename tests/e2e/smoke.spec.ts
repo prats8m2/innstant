@@ -1900,7 +1900,7 @@ test.describe('the request catalog', () => {
     const desk = await browser.newContext();
     const console_ = await desk.newPage();
     await signInAsGm(console_);
-    await console_.goto('/admin/requests');
+    await console_.goto('/admin/requests?tab=catalog');
 
     const row = console_.locator('li').filter({ hasText: TYPE }).first();
     await expect(row).toBeVisible({ timeout: 25_000 });
@@ -1942,7 +1942,7 @@ test.describe('the request catalog', () => {
    */
   test('will not let the one tap be given a price', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
 
     const row = page.locator('li').filter({ hasText: 'Call for service' }).first();
     await expect(row).toBeVisible({ timeout: 25_000 });
@@ -1959,7 +1959,7 @@ test.describe('the request catalog', () => {
    */
   test('names the roles nobody holds, before one is picked', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
 
     const row = page.locator('li').filter({ hasText: TYPE }).first();
     await openEdit(row);
@@ -1979,7 +1979,7 @@ test.describe('the request catalog', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
     const row = page.locator('li').filter({ hasText: TYPE }).first();
     await expect(row).toContainText('12 min', { timeout: 25_000 });
     // Everything readable, nothing to press: no edit disclosure, no switch, no
@@ -2346,29 +2346,29 @@ test.describe('the front desk', () => {
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
   }
 
-  // By the data attribute, not by text: the row's name changes the moment
-  // somebody checks in, which is the thing these tests are about.
+  // By the data attribute, not by text: the tile's name changes the moment
+  // somebody checks in, which is the thing these tests are about. What can be
+  // done to a room is in its panel, `?room=` (D-094).
   const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+  const panel = (page: Page) => page.locator(`[data-room-panel="${ROOM}"]`);
 
   test('checks a walk-in in, and their sticker starts working', async ({ browser }) => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
 
-    const row = room(deskPage);
-    await expect(row).toContainText('empty', { timeout: 25_000 });
+    await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
 
-    await row.getByRole('group').filter({ hasText: 'Check someone in' })
-      .locator('summary').click();
-    await row.locator('input[name="fullName"]').fill('Meera Iyer');
-    await row.locator('input[name="phone"]').fill('+919820077777');
-    await row.locator('input[name="nights"]').fill('2');
-    await row.getByRole('button', { name: `Check in to ${ROOM}` }).click();
+    const form = panel(deskPage);
+    await form.locator('input[name="fullName"]').fill('Meera Iyer');
+    await form.locator('input[name="phone"]').fill('+919820077777');
+    await form.locator('input[name="nights"]').fill('2');
+    await form.getByRole('button', { name: `Check in to ${ROOM}` }).click();
 
-    // The row is no longer empty, and the desk can see who and until when.
+    // The tile is no longer empty, and the panel says who and what is owed.
     await expect(room(deskPage)).toContainText('Meera Iyer', { timeout: 25_000 });
-    await expect(room(deskPage)).toContainText('nothing yet');
+    await expect(panel(deskPage)).toContainText('nothing yet');
 
     // And the sticker on that nightstand now resolves to her stay.
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2396,8 +2396,8 @@ test.describe('the front desk', () => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
-    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
+    await panel(deskPage).getByRole('button', { name: 'Check out' }).click();
 
     // The room is free again, immediately — D-007's index only counts CHECKED_IN.
     await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
@@ -2422,7 +2422,7 @@ test.describe('the front desk', () => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto('/admin/rooms?room=214');
 
     /**
      * 214, not this suite's 108: by now 108 has been checked out, and an empty
@@ -2430,7 +2430,7 @@ test.describe('the front desk', () => {
      * must not learn occupancy. 214 is the seeder's stay and nothing checks it
      * out.
      */
-    const occupied = deskPage.locator('li[data-room="214"]');
+    const occupied = deskPage.locator('[data-room-panel="214"]');
     await expect(occupied).toBeVisible({ timeout: 25_000 });
 
     // The public code is on the row, so a desk can match it to a printed
@@ -2496,9 +2496,9 @@ test.describe('a guest and what we know', () => {
     await page.getByRole('button', { name: 'Sign in' }).click();
     await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
 
-    await page.goto('/admin/rooms');
-    // By name: the row also carries the sticker's "Open" link now.
-    await page.locator(`li[data-room="${ROOM}"]`).getByRole('link', { name: 'Rhea Kapoor' })
+    await page.goto(`/admin/rooms?room=${ROOM}`);
+    // By name: the panel also carries the sticker's "Open" link.
+    await page.locator(`[data-room-panel="${ROOM}"]`).getByRole('link', { name: 'Rhea Kapoor' })
       .click();
     await expect(page).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
   }
@@ -2639,22 +2639,21 @@ test.describe('settling up', () => {
   }
 
   const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+  const panel = (page: Page) => page.locator(`[data-room-panel="${ROOM}"]`);
 
   test('a guest runs up a bill, pays it, and leaves with it closed', async ({ browser }) => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
 
     // In.
-    await room(deskPage).getByRole('group').filter({ hasText: 'Check someone in' })
-      .locator('summary').click();
-    await room(deskPage).locator('input[name="fullName"]').fill('Nadia Rahman');
-    await room(deskPage).locator('input[name="phone"]').fill('+919820088888');
-    await room(deskPage).getByRole('button', { name: `Check in to ${ROOM}` }).click();
+    await panel(deskPage).locator('input[name="fullName"]').fill('Nadia Rahman');
+    await panel(deskPage).locator('input[name="phone"]').fill('+919820088888');
+    await panel(deskPage).getByRole('button', { name: `Check in to ${ROOM}` }).click();
     await expect(room(deskPage)).toContainText('Nadia Rahman', { timeout: 25_000 });
     // Nothing charged yet, which reads differently from ₹0.
-    await expect(room(deskPage)).toContainText('nothing yet');
+    await expect(panel(deskPage)).toContainText('nothing yet');
 
     // The guest orders laundry — a real charge through a real path.
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2672,11 +2671,11 @@ test.describe('settling up', () => {
 
     // The desk sees the balance on the room.
     await deskPage.reload();
-    await expect(room(deskPage)).toContainText('₹450', { timeout: 25_000 });
+    await expect(panel(deskPage)).toContainText('₹450', { timeout: 25_000 });
 
     // Take the money.
-    // By name: the row also carries the sticker's "Open" link now.
-    await room(deskPage).getByRole('link', { name: 'Nadia Rahman' }).click();
+    // By name: the panel also carries the sticker's "Open" link.
+    await panel(deskPage).getByRole('link', { name: 'Nadia Rahman' }).click();
     await expect(deskPage).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
     await deskPage.getByRole('group').filter({ hasText: 'Take a payment' })
       .locator('summary').click();
@@ -2710,8 +2709,8 @@ test.describe('settling up', () => {
 
     // And checking out closes the account rather than leaving it open with a
     // balance (D-035, now that there is a way to have paid).
-    await deskPage.goto('/admin/rooms');
-    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
+    await panel(deskPage).getByRole('button', { name: 'Check out' }).click();
     await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
 
     await desk.close();
@@ -2724,11 +2723,11 @@ test.describe('settling up', () => {
    */
   test('offers no payment form once a bill is settled', async ({ page }) => {
     await signInAsDesk(page);
-    await page.goto('/admin/rooms');
+    await page.goto('/admin/rooms?room=210');
 
     // 210's bill still has money on it, so it DOES offer one — the contrast is
     // the assertion.
-    await page.locator('li[data-room="210"]').getByRole('link', { name: 'Iqbal Qureshi' })
+    await page.locator('[data-room-panel="210"]').getByRole('link', { name: 'Iqbal Qureshi' })
       .click();
     await expect(page.getByRole('group').filter({ hasText: 'Take a payment' }))
       .toHaveCount(1, { timeout: 25_000 });
@@ -2963,16 +2962,14 @@ test.describe('the building', () => {
        * entire guest surface and no screen would tell you, because every screen
        * assumes it exists.
        */
-      await admin.goto('/admin/rooms');
-      const row = admin.locator('li[data-room="401"]');
-      await expect(row).toBeVisible({ timeout: 25_000 });
+      await admin.goto('/admin/rooms?room=401');
+      await expect(admin.locator('li[data-room="401"]')).toBeVisible({ timeout: 25_000 });
+      const row = admin.locator('[data-room-panel="401"]');
       const code = (await row.locator('code').first().textContent())!.trim();
       expect(code).toBeTruthy();
 
       // Check somebody in, because a sticker with no stay behind it correctly
       // resolves to nothing.
-      await row.getByRole('group').filter({ hasText: 'Check someone in' })
-        .locator('summary').click();
       await row.locator('input[name="fullName"]').fill('Garden Guest');
       await row.locator('input[name="phone"]').fill('+919820015151');
       await row.getByRole('button', { name: 'Check in to 401' }).click();
@@ -3006,9 +3003,9 @@ test.describe('the building', () => {
     const desk = await browser.newContext();
     const admin = await desk.newPage();
     await signInAsGm(admin);
-    await admin.goto('/admin/rooms');
+    await admin.goto('/admin/rooms?room=401');
 
-    const row = admin.locator('li[data-room="401"]');
+    const row = admin.locator('[data-room-panel="401"]');
     const old = (await row.locator('code').first().textContent())!.trim();
 
     await row.getByRole('group').filter({ hasText: 'Reprint' }).locator('summary').click();
@@ -3043,12 +3040,12 @@ test.describe('the building', () => {
     const admin = await desk.newPage();
     await signInAsGm(admin);
 
-    await admin.goto('/admin/rooms');
-    const code = (await admin.locator('li[data-room="401"]').locator('code').first()
+    await admin.goto('/admin/rooms?room=401');
+    const code = (await admin.locator('[data-room-panel="401"]').locator('code').first()
       .textContent())!.trim();
 
     // Check the guest out first — a room with somebody in it is refused.
-    await admin.locator('li[data-room="401"]').getByRole('button', { name: 'Check out' }).click();
+    await admin.locator('[data-room-panel="401"]').getByRole('button', { name: 'Check out' }).click();
     await expect(admin.locator('li[data-room="401"]')).toContainText('empty', {
       timeout: 25_000,
     });

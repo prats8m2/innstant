@@ -5,7 +5,8 @@ import { can, findProperty } from '@/modules/identity';
 import { listRoomsWithOccupancy } from '@/modules/stay';
 import { formatMoney, money } from '@/lib/money';
 import { formatCheckoutShort, nightsUntil } from '@/lib/clock';
-import { RoomBoard, type RoomView } from './room-board';
+import { SidePanel } from '../side-panel';
+import { RoomGrid, RoomPanel, type RoomView } from './room-board';
 import styles from '../admin.module.css';
 
 /**
@@ -20,8 +21,8 @@ import styles from '../admin.module.css';
  * that "session tokens are revoked at checkout" held only because no checkout
  * had ever happened.
  *
- * Grouped by floor, in key-rack order. A desk reads down a list of rooms, not
- * across a table of stays.
+ * Grouped by floor, in key-rack order, as a grid of tiles; a room's actions
+ * open in a side panel at `?room=<number>` (D-094).
  */
 export const dynamic = 'force-dynamic';
 
@@ -41,9 +42,10 @@ type Show = (typeof SHOWS)[number]['key'];
 export default async function RoomsAdmin({
   searchParams,
 }: {
-  searchParams: Promise<{ show?: string }>;
+  searchParams: Promise<{ show?: string; room?: string }>;
 }) {
-  const requested = (await searchParams).show;
+  const params = await searchParams;
+  const requested = params.show;
   const show: Show = SHOWS.some((s) => s.key === requested) ? (requested as Show) : 'all';
   const access = await adminAccess('stay:read');
   if (!access.ok) return <AdminDenied reason={access.reason} />;
@@ -125,6 +127,17 @@ export default async function RoomsAdmin({
     all: rooms.length, in: occupied, empty: rooms.length - occupied, out: dueOutToday,
   };
 
+  /**
+   * The open room, by NUMBER (`?room=214`): what a desk says out loud, and a
+   * URL one person can send another. It can be any room, not only one the
+   * filter shows — a link to an empty room stays good after check-in.
+   */
+  const selected = params.room ? rooms.find((room) => room.number === params.room) ?? null : null;
+  const base = show === 'all' ? '/admin/rooms' : `/admin/rooms?show=${show}`;
+  const panelHref = (number: string) => `${base}${base.includes('?') ? '&' : '?'}room=${encodeURIComponent(number)}`;
+  const linkFor = Object.fromEntries(shown.map((room) => [room.number, panelHref(room.number)]));
+  const owing = rooms.filter((room) => room.stay?.owes).length;
+
   // The hours a desk actually picks between, offered rather than hardcoded into
   // the action — there is no property-level standard checkout hour in the
   // schema, and inventing one in a form would be a business value in the wrong
@@ -139,6 +152,7 @@ export default async function RoomsAdmin({
           <p className={styles.lede}>
             {occupied} of {rooms.length} occupied
             {dueOutToday > 0 ? ` · ${dueOutToday} out today` : ''}
+            {owing > 0 ? ` · ${owing} with something on the folio` : ''}
           </p>
         </div>
       </header>
@@ -148,6 +162,7 @@ export default async function RoomsAdmin({
           <Link
             key={s.key}
             href={s.key === 'all' ? '/admin/rooms' : `/admin/rooms?show=${s.key}`}
+            scroll={false}
             className={styles.view}
             aria-current={show === s.key ? 'page' : undefined}
           >
@@ -164,18 +179,29 @@ export default async function RoomsAdmin({
         </p>
       ) : null}
 
-      <RoomBoard
-        propertyId={propertyId}
-        rooms={shown}
-        checkoutHours={checkoutHours}
-        permissions={{
-          checkIn: can(session, propertyId, 'stay:check_in'),
-          checkOut: can(session, propertyId, 'stay:check_out'),
-          vouch: can(session, propertyId, 'guest:vouch'),
-          // Its own permission since S5, with nothing calling it until now.
-          reprintQr: maySeeQr && can(session, propertyId, 'qr:regenerate'),
-        }}
-      />
+      <RoomGrid rooms={shown} linkFor={linkFor} selected={selected?.number ?? null} />
+
+      {selected ? (
+        <SidePanel
+          title={`Room ${selected.number}`}
+          subtitle={selected.stay ? selected.stay.guestName : 'Empty'}
+          closeHref={base}
+        >
+          <RoomPanel
+            propertyId={propertyId}
+            room={selected}
+            checkoutHours={checkoutHours}
+            deskHref={`/admin/desk?filter=all&room=${selected.id}`}
+            permissions={{
+              checkIn: can(session, propertyId, 'stay:check_in'),
+              checkOut: can(session, propertyId, 'stay:check_out'),
+              vouch: can(session, propertyId, 'guest:vouch'),
+              // Its own permission since S5, with nothing calling it until now.
+              reprintQr: maySeeQr && can(session, propertyId, 'qr:regenerate'),
+            }}
+          />
+        </SidePanel>
+      ) : null}
 
       <p className={styles.footnote}>
         Checking someone out frees the room, ends every session on their phone

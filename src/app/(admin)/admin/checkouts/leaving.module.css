@@ -1,0 +1,110 @@
+/*
+ * The Leaving screen's departures (D-094): today's stats, who is due out and
+ * who has gone. Every value is a token.
+ */
+
+.stats {
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.stat {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+.stat[data-tone='critical'] { border-color: color-mix(in srgb, var(--status-critical) 45%, var(--border)); }
+.stat[data-tone='attention'] { border-color: color-mix(in srgb, var(--status-attention-mark) 50%, var(--border)); }
+
+.statLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--text);
+}
+.stat[data-tone='critical'] .statValue { color: var(--status-critical); }
+
+.statSub { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Rows ───────────────────────────────────────────────────────────────── */
+
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows > li + li { border-top: 1px solid var(--border-soft); }
+
+.row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 160px) auto;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-5);
+}
+.row[data-overdue='true'] { box-shadow: inset 3px 0 0 var(--status-critical); }
+
+.room {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.who { display: grid; gap: 2px; min-width: 0; }
+
+.name {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.name:hover { text-decoration: underline; }
+
+.meta { font-size: var(--text-sm); color: var(--text-muted); }
+.late { color: var(--status-critical); font-weight: 600; }
+.open { color: var(--status-attention); }
+
+.balance {
+  justify-self: end;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.balance[data-owes='true'] { color: var(--text); font-weight: 600; }
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+}
+.actions > a { text-decoration: none; }
+
+.inline { display: flex; align-items: center; gap: var(--space-2); }
+
+@media (max-width: 640px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+  .stat { padding: var(--space-3); }
+  .statValue { font-size: var(--text-xl); }
+  .row {
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    padding: var(--space-3) var(--space-4);
+  }
+  /* Actions get their own line, full width, where a thumb can reach them. */
+  .actions { grid-column: 1 / -1; justify-content: stretch; }
+  .actions > *, .actions .inline, .actions button { flex: 1; }
+}

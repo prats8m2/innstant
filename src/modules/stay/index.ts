@@ -36,6 +36,9 @@ export type {
 /** The front desk. Check-IN is `createStay()` above — the only door (#4). */
 export { listRoomsWithOccupancy, checkOutStay } from './front-desk';
 export type { RoomOccupancy, CheckOutResult } from './front-desk';
+/** Today's departures — who is due out and who has gone (D-094). */
+export { listDeparturesToday } from './departures';
+export type { Departure } from './departures';
 
 /** Changing when a guest leaves — P3's checkout-change flow. */
 export {

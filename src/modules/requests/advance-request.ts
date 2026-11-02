@@ -303,6 +303,29 @@ export async function getOpenRequests(
   });
 }
 
+/**
+ * Requests finished with today, property-local (D-094): done, checked,
+ * refused or cancelled since midnight. What the console's live view shows
+ * under "Done today", and where its "average time to done" comes from.
+ *
+ * "Finished" is `completed_at` when there is one and `updated_at` otherwise —
+ * a refused or cancelled request never completes, and the last write to it is
+ * the refusal.
+ */
+export async function getRequestsClosedToday(
+  tx: Tx,
+  input: { propertyId: string; timeZone: string; now?: Date },
+): Promise<RequestDetail[]> {
+  const tz = input.timeZone;
+  return readRequests(tx, {
+    where: sql`sr.property_id = ${input.propertyId}
+      AND sr.status IN ('COMPLETED', 'VERIFIED', 'REJECTED', 'CANCELLED')
+      AND COALESCE(sr.completed_at, sr.updated_at)
+          >= (date_trunc('day', now() AT TIME ZONE ${tz}) AT TIME ZONE ${tz})`,
+    now: input.now ?? new Date(),
+  });
+}
+
 async function readRequests(
   tx: Tx,
   input: {

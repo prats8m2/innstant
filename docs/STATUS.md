@@ -21,6 +21,17 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**2 November: the front office (D-094), branch `feat/admin-front-office`.**
+Rooms is a grid of room tiles with a panel per room (`?room=<number>`) and a
+search; the Front desk table sizes to its own column (no more cut-off names);
+Leaving shows today's departures (due, overdue, left, still owed) as well as
+the late-checkout queue; Requests opens on a live view with assign, mark done,
+check, refuse and cancel, and the catalog moved to `?tab=catalog`. No
+migration. The e2e tests for rooms moved to the panel; the catalog tests to
+the tab. Picture uploads (`feat/media-uploads`, PR #5) are separate and wait
+on the Railway bucket.
+
+
 **29 October: Setup and the floor screens, redesigned — local only, not
 pushed.** The user will test the whole flow locally, in one go, before
 anything is pushed. Branch `feat/admin-setup-floor` (from `main` at

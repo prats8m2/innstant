@@ -1,0 +1,224 @@
+/*
+ * The key rack as a grid (D-094): a tile per room, coloured by what it is,
+ * and a panel for what can be done to it. Every value is a token.
+ */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rack { display: grid; gap: var(--space-6); }
+
+/* ── Search ─────────────────────────────────────────────────────────────── */
+
+.search {
+  position: relative;
+  display: block;
+  max-width: 420px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3) 0 calc(var(--space-3) * 2 + 16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+.searchInput:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ── A floor ────────────────────────────────────────────────────────────── */
+
+.floor { display: grid; gap: var(--space-3); }
+
+.floorTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.floorCount {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.tileItem { min-width: 0; }
+
+/*
+ * A tile. The left edge is the state, readable across the room: neutral when
+ * empty, the accent when somebody is in, amber when they are out today.
+ * Colour is never the only signal — the tile's text says the same thing.
+ */
+.tile {
+  display: grid;
+  gap: 2px;
+  min-height: 96px;
+  padding: var(--space-3) var(--space-3) var(--space-3) calc(var(--space-3) + 2px);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+.tile:hover { background: var(--surface-hover); }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tile[aria-current='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-tint);
+}
+
+.tileItem[data-state='empty'] .tile { background: var(--bg); }
+.tileItem[data-state='empty'] .tile:hover { background: var(--surface-hover); }
+.tileItem[data-state='in'] .tile { border-left-color: var(--accent); }
+.tileItem[data-state='out'] .tile { border-left-color: var(--status-attention-mark); }
+
+.tileTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.tileNumber {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+/* Something on the folio: a small mark, not a colour flood — nearly every
+   guest owes something mid-stay, and saffron means "act now" here. */
+.owes {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+.tileGuest {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tileItem[data-state='empty'] .tileGuest {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.tileMeta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tileItem[data-state='out'] .tileMeta {
+  color: var(--status-attention);
+  font-weight: 600;
+}
+
+/* ── The panel ──────────────────────────────────────────────────────────── */
+
+.panel { display: grid; }
+
+.panelHero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+
+.panelNumber {
+  display: inline-grid;
+  place-items: center;
+  min-width: 72px;
+  height: 56px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--border);
+  background: var(--surface-raised);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--text);
+}
+.panelHero[data-state='in'] .panelNumber { border-left-color: var(--accent); }
+.panelHero[data-state='out'] .panelNumber { border-left-color: var(--status-attention-mark); }
+
+.panelHeroText { display: grid; gap: 2px; min-width: 0; }
+.panelStatus { font-weight: 600; color: var(--text); }
+.panelSub { font-size: var(--text-sm); color: var(--text-muted); }
+
+.panelSection {
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.panelTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.facts dt { color: var(--text-muted); }
+.facts dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.facts dd[data-owes='true'] { font-weight: 600; }
+
+.panelLinks { margin: var(--space-3) 0 0; font-size: var(--text-sm); }
+
+.panelActions { display: grid; gap: var(--space-3); }
+
+.checkOut { display: grid; gap: var(--space-2); justify-items: start; }
+
+@media (max-width: 640px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
+  .tile { min-height: 84px; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3); }
+  .tileNumber { font-size: var(--text-md); }
+}
