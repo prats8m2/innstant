@@ -11,8 +11,9 @@ import { formatCheckoutDay, formatClock, formatFolioDate, localTimeAt, toClock }
 import { CheckoutQueue, type DeskRequestView } from './checkout-queue';
 import { DueOut, LeftToday, type DueView, type LeftView } from './departures';
 import { Collections, LeftOwing, type CollectionView, type OwingView } from './money';
+import { CheckCircle2 } from 'lucide-react';
 import l from './leaving.module.css';
-import styles from '../admin.module.css';
+import ui from '../rooms/controls.module.css';
 
 /**
  * Today's departures, and the late checkouts waiting on the desk (D-094).
@@ -172,38 +173,37 @@ export default async function CheckoutsAdmin() {
   const owedCurrency = (departures.due[0] ?? departures.left[0])?.currency ?? 'INR';
 
   return (
-    <>
-      <header className={styles.pageHead}>
-        <div>
-          <h1 className={styles.title}>Leaving</h1>
-          <p className={styles.lede}>
-            {due.length === 0 && open.length === 0
-              ? 'Nobody else is due out today, and nothing is waiting.'
-              : [
-                due.length ? `${due.length} due out today` : null,
-                open.length ? `${open.length} waiting on an answer` : null,
-              ].filter(Boolean).join(' · ') + '.'}
-          </p>
-        </div>
+    <div className={l.page}>
+      <header className={l.head}>
+        <h1 className={l.title}>Leaving</h1>
+        <p className={l.summary}>
+          {due.length === 0 && open.length === 0
+            ? 'Nobody else is due out today, and nothing is waiting.'
+            : [
+              due.length ? `${due.length} due out today` : null,
+              overdue ? `${overdue} past their time` : null,
+              open.length ? `${open.length} waiting on an answer` : null,
+            ].filter(Boolean).join(' · ') + '.'}
+        </p>
       </header>
 
       <ul className={l.stats} aria-label="Today">
-        <li className={l.stat}>
+        <li className={`${ui.card} ${l.stat}`}>
           <span className={l.statLabel}>Due out</span>
           <span className={`${l.statValue} tabular`}>{due.length}</span>
           <span className={l.statSub}>still in the room</span>
         </li>
-        <li className={l.stat} data-tone={overdue ? 'critical' : undefined}>
-          <span className={l.statLabel}>Overdue</span>
+        <li className={`${ui.card} ${l.stat}`} data-tone={overdue ? 'crit' : undefined}>
+          <span className={l.statLabel}>Late</span>
           <span className={`${l.statValue} tabular`}>{overdue}</span>
           <span className={l.statSub}>past their time</span>
         </li>
-        <li className={l.stat}>
+        <li className={`${ui.card} ${l.stat}`}>
           <span className={l.statLabel}>Left today</span>
           <span className={`${l.statValue} tabular`}>{left.length}</span>
           <span className={l.statSub}>checked out</span>
         </li>
-        <li className={l.stat} data-tone={owedMinor > 0 ? 'attention' : undefined}>
+        <li className={`${ui.card} ${l.stat}`} data-tone={owedMinor > 0 ? 'warn' : undefined}>
           <span className={l.statLabel}>Still owed</span>
           <span className={`${l.statValue} tabular`}>{formatMoney(money(owedMinor, owedCurrency))}</span>
           <span className={l.statSub}>by today&rsquo;s departures</span>
@@ -224,7 +224,7 @@ export default async function CheckoutsAdmin() {
         // One quiet line rather than an empty box: the desk still sees the
         // queue is empty (and that approving one just emptied it), without
         // an empty panel pushing today's departures down.
-        <p className={l.queueEmpty}>Nobody is waiting on an answer.</p>
+        <p className={l.queueEmpty}><CheckCircle2 size={16} strokeWidth={1.5} aria-hidden="true" />Nobody is waiting on an answer.</p>
       )}
 
       <DueOut
@@ -248,12 +248,12 @@ export default async function CheckoutsAdmin() {
         mayOverride={can(session, propertyId, 'checkout_request:override_fee')}
       />
 
-      <p className={styles.footnote}>
+      <p className={l.footnote}>
         Approving moves the guest&rsquo;s checkout, puts the fee on their folio and
         keeps their phone working until the new time — all at once, so none of the
         three can be true without the others. Declining charges nothing: the fee
         is only ever posted on a yes.
       </p>
-    </>
+    </div>
   );
 }

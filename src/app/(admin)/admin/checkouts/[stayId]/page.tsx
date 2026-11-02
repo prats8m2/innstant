@@ -9,9 +9,9 @@ import { ordersOnBill, kitchenTickets } from '@/modules/ordering';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { getOpenRequests } from '@/modules/requests';
 import { formatMoney, money } from '@/lib/money';
-import { formatClock, formatFolioDate, localTimeAt, nightsUntil, toClock } from '@/lib/clock';
+import { formatCheckoutShort, formatClock, formatFolioDate, localTimeAt, nightsUntil, toClock } from '@/lib/clock';
 import { CheckoutDesk, type CheckoutView } from './checkout-desk';
-import styles from '../../admin.module.css';
+import c from './checkout.module.css';
 
 /**
  * Checking one guest out (D-095): the whole bill, and everything between it
@@ -59,8 +59,8 @@ export default async function CheckoutStay({ params }: { params: Promise<{ stayI
   if (!data) {
     return (
       <>
-        <h1 className={styles.title}>Checkout</h1>
-        <p className={styles.sectionEmpty}>That stay is not at this property. <Link href="/admin/checkouts">Back to Leaving</Link></p>
+        <h1 className={c.title}>Checkout</h1>
+        <p className={c.quiet}>That stay is not at this property. <Link href="/admin/checkouts">Back to Leaving</Link></p>
       </>
     );
   }
@@ -85,10 +85,17 @@ export default async function CheckoutStay({ params }: { params: Promise<{ stayI
   const openRequests = data.requests.filter((r) => r.roomNumber === stay.roomNumber);
   const lateAsk = data.lateAsks.find((r) => r.roomNumber === stay.roomNumber) ?? null;
 
+  // "Sun 1 Nov" — the header's stay range.
+  const day = (at: Date) => new Intl.DateTimeFormat('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone })
+    .format(at).replace(',', '');
+  const lastDay = stay.checkedOutAt ?? stay.scheduledCheckoutAt;
+
   const view: CheckoutView = {
     propertyId,
     stayId: stay.id,
     status: leaving ? 'in' : 'out',
+    range: `${day(arrived)} – ${day(lastDay)}`,
+    dueShort: formatCheckoutShort(stay.scheduledCheckoutAt, timeZone),
     guest: {
       id: stay.guestId,
       name: stay.guestName,

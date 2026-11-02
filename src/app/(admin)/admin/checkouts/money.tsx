@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import styles from '../admin.module.css';
+import ui from '../rooms/controls.module.css';
 import l from './leaving.module.css';
 
 /**
@@ -14,10 +14,10 @@ export interface CollectionView {
 
 export function Collections({ rows, total, refunded }: { rows: CollectionView[]; total: string; refunded: string | null }) {
   return (
-    <section className={styles.section} aria-labelledby="taken-today">
-      <header className={styles.sectionHead}>
-        <h2 id="taken-today" className={styles.sectionTitle}>Taken today</h2>
-        <p className={styles.sectionBlurb}>What the drawer and the card machine should agree with.</p>
+    <section className={`${ui.card} ${l.section}`} aria-labelledby="taken-today">
+      <header className={l.sectionHead}>
+        <h2 id="taken-today" className={l.sectionTitle}>Taken today</h2>
+        <p className={l.sectionBlurb}>What the drawer and the card machine should agree with.</p>
       </header>
       {rows.length ? (
         <div className={l.collections}>
@@ -25,7 +25,7 @@ export function Collections({ rows, total, refunded }: { rows: CollectionView[];
             <div key={row.method} className={l.collection}>
               <span className={l.statLabel}>{row.method}</span>
               <span className={`${l.collectionValue} tabular`}>{row.taken}</span>
-              <span className={l.statSub}>{row.payments} payment{row.payments === 1 ? '' : 's'}</span>
+              <span className={l.statSub}><span className="tabular">{row.payments}</span> payment{row.payments === 1 ? '' : 's'}</span>
             </div>
           ))}
           <div className={l.collection} data-total="true">
@@ -35,7 +35,7 @@ export function Collections({ rows, total, refunded }: { rows: CollectionView[];
           </div>
         </div>
       ) : (
-        <p className={styles.sectionEmpty}>Nothing taken at the desk yet today.</p>
+        <p className={l.sectionEmpty}>Nothing taken at the desk yet today.</p>
       )}
     </section>
   );
@@ -55,10 +55,10 @@ export interface OwingView {
 export function LeftOwing({ rows }: { rows: OwingView[] }) {
   if (!rows.length) return null;
   return (
-    <section className={styles.section} aria-labelledby="left-owing">
-      <header className={styles.sectionHead}>
-        <h2 id="left-owing" className={styles.sectionTitle}>Left owing</h2>
-        <p className={styles.sectionBlurb}>Departures in the last 90 days with money still on the bill. Oldest first.</p>
+    <section className={`${ui.card} ${l.section}`} aria-labelledby="left-owing">
+      <header className={l.sectionHead}>
+        <h2 id="left-owing" className={l.sectionTitle}>Left owing <span className={`${l.sectionCount} tabular`}>{rows.length}</span></h2>
+        <p className={l.sectionBlurb}>Departures in the last 90 days with money still on the bill. Oldest first.</p>
       </header>
       <ul className={l.rows}>
         {rows.map((row) => (
@@ -67,14 +67,16 @@ export function LeftOwing({ rows }: { rows: OwingView[] }) {
             <span className={l.who}>
               <span className={l.name}>{row.guestName}</span>
               <span className={l.meta}>
-                Left {row.left}{row.daysAgo > 0 ? ` · ${row.daysAgo} day${row.daysAgo === 1 ? '' : 's'} ago` : ' · today'}
-                {row.guestPhone ? ` · ${row.guestPhone}` : ''}
-                {row.reason ? <span className={l.reason}> · “{row.reason}”</span> : null}
+                <span>Left {row.left}{row.daysAgo > 0 ? ` · ${row.daysAgo} day${row.daysAgo === 1 ? '' : 's'} ago` : ' · today'}</span>
+                {row.guestPhone ? <span className="tabular">{row.guestPhone}</span> : null}
+                {row.reason ? <span className={l.reason}>“{row.reason}”</span> : null}
               </span>
             </span>
-            <span className={`${l.balance} tabular`} data-owes="true">{row.amount}</span>
+            <span className={l.balance}>
+              <span className={ui.pill} data-tone="crit">Owes <span className="tabular">{row.amount}</span></span>
+            </span>
             <span className={l.actions}>
-              <Link href={`/admin/checkouts/${row.stayId}`} className={styles.secondary}>Collect</Link>
+              <Link href={`/admin/checkouts/${row.stayId}`} className={ui.btn}>Collect</Link>
             </span>
           </li>
         ))}
