@@ -33,6 +33,29 @@ const seed: DemoSeed | null = existsSync(seedPath)
  * locator that matches both. Matching only /^Remove/ leaves the cart full and
  * every exact-total assertion downstream fails somewhere unrelated.
  */
+/**
+ * After "Sign in": off the login page AND settled.
+ *
+ * The login action redirects, and the browser then moves to the console in
+ * two client-side steps a few hundred milliseconds apart. Chromium lets a
+ * test's next `goto` overtake the second; WebKit aborts it ("navigation is
+ * interrupted by another navigation"), which failed a dozen staff tests in
+ * the iPhone project only. So wait for the URL, then for half a second with no
+ * further navigation of the main frame.
+ */
+async function signedIn(page: Page): Promise<void> {
+  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  let last = Date.now();
+  const mark = (frame: { parentFrame(): unknown }) => { if (!frame.parentFrame()) last = Date.now(); };
+  page.on('framenavigated', mark);
+  try {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() - last < 500 && Date.now() < deadline) await page.waitForTimeout(100);
+  } finally {
+    page.off('framenavigated', mark);
+  }
+}
+
 async function emptyCart(page: Page, code: string): Promise<void> {
   await page.goto(`/r/${code}/cart`);
   for (let i = 0; i < 30; i += 1) {
@@ -367,7 +390,7 @@ test.describe('the kitchen display', () => {
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   async function signInToKitchen(page: Page): Promise<void> {
@@ -642,7 +665,7 @@ test.describe('the menu editor', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('In-room dining', {
@@ -793,7 +816,7 @@ test.describe('the menu editor', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu');
     await expect(page.getByRole('switch').first())
@@ -848,7 +871,7 @@ test.describe('the kitchen settings', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/outlet');
     await expect(page).toHaveURL(/\/admin\/property\?tab=service/, { timeout: 25_000 });
@@ -950,7 +973,7 @@ test.describe('the kitchen settings', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/outlet');
     // A staff page says so in words rather than returning a bare status: a
@@ -1003,7 +1026,7 @@ test.describe('collections', () => {
     await admin.locator('input[name="email"]').fill('fnb@thekesari.example');
     await admin.locator('input[name="password"]').fill('kesari-demo-2026');
     await admin.getByRole('button', { name: 'Sign in' }).click();
-    await admin.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(admin);
 
     await admin.goto('/admin/menu/collections');
     await expect(admin.getByRole('heading', { level: 1 })).toHaveText('Collections', {
@@ -1068,7 +1091,7 @@ test.describe('collections', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu/collections');
     const section = page.locator('section').filter({
@@ -1094,7 +1117,7 @@ test.describe('collections', () => {
       await page.locator('input[name="email"]').fill('fnb@thekesari.example');
       await page.locator('input[name="password"]').fill('kesari-demo-2026');
       await page.getByRole('button', { name: 'Sign in' }).click();
-      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(page);
 
       // D-085: 20% off the Sweets section, today only.
       await page.goto('/admin/menu/offers');
@@ -1137,7 +1160,7 @@ test.describe('collections', () => {
       await page.locator('input[name="email"]').fill('fnb@thekesari.example');
       await page.locator('input[name="password"]').fill('kesari-demo-2026');
       await page.getByRole('button', { name: 'Sign in' }).click();
-      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(page);
 
       // One tap on the board (D-084). It is dated today and empty.
       await page.goto('/admin/menu');
@@ -1223,7 +1246,7 @@ test.describe('option groups', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('shows the seeded groups with how many dishes carry them', async ({ page }) => {
@@ -1402,7 +1425,7 @@ test.describe('the kitchen board', () => {
     await kds.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await kds.locator('input[name="password"]').fill('kesari-demo-2026');
     await kds.getByRole('button', { name: 'Sign in' }).click();
-    await kds.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(kds);
     await kds.goto('/kds');
     await expect(kds.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
 
@@ -1587,7 +1610,7 @@ test.describe('the floor board', () => {
     await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await board.locator('input[name="password"]').fill('kesari-demo-2026');
     await board.getByRole('button', { name: 'Sign in' }).click();
-    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(board);
     await board.goto('/housekeeping');
     await expect(board.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
 
@@ -1639,7 +1662,7 @@ test.describe('the floor board', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/housekeeping');
     await expect(page.getByText(/cannot see service requests/i)).toBeVisible({ timeout: 20_000 });
@@ -1703,7 +1726,7 @@ test.describe('routing a request to whoever is on duty', () => {
     await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await board.locator('input[name="password"]').fill('kesari-demo-2026');
     await board.getByRole('button', { name: 'Sign in' }).click();
-    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(board);
     await board.goto('/housekeeping');
 
     // Clock in, covering every floor — a small hotel's housekeeper does.
@@ -1772,7 +1795,7 @@ test.describe('a breach on the board', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
     await page.goto('/housekeeping');
 
     // The seeded request, SR-4471, is 12 minutes out when the demo is reset. Ask
@@ -1812,7 +1835,7 @@ test.describe('the alert bell', () => {
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('tells the duty manager a request breached, and stops when told it was seen',
@@ -1911,7 +1934,7 @@ test.describe('the request catalog', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   /**
@@ -2011,7 +2034,7 @@ test.describe('the request catalog', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/requests?tab=catalog');
     const row = page.locator('li').filter({ hasText: TYPE }).first();
@@ -2219,7 +2242,7 @@ test.describe('leaving later', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('a guest asks, the desk says yes, and both ends move', async ({ browser }) => {
@@ -2377,7 +2400,7 @@ test.describe('the front desk', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   // By the data attribute, not by text: the tile's name changes the moment
@@ -2492,7 +2515,7 @@ test.describe('the front desk', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/rooms');
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
@@ -2528,7 +2551,7 @@ test.describe('a guest and what we know', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto(`/admin/rooms?room=${ROOM}`);
     // By name: the panel also carries the sticker's "Open" link.
@@ -2635,7 +2658,7 @@ test.describe('a guest and what we know', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/rooms');
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
@@ -2669,7 +2692,7 @@ test.describe('settling up', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
@@ -2801,7 +2824,7 @@ test.describe('staff and roles', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('invites somebody, who sets a password from the link and signs in',
@@ -2880,7 +2903,7 @@ test.describe('staff and roles', () => {
       await joiner.locator('input[name="email"]').fill(NEW_STAFF);
       await joiner.locator('input[name="password"]').fill(NEW_PASSWORD);
       await joiner.getByRole('button', { name: 'Sign in' }).click();
-      await joiner.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(joiner);
 
       const desk = await browser.newContext();
       const admin = await desk.newPage();
@@ -2942,7 +2965,7 @@ test.describe('staff and roles', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/staff');
     await expect(page.getByText(/cannot change this|no property assigned/))
@@ -2964,7 +2987,7 @@ test.describe('the building', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('opens a floor, puts a room on it, and the room can be scanned into',
@@ -3123,7 +3146,7 @@ test.describe('the building', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/property?tab=rooms');
     await expect(page.getByRole('heading', { name: 'Floors' })).toBeVisible({ timeout: 25_000 });
@@ -3269,7 +3292,7 @@ test.describe('signing out', () => {
     await console_.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await console_.locator('input[name="password"]').fill('kesari-demo-2026');
     await console_.getByRole('button', { name: 'Sign in' }).click();
-    await console_.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(console_);
 
     const kds = await ctx.newPage();
     await kds.goto('/kds');
