@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { scanQrCode, resolveStaySession, GUEST_SESSION_COOKIE, QrNotUsableError } from '@/modules/access';
 import { resolveQrRouting } from '@/db';
+import { secureCookies } from '@/lib/cookie-security';
 
 /**
  * The link. `/r/{publicCode}` — printed on a nightstand sticker, or simply
@@ -138,7 +139,7 @@ export async function GET(
     response.cookies.set(GUEST_SESSION_COOKIE, scan.cookieValue, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies(),
       path: '/',
       expires: scan.session.expiresAt,
     });

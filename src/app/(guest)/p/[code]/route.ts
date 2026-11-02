@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { scanVisitLink, resolveVisitSession, GUEST_SESSION_COOKIE, QrNotUsableError } from '@/modules/access';
 import { resolveVisitLink as routeVisitLink } from '@/db';
+import { secureCookies } from '@/lib/cookie-security';
 
 /**
  * The property link. `/p/{publicCode}` — D-079.
@@ -123,7 +124,7 @@ export async function GET(
     response.cookies.set(GUEST_SESSION_COOKIE, scan.cookieValue, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies(),
       path: '/',
       expires: scan.session.expiresAt,
     });
