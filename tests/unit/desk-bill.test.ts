@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildDeskBill, type OrderBreakdown } from '@/modules/billing/desk-bill';
-import { formatRate } from '@/modules/billing/desk-billing';
+import { formatRate } from '@/modules/billing/desk-bill';
 
 /**
  * D-095: the bill the checkout screen and the invoice print, from a folio's

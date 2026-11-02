@@ -171,3 +171,9 @@ export function buildDeskBill(
     balanceMinor: chargesMinor - paidMinor,
   };
 }
+
+/** 1200 → "12%", 250 → "2.5%". */
+export function formatRate(bps: number): string {
+  const percent = bps / 100;
+  return `${Number.isInteger(percent) ? percent : percent.toFixed(2).replace(/0+$/, '')}%`;
+}

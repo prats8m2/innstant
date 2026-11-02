@@ -5,6 +5,7 @@ import { idempotencyKeys } from '@/db/schema/core';
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors';
 import { applyRateBps, formatMoney, money, type CurrencyCode } from '@/lib/money';
 import { getOrCreateOpenFolio } from './folio';
+import { formatRate } from './desk-bill';
 import { PAYMENT_METHODS, type PaymentMethod } from './settle';
 
 /**
@@ -331,10 +332,4 @@ export async function recordRefund(
     ));
 
   return { ...result, wasAlreadyRefunded: false };
-}
-
-/** 1200 → "12%", 250 → "2.5%". */
-export function formatRate(bps: number): string {
-  const percent = bps / 100;
-  return `${Number.isInteger(percent) ? percent : percent.toFixed(2).replace(/0+$/, '')}%`;
 }
