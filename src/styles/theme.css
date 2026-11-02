@@ -209,65 +209,6 @@
   color-scheme: light;
 }
 
-/*
- * ── Night ──────────────────────────────────────────────────────────────────
- *
- * The kitchen display is the one always-on screen in the product, and it is
- * the one screen whose room gets dark. The design gives it an auto day/night
- * switch; this block is the night half, opted into by `data-scheme="dark"` on
- * a subtree rather than by a media query, because the switch is the property's
- * clock (see kdsScheme in the KDS) and not the tablet's OS setting.
- *
- * Only the semantic aliases are overridden. A component that reached past them
- * into --paper or --ink directly will not follow, which is the intended
- * pressure: reach for the alias.
- */
-[data-scheme='dark'] {
-  --paper-deep: #0D0F11;
-  --paper: #121517;
-  --paper-raised: #22272C;
-  --paper-hover: #2A3037;
-  --white: #1B1F23;
-
-  --line: #2E343A;
-  --line-soft: #262C31;
-  --line-faint: #394047;
-  --row-line: #262C31;
-  --row-hover: #22272C;
-
-  --teal-600: #2DD4BF;
-  --teal-700: #5EEAD4;   /* hover goes LIGHTER again on a dark ground */
-  --teal-tint: #12312D;
-
-  --ink: #EEF1F0;
-  --ink-secondary: #C3CBD2;
-  /* Re-stated, not inherited. `--ink-dim: color-mix(… var(--ink) …)` on :root
-     resolves against :root's --ink and inherits down as a finished colour, so
-     without these two lines the dark board would wear the light theme's grey
-     text. Same trap as the aliases below. */
-  --ink-dim: color-mix(in srgb, var(--ink) 70%, transparent);
-  --ink-faint: color-mix(in srgb, var(--ink) 55%, transparent);
-
-  --accent-ink: #08201C;
-
-  --status-positive: #34D399;
-  --status-attention: #FBBF24;
-  --status-attention-mark: #FBBF24;
-  --status-critical: #EF6B5E;
-  --status-positive-tint: #10312A;
-  --status-attention-tint: #3A3117;
-  --status-critical-tint: #3A1C19;
-  --note-bg: #3A3117;
-  --note-ink: #F7E9C6;
-
-  /* A drop shadow on near-black reads as dirt. Depth here is a lighter
-     surface plus a line, which is what the indigo theme learned. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.6);
-
-  color-scheme: dark;
-}
-
 /* ── Base ─────────────────────────────────────────────────────────────── */
 body {
   margin: 0;
@@ -441,11 +382,12 @@ a:hover { color: var(--accent-hover); }
  * keeps it forever, no matter how many times a descendant redefines `--paper`.
  *
  * That is exactly how the kitchen display shipped dark-mode-shaped and painted
- * itself white: `data-scheme="dark"` was on the element, every primitive under
+ * itself white: its night attribute (`data-scheme`, before the floor screens
+ * moved to `data-console`) was on the element, every primitive under
  * it was correct, and not one pixel changed because `--bg`, `--surface` and
  * `--text` had all been resolved on `:root` before the attribute was reached.
  *
- * Declaring them under both selectors makes each subtree recompute them from
+ * Declaring them under every scope's selector makes each subtree recompute them from
  * its OWN primitives. If you add a token whose value mentions `var()`, it goes
  * here — not above.
  */
@@ -577,12 +519,11 @@ a:hover { color: var(--accent-hover); }
 /*
  * The five names the token file owns for the console (--bg, --surface,
  * --border, --text, --accent) come from it directly wherever data-console is
- * set — html, and the console shell. Everywhere else (the guest's Kesari, the
- * marketing site, the kitchen at night) they are aliases of that scope's own
+ * set — html, the console shell and the floor screens. Everywhere else (the
+ * guest's Kesari, the marketing site) they are aliases of that scope's own
  * primitives, as before. Declaring them on :root too would make `--paper:
  * var(--bg)` and `--bg: var(--paper)` a cycle (D-100).
  */
-[data-scheme='dark'],
 [data-theme='kesari'],
 [data-theme='innstant'] {
   --bg: var(--paper);
@@ -594,7 +535,6 @@ a:hover { color: var(--accent-hover); }
 
 :root,
 [data-console],
-[data-scheme='dark'],
 [data-theme='kesari'],
 [data-theme='innstant'] {
   --surface-raised: var(--paper-raised);

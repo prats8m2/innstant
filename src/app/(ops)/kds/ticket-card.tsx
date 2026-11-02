@@ -1,12 +1,18 @@
 'use client';
 
 import { useActionState, useState } from 'react';
-import { BedDouble, Bike, ShoppingBag, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import {
+  BedDouble, Bike, Leaf, ShoppingBag, TriangleAlert, UtensilsCrossed, type LucideIcon,
+} from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import type { KitchenTicket, OrderStatus } from '@/modules/ordering';
 import { formatMinutes } from '@/lib/clock';
 import { bumpOrder, setDishAvailability, type BumpState } from './actions';
+import { clock12 } from './clock12';
 import styles from './kds.module.css';
+
+/** Food goes cold at the pass from `ready_at`; ten minutes there is late. */
+const PASS_COLD_MS = 10 * 60_000;
 
 export interface TicketPermissions {
   accept: boolean;
@@ -96,59 +102,84 @@ export function TicketCard({
   const mayReject = permissions.reject
     && (ticket.status === 'PLACED' || ticket.status === 'ACCEPTED');
 
+  const cooking = ticket.status === 'ACCEPTED' || ticket.status === 'PREPARING';
   const heat = heatOf(ticket, now);
   const fulfilment = FULFILMENT[ticket.fulfilment];
   const FulfilmentIcon = fulfilment.icon;
-  const progress = progressOf(ticket, now);
+  // The board draws the promise bar on Cooking only: in New nothing has
+  // started, and at the pass the clock that matters is the runner's.
+  const progress = cooking ? progressOf(ticket, now) : null;
   // A line can be struck once the kitchen has said yes, and until it plates.
-  const mayStrike = ticket.status === 'ACCEPTED' || ticket.status === 'PREPARING';
+  const mayStrike = cooking;
+
+  // A room is a number and is drawn as one, big; a table, a takeaway or a
+  // delivery is a few words and is drawn as words (D-079).
+  const room = ticket.fulfilment === 'IN_ROOM' && ticket.roomNumber ? ticket.roomNumber : null;
+
+  const allergies = ticket.dietaryFlags.filter((f) => /ALLERGY/.test(f));
+  const diets = ticket.dietaryFlags.filter((f) => !/ALLERGY/.test(f));
+
+  // The board's second line: where it is going while it waits, and what was
+  // promised once it is on the fire — "#K-4817 · promised 8:48pm".
+  const meta = [
+    `#${ticket.orderNumber}`,
+    cooking && ticket.promisedByAt
+      ? `promised ${clock12(ticket.promisedByAt, timeZone)}`
+      : fulfilment.label.toLowerCase(),
+  ].join(' · ');
 
   return (
     <li className={styles.ticket} data-status={ticket.status} data-fresh={fresh} data-heat={heat}>
       <header className={styles.ticketHead}>
-        <span className={`${styles.room} tabular`}>{ticket.destination}</span>
-        <span className={styles.ticketMeta}>
-          <span className={`${styles.number} tabular`}>{ticket.orderNumber}</span>
-          {ticket.placedAt ? (
-            <span className={`${styles.placed} tabular`}>
-              {clockOf(ticket.placedAt, timeZone)}
-            </span>
-          ) : null}
-        </span>
+        {room ? (
+          <span className={`${styles.room} tabular`}>
+            <span className={styles.srOnly}>Room </span>{room}
+          </span>
+        ) : (
+          <span className={styles.destination}>{ticket.destination}</span>
+        )}
         <Age ticket={ticket} now={now} heat={heat} />
       </header>
 
-      {/* How much of the promise is gone. The bar is the same colour as the
-          age badge and the left edge; it says "how close", where they say
-          "how bad". */}
+      {/* How much of the promise is gone, in the age's own colour: it says
+          "how close", where the age says "how bad". */}
       {progress != null ? (
         <div
           className={styles.promise}
           data-heat={heat}
           role="progressbar"
-          aria-label="Time used of the promise"
+          aria-label={promiseLabel(ticket, now)}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={Math.round(progress * 100)}
+          aria-valuenow={Math.min(100, Math.round(progress * 100))}
         >
           <span style={{ width: `${Math.min(100, progress * 100)}%` }} />
         </div>
       ) : null}
 
-      <p className={styles.fulfilment}>
+      <p className={`${styles.meta} tabular`}>
         <FulfilmentIcon size={14} strokeWidth={2} aria-hidden="true" />
-        {fulfilment.label}
+        <span>{meta}</span>
       </p>
 
       {/* Above the dishes, never below: this is the line that stops someone
-          being taken to hospital, and a cook reads top-down under pressure. */}
-      {ticket.dietaryFlags.length ? (
+          being taken to hospital, and a cook reads top-down under pressure.
+          The board draws it under the dishes; that is the one place this
+          screen departs from it on purpose. */}
+      {allergies.length ? (
         <p className={styles.allergy}>
-          {ticket.dietaryFlags.map((f) => f.replace(/_/g, ' ').toLowerCase()).join(' · ')}
+          <TriangleAlert size={22} strokeWidth={2.2} aria-hidden="true" />
+          <span>Allergy · {allergies.map(flagLabel).join(' · ')}</span>
+        </p>
+      ) : null}
+      {diets.length ? (
+        <p className={styles.diet}>
+          <Leaf size={18} strokeWidth={2.2} aria-hidden="true" />
+          <span>{diets.map(flagLabel).join(' · ')}</span>
         </p>
       ) : null}
 
-      <ul className={styles.lines}>
+      <ul className={styles.lines} data-plated={ticket.status === 'READY'}>
         {ticket.lines.map((line, i) => {
           const pulled = line.menuItemId
             ? unavailable.some((u) => u.id === line.menuItemId)
@@ -157,11 +188,11 @@ export function TicketCard({
           const done = struck.has(key);
           const body = (
             <>
-              <span className={`${styles.quantity} tabular`}>{line.quantity}×</span>
+              <b className={`${styles.quantity} tabular`}>{line.quantity}</b>
               <span className={styles.lineBody}>
                 <span className={styles.lineName}>{line.name}</span>
                 {line.modifiers.length ? (
-                  <span className={styles.lineMods}>{line.modifiers.join(' · ')}</span>
+                  <span className={styles.lineMods}>— {line.modifiers.join(' · ')}</span>
                 ) : null}
                 {line.notes ? <span className={styles.lineNote}>“{line.notes}”</span> : null}
               </span>
@@ -207,6 +238,15 @@ export function TicketCard({
 
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
 
+      {/* Nothing to do here but wait for a runner. Said out loud, because a
+          card with no button reads as broken. */}
+      {ticket.status === 'READY' ? (
+        <p className={styles.waiting}>
+          <span className={styles.waitDot} aria-hidden="true" />
+          Waiting for a runner
+        </p>
+      ) : null}
+
       {rejecting ? (
         <RejectPanel
           propertyId={propertyId}
@@ -214,7 +254,7 @@ export function TicketCard({
           action={action}
           onCancel={() => setRejecting(false)}
         />
-      ) : (
+      ) : mayReject || (next && mayAdvance) ? (
         <footer className={styles.actions}>
           {mayReject ? (
             <button
@@ -231,22 +271,27 @@ export function TicketCard({
               <input type="hidden" name="propertyId" value={propertyId} />
               <input type="hidden" name="orderId" value={ticket.id} />
               <input type="hidden" name="to" value={next.to} />
-              <BumpButton label={next.label} />
+              <BumpButton label={next.label} quiet={ticket.status === 'READY'} />
             </form>
           ) : null}
-
-          {/* Nothing to do here but wait for a runner. Said out loud, because a
-              card with no button reads as broken. */}
-          {ticket.status === 'READY' ? (
-            <p className={styles.waiting}>
-              <span className={styles.waitDot} aria-hidden="true" />
-              At the pass · runner told
-            </p>
-          ) : null}
         </footer>
-      )}
+      ) : null}
     </li>
   );
+}
+
+/** "NUT_ALLERGY" → "nut"; "GLUTEN_FREE" → "gluten free". */
+function flagLabel(flag: string): string {
+  return flag.replace(/_?ALLERGY$/, '').replace(/_/g, ' ').toLowerCase() || 'see guest';
+}
+
+/** "28 of 25 minutes used" — the bar, for somebody who cannot see it. */
+function promiseLabel(ticket: KitchenTicket, now: number): string {
+  if (!ticket.placedAt || !ticket.promisedByAt) return 'Time used of the promise';
+  const placed = new Date(ticket.placedAt).getTime();
+  const used = Math.max(0, Math.round((now - placed) / 60_000));
+  const promise = Math.round((new Date(ticket.promisedByAt).getTime() - placed) / 60_000);
+  return `${used} of ${promise} minutes used`;
 }
 
 /**
@@ -369,10 +414,10 @@ function EightySixButton({ name }: { name: string }) {
   );
 }
 
-function BumpButton({ label }: { label: string }) {
+function BumpButton({ label, quiet }: { label: string; quiet?: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={styles.primary} disabled={pending}>
+    <button type="submit" className={quiet ? styles.secondary : styles.primary} disabled={pending}>
       {pending ? '…' : label}
     </button>
   );
@@ -397,8 +442,8 @@ function heatOf(ticket: KitchenTicket, now: number): 'fresh' | 'soon' | 'late' {
   if (ticket.status === 'READY') {
     const ready = ticket.readyAt ? new Date(ticket.readyAt).getTime() : null;
     if (!ready) return 'fresh';
-    const waiting = (now - ready) / 60_000;
-    return waiting > 10 ? 'late' : waiting > 5 ? 'soon' : 'fresh';
+    const waiting = now - ready;
+    return waiting > PASS_COLD_MS ? 'late' : waiting > PASS_COLD_MS / 2 ? 'soon' : 'fresh';
   }
 
   if (!ticket.placedAt) return 'fresh';
@@ -414,7 +459,7 @@ function heatOf(ticket: KitchenTicket, now: number): 'fresh' | 'soon' | 'late' {
 function progressOf(ticket: KitchenTicket, now: number): number | null {
   if (ticket.status === 'READY') {
     if (!ticket.readyAt) return null;
-    return (now - new Date(ticket.readyAt).getTime()) / (10 * 60_000);
+    return (now - new Date(ticket.readyAt).getTime()) / PASS_COLD_MS;
   }
   if (!ticket.placedAt || !ticket.promisedByAt) return null;
   const placed = new Date(ticket.placedAt).getTime();
@@ -423,7 +468,8 @@ function progressOf(ticket: KitchenTicket, now: number): number | null {
 }
 
 /**
- * How long this has been waiting.
+ * How long this has been waiting — and, once it is past its promise, by how
+ * much, in the late colour with the word and a mark (never the colour alone).
  *
  * Minutes, from the board's shared clock. A ticket at the pass counts from when
  * it was plated instead, because that is what the runner is racing.
@@ -440,18 +486,33 @@ function Age({
   const from = ticket.status === 'READY' ? ticket.readyAt ?? ticket.placedAt : ticket.placedAt;
   if (!from) return null;
 
-  const minutes = Math.max(0, Math.round((now - new Date(from).getTime()) / 60_000));
-  const age = formatMinutes(minutes);
+  if (heat === 'late') {
+    const over = Math.max(1, Math.round((now - lateFrom(ticket)) / 60_000));
+    return (
+      <span className={`${styles.age} tabular`} data-heat="late" data-late="true">
+        <TriangleAlert size={20} strokeWidth={2.4} aria-hidden="true" />
+        +{formatMinutes(over)} LATE
+      </span>
+    );
+  }
 
+  const minutes = Math.max(0, Math.round((now - new Date(from).getTime()) / 60_000));
   return (
-    <span className={`${styles.age} tabular`} data-heat={heat} data-late={heat === 'late'}>
-      {ticket.status === 'READY' ? `waiting ${age}` : age}
+    <span className={`${styles.age} tabular`} data-heat={heat} data-late="false">
+      {formatMinutes(minutes)}
     </span>
   );
 }
 
-function clockOf(at: Date | string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
-  }).format(new Date(at));
+/** When this ticket became late: its promise, or ten minutes after plating. */
+function lateFrom(ticket: KitchenTicket): number {
+  if (ticket.status === 'READY') {
+    return ticket.readyAt ? new Date(ticket.readyAt).getTime() + PASS_COLD_MS : Date.now();
+  }
+  return ticket.promisedByAt ? new Date(ticket.promisedByAt).getTime() : Date.now();
+}
+
+/** Past its promise — or, at the pass, ten minutes since it was plated. */
+export function isLate(ticket: KitchenTicket, now: number): boolean {
+  return heatOf(ticket, now) === 'late';
 }

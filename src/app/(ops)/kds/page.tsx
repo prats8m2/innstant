@@ -2,15 +2,15 @@ import { withTenant } from '@/db';
 import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
-import { can, findProperty } from '@/modules/identity';
+import { can, consoleChrome, findProperty } from '@/modules/identity';
 import {
   getInRoomDiningOutletConfig, getOutletHours, listUnavailableItems,
-  outletOpenState,
+  outletOpenState, portionsLeftToday,
 } from '@/modules/catalog';
 import { kitchenTickets } from '@/modules/ordering';
 import { formatClock, localTimeAt } from '@/lib/clock';
 import { KitchenBoard } from './kitchen-board';
-import { isNight } from './night';
+import { isNight } from '../night';
 import styles from './kds.module.css';
 
 /**
@@ -80,23 +80,50 @@ export default async function KitchenDisplay() {
 
   const mayChangeAvailability = can(session, propertyId, 'catalog:availability');
 
-  const { property, outlet, tickets, hours, unavailable } = await withTenant(
+  const { property, outlet, tickets, hours, unavailable, accent, portions } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutletConfig(tx, propertyId);
+      // The property's guest theme picks the board's accent, exactly as it
+      // picks the console's (D-100) — one read, the same one the console makes.
+      const chrome = await consoleChrome(tx, { propertyId, staffUserId: session.staffUserId });
       if (!found) {
-        return { property: null, outlet: null, tickets: [], hours: [], unavailable: [] };
+        return {
+          property: null, outlet: null, tickets: [], hours: [], unavailable: [],
+          accent: chrome.theme, portions: [],
+        };
       }
+      const loadedProperty = await findProperty(tx, propertyId);
+      const open = await kitchenTickets(tx, { outletId: found.id });
+
+      /*
+       * "Safed maas: last one tonight" — the board's All day footnote, from
+       * the daily limits the menu already keeps (D-086). Only for dishes still
+       * to make; a dish with no limit is absent from the map and says nothing.
+       */
+      const toMake = [...new Set(open
+        .filter((t) => t.status !== 'READY')
+        .flatMap((t) => t.lines.map((l) => l.menuItemId))
+        .filter((id): id is string => Boolean(id)))];
+      const left = toMake.length
+        ? await portionsLeftToday(tx, {
+            itemIds: toMake,
+            businessDate: localTimeAt(new Date(), loadedProperty?.timezone ?? 'Asia/Kolkata').date!,
+          })
+        : new Map<string, { limit: number; left: number }>();
+
       return {
-        property: await findProperty(tx, propertyId),
+        property: loadedProperty,
         outlet: found,
-        tickets: await kitchenTickets(tx, { outletId: found.id }),
+        tickets: open,
         hours: await getOutletHours(tx, found.id),
         // The 86 tray. Skipped entirely for an account that cannot put a dish
         // back — the tray would be a row of buttons that refuse.
         unavailable: mayChangeAvailability
           ? await listUnavailableItems(tx, { outletId: found.id })
           : [],
+        accent: chrome.theme,
+        portions: [...left].map(([menuItemId, { left: remaining }]) => ({ menuItemId, left: remaining })),
       };
     },
   );
@@ -133,14 +160,16 @@ export default async function KitchenDisplay() {
   return (
     <KitchenBoard
       propertyId={propertyId}
-      outletName={outlet.name}
-      /* "THE KESARI · CLOSES 23:30" — which hotel this screen belongs to, for
+      /* "The Kesari · closes 1am" — which hotel this screen belongs to, for
          the group F&B manager who has four of these tabs open. */
       subtitle={`${property?.name ?? 'This property'} · ${closesAt}`}
       timeZone={timeZone}
       /* Resolved here, not in the browser: a kitchen tablet that boots at
          23:00 must not paint a white screen at somebody before it hydrates. */
-      initialScheme={isNight(renderedAt, timeZone) ? 'dark' : 'light'}
+      initialMode={isNight(renderedAt, timeZone) ? 'dark' : 'light'}
+      accent={accent}
+      promiseMinutes={outlet.prepTimeMinutes}
+      portions={portions}
       renderedAt={renderedAt}
       staffUserId={session.staffUserId}
       tickets={tickets}

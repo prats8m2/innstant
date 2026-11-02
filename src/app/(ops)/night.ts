@@ -1,5 +1,9 @@
 /**
- * Day or night, on the property's clock.
+ * Day or night, on the property's clock — for every floor screen.
+ *
+ * Direction A (D-100) puts the kitchen, the runner and housekeeping on the
+ * console's tokens with `data-console="dark"` from 19:00, so this moved up from
+ * `kds/` to be shared.
  *
  * Its own module with no `'use client'` on it, because BOTH sides need it: the
  * page resolves the opening scheme on the server so a night kitchen does not
