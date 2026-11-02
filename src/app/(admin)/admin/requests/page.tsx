@@ -10,6 +10,7 @@ import { formatMoney, money } from '@/lib/money';
 import { formatClock, formatMinutes, localTimeAt, toClock } from '@/lib/clock';
 import { SidePanel } from '../side-panel';
 import { RequestTypeEditor } from './request-type-editor';
+import { TeamToday, type PersonLoad, type TypeLoad } from './team-today';
 import {
   LiveRequests, RequestPanel, type AssignableStaff, type LiveRequestView,
 } from './live-requests';
@@ -71,7 +72,7 @@ export default async function RequestsAdmin({
   if (!access.ok) return <AdminDenied reason={access.reason} />;
   const { session, propertyId } = access;
   const params = await searchParams;
-  const tab = params.tab === 'catalog' ? 'catalog' : 'live';
+  const tab = params.tab === 'catalog' ? 'catalog' : params.tab === 'team' ? 'team' : 'live';
 
   const mayAssign = can(session, propertyId, 'request:assign');
 
@@ -98,8 +99,9 @@ export default async function RequestsAdmin({
         closed: await getRequestsClosedToday(tx, { propertyId, timeZone }),
         floors: await listFloors(tx, propertyId),
         // Only for somebody who may give a request to a person.
-        staff: mayAssign ? await listStaffAtProperty(tx, { propertyId }) : [],
-        onShift: mayAssign ? await listOnShift(tx, propertyId) : [],
+        // For somebody who may give a request to a person, and for the team view.
+        staff: mayAssign || tab === 'team' ? await listStaffAtProperty(tx, { propertyId }) : [],
+        onShift: mayAssign || tab === 'team' ? await listOnShift(tx, propertyId) : [],
         types: [],
         roles: [],
       };
@@ -111,6 +113,9 @@ export default async function RequestsAdmin({
     <nav className={q.tabs} aria-label="Requests">
       <Link href="/admin/requests" className={q.tab} aria-current={tab === 'live' ? 'page' : undefined}>
         Live <span className={`${q.tabCount} tabular`}>{liveCount}</span>
+      </Link>
+      <Link href="/admin/requests?tab=team" className={q.tab} aria-current={tab === 'team' ? 'page' : undefined}>
+        Team today
       </Link>
       <Link href="/admin/requests?tab=catalog" className={q.tab} aria-current={tab === 'catalog' ? 'page' : undefined}>
         What guests can ask for
@@ -190,6 +195,71 @@ export default async function RequestsAdmin({
       };
     })
     .sort((a, b) => Number(!!b.note) - Number(!!a.note) || a.name.localeCompare(b.name));
+
+  if (tab === 'team') {
+    const finished = (r: RequestDetail) => r.status === 'COMPLETED' || r.status === 'VERIFIED';
+    const minutes = (r: RequestDetail) => r.completedAt
+      ? Math.max(0, Math.round((new Date(r.completedAt).getTime() - new Date(r.createdAt).getTime()) / 60_000)) : null;
+    const inTime = (r: RequestDetail) => !r.slaTargetAt || (r.completedAt !== null && new Date(r.completedAt) <= new Date(r.slaTargetAt));
+    const average = (rs: RequestDetail[]) => {
+      const ms = rs.map(minutes).filter((m): m is number => m !== null);
+      return ms.length ? Math.round(ms.reduce((a, b) => a + b, 0) / ms.length) : null;
+    };
+    const liveRaw = data.open.filter((r) => r.status !== 'COMPLETED');
+    const doneRaw = [...data.open.filter(finished), ...data.closed.filter(finished)]
+      .filter((r, i, all) => all.findIndex((x) => x.id === r.id) === i);
+
+    const shiftOf2 = new Map(data.onShift.map((shift) => [shift.staffUserId, shift]));
+    const people: PersonLoad[] = data.staff
+      .filter((person) => person.status === 'ACTIVE')
+      .map((person) => {
+        const has = liveRaw.filter((r) => r.assignedStaffId === person.id);
+        const done = doneRaw.filter((r) => r.assignedStaffId === person.id);
+        const shift = shiftOf2.get(person.id);
+        return {
+          id: person.id,
+          name: person.fullName,
+          onShift: shift ? `on shift · ${shift.zones.map((z) => z.floorName).join(', ') || 'no floors'}` : null,
+          carrying: has.length,
+          late: has.filter((r) => r.breached).length,
+          done: done.length,
+          onTime: done.filter(inTime).length,
+          averageMinutes: average(done),
+        };
+      })
+      .filter((p) => p.onShift || p.carrying || p.done)
+      .sort((a, b) => b.carrying - a.carrying || b.done - a.done || a.name.localeCompare(b.name));
+
+    const labelOf = (r: RequestDetail) => r.lines[0]?.label ?? 'Other';
+    const labels = [...new Set([...liveRaw, ...doneRaw].map(labelOf))];
+    const types: TypeLoad[] = labels.map((label) => {
+      const openNow = liveRaw.filter((r) => labelOf(r) === label);
+      const done = doneRaw.filter((r) => labelOf(r) === label);
+      return {
+        label,
+        openNow: openNow.length,
+        lateNow: openNow.filter((r) => r.breached).length,
+        done: done.length,
+        onTime: done.filter(inTime).length,
+        averageMinutes: average(done),
+      };
+    }).sort((a, b) => (b.averageMinutes ?? -1) - (a.averageMinutes ?? -1) || b.lateNow - a.lateNow);
+
+    return (
+      <>
+        <header className={styles.pageHead}>
+          <div>
+            <h1 className={styles.title}>Requests</h1>
+            <p className={styles.lede}>
+              {people.filter((p) => p.onShift).length} on shift · {liveRaw.length} open · {doneRaw.length} done today
+            </p>
+          </div>
+        </header>
+        {tabs}
+        <TeamToday people={people} types={types} />
+      </>
+    );
+  }
 
   const linkFor = Object.fromEntries([...open, ...closed].map((r) => [r.id, `/admin/requests?request=${r.id}`]));
   const selected = params.request ? [...open, ...closed].find((r) => r.id === params.request) ?? null : null;

@@ -528,3 +528,58 @@ summary.groupTitle:focus-visible { outline: 2px solid var(--accent); outline-off
 .cannot > summary::-webkit-details-marker { display: none; }
 .cannot > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cannot[open] > summary { color: var(--text); }
+
+/* ── D-096: rooms the guests have left ──────────────────────────────────── */
+
+.roomsToMake { margin: 0 0 var(--space-5); }
+.roomsToMake .groupTitle { padding: 0 var(--space-4) var(--space-2); }
+
+.roomChips {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-4);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-2);
+}
+
+.roomChip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--status-attention-mark);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.roomChip[data-status='CLEAN'] { border-left-color: var(--status-positive); }
+
+.roomChipText { display: grid; gap: 2px; min-width: 0; }
+.roomChipNumber { font-size: var(--text-lg); font-weight: 600; color: var(--text); }
+.roomChipFloor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roomChipButton {
+  flex: none;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.roomChipButton:disabled { opacity: 0.6; cursor: progress; }

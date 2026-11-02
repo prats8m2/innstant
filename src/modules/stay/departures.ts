@@ -164,3 +164,79 @@ export async function getStayAtDesk(
     staffNotes: row.staffNotes ?? null,
   };
 }
+
+export interface UnpaidDeparture {
+  stayId: string;
+  guestId: string;
+  guestName: string;
+  guestPhone: string | null;
+  roomNumber: string;
+  checkedOutAt: Date;
+  balanceMinor: number;
+  currency: CurrencyCode;
+  /** What the manager who let them go said (D-095), when they said it. */
+  reason: string | null;
+}
+
+/**
+ * Guests who left with money still on the bill (D-097): the follow-up list.
+ *
+ * Every checked-out stay in the window whose folio still has a positive
+ * balance, oldest first — the longer it has been, the harder it is to
+ * collect — with the reason recorded on the departure.
+ */
+export async function listUnpaidDepartures(
+  tx: Tx,
+  input: { propertyId: string; withinDays?: number },
+): Promise<UnpaidDeparture[]> {
+  const days = input.withinDays ?? 90;
+  const gone = await tx.select({
+    stayId: stays.id,
+    roomId: stays.roomId,
+    guestId: stays.guestId,
+    guestName: guests.fullName,
+    guestPhone: guests.phone,
+    checkedOutAt: stays.checkedOutAt,
+  }).from(stays)
+    .innerJoin(guests, eq(guests.id, stays.guestId))
+    .where(and(
+      eq(stays.propertyId, input.propertyId),
+      eq(stays.status, 'CHECKED_OUT'),
+      gte(stays.checkedOutAt, sql<Date>`now() - make_interval(days => ${days})`),
+    ))
+    .orderBy(stays.checkedOutAt);
+  if (!gone.length) return [];
+
+  const balances = await folioBalancesForStays(tx, { stayIds: gone.map((g) => g.stayId) });
+  const owing = gone.filter((g) => (balances.get(g.stayId)?.balanceMinor ?? 0) > 0);
+  if (!owing.length) return [];
+
+  // The reason is on the departure's event, beside the balance it explains.
+  const reasons = await tx.execute<{ entity_id: string; reason: string | null }>(sql`
+    SELECT DISTINCT ON (entity_id) entity_id, payload->>'unpaidReason' AS reason
+    FROM event_log
+    WHERE property_id = ${input.propertyId}
+      AND entity_type = 'stay' AND event_type = 'stay.checked_out'
+      AND entity_id IN (${sql.join(owing.map((o) => sql`${o.stayId}::uuid`), sql`, `)})
+    ORDER BY entity_id, occurred_at DESC
+  `);
+  const reasonOf = new Map(reasons.rows.map((r) => [r.entity_id, r.reason]));
+  const rooms = new Map(
+    (await listRoomsAtProperty(tx, { propertyId: input.propertyId, includeArchived: true })).map((r) => [r.id, r.number]),
+  );
+
+  return owing.map((o) => {
+    const folio = balances.get(o.stayId)!;
+    return {
+      stayId: o.stayId,
+      guestId: o.guestId,
+      guestName: o.guestName,
+      guestPhone: o.guestPhone,
+      roomNumber: rooms.get(o.roomId) ?? '—',
+      checkedOutAt: o.checkedOutAt!,
+      balanceMinor: folio.balanceMinor,
+      currency: folio.currency as CurrencyCode,
+      reason: reasonOf.get(o.stayId) ?? null,
+    };
+  });
+}

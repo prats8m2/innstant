@@ -114,3 +114,25 @@ a.name:hover { text-decoration: underline; }
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
+
+/* ── D-097: today's money, and who left owing ───────────────────────────── */
+
+.collections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.collection {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.collection[data-total='true'] { border-color: var(--accent); }
+
+.collectionValue { font-size: var(--text-xl); font-weight: 600; color: var(--text); }
+
+.reason { color: var(--text-secondary); font-style: italic; }

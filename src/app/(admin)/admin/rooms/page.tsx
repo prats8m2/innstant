@@ -1,10 +1,13 @@
 import Link from 'next/link';
+import { randomUUID } from 'node:crypto';
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
 import { listRoomsWithOccupancy } from '@/modules/stay';
+import { roomCleanStates, cleanStateOf } from '@/modules/housekeeping';
+import { getRequestCatalog } from '@/modules/requests';
 import { formatMoney, money } from '@/lib/money';
-import { formatCheckoutShort, nightsUntil } from '@/lib/clock';
+import { formatCheckoutShort, localTimeAt, nightsUntil } from '@/lib/clock';
 import { SidePanel } from '../side-panel';
 import { RoomGrid, RoomPanel, type RoomView } from './room-board';
 import styles from '../admin.module.css';
@@ -34,8 +37,11 @@ export const dynamic = 'force-dynamic';
 const SHOWS = [
   { key: 'all', label: 'All' },
   { key: 'in', label: 'In house' },
-  { key: 'empty', label: 'Empty' },
   { key: 'out', label: 'Out today' },
+  // D-096: what the desk can sell, and what housekeeping has to do.
+  { key: 'ready', label: 'Ready to sell' },
+  { key: 'dirty', label: 'To make up' },
+  { key: 'ooo', label: 'Out of order' },
 ] as const;
 type Show = (typeof SHOWS)[number]['key'];
 
@@ -59,11 +65,15 @@ export default async function RoomsAdmin({
    */
   const maySeeQr = can(session, propertyId, 'qr:read');
 
-  const { property, occupancy } = await withTenant(
+  const mayUpdateStay = can(session, propertyId, 'stay:update');
+  const { property, occupancy, cleanStates, catalog } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => ({
       property: await findProperty(tx, propertyId),
       occupancy: await listRoomsWithOccupancy(tx, { propertyId, withQrCodes: maySeeQr }),
+      cleanStates: await roomCleanStates(tx, { propertyId }),
+      // What a guest who rings down can be given, for the desk's form.
+      catalog: mayUpdateStay ? await getRequestCatalog(tx, { propertyId }) : [],
     }),
   );
 
@@ -95,12 +105,22 @@ export default async function RoomsAdmin({
         url: guestLinkBase ? `${guestLinkBase}/r/${room.qr.publicCode}` : null,
       }
       : null,
+    clean: (() => {
+      const state = cleanStateOf(cleanStates, room.id);
+      return { status: state.status, note: state.note };
+    })(),
     stay: room.stay
       ? {
         id: room.stay.id,
         guestId: room.stay.guestId,
         guestName: room.stay.guestName,
         guestPhone: room.stay.guestPhone,
+        isVip: room.stay.isVip,
+        notes: room.stay.staffNotes,
+        // The change-checkout form starts at today's date and hour, in the
+        // property's own time.
+        checkoutDate: localTimeAt(room.stay.scheduledCheckoutAt, timeZone).date ?? '',
+        checkoutHour: Math.floor(localTimeAt(room.stay.scheduledCheckoutAt, timeZone).minutes / 60),
         // The column form: a full weekday either truncates here or takes the
         // width the guest's name needs.
         dueOut: formatCheckoutShort(room.stay.scheduledCheckoutAt, timeZone),
@@ -118,14 +138,18 @@ export default async function RoomsAdmin({
 
   const occupied = rooms.filter((room) => room.stay).length;
   const dueOutToday = rooms.filter((room) => room.stay?.nightsLeft === 0).length;
-  const shown = rooms.filter((room) =>
-    show === 'in' ? room.stay
-      : show === 'empty' ? !room.stay
-        : show === 'out' ? room.stay?.nightsLeft === 0
-          : true);
-  const counts: Record<Show, number> = {
-    all: rooms.length, in: occupied, empty: rooms.length - occupied, out: dueOutToday,
+  // Sellable: empty, made up (or inspected), and not out of order.
+  const isReady = (room: RoomView) => !room.stay && (room.clean.status === 'CLEAN' || room.clean.status === 'INSPECTED');
+  const matches: Record<Show, (room: RoomView) => boolean> = {
+    all: () => true,
+    in: (room) => !!room.stay,
+    out: (room) => room.stay?.nightsLeft === 0,
+    ready: isReady,
+    dirty: (room) => room.clean.status === 'DIRTY',
+    ooo: (room) => room.clean.status === 'OUT_OF_ORDER',
   };
+  const shown = rooms.filter(matches[show]);
+  const counts = Object.fromEntries(SHOWS.map((s) => [s.key, rooms.filter(matches[s.key]).length])) as Record<Show, number>;
 
   /**
    * The open room, by NUMBER (`?room=214`): what a desk says out loud, and a
@@ -174,7 +198,10 @@ export default async function RoomsAdmin({
 
       {shown.length === 0 ? (
         <p className={styles.sectionEmpty}>
-          {show === 'out' ? 'Nobody is due out today.' : show === 'in' ? 'Nobody is in house.' : 'Every room is taken.'}{' '}
+          {{
+            out: 'Nobody is due out today.', in: 'Nobody is in house.', ready: 'No empty room is ready to sell.',
+            dirty: 'Every room is made up.', ooo: 'No room is out of order.', all: 'There are no rooms.',
+          }[show]}{' '}
           <Link href="/admin/rooms">Show every room</Link>
         </p>
       ) : null}
@@ -198,16 +225,27 @@ export default async function RoomsAdmin({
               vouch: can(session, propertyId, 'guest:vouch'),
               // Its own permission since S5, with nothing calling it until now.
               reprintQr: maySeeQr && can(session, propertyId, 'qr:regenerate'),
+              clean: can(session, propertyId, 'request:advance'),
+              inspect: can(session, propertyId, 'request:verify'),
+              outOfOrder: can(session, propertyId, 'room:manage'),
+              updateStay: mayUpdateStay,
             }}
+            catalog={catalog.map((type) => ({
+              id: type.id,
+              label: type.priceMinor > 0 ? `${type.name} · ${formatMoney(money(type.priceMinor, type.currency))}` : type.name,
+              allowsQuantity: type.allowsQuantity,
+              maxQuantity: type.maxQuantity,
+            }))}
+            raiseKey={randomUUID()}
           />
         </SidePanel>
       ) : null}
 
       <p className={styles.footnote}>
         Checking someone out frees the room, ends every session on their phone
-        (#10) and records what was still on the folio at the moment they left.
-        Taking the payment is on the guest&rsquo;s page (their name, above), and
-        anything unpaid stays on the bill until it is.
+        (#10), records what was still on the bill, and marks the room to be made
+        up. A guest who owes anything is checked out from their bill, where the
+        payment is taken.
       </p>
     </>
   );

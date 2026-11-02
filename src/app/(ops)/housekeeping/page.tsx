@@ -2,14 +2,15 @@ import { withTenant } from '@/db';
 import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
-import { can, findProperty, listFloors } from '@/modules/identity';
+import { can, findProperty, listFloors, listRoomsAtProperty } from '@/modules/identity';
 import { getOpenRequests, housekeeperDay, OPEN_REQUEST_STATUSES } from '@/modules/requests';
-import { getCurrentShift, onDutyCount } from '@/modules/housekeeping';
+import { getCurrentShift, onDutyCount, roomCleanStates, cleanStateOf } from '@/modules/housekeeping';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets } from '@/modules/ordering';
 import { Alerts } from '@/components/alerts';
 import { FloorHeader, OffShiftNotice } from '../floor-header';
 import { FloorRequests } from './request-board';
+import { RoomsToMakeUp, type RoomToMakeUp } from './rooms-to-make-up';
 import { LiveBoard } from './live-board';
 import styles from './housekeeping.module.css';
 
@@ -59,7 +60,7 @@ export default async function HousekeepingBoard() {
 
   const maySeePickups = can(session, propertyId, 'order:read');
 
-  const { property, all, floors, shift, onDuty, pickups, myDay } = await withTenant(
+  const { property, all, floors, shift, onDuty, pickups, myDay, rooms, cleanStates } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const property = await findProperty(tx, propertyId);
@@ -95,6 +96,9 @@ export default async function HousekeepingBoard() {
           staffUserId: session.staffUserId,
           timeZone: property?.timezone ?? 'Asia/Kolkata',
         }),
+        // D-096: which rooms the guests have left and nobody has made up.
+        rooms: await listRoomsAtProperty(tx, { propertyId }),
+        cleanStates: await roomCleanStates(tx, { propertyId }),
       };
     },
   );
@@ -110,6 +114,7 @@ export default async function HousekeepingBoard() {
   const unclaimed = requests.filter((r) => r.status === 'OPEN').length;
 
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const localDay = (at: Date) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(at);
 
   return (
     <main className={styles.shell}>
@@ -168,6 +173,21 @@ export default async function HousekeepingBoard() {
           <dd className="tabular">{unclaimed}</dd>
         </div>
       </dl>
+
+      <RoomsToMakeUp
+        propertyId={propertyId}
+        rooms={rooms.flatMap((room): RoomToMakeUp[] => {
+          const state = cleanStateOf(cleanStates, room.id);
+          // To make up; and, for whoever inspects, what was made up today.
+          const today = state.updatedAt && localDay(state.updatedAt) === localDay(new Date());
+          if (state.status === 'DIRTY') return [{ id: room.id, number: room.number, floorId: room.floorId, floorName: room.floorName, status: 'DIRTY' }];
+          if (state.status === 'CLEAN' && today && permissions.verify) return [{ id: room.id, number: room.number, floorId: room.floorId, floorName: room.floorName, status: 'CLEAN' }];
+          return [];
+        })}
+        myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
+        mayClean={permissions.advance}
+        mayInspect={permissions.verify}
+      />
 
       <FloorRequests
         propertyId={propertyId}

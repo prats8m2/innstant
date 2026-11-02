@@ -157,6 +157,7 @@ const TENANT_SCOPED_TABLES = [
   'menu_items', 'menu_categories', 'outlet_hours', 'outlets',
   'request_types', 'shift_zones', 'shifts',
   'stays', 'guest_property_profiles', 'guests',
+  'room_status',
   'room_qr_codes', 'rooms', 'floors', 'room_types',
   'staff_sessions', 'staff_property_roles', 'role_permissions', 'roles', 'staff_users',
   'idempotency_keys', 'integration_outbox', 'properties',

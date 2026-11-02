@@ -484,6 +484,17 @@ date the portions were taken. The menu read, `getDish()` and
 
 ---
 
+### Is the room ready: `room_status` (D-096, migration 0016)
+
+Occupancy says whether somebody is in a room; this says whether an empty
+room can be sold. One row per room, owned by the housekeeping module, written
+on change: CLEAN, DIRTY, INSPECTED, OUT_OF_ORDER (`room_clean_status`); no
+row means CLEAN. `checkOutStay()` sets DIRTY in the same transaction, so a
+checked-out room never reads clean. OUT_OF_ORDER carries a `note` (CHECK) and
+is temporary maintenance — not the same as a room taken out of service at
+setup (`rooms.archived_at`). Every change writes `room.status_changed` with
+from and to. The app role may SELECT, INSERT and UPDATE; nothing is deleted.
+
 ## 5. Money
 
 Integer minor units (`*_minor`), plus a `currency` column on every row that

@@ -3,8 +3,10 @@
 import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { Search, IndianRupee } from 'lucide-react';
-import { checkInGuest, checkOutGuest, vouchForRoom, type DeskState } from './actions';
+import { Search, IndianRupee, Crown, Sparkles, Brush, Wrench } from 'lucide-react';
+import {
+  checkInGuest, checkOutGuest, vouchForRoom, setRoomState, changeCheckout, raiseForGuest, type DeskState,
+} from './actions';
 import { GuestLink } from './guest-link';
 import styles from '../admin.module.css';
 import r from './rooms.module.css';
@@ -30,11 +32,18 @@ export interface RoomView {
   roomTypeName: string | null;
   /** Null when this account lacks `qr:read`. */
   qr: { publicCode: string; url: string | null } | null;
+  /** D-096 — is it ready for the next guest. */
+  clean: { status: 'CLEAN' | 'DIRTY' | 'INSPECTED' | 'OUT_OF_ORDER'; note: string | null };
   stay: {
     id: string;
     guestId: string;
     guestName: string;
     guestPhone: string | null;
+    isVip: boolean;
+    notes: string | null;
+    /** `YYYY-MM-DD` and the hour, property-local — the change-checkout form's start. */
+    checkoutDate: string;
+    checkoutHour: number;
     dueOut: string;
     nightsLeft: number;
     /** Null when nothing has ever been charged — not the same as ₹0. */
@@ -49,7 +58,26 @@ export interface DeskPermissions {
   vouch: boolean;
   /** `qr:regenerate` — kills the sticker on the nightstand. */
   reprintQr: boolean;
+  /** Mark a room made up or to be made up (`request:advance`). */
+  clean: boolean;
+  /** The second signature (`request:verify`). */
+  inspect: boolean;
+  /** Take it out of order, or back (`room:manage`). */
+  outOfOrder: boolean;
+  /** Move a checkout, raise a request for a caller (`stay:update`). */
+  updateStay: boolean;
 }
+
+export interface CatalogOption {
+  id: string;
+  label: string;
+  allowsQuantity: boolean;
+  maxQuantity: number;
+}
+
+const CLEAN_LABEL: Record<RoomView['clean']['status'], string> = {
+  CLEAN: 'Clean', DIRTY: 'To make up', INSPECTED: 'Inspected', OUT_OF_ORDER: 'Out of order',
+};
 
 type State = 'empty' | 'in' | 'out';
 
@@ -138,16 +166,25 @@ function Tile({ room, href, current }: { room: RoomView; href: string; current: 
       data-room={room.number}
       data-occupied={stay ? 'true' : 'false'}
       data-state={state}
+      data-clean={room.clean.status}
     >
       <Link href={href} scroll={false} className={r.tile} aria-current={current ? 'true' : undefined}>
         <span className={r.tileTop}>
           <span className={`${r.tileNumber} tabular`}>{room.number}</span>
-          {stay?.owes ? (
-            <span className={r.owes} title={`${stay.balance} on the folio`}>
-              <IndianRupee size={12} aria-hidden="true" />
-              <span className={r.srOnly}>owes {stay.balance}</span>
-            </span>
-          ) : null}
+          <span className={r.marks}>
+            {stay?.isVip ? (
+              <span className={r.vipMark} title="VIP">
+                <Crown size={12} aria-hidden="true" />
+                <span className={r.srOnly}>VIP</span>
+              </span>
+            ) : null}
+            {stay?.owes ? (
+              <span className={r.owes} title={`${stay.balance} on the folio`}>
+                <IndianRupee size={12} aria-hidden="true" />
+                <span className={r.srOnly}>owes {stay.balance}</span>
+              </span>
+            ) : null}
+          </span>
         </span>
         <span className={r.tileGuest}>{stay ? stay.guestName : 'empty'}</span>
         <span className={r.tileMeta}>
@@ -155,6 +192,19 @@ function Tile({ room, href, current }: { room: RoomView; href: string; current: 
             ? state === 'out' ? 'Out today' : `Out ${stay.dueOut}`
             : room.roomTypeName ?? 'Room'}
         </span>
+        {/* The housekeeping half (D-096). Said for an empty room always — it
+            is the question a desk asks before selling it — and for an occupied
+            one only when it is not the ordinary case. */}
+        {!stay || room.clean.status === 'DIRTY' || room.clean.status === 'OUT_OF_ORDER' ? (
+          <span className={r.cleanChip} data-clean={room.clean.status}>
+            {room.clean.status === 'OUT_OF_ORDER' ? <Wrench size={11} aria-hidden="true" />
+              : room.clean.status === 'DIRTY' ? <Brush size={11} aria-hidden="true" />
+                : <Sparkles size={11} aria-hidden="true" />}
+            {room.clean.status === 'CLEAN' || room.clean.status === 'INSPECTED'
+              ? (stay ? CLEAN_LABEL[room.clean.status] : `Ready · ${CLEAN_LABEL[room.clean.status].toLowerCase()}`)
+              : CLEAN_LABEL[room.clean.status]}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
@@ -173,6 +223,8 @@ export function RoomPanel({
   checkoutHours,
   permissions,
   deskHref,
+  catalog,
+  raiseKey,
 }: {
   propertyId: string;
   room: RoomView;
@@ -180,6 +232,10 @@ export function RoomPanel({
   permissions: DeskPermissions;
   /** The same room on the Front desk, where its orders, requests and bill are. */
   deskHref: string;
+  /** What a guest who rings down can be given (empty without `stay:update`). */
+  catalog: CatalogOption[];
+  /** Minted per render, so a double tap raises one request (#8). */
+  raiseKey: string;
 }) {
   const stay = room.stay;
   const state = stateOf(room);
@@ -206,6 +262,7 @@ export function RoomPanel({
                   a charge, or when something has gone wrong. */}
               <Link href={`/admin/guests/${stay.guestId}`}>{stay.guestName}</Link>
             </dd>
+            {stay.isVip ? (<><dt>Status</dt><dd><span className={r.vipBadge}><Crown size={12} aria-hidden="true" /> VIP</span></dd></>) : null}
             {stay.guestPhone ? (<><dt>Phone</dt><dd className="tabular">{stay.guestPhone}</dd></>) : null}
             <dt>Due out</dt>
             <dd>{state === 'out' ? 'Today' : stay.dueOut}{stay.nightsLeft > 0 ? ` · ${stay.nightsLeft} ${stay.nightsLeft === 1 ? 'night' : 'nights'} left` : ''}</dd>
@@ -214,11 +271,16 @@ export function RoomPanel({
                 one who has paid up look different to a desk. */}
             <dd className="tabular" data-owes={stay.owes}>{stay.balance ?? 'nothing yet'}</dd>
           </dl>
+          {/* What the desk has written down about them — the allergy, the
+              anniversary, the complaint last time. Shown where it is used. */}
+          {stay.notes ? <p className={r.notes}>{stay.notes}</p> : null}
           <p className={r.panelLinks}>
             <Link href={deskHref}>Orders, requests and the bill on the Front desk →</Link>
           </p>
         </section>
       ) : null}
+
+      <RoomState propertyId={propertyId} room={room} permissions={permissions} />
 
       {stay && (permissions.checkOut || permissions.vouch) ? (
         <section className={r.panelSection}>
@@ -231,15 +293,34 @@ export function RoomPanel({
             ) : permissions.checkOut ? (
               <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} />
             ) : null}
-            <Link href={`/admin/checkouts/${stay.id}`} className={r.panelLink}>The full bill →</Link>
+            <Link href={`/admin/checkouts/${stay.id}`} className={r.panelLink}>The bill — add a charge or take a payment →</Link>
             {permissions.vouch ? <Vouch propertyId={propertyId} stayId={stay.id} roomNumber={room.number} /> : null}
           </div>
         </section>
       ) : null}
 
-      {!stay && permissions.checkIn ? (
+      {stay && permissions.updateStay ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>Move their checkout</h3>
+          <ChangeCheckout propertyId={propertyId} stay={stay} checkoutHours={checkoutHours} />
+        </section>
+      ) : null}
+
+      {stay && permissions.updateStay && catalog.length ? (
+        <section className={r.panelSection}>
+          <h3 className={r.panelTitle}>They rang the desk</h3>
+          <RaiseRequest propertyId={propertyId} room={room} stayId={stay.id} catalog={catalog} raiseKey={raiseKey} />
+        </section>
+      ) : null}
+
+      {!stay && permissions.checkIn && room.clean.status !== 'OUT_OF_ORDER' ? (
         <section className={r.panelSection}>
           <h3 className={r.panelTitle}>Check someone in</h3>
+          {/* Said, not blocked: a desk at 2am with one room left will put
+              a guest in it and send housekeeping straight up. */}
+          {room.clean.status === 'DIRTY' ? (
+            <p className={r.warn}>Not made up since the last guest. Send housekeeping up before they arrive.</p>
+          ) : null}
           <CheckIn propertyId={propertyId} room={room} checkoutHours={checkoutHours} />
         </section>
       ) : null}
@@ -261,6 +342,141 @@ export function RoomPanel({
         </section>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The housekeeping half of the room (D-096): what state it is in, and the
+ * moves the person looking may make. Each button is one state; out of order
+ * asks why.
+ */
+function RoomState({ propertyId, room, permissions }: { propertyId: string; room: RoomView; permissions: DeskPermissions }) {
+  const status = room.clean.status;
+  const moves: Array<{ to: RoomView['clean']['status']; label: string; allowed: boolean }> = [
+    { to: 'CLEAN', label: status === 'OUT_OF_ORDER' ? 'Back in order, clean' : 'Mark clean', allowed: status !== 'CLEAN' && (status === 'OUT_OF_ORDER' ? permissions.outOfOrder : permissions.clean) },
+    { to: 'INSPECTED', label: 'Inspected', allowed: status === 'CLEAN' && permissions.inspect },
+    { to: 'DIRTY', label: 'Needs making up', allowed: (status === 'CLEAN' || status === 'INSPECTED') && permissions.clean },
+  ];
+  const visible = moves.filter((m) => m.allowed);
+  return (
+    <section className={r.panelSection} data-room-state={status}>
+      <h3 className={r.panelTitle}>The room</h3>
+      <p className={r.cleanLine}>
+        <span className={r.cleanChip} data-clean={status}>{CLEAN_LABEL[status]}</span>
+        {status === 'OUT_OF_ORDER' && room.clean.note ? <span className={r.cleanNote}>{room.clean.note}</span> : null}
+      </p>
+      {visible.length ? (
+        <div className={r.stateButtons}>
+          {visible.map((m) => <StateButton key={m.to} propertyId={propertyId} roomId={room.id} to={m.to} label={m.label} />)}
+        </div>
+      ) : null}
+      {permissions.outOfOrder && status !== 'OUT_OF_ORDER' && !room.stay ? <OutOfOrder propertyId={propertyId} roomId={room.id} /> : null}
+    </section>
+  );
+}
+
+function StateButton({ propertyId, roomId, to, label }: { propertyId: string; roomId: string; to: string; label: string }) {
+  const [state, action] = useActionState<DeskState, FormData>(setRoomState, {});
+  return (
+    <form action={action} className={r.inlineForm}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="roomId" value={roomId} />
+      <input type="hidden" name="status" value={to} />
+      <SubmitButton label={label} />
+      {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
+    </form>
+  );
+}
+
+function OutOfOrder({ propertyId, roomId }: { propertyId: string; roomId: string }) {
+  const [state, action] = useActionState<DeskState, FormData>(setRoomState, {});
+  return (
+    <details className={styles.roomForm}>
+      <summary className={styles.disclosureHead}>Take it out of order</summary>
+      <form action={action} className={styles.stackedForm}>
+        <input type="hidden" name="propertyId" value={propertyId} />
+        <input type="hidden" name="roomId" value={roomId} />
+        <input type="hidden" name="status" value="OUT_OF_ORDER" />
+        <label className={styles.field}>
+          <span className={styles.label}>What is wrong</span>
+          <input name="note" className={styles.input} maxLength={160} required placeholder="AC not cooling — engineer booked" />
+          <span className={styles.hint}>Nobody can be checked in until it is back in order.</span>
+        </label>
+        {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+        <SubmitButton label="Out of order" />
+      </form>
+    </details>
+  );
+}
+
+function ChangeCheckout({ propertyId, stay, checkoutHours }: {
+  propertyId: string; stay: NonNullable<RoomView['stay']>; checkoutHours: number[];
+}) {
+  const [state, action] = useActionState<DeskState, FormData>(changeCheckout, {});
+  const hours = checkoutHours.includes(stay.checkoutHour) ? checkoutHours : [...checkoutHours, stay.checkoutHour].sort((a, b) => a - b);
+  return (
+    <form action={action} className={styles.stackedForm}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="stayId" value={stay.id} />
+      <div className={styles.formGrid}>
+        <label className={styles.field}>
+          <span className={styles.label}>Date</span>
+          <input name="date" type="date" className={styles.input} defaultValue={stay.checkoutDate} required />
+        </label>
+        <label className={styles.field}>
+          <span className={styles.label}>Out at</span>
+          <select name="checkoutHour" className={styles.input} defaultValue={stay.checkoutHour}>
+            {hours.map((hour) => (
+              <option key={hour} value={hour}>{hour === 12 ? 'noon' : hour > 12 ? `${hour - 12}pm` : `${hour}am`}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <span className={styles.hint}>Staying on, or leaving early. Their phone works until the new time; add the extra nights on the bill.</span>
+      {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+      {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+      <SubmitButton label="Move the checkout" />
+    </form>
+  );
+}
+
+function RaiseRequest({ propertyId, room, stayId, catalog, raiseKey }: {
+  propertyId: string; room: RoomView; stayId: string; catalog: CatalogOption[]; raiseKey: string;
+}) {
+  const [state, action] = useActionState<DeskState, FormData>(raiseForGuest, {});
+  const [typeId, setTypeId] = useState('');
+  const chosen = catalog.find((c) => c.id === typeId);
+  return (
+    <form action={action} className={styles.stackedForm}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="stayId" value={stayId} />
+      <input type="hidden" name="roomId" value={room.id} />
+      {/* Fresh after each one goes through, so a second request is a second
+          request and a double tap is still one. */}
+      <input type="hidden" name="idempotencyKey" value={state.done ? `${raiseKey.slice(0, 24)}${Date.now().toString(16).slice(-12).padStart(12, '0')}` : raiseKey} />
+      <div className={styles.formGrid}>
+        <label className={`${styles.field} ${styles.wide}`}>
+          <span className={styles.label}>What they asked for</span>
+          <select name="requestTypeId" className={styles.input} value={typeId} onChange={(e) => setTypeId(e.target.value)} required>
+            <option value="" disabled>Choose</option>
+            {catalog.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </label>
+        {chosen?.allowsQuantity ? (
+          <label className={styles.field}>
+            <span className={styles.label}>How many</span>
+            <input name="quantity" type="number" min={1} max={chosen.maxQuantity} defaultValue={1} className={styles.input} />
+          </label>
+        ) : null}
+        <label className={`${styles.field} ${styles.wide}`}>
+          <span className={styles.label}>Note</span>
+          <input name="note" className={styles.input} maxLength={300} placeholder="Leave them outside the door" />
+        </label>
+      </div>
+      {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
+      {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+      <SubmitButton label={`Raise it for ${room.number}`} />
+    </form>
   );
 }
 

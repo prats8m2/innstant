@@ -21,6 +21,17 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**2 November, later: phases B and C (D-096, D-097), on the local combined
+branch `feat/front-office-combined`** — the user asked for all work to go on
+one branch with no PRs until they say (memory: combined-branch-workflow). PRs
+#6 and #7 were closed unmerged; their work is on this branch. B: room cleaning
+status (migration **0016**, `room_status`), checkout marks rooms to be made
+up, housekeeping's "Rooms to make up", VIP and notes on room tiles, moving a
+checkout, raising a request for a guest who rang. C: Requests → Team today;
+Leaving → Taken today and Left owing. Migrations 0015 and 0016 are applied
+locally only and must run on production before this branch deploys.
+
+
 **2 November: checkout and the bill (D-095), branch `feat/checkout-billing`**
 (from `feat/admin-front-office`, PR #6). Phase A of the front-office plan
 (memory: front-office-manager-plan). `/admin/checkouts/<stayId>` shows the

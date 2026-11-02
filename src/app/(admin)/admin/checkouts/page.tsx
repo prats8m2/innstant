@@ -1,14 +1,16 @@
 import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import { can, findProperty } from '@/modules/identity';
-import { listCheckoutRequests, listDeparturesToday } from '@/modules/stay';
+import { listCheckoutRequests, listDeparturesToday, listUnpaidDepartures } from '@/modules/stay';
+import { collectionsToday } from '@/modules/billing';
 import { getOpenRequests } from '@/modules/requests';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { kitchenTickets } from '@/modules/ordering';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
-import { formatCheckoutDay, formatClock, localTimeAt, toClock } from '@/lib/clock';
+import { formatCheckoutDay, formatClock, formatFolioDate, localTimeAt, toClock } from '@/lib/clock';
 import { CheckoutQueue, type DeskRequestView } from './checkout-queue';
 import { DueOut, LeftToday, type DueView, type LeftView } from './departures';
+import { Collections, LeftOwing, type CollectionView, type OwingView } from './money';
 import l from './leaving.module.css';
 import styles from '../admin.module.css';
 
@@ -36,8 +38,9 @@ export default async function CheckoutsAdmin() {
 
   const maySeeRequests = can(session, propertyId, 'request:read');
   const maySeeOrders = can(session, propertyId, 'order:read');
+  const maySeeMoney = can(session, propertyId, 'folio:read');
 
-  const { property, open, decided, departures, requests, tickets } = await withTenant(
+  const { property, open, decided, departures, requests, tickets, collections, owing } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const property = await findProperty(tx, propertyId);
@@ -48,6 +51,9 @@ export default async function CheckoutsAdmin() {
         // screen. It used to be only the late-checkout queue, which on most
         // mornings is empty while six rooms are due out.
         departures: await listDeparturesToday(tx, { propertyId, timeZone: property?.timezone ?? 'Asia/Kolkata' }),
+        // D-097: the drawer, and who left owing — for whoever may see money.
+        collections: maySeeMoney ? await collectionsToday(tx, { propertyId, timeZone: property?.timezone ?? 'Asia/Kolkata' }) : null,
+        owing: maySeeMoney ? await listUnpaidDepartures(tx, { propertyId }) : [],
         // What is still on its way to a room that is leaving: a tray in the
         // lift is a reason to wait before checking them out.
         requests: maySeeRequests ? await getOpenRequests(tx, { propertyId }) : [],
@@ -133,6 +139,31 @@ export default async function CheckoutsAdmin() {
     owes: (row.balanceMinor ?? 0) > 0,
   }));
 
+  const METHOD: Record<string, string> = { CARD: 'Card', UPI: 'UPI', CASH: 'Cash', BANK_TRANSFER: 'Bank transfer', OTHER: 'Other' };
+  const collectionsView: { rows: CollectionView[]; total: string; refunded: string | null } | null = collections
+    ? {
+      rows: collections.rows.map((c) => ({
+        method: METHOD[c.method] ?? c.method,
+        taken: formatMoney(money(c.takenMinor, collections.currency)),
+        payments: c.payments,
+      })),
+      total: formatMoney(money(collections.rows.reduce((sum, c) => sum + c.takenMinor - c.refundedMinor, 0), collections.currency)),
+      refunded: collections.rows.some((c) => c.refundedMinor)
+        ? formatMoney(money(collections.rows.reduce((sum, c) => sum + c.refundedMinor, 0), collections.currency))
+        : null,
+    }
+    : null;
+  const owingView: OwingView[] = owing.map((o) => ({
+    stayId: o.stayId,
+    guestName: o.guestName,
+    guestPhone: o.guestPhone,
+    roomNumber: o.roomNumber,
+    left: formatFolioDate(o.checkedOutAt, timeZone),
+    daysAgo: Math.max(0, Math.floor((Date.now() - o.checkedOutAt.getTime()) / 86_400_000)),
+    amount: formatMoney(money(o.balanceMinor, o.currency)),
+    reason: o.reason,
+  }));
+
   const overdue = due.filter((row) => row.overdue).length;
   // What is still owed by everybody leaving today — the number a desk is
   // asked for at the end of a morning, and the one a missed payment hides in.
@@ -203,6 +234,10 @@ export default async function CheckoutsAdmin() {
       />
 
       <LeftToday rows={left} maySeeGuest={can(session, propertyId, 'guest:read')} />
+
+      {collectionsView ? <Collections {...collectionsView} /> : null}
+
+      <LeftOwing rows={owingView} />
 
       <CheckoutQueue
         part="answered"

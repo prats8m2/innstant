@@ -36,3 +36,7 @@ export {
 export type { DeskChargeKind, DeskChargeInput, AdjustBillInput, RefundInput } from './desk-billing';
 export { buildDeskBill, BILL_SECTION_TITLE } from './desk-bill';
 export type { DeskBill, BillSection, BillLine, BillPayment, BillSectionKey, OrderBreakdown } from './desk-bill';
+
+/** Today's money by method — closing the drawer (D-097). */
+export { collectionsToday } from './collections';
+export type { Collection } from './collections';

@@ -69,7 +69,8 @@ export type PmsEvent =
     kind: 'STAY_EXTENDED';
     stay: StayRef;
     scheduledCheckoutAt: string;
-    reason: 'LATE_CHECKOUT';
+    /** A late checkout the desk approved, or the desk moving the date itself (D-096). */
+    reason: 'LATE_CHECKOUT' | 'DESK_CHANGE';
   }
   | {
     kind: 'CHARGE_POSTED';

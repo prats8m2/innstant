@@ -37,13 +37,13 @@ export type {
 export { listRoomsWithOccupancy, checkOutStay } from './front-desk';
 export type { RoomOccupancy, CheckOutResult } from './front-desk';
 /** Today's departures — who is due out and who has gone (D-094). */
-export { listDeparturesToday, getStayAtDesk } from './departures';
-export type { Departure, StayAtDesk } from './departures';
+export { listDeparturesToday, getStayAtDesk, listUnpaidDepartures } from './departures';
+export type { Departure, StayAtDesk, UnpaidDeparture } from './departures';
 
 /** Changing when a guest leaves — P3's checkout-change flow. */
 export {
   getCheckoutOptions, requestCheckoutChange, cancelCheckoutRequest,
-  decideCheckoutRequest, listCheckoutRequests,
+  decideCheckoutRequest, listCheckoutRequests, changeCheckoutAt,
 } from './checkout';
 export type {
   CheckoutOptions, PendingCheckoutRequest, RequestCheckoutInput, RequestedCheckout,

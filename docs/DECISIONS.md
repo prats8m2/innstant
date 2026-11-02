@@ -3252,3 +3252,52 @@ still be checked out in one tap from the Rooms panel.
 layout so the paper is only the bill, behind the session and `folio:read`
 (`/print` joined the middleware's staff prefixes). The number is the folio's,
 so it is the same on every reprint; "Print or save as PDF" is the browser's.
+
+### D-096 · Rooms and the desk: whether a room is ready, who is in it, what they need
+Phase B of the front-office plan (memory: front-office-manager-plan).
+
+**A room's housekeeping state** (`room_status`, migration 0016): clean,
+to make up, inspected, out of order. Checkout marks the room DIRTY in its own
+transaction; housekeeping taps "Made up" on their board (a new "Rooms to make
+up" list, their floors first); whoever holds `request:verify` sees what was
+made up today and taps "Inspected" — the second signature, as on a request.
+Out of order needs a reason and `room:manage`. Permissions follow the work
+(`request:advance` to make up, `request:verify` to inspect) rather than new
+ones, so no role had to be re-seeded. Rooms shows the state on every empty
+tile and filters by Ready to sell, To make up and Out of order; checking a
+guest into a room not yet made up is warned about, not refused (a desk at
+2am with one room left will use it), and an out-of-order room offers no
+check-in at all.
+
+**The guest, at a glance:** the VIP flag and the desk's notes from the guest's
+profile ride on `listRoomsWithOccupancy()` — a crown on the tile, the notes in
+the panel, where they are used.
+
+**Moving a checkout** (`changeCheckoutAt()`, `stay:update`): staying on or
+leaving early, decided by the desk — no request, no fee. Same consequences as
+an approved late checkout: the stay moves, the guest's sessions are extended
+to the new time, the PMS hears `STAY_EXTENDED` with reason `DESK_CHANGE`, and
+`stay.checkout_changed` records from and to. Extra nights are added on the
+bill like any room charge.
+
+**A request for a guest who rang:** the panel raises it through
+`raiseServiceRequest()` with the desk's `staffUserId` (so the event names the
+person, not SYSTEM) at tier FULL — the desk's judgement, not a guest session.
+It routes, escalates and reaches the guest's phone like any other, noted
+"Taken by phone at the desk".
+
+### D-097 · The day's numbers: who has what, and the money
+Phase C.
+
+**Requests → Team today:** per person on shift (or holding work) — what they
+have now, how much is late, what they finished today, how much of it inside
+the promise, average minutes; and per kind of request, slowest first. Built
+from the same reads as the live view; no new query.
+
+**Leaving → Taken today:** money in today by method, refunds counted apart
+rather than netted (a drawer that paid ₹500 out in change has to show it) —
+`collectionsToday()`. **Left owing:** departures in the last 90 days whose
+bill still has money on it, oldest first, with the reason the manager gave
+when they let them go — `listUnpaidDepartures()`, reading the reason off the
+`stay.checked_out` event. Each links to the bill, which still takes payments
+after the guest has gone. Both for `folio:read` only.
