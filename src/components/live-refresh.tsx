@@ -20,6 +20,10 @@ import { useRouter } from 'next/navigation';
  *
  * Returns `connected`, which is for telling the truth on screen — not for
  * gating anything. EventSource reconnects on its own.
+ *
+ * A page that uses this must not have a `loading.tsx` (D-099). With one, the
+ * refresh fetches the new payload and then, most of the time on a production
+ * build, never commits it — the screen sits on the first state it rendered.
  */
 export function useLiveRefresh({
   streamUrl,

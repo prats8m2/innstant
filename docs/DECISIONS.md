@@ -3322,3 +3322,24 @@ is shown greyed as "Not clocked in", so a manager can see why somebody is not
 an option. When nobody is on, it says so and offers no button. The same icon
 sits beside every assignee on the live list, the request panel and Team today,
 and a request still held by somebody who has since clocked out says so.
+
+### D-099 · A live screen has no loading screen
+Found while making CI's e2e job pass: "the kitchen display shows an order the
+moment it is placed" failed most runs on a production build. The kitchen
+pressed Accept, the guest's phone heard it over SSE, `router.refresh()`
+fetched a payload with the right step lit — and the timeline stayed on
+"Order received". A manual `router.refresh()` from the console did nothing
+either. On `next dev` it usually worked, which is why it looked like timing.
+
+**The cause was the order screen's `loading.tsx`** (D-077). With it, Next
+15.5 fetched each refresh and, about six runs in seven, never committed it;
+with the file removed and nothing else changed, four runs in four moved
+through every step within a second of the kitchen's tap. So the three guest
+screens that refresh themselves from a stream — the order, the request and
+"Your requests" — no longer have one. Eight of D-077's eleven stay.
+
+What they lose is small: a tap that lands on them is still answered at once
+by the top bar (D-092), and the order and request
+screens are mostly reached from a form whose button is already pending.
+`useLiveRefresh` says so in its header, so the next live screen does not
+grow a skeleton and the same silent freeze.
