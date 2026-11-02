@@ -21,6 +21,7 @@
     "db:bootstrap": "tsx --env-file-if-exists=.env scripts/bootstrap-roles.ts",
     "db:studio": "drizzle-kit studio",
     "demo:reset": "tsx --env-file-if-exists=.env scripts/demo-reset.ts",
+    "demo:activity": "tsx scripts/demo-activity.ts",
     "logo:build": "tsx scripts/prepare-logo.ts",
     "status": "tsx scripts/status.ts",
     "quality": "tsx scripts/quality/server.ts",
