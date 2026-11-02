@@ -30,7 +30,9 @@ trends on Overview, ⌘K search, menu search); leave the bigger ones (guest UPI,
 UPI request and email invoice, striking dishes on the KDS, "no answer at the
 door", WhatsApp) until they decide. Order: 1 tokens, fonts, shared pieces ✅ →
 2 guest app ✅ (D-101; per-property theme in branding, every guest screen
-rebuilt, menu search; e2e 111/111) → 3 console shell and its five pages → 4 floor screens.
+rebuilt, menu search; e2e 111/111) → 3 console ✅ (D-102; shell, ⌘K search,
+per-person light/dark — migration **0017**, applied locally only; Overview
+with revenue; Rooms; Checkout; Requests; Branding with draft/publish) shell and its five pages → 4 floor screens.
 
 **CI made green (same branch), D-099.** The e2e suite was 24 red against
 this branch; it is now 111 passed / 0 failed on a production build run the

@@ -3427,3 +3427,56 @@ the floor's screens that an end-to-end test finds by text.
 **The accent is read as `--accent`, not `--g-accent`.** A Kesari property's
 custom accent (D-087) still overrides the role names; reading the token
 directly would silently drop it. Every other colour reads `--g-*`.
+
+### D-102 · The console, rebuilt to Direction A
+The staff console now follows its boards: a new shell, the Overview, Rooms,
+Checkout and Leaving, Requests, and Branding & themes. Pages without a board
+(Front desk, Menu, Links, Staff, Guests, the other Property tabs) wear the new
+shell and tokens and keep their layouts.
+
+**The shell.** Sidebar in four groups (Today, Service, Setup, Floor screens)
+with the same permission-based items as before; the property card; the person
+at the foot; a top bar with the section breadcrumb, the light/dark menu and the
+bell. At phone width the sidebar is a drawer behind a menu button. The board's
+count badges are not built: nothing computes them today, and the shell does
+not refresh with the pages, so they would go stale.
+
+**Light and dark belong to the person** (migration 0017,
+`staff_users.console_appearance`: light, dark or system, default system). The
+console wrapper carries `data-console` from it and `data-accent` from the
+property's guest theme. "Match device" renders light and a small inline script
+switches to dark before paint when the device prefers it, as the token file
+asks. Floor screens are unchanged here; they are step 4.
+
+**⌘K search** across rooms (by number), guests (by name) and orders (by number),
+each from its own module's new read-only search, inside one `withTenant`, and
+only for kinds the person may open. There is no page per order, so an order
+opens its room at the front desk, or the Live floor for table and takeaway
+orders.
+
+**The Overview's numbers are defined in code, not on the board.** Revenue is
+order sales (every outlet, room and property-link alike) plus folio lines the
+desk posted for rooms and services, with corrections and discounts netted; it
+counts room revenue when the desk posts it, because nothing posts a night
+automatically. Requests on time compare `completed_at` with the SLA target,
+the same comparison the SLA sweep breaches on. Occupancy divides in-house
+stays by today's room count, because past room counts are not kept. Periods
+are the property's local day; Today compares with the same weekday last week
+up to the same time. Export is a CSV of the same rows. Accounts without
+pricing see counts, not money.
+
+**Branding picks a theme, as a draft first.** The five guest themes replace
+the single custom accent of D-087 (still read for back-compat, cleared on
+publish). Choosing a card saves `draftTheme` inside `properties.branding` —
+no migration — and moves the live preview, the contrast table and the token
+block; guests see nothing until Publish, which writes `theme`, logs
+`property.branding_updated` and revalidates every layout so the console's
+accent follows. Discard drops the draft.
+
+**Rooms and Checkout keep every rule.** The checkout screen is the board's
+three steps — review, take payment, check out — over the same actions;
+"Check out anyway" lives in the ⋯ menu for managers and still requires the
+reason (D-095). Not built: "Email invoice", "Send UPI request" (the user's
+call), "Print QR stickers" (no sticker sheet and no QR library), an
+"Arriving" filter (there are no reservations), and staff names on a room's
+activity (the event log does not resolve them).

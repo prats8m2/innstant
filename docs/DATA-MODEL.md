@@ -243,6 +243,15 @@ Three rules the schema does not carry:
 | Deactivating revokes every `staff_sessions` row in the same transaction | A session lives for its TTL, so flipping the status alone leaves the screen they are logged into working until the cookie ages out |
 | Reactivating clears `password_hash` and goes to INVITED | Handing an old password back to somebody who was walked out of the building is not a "Switch on" button's decision to make silently |
 
+`staff_users.console_appearance` (migration 0017) is the console's light or
+dark for that person — `light`, `dark` or `system` (CHECK-constrained; the
+default), set from the moon in the console's top bar. It lives on the account,
+not the property, because the night manager in a dim back office and the day
+desk by a window read the same screen; and on the account rather than in a
+cookie, so it follows somebody to whichever machine they sign in on. `system`
+is resolved in the browser from `prefers-color-scheme`. Only the signed-in
+person can change their own; it is a preference, so no `event_log` row.
+
 ### Reprinting a sticker (D-041)
 
 `room_qr_codes.version` counts stickers PRINTED, not stickers live. It is
@@ -289,13 +298,20 @@ shown to a room session only, never on a property link, and the event the save
 writes (`property.guest_info_updated`) names the fields that changed, never
 their values. Edited under `property:update`.
 
-`properties.branding` (jsonb since 0000) now has a shape: `{ accent, logoUrl,
-coverUrl }`. The accent is `#RRGGBB` and refused unless it clears 3:1 on the
+`properties.branding` (jsonb since 0000) now has a shape: `{ theme,
+draftTheme, accent, logoUrl, coverUrl }`. `theme` is one of the five guest
+themes in `design/tokens/innstant-themes.css` (D-100) and is the only one a
+guest sees; `draftTheme` is the one picked on the Branding screen and not yet
+published (null when there is none, or when it would equal `theme`) — saving
+it writes no event, and publishing moves it into `theme` and clears it. The
+accent (D-087, pre-themes) is `#RRGGBB`, refused unless it clears 3:1 on the
 guest app's indigo ground AND some ink clears 4.5:1 on it (`cleanBranding()`,
-identity module); the pictures are https URLs. Edited under
-`property:branding`, logged as `property.branding_updated` with both values.
-The guest layouts under `/r/[qrCode]` and `/p/[code]` redeclare the accent
-tokens from it.
+identity module), honoured on Kesari only, no longer offered by any screen,
+and cleared by a publish; the pictures are https URLs. Edited under
+`property:branding`, logged as `property.branding_updated` with the from and
+to of each field a guest sees. The guest layouts under `/r/[qrCode]` and
+`/p/[code]` set `data-guest-theme` and redeclare the accent tokens from it.
+No migration: it is the same jsonb column.
 
 ---
 

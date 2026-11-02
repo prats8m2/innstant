@@ -3214,7 +3214,8 @@ test.describe('the building', () => {
 
     await hotel.locator('input[name="name"]').fill('The Kesari');
     await hotel.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('link', { name: 'The Kesari', exact: true }))
+    // The sidebar's property card names the city and size after it (D-102).
+    await expect(page.getByRole('link', { name: /^The Kesari(?! Haveli)/ }))
       .toBeVisible({ timeout: 25_000 });
 
     // Still where the hotel is.
