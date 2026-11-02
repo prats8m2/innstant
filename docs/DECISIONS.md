@@ -3390,3 +3390,40 @@ Mukta at weight; Marcellus stays on the guest's screens.
 
 The Expo app's palette moved with the Kesari theme, as the token file's
 header says it should; `mobile-theme.test.ts` now reads the JSON.
+
+### D-101 · The guest app, rebuilt to Direction A
+Every guest screen now follows its board in `design/reference/direction-a/`:
+room home, amenities, call for service, the menu (with search), the dish, the
+cart and its room-charge sheet, order and request tracking, "Your requests",
+your stay and plan my day — and the property-link menu, dish, cart and order,
+which now share the room screens' components instead of keeping copies.
+
+**Real data, not the boards' sample data.** Where a board shows something the
+product does not hold, it was left out rather than invented: a local-language
+greeting, the room type ("Jharokha Suite"), a named housekeeper "on your
+floor", runner and chef names on the timeline, a revised time when an order
+runs late (the original promise is struck through instead), place photos and
+a map, breakfast and pool hours. "Pay now · UPI" and "WhatsApp us" are not
+built (the user's call: not yet). "Call the desk" appears only when the
+property has a desk phone.
+
+**Menu search** (approved as a small addition) filters the menu already on the
+page with the catalog's own `searchMenu` rule, imported from its pure file so
+no database code reaches the browser. No server round trip.
+
+**The room-charge prompt is four boxes over one input.** A single real
+`<input name="answer">` sits transparent over the boxes: it is labelled,
+brings up the number pad, steps back on backspace, and a pasted full phone
+number keeps its last four digits. The flow, the tiers and the wording the
+guest reads are unchanged.
+
+**Late is honest, and it arrives on its own.** Nothing on the order stream says
+"late", so the tracking screen schedules one refresh for the moment its
+promise passes; an open phone then turns to "About N minutes behind" in the
+late colour without anybody touching it. The request timeline names its last
+step "Finished" rather than "Done", because "Done" already labels a button on
+the floor's screens that an end-to-end test finds by text.
+
+**The accent is read as `--accent`, not `--g-accent`.** A Kesari property's
+custom accent (D-087) still overrides the role names; reading the token
+directly would silently drop it. Every other colour reads `--g-*`.
