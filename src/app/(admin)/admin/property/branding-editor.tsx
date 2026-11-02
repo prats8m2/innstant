@@ -45,7 +45,9 @@ export function BrandingEditor({
   const passes = check ? check.onGround >= 3 && check.inkOnAccent >= 4.5 : true;
 
   const previewStyle = useMemo(
-    () => brandingStyle({ accent: valid && passes ? accent : null, logoUrl: null, coverUrl: null }),
+    () => brandingStyle({
+      theme: 'kesari', accent: valid && passes ? accent : null, logoUrl: null, coverUrl: null,
+    }),
     [accent, valid, passes],
   );
 

@@ -49,22 +49,39 @@ describe('branding', () => {
   it('wants https for pictures and stores blanks as nothing', () => {
     expect(() => cleanBranding({ logoUrl: 'http://example.com/logo.png' })).toThrow(/https/);
     expect(cleanBranding({ accent: ' ', logoUrl: '', coverUrl: null }))
-      .toEqual({ accent: null, logoUrl: null, coverUrl: null });
+      .toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
   });
 
   it('reads a malformed column as no branding at all', () => {
-    expect(readBranding(null)).toEqual({ accent: null, logoUrl: null, coverUrl: null });
+    expect(readBranding(null)).toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
     expect(readBranding({ accent: 'red', logoUrl: 'javascript:alert(1)' }))
-      .toEqual({ accent: null, logoUrl: null, coverUrl: null });
+      .toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
   });
 
   it('redeclares the aliases, not only the primitive', () => {
-    const style = brandingStyle({ accent: '#E9A227', logoUrl: null, coverUrl: null });
+    const style = brandingStyle({ theme: 'kesari', accent: '#E9A227', logoUrl: null, coverUrl: null });
     expect(style['--teal-600']).toBe('#E9A227');
     expect(style['--accent']).toBe('#E9A227');
     expect(style['--saffron']).toBe('#E9A227');
     expect(style['--accent-ink']).toBe('var(--paper)');
-    expect(brandingStyle({ accent: null, logoUrl: null, coverUrl: null })).toEqual({});
+    expect(brandingStyle({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null })).toEqual({});
+  });
+
+  /** D-100: a theme brings its own accent; the old one was checked on Kesari's indigo. */
+  it('honours a custom accent on Kesari only', () => {
+    expect(brandingStyle({ theme: 'sandstone', accent: '#E9A227', logoUrl: null, coverUrl: null }))
+      .toEqual({});
+  });
+
+  it('reads a theme it knows, and Kesari for anything else', () => {
+    expect(readBranding({ theme: 'gulabi' }).theme).toBe('gulabi');
+    expect(readBranding({ theme: 'neon' }).theme).toBe('kesari');
+    expect(readBranding({}).theme).toBe('kesari');
+  });
+
+  it('refuses to store a theme that does not exist', () => {
+    expect(() => cleanBranding({ theme: 'neon' })).toThrow(/no guest theme/);
+    expect(cleanBranding({ theme: 'pichola' }).theme).toBe('pichola');
   });
 });
 

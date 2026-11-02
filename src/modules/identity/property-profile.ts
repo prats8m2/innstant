@@ -89,13 +89,18 @@ export async function updateBranding(
   tx: Tx,
   input: {
     tenantId: string; propertyId: string; staffUserId: string;
-    branding: { accent?: string | null; logoUrl?: string | null; coverUrl?: string | null };
+    branding: {
+      theme?: string | null; accent?: string | null; logoUrl?: string | null; coverUrl?: string | null;
+    };
   },
 ): Promise<PropertyBranding> {
   const before = await getPropertyProfile(tx, input.propertyId);
   if (!before) throw new NotFoundError('No such property.');
 
-  const next = cleanBranding(input.branding);
+  // A form that does not send a theme keeps the one the property has.
+  const next = cleanBranding({
+    ...input.branding, theme: input.branding.theme ?? before.branding.theme,
+  });
   await tx.update(properties)
     .set({ branding: next, updatedAt: new Date() })
     .where(eq(properties.id, input.propertyId));

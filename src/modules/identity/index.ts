@@ -66,8 +66,9 @@ export { cleanGuestInfo, dialable } from './guest-info';
 export type { GuestInfo } from './guest-info';
 export {
   readBranding, cleanBranding, brandingStyle, accentContrast, NO_BRANDING, BRAND_PRESETS,
+  GUEST_THEMES, DEFAULT_GUEST_THEME, isGuestTheme,
 } from './branding';
-export type { PropertyBranding, AccentContrast } from './branding';
+export type { PropertyBranding, AccentContrast, GuestThemeKey } from './branding';
 export type {
   ProvisionPropertyInput, ProvisionedProperty, RoomSeed, RoomTypeSeed, FloorSeed,
 } from './provision';
