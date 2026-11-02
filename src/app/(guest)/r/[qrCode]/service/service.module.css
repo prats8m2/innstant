@@ -1,24 +1,27 @@
 /*
- * Service — the one tap, and where it lands.
- * The arches are the reference's own shapes; values from theme.css.
+ * Call for service, Direction A (D-100). No board of its own: it speaks the
+ * amenities board's language — the same header, the same Marcellus title,
+ * a 10px card, a 2px input and the one pinned accent button.
+ *
+ * Colour is the guest theme's --g-* tokens; the accent is read through
+ * `--accent` / `--accent-ink` so a Kesari property's own accent (D-087),
+ * which overrides the role names rather than the token, still lands.
  */
 .shell {
   min-height: 100dvh;
-  background: var(--bg);
   max-width: 430px;
   margin-inline: auto;
-  padding: 0 var(--space-4) var(--space-8);
-  display: flex;
-  flex-direction: column;
+  /* 20px gutter; the bottom clears the pinned button. */
+  padding: 0 var(--space-5) 120px;
+  background: var(--g-page);
+  color: var(--g-ink);
 }
 
 .bar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   height: 56px;
-  margin-inline: calc(var(--space-4) * -1);
-  padding-inline: var(--space-2);
+  margin-inline: calc(var(--space-3) * -1);
 }
 
 .back {
@@ -27,369 +30,207 @@
   justify-content: center;
   width: var(--touch-min);
   height: var(--touch-min);
-  flex: none;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text);
+  color: var(--g-ink);
 }
-.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
 
-.barTitle {
+@media (hover: hover) {
+  .back:hover { color: var(--g-ink); background: var(--g-surface); }
+}
+
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
+}
+
+.title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: 2rem;
   font-weight: 400;
-  color: var(--text);
+  line-height: 1.2;
+  color: var(--g-ink);
+  text-wrap: balance;
 }
 
-.barRef {
-  margin-left: auto;
-  padding-right: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--plaster-faint);
-}
-
-/* ── The bell, and the call going out from it ───────────────────────────── */
-
-/*
- * This block replaced three static arch outlines that the headline sat on top
- * of. They read as nothing, the text overlapped their edges, and the middle
- * 300px of the screen did no work. What is here now is the thing the screen
- * is for: a bell, rings leaving it, and a slow wash behind.
- *
- * No reduced-motion query, deliberately — theme.css answers that preference
- * once for the whole product by collapsing every duration. The rings settle
- * instantly at their transparent end state and the screen simply holds still,
- * which is the correct outcome rather than a degraded one.
- */
-.stage {
-  position: relative;
-  flex: 1;
-  min-height: 300px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-6);
-  overflow: hidden;
-}
-
-/*
- * The moving background. Two saffron washes drifting across each other on
- * different periods, so the pattern never visibly repeats.
- *
- * Deliberately near the threshold of visible: the point is that a dark screen
- * with one button on it stops looking switched off, not that anybody watches
- * it.
- */
-.aurora {
-  position: absolute;
-  inset: -25%;
-  pointer-events: none;
-  background:
-    radial-gradient(38% 30% at 30% 28%,
-      color-mix(in srgb, var(--saffron) 16%, transparent), transparent 70%),
-    radial-gradient(32% 26% at 74% 72%,
-      color-mix(in srgb, var(--saffron) 10%, transparent), transparent 68%);
-  animation: serviceAurora 19s ease-in-out infinite alternate;
-}
-
-.bellWrap {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 148px;
-  height: 148px;
-  flex: none;
-}
-
-/*
- * One keyframe, three elements, each a third of a cycle behind the last — so
- * the call reads as continuous rather than as three separate pulses.
- */
-.ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--saffron) 55%, transparent);
-  animation: serviceRing 4.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
-}
-
-.ring:nth-child(2) { animation-delay: 1.4s; }
-.ring:nth-child(3) { animation-delay: 2.8s; }
-
-.bell {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 84px;
-  height: 84px;
-  border-radius: 50%;
-  /* Translucent, not a solid disc. Mixing saffron into an opaque surface
-     colour gave a warm grey, which read as muddy against a saffron bell; a
-     veil lets the aurora drift behind it instead.
-     (No sample value quoted here on purpose — the discipline test greps every
-     line that is not a comment CONTINUATION for a hex, and a continuation
-     line does not start with an asterisk.) */
-  background: color-mix(in srgb, var(--saffron) 13%, transparent);
-  border: 1px solid color-mix(in srgb, var(--saffron) 38%, transparent);
-  color: var(--accent);
-  /* The bell itself breathes, slower than the rings and out of phase with
-     them, so the two never land together. */
-  animation: serviceBell 4.2s ease-in-out infinite;
-}
-
-@keyframes serviceRing {
-  from { transform: scale(0.58); opacity: 0.85; }
-  to   { transform: scale(1.5); opacity: 0; }
-}
-
-@keyframes serviceBell {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.045); }
-}
-
-@keyframes serviceAurora {
-  from { transform: translate3d(-4%, 2%, 0) scale(1); }
-  to   { transform: translate3d(5%, -3%, 0) scale(1.15); }
-}
-
-.pitch {
-  position: relative;
-  text-align: center;
-  padding: 0 var(--space-4);
-}
-
-.headline {
+.lede {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  line-height: 1.25;
-  color: var(--text);
-  text-wrap: pretty;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  color: var(--g-ink-2);
 }
 
-.sub {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-base);
-  line-height: 1.5;
-  color: var(--text-muted);
-  text-wrap: pretty;
-}
+/* ── What will happen ─────────────────────────────────────────────────── */
 
-/*
- * The wait, as its own mark rather than a third sentence. It is the only
- * number on the screen and the answer to "should I bother" — a guest skims
- * for it, and a chip is findable in a way a clause is not.
- *
- * `.waitChip`, not `.eta`, and the name is load-bearing. THIS STYLESHEET IS
- * SHARED by the call screen and the tracking screen under `[requestId]/`, and
- * `.eta` was already taken down there by the tracking screen's own full-width
- * status line. Declaring it twice does not error — the later rule silently
- * wins — and the first version of this chip came out stretched across the
- * screen for exactly that reason. It is the second time a duplicated class in
- * a shared guest stylesheet has quietly restyled something a screen away.
- */
-.waitChip {
-  display: inline-flex;
+.promise {
+  display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-4) 0 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
+  gap: 14px;
+  min-height: 64px;
+  margin-top: var(--space-6);
+  padding: 14px var(--space-4);
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  animation: rise var(--dur-mid) var(--ease) both;
 }
 
-.waitDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--status-positive);
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.promiseIcon {
   flex: none;
+  color: var(--accent);
 }
 
-/* ── The tap ────────────────────────────────────────────────────────────── */
-.form {
+.promiseBody {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding-top: var(--space-4);
+  min-width: 0;
 }
 
-.note {
-  width: 100%;
-  min-height: 52px;
-  padding: 0 var(--space-4);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-family: var(--font-body);
+.promiseLine {
   font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.4;
 }
-.note:focus { border-color: var(--accent); }
+
+.promiseSub {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--g-ink-2);
+}
+
+.unavailable {
+  margin: var(--space-8) 0 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--g-ink-2);
+}
+
+/* ── The note and the button ──────────────────────────────────────────── */
+
+.form { display: block; }
+
+.noteField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+
+.input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-xs);
+  background: var(--g-surface);
+  color: var(--g-ink);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.input::placeholder { color: var(--g-ink-3); }
+
+.input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-md);
+  line-height: 1.45;
+  color: var(--g-late);
+}
+
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  max-width: 430px;
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  background: var(--g-page);
+  border-top: 1px solid var(--g-line);
+}
 
 .call {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   width: 100%;
-  min-height: 62px;
+  min-height: 56px;
+  padding: 0 var(--space-5);
   border: 0;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: var(--ink-800);
-  font-family: var(--font-body);
-  font-size: var(--text-xl);
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.call:hover:not(:disabled) { background: var(--accent-hover); }
-.call:disabled { opacity: 0.7; cursor: progress; }
-
-.unavailable,
-.error {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-base);
-  line-height: 1.5;
-  color: var(--accent);
-  text-wrap: pretty;
-}
-
-/* ── Where a request lands ──────────────────────────────────────────────── */
-.status {
-  padding: var(--space-6) 0 0;
-  animation: riseIn var(--dur-slow) var(--ease-out) both;
-}
-
-.eta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin: var(--space-4) 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text);
-}
-
-.pulse {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--teal);
-  animation: glow 2.6s ease-in-out infinite;
-}
-
-.reason {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-base);
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--text);
-  text-wrap: pretty;
-}
-
-.asked {
-  list-style: none;
-  margin: var(--space-6) 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.askedLine {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  font-size: var(--text-base);
-  color: var(--text);
-}
-
-.askedQty {
-  min-width: 28px;
-  color: var(--plaster-faint);
-}
-
-.askedPrice { margin-left: auto; color: var(--accent); }
-
-.echo {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-sm);
-  font-style: italic;
-  line-height: 1.45;
-  color: var(--text-muted);
-  text-wrap: pretty;
-}
-
-.folioNote {
-  margin: var(--space-5) 0 0;
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--plaster-faint);
-  text-wrap: pretty;
-}
-
-.cancelForm { margin-top: var(--space-6); }
-
-.cancel {
-  min-height: var(--touch-min);
-  padding: 0 var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-muted);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  cursor: pointer;
-}
-.cancel:hover:not(:disabled) { color: var(--text); border-color: var(--ink-300); }
-.cancel:disabled { opacity: 0.6; cursor: progress; }
-
-.actions {
-  margin-top: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.secondary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: var(--touch-min);
-  padding: 0 var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: var(--text-base);
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: 1rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
 }
-.secondary:hover { background: var(--surface); color: var(--text); }
 
-/* ── The live line ────────────────────────────────────────────────────────── */
-.liveLine {
+@media (hover: hover) {
+  .call:hover { background: var(--accent-hover); }
+}
+
+.call:disabled {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+/* ── The skeleton (loading.tsx) ───────────────────────────────────────── */
+
+/* SkeletonScreen pads 16px; this makes it the guest's 20px gutter. */
+.skeleton { margin-inline: var(--space-1); }
+
+.skeletonCard {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin: var(--space-5) 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  color: var(--plaster-faint);
+  gap: 14px;
+  min-height: 64px;
+  margin-top: var(--space-6);
+  padding: 14px var(--space-4);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
 }
 
-.liveDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border);
+.skeletonCardText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
 }
-.liveLine[data-connected='true'] .liveDot {
-  background: var(--teal);
-  animation: glow 2.8s ease-in-out infinite;
+
+.skeletonFooter {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 430px;
+  margin-inline: auto;
+  padding: var(--space-3) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  background: var(--g-page);
+  border-top: 1px solid var(--g-line);
 }
