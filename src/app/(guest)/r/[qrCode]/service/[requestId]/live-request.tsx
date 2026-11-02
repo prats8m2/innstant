@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveRefresh } from '@/components/live-refresh';
-import styles from '../service.module.css';
+import styles from './request.module.css';
 
 /**
  * "Someone is on the way" without a reload.

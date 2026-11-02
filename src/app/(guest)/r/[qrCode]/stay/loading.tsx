@@ -1,5 +1,5 @@
-import { Skeleton, SkeletonTotal, SkeletonBar, SkeletonScreen } from '@/components/skeleton';
-import styles from '@/components/skeleton.module.css';
+import { Skeleton, SkeletonBar, SkeletonScreen } from '@/components/skeleton';
+import styles from './loading.module.css';
 
 /**
  * Your stay, waiting.
@@ -8,41 +8,38 @@ import styles from '@/components/skeleton.module.css';
  * property, the room and its type, the folio with every line on it, and the
  * checkout options the property offers today.
  *
- * The folio panel is drawn at three lines and a total whether or not the
- * session can see one — an unverified guest gets the four-digit prompt in
- * the same box, at about the same height, so the panel does not resize under
- * either answer.
+ * Drawn as the board's two panels — when they leave, and the bill — at the
+ * height they arrive at. The bill panel is the same box whether the session
+ * can see a folio or gets the four-digit prompt in it, so it does not resize
+ * under either answer. Not a live screen, so D-099 does not apply.
  */
 export default function LoadingStay() {
   return (
-    <SkeletonScreen label="Loading your stay">
-      <SkeletonBar title="Your stay" />
+    <SkeletonScreen label="Loading your stay" className={styles.ground}>
+      <SkeletonBar />
 
-      <div className={styles.lede}>
-        <Skeleton w="32%" h="0.7rem" />
-        <Skeleton w="66%" h="1.8rem" />
-        <Skeleton w="76%" h="0.95rem" />
+      <div className={styles.title}>
+        <Skeleton w="52%" h="2rem" />
       </div>
 
-      <div className={styles.panel}>
-        <div className={styles.headingRow}>
-          <Skeleton w="38%" h="1.05rem" />
-          <Skeleton w="88px" h="0.75rem" />
+      <div className={styles.card}>
+        <Skeleton w="34%" h="0.7rem" />
+        <div className={styles.row}>
+          <Skeleton w="62%" h="1.6rem" />
+          <Skeleton w="22%" h="0.8rem" />
         </div>
-        <div>
-          <SkeletonTotal />
-          <SkeletonTotal />
-          <SkeletonTotal />
-          <SkeletonTotal grand />
-        </div>
-        <Skeleton w="82%" h="0.75rem" />
+        <Skeleton w="44%" h="0.8rem" />
       </div>
 
-      <div className={styles.stackWide}>
-        <Skeleton w="30%" h="1.05rem" />
-        <div className={styles.stack}>
-          {[0, 1].map((offer) => <Skeleton key={offer} w="100%" h="62px" />)}
+      <div className={styles.card}>
+        <div className={styles.row}>
+          <Skeleton w="30%" h="0.7rem" />
+          <Skeleton w="26%" h="0.8rem" />
         </div>
+        <Skeleton w="40%" h="1.6rem" />
+        <Skeleton w="100%" h="0.9rem" />
+        <Skeleton w="82%" h="0.9rem" />
+        <Skeleton w="48%" h="48px" />
       </div>
     </SkeletonScreen>
   );

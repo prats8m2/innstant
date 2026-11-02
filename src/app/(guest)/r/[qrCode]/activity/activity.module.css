@@ -1,16 +1,18 @@
 /*
- * Your orders. Mobile only, 44px targets, values from theme.css.
- *
- * One hairline-separated column, the same shape the amenities list uses — a
- * guest who has scanned through that screen should not have to learn a second
- * way of reading a list.
+ * Your requests — no board of its own; it speaks the tracking board's
+ * language (Direction A): a Marcellus title, eyebrow group headings, live
+ * things as 10px cards carrying the timeline's own dots, finished things as
+ * hairline rows. Colour from the --g-* tokens; the accent is read as
+ * --accent so a property's own accent (D-087) still lands.
  */
 .shell {
   min-height: 100dvh;
-  background: var(--bg);
   max-width: 430px;
   margin-inline: auto;
-  padding: 0 var(--space-4) var(--space-10);
+  padding: 0 20px 40px;
+  background: var(--g-page);
+  color: var(--g-ink);
+  font-family: var(--font-body);
 }
 
 .bar {
@@ -19,13 +21,10 @@
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   height: 56px;
-  margin-inline: calc(var(--space-4) * -1);
-  padding-inline: var(--space-2);
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  margin-inline: -12px;
+  background: color-mix(in srgb, var(--g-page) 92%, transparent);
   backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border-soft);
 }
 
 .back {
@@ -34,62 +33,188 @@
   justify-content: center;
   width: var(--touch-min);
   height: var(--touch-min);
-  flex: none;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text);
+  color: var(--g-ink);
 }
-.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+.back:hover { color: var(--g-ink); background: var(--g-surface); }
 
-.barTitle {
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: 32px;
   font-weight: 400;
-  color: var(--text);
+  line-height: 38px;
+  color: var(--g-ink);
+}
+
+.lede {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
 }
 
 /* ── The live indicator ─────────────────────────────────────────────────── */
-
 .live {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: var(--space-4) 0 0;
+  margin: 16px 0 0;
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  font-size: 12px;
+  color: var(--g-ink-3);
 }
 
 .liveDot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--status-critical);
+  background: var(--g-line);
 }
 .live[data-connected='true'] .liveDot {
-  background: var(--status-positive);
-  animation: glow 2.8s ease-in-out infinite;
+  background: var(--g-ready);
+  animation: glow calc(var(--dur-shimmer) * 2) ease-in-out infinite;
 }
 
-/* ── The groups ─────────────────────────────────────────────────────────── */
+/* ── Groups ─────────────────────────────────────────────────────────────── */
+.group { margin-top: 24px; }
 
-.group { margin-top: var(--space-6); }
-
-.groupHeading {
-  margin: 0 0 var(--space-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 400;
+.eyebrow {
+  margin: 0 0 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--plaster-faint);
+  color: var(--g-ink-3);
 }
 
-.list {
+/* ── Live: cards ────────────────────────────────────────────────────────── */
+.cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  background: var(--g-surface);
+  color: var(--g-ink);
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.card:hover { color: var(--g-ink); border-color: var(--g-ink-3); }
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.state {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.card[data-late='true'] .state { color: var(--g-late); }
+
+.promise {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 13px;
+  color: var(--g-ink-2);
+}
+.promise[data-late='true'] { color: var(--g-late); }
+
+.progress {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 200px;
+}
+/* The rail under the dots. */
+.progress::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 1px;
+  background: var(--g-line);
+}
+
+.progressDot {
+  position: relative;
+  box-sizing: border-box;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1.5px solid var(--g-ink-3);
+  background: var(--g-surface);
+}
+.progressDot[data-state='done'] { border-color: var(--g-ready); background: var(--g-ready); }
+.progressDot[data-state='active'] {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.card[data-late='true'] .progressDot[data-state='active'] {
+  border-color: var(--g-late);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--g-late) 18%, transparent);
+}
+
+.cardBody {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--g-ink);
+  text-wrap: pretty;
+}
+
+.amount {
+  flex: none;
+  font-size: 15px;
+  color: var(--g-ink);
+}
+.amount[data-tone='stopped'] { color: var(--g-ink-3); text-decoration: line-through; }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
+}
+
+.chevron { margin-left: auto; color: var(--g-ink-3); }
+
+/* ── Earlier: hairline rows ─────────────────────────────────────────────── */
+.rows {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -97,145 +222,80 @@
   flex-direction: column;
 }
 
-/* ── One order ──────────────────────────────────────────────────────────── */
-
 .row {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4) 0;
-  border-bottom: 1px solid var(--border-soft);
-  color: var(--text);
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 64px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--g-line);
+  color: var(--g-ink);
 }
+.row:hover { color: var(--g-ink); }
 
-/* Still moving. A left edge rather than a fill — the same mark a chosen
-   amenity carries, so "this one is live" reads the same everywhere. */
-.row[data-live='true'] {
-  box-shadow: inset 2px 0 0 var(--accent);
-  padding-left: var(--space-3);
-}
-
-.row:hover { background: color-mix(in srgb, var(--plaster) 4%, transparent); }
-
-.rowHead {
+.rowMain {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-}
-
-.state {
+  flex-direction: column;
+  gap: 2px;
   flex: 1;
   min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text);
 }
 
-/* Done is quiet; stopped is the only one that needs a tone of its own. */
-.state[data-tone='done'] { color: var(--text-muted); font-weight: 500; }
-.state[data-tone='stopped'] { color: var(--status-critical); }
+.pastState { color: var(--g-ink-2); }
+.pastState[data-tone='done'] { color: var(--g-ready); }
+.pastState[data-tone='stopped'] { color: var(--g-late); }
 
-.pulse {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: glow 2.4s ease-in-out infinite;
-}
-
-.total {
-  flex: none;
-  font-size: var(--text-base);
-  color: var(--text);
-}
-
-.summary {
-  font-size: var(--text-md);
-  line-height: 1.4;
-  color: var(--text-secondary);
-  text-wrap: pretty;
-}
-
-.meta {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-}
-
-.when { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.number { flex: none; }
-
-/*
- * The promise, on an amenity that is still coming. It replaces the reference
- * number rather than sitting beside it: while a housekeeper is walking, "12
- * min left" is the only thing on that line anybody reads, and SR-2201 is what
- * you quote at the desk afterwards.
- */
-.promise {
-  flex: none;
-  font-weight: 600;
-  color: var(--status-positive);
-}
-.promise[data-late='true'] { color: var(--status-critical); }
-
-/* The kitchen's own words, verbatim. */
 .reason {
-  margin-top: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--status-critical-tint);
-  color: var(--status-critical);
-  font-size: var(--text-sm);
+  margin-top: 2px;
+  font-size: 13px;
+  font-style: italic;
   line-height: 1.45;
-  text-wrap: pretty;
+  color: var(--g-ink-2);
 }
 
-/* ── Nothing yet ────────────────────────────────────────────────────────── */
-
+/* ── Empty ──────────────────────────────────────────────────────────────── */
 .empty {
-  margin: var(--space-10) 0;
-  padding: var(--space-6) var(--space-4);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 64px;
   text-align: center;
+}
+
+/* The arch, the house shape — an outline, not an illustration. */
+.emptyArch {
+  width: 44px;
+  height: 56px;
+  border: 1px solid var(--g-ink-3);
+  border-radius: 22px 22px var(--radius-xs) var(--radius-xs);
 }
 
 .emptyTitle {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-lg);
-  color: var(--text);
+  font-size: 18px;
+  color: var(--g-ink);
 }
 
 .emptyBody {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-md);
-  line-height: 1.5;
-  color: var(--text-muted);
-  text-wrap: pretty;
+  margin: 0;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
 }
 
 .emptyCta {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--touch-min);
-  margin-top: var(--space-5);
-  padding: 0 var(--space-6);
+  align-self: stretch;
+  height: 52px;
+  margin-top: 8px;
+  border: 1px solid var(--g-ink-3);
   border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: var(--text-base);
-  font-weight: 700;
+  font-size: 15px;
+  color: var(--g-ink);
 }
-.emptyCta:hover { background: var(--accent-hover); color: var(--accent-ink); }
+.emptyCta:hover { color: var(--g-ink); background: var(--g-surface); }

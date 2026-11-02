@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { cancelRequest, type ServiceCallState } from '../actions';
-import styles from '../service.module.css';
+import styles from './request.module.css';
 
 /**
  * "Never mind."

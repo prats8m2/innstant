@@ -1,40 +1,43 @@
 import { Skeleton, SkeletonBar, SkeletonScreen } from '@/components/skeleton';
-import styles from '@/components/skeleton.module.css';
+import styles from './loading.module.css';
 
 /**
  * Plan my day, waiting.
  *
- * The property's own list of the city, sorted into the parts of the day
- * (D-069). Two groups of two is the seeded shape; the real one has as many
- * groups as the hour leaves ahead of you, and the cards are the same size in
- * every one of them.
+ * The property's own list of the city (D-069), drawn the way the board lays
+ * it out: the headline, the time-of-day chips, the first place as a card and
+ * the rest as hairline rows. Not a live screen, so D-099 does not apply.
  */
 export default function LoadingNearby() {
   return (
-    <SkeletonScreen label="Loading things to do">
-      <SkeletonBar title="Plan my day" divider />
+    <SkeletonScreen label="Loading things to do" className={styles.ground}>
+      <SkeletonBar />
 
-      <div className={styles.lede}>
+      <div className={styles.intro}>
+        <Skeleton w="78%" h="2rem" />
         <Skeleton w="100%" h="0.9rem" />
         <Skeleton w="58%" h="0.9rem" />
       </div>
 
-      {[0, 1].map((group) => (
-        <section key={group} className={styles.stackWide}>
-          <Skeleton w="36%" h="0.7rem" />
-          <div className={styles.stack}>
-            {[0, 1].map((place) => (
-              <div key={place} className={styles.place}>
-                <div className={styles.headingRow}>
-                  <Skeleton w="52%" h="1.05rem" />
-                  <Skeleton w="62px" h="0.75rem" />
-                </div>
-                <Skeleton w="100%" h="0.8rem" />
-                <Skeleton w="68%" h="0.8rem" />
-              </div>
-            ))}
-          </div>
-        </section>
+      <div className={styles.chips}>
+        {[0, 1, 2].map((chip) => (
+          <Skeleton key={chip} w="88px" h="44px" radius="var(--radius-pill)" />
+        ))}
+      </div>
+
+      <div className={styles.feature}>
+        <Skeleton w="36px" h="1.1rem" radius="var(--radius-xs)" />
+        <Skeleton w="64%" h="1.3rem" />
+        <Skeleton w="100%" h="0.85rem" />
+        <Skeleton w="72%" h="0.85rem" />
+      </div>
+
+      {[0, 1].map((row) => (
+        <div key={row} className={styles.row}>
+          <Skeleton w="54%" h="1.1rem" />
+          <Skeleton w="100%" h="0.8rem" />
+          <Skeleton w="30%" h="0.8rem" />
+        </div>
       ))}
     </SkeletonScreen>
   );

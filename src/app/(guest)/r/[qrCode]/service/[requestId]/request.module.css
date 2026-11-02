@@ -1,0 +1,379 @@
+/*
+ * A service request — no board of its own; it speaks the order-tracking
+ * board's language (Direction A's GuestTracking): the sentence, the promise,
+ * the rail, the card at the foot. Colour from the --g-* tokens; the accent is
+ * read as --accent so a property's own accent (D-087) still lands.
+ */
+.shell {
+  min-height: 100dvh;
+  max-width: 430px;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--g-page);
+  color: var(--g-ink);
+  font-family: var(--font-body);
+  padding-bottom: 34px;
+}
+
+/* ── The bar ────────────────────────────────────────────────────────────── */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: var(--touch-min) minmax(0, 1fr) var(--touch-min);
+  align-items: center;
+  height: 56px;
+  padding-inline: var(--space-2);
+  background: color-mix(in srgb, var(--g-page) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border-radius: var(--radius-sm);
+  color: var(--g-ink);
+}
+.back:hover { color: var(--g-ink); background: var(--g-surface); }
+
+.barTitle {
+  margin: 0;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--g-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barEnd { width: var(--touch-min); }
+
+/* ── The promise ────────────────────────────────────────────────────────── */
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-2) 20px 0;
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
+}
+
+.headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 38px;
+  color: var(--g-ink);
+  text-wrap: balance;
+}
+.headlineDone { font-size: 36px; line-height: 1.12; }
+
+.behind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--g-late);
+}
+
+.promise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  margin: 0;
+}
+
+.promiseTime {
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.promiseNote {
+  font-size: 15px;
+  color: var(--g-ink-2);
+}
+
+.heroNote {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
+  text-wrap: pretty;
+}
+.heroNote s { color: var(--g-ink-3); }
+
+/* ── The timeline ───────────────────────────────────────────────────────── */
+.steps {
+  position: relative;
+  list-style: none;
+  margin: 28px 20px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding-bottom: 20px;
+}
+.step:last-child { padding-bottom: 0; }
+/* The rail, drawn per step from this dot to the next, so it stops at the last. */
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 19px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--g-line);
+}
+
+.dot {
+  position: relative;
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 1.5px solid var(--g-ink-3);
+  background: var(--g-page);
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepTitle {
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
+  transition: color var(--dur-mid) var(--ease-out);
+}
+
+.stepSub {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
+  text-wrap: pretty;
+}
+
+.stepTime {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--g-ink-3);
+}
+
+/* Done: behind us, in the ready tone. */
+.step[data-state='done'] .dot { border-color: var(--g-ready); background: var(--g-ready); }
+.step[data-state='done'] .stepTitle { color: var(--g-ink); }
+.step[data-state='done'] .stepTime { color: var(--g-ink-2); }
+
+/* Active: the one thing on the screen that is happening. */
+.step[data-state='active'] .dot {
+  border: 2px solid var(--accent);
+  animation: halo calc(var(--dur-shimmer) * 2) ease-in-out infinite;
+}
+.step[data-state='active'] .stepTitle { font-weight: 600; color: var(--accent); }
+.step[data-state='active'] .stepTime { color: var(--accent); }
+
+/* The last step reached is not "happening" — it happened. */
+.step[data-state='active']:last-child .dot {
+  border-color: var(--g-ready);
+  background: var(--g-ready);
+  animation: none;
+}
+.step[data-state='active']:last-child .stepTitle,
+.step[data-state='active']:last-child .stepTime { color: var(--g-ink); }
+
+/* Running behind: the soft late tone, with words, never an alarm. */
+.steps[data-late='true'] .step[data-state='active'] .dot {
+  border-color: var(--g-late);
+  animation-name: haloLate;
+}
+.steps[data-late='true'] .step[data-state='active'] .stepTitle,
+.steps[data-late='true'] .step[data-state='active'] .stepTime { color: var(--g-late); }
+
+@keyframes halo {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 6%, transparent); }
+}
+@keyframes haloLate {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--g-late) 18%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--g-late) 6%, transparent); }
+}
+
+/* ── The live indicator ─────────────────────────────────────────────────── */
+.liveLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 20px 20px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--g-ink-3);
+}
+
+.liveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--g-line);
+}
+.liveLine[data-connected='true'] .liveDot {
+  background: var(--g-ready);
+  animation: glow calc(var(--dur-shimmer) * 2) ease-in-out infinite;
+}
+
+.reason {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  background: var(--g-surface);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--g-ink);
+}
+
+/* ── What was asked for, and where to go next ───────────────────────────── */
+.foot {
+  margin: auto 20px 0;
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* With no timeline above it, the card follows the sentence instead of
+   leaving a screen of empty ground between them. */
+.foot[data-pinned='false'] { margin-top: 0; }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  background: var(--g-surface);
+}
+
+.asked {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.askedLine {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.askedQty {
+  flex: none;
+  min-width: 24px;
+  font-size: 14px;
+  color: var(--g-ink-3);
+}
+
+.askedLabel { flex: 1; min-width: 0; color: var(--g-ink); }
+
+.askedPrice {
+  flex: none;
+  font-size: 15px;
+  color: var(--g-ink);
+}
+
+.echo {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--g-ink-2);
+}
+
+.folioNote {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--g-line);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--g-ink-3);
+  text-wrap: pretty;
+}
+
+.cancelForm { display: flex; flex-direction: column; }
+
+.cancel {
+  align-self: flex-start;
+  min-height: var(--touch-min);
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--g-ink-2);
+  text-decoration: underline;
+  text-decoration-color: var(--g-line);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.cancel:disabled { color: var(--g-ink-3); cursor: progress; }
+
+.error {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--g-late);
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.action {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--g-ink-3);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  color: var(--g-ink);
+  text-align: center;
+}
+.action:hover { color: var(--g-ink); background: var(--g-surface); }
+
+.actionQuiet {
+  border-color: var(--g-line);
+  color: var(--g-ink-2);
+}

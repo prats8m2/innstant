@@ -21,10 +21,15 @@ import styles from './stay.module.css';
  */
 export interface OfferView {
   id: string;
+  /** "Late checkout, 2pm" — said to a screen reader; the tile shows `time`. */
   title: string;
+  /** "2pm", on the property's clock. */
+  time: string;
   sub: string;
   /** Already formatted — the money rules live on the server (#5). */
   price: string;
+  /** No fee — the board sets "on us" in the ready tone rather than as a price. */
+  free: boolean;
   cta: string;
 }
 
@@ -49,27 +54,38 @@ export function CheckoutOptions({
       <fieldset className={styles.optionSet}>
         <legend className={styles.optionsLegend}>Staying a little longer?</legend>
 
-        {offers.map((offer) => (
-          <label
-            key={offer.id}
-            className={styles.option}
-            data-picked={offer.id === picked}
-          >
-            <input
-              type="radio"
-              name="pick"
-              value={offer.id}
-              checked={offer.id === picked}
-              onChange={() => setPicked(offer.id)}
-              className={styles.optionRadio}
-            />
-            <span className={styles.optionBody}>
-              <span className={styles.optionTitle}>{offer.title}</span>
+        {/* The board's two-up tiles: the hour, large, and what it costs. The
+            full title is in the label for a screen reader; the hour is the
+            same words drawn bigger, so it is hidden from one. */}
+        <div className={styles.optionGrid}>
+          {offers.map((offer) => (
+            <label
+              key={offer.id}
+              className={styles.option}
+              data-picked={offer.id === picked}
+            >
+              <input
+                type="radio"
+                name="pick"
+                value={offer.id}
+                checked={offer.id === picked}
+                onChange={() => setPicked(offer.id)}
+                className={styles.optionRadio}
+              />
+              <span className="sr-only">{offer.title}. </span>
+              <span className={styles.optionTop}>
+                <span className={`${styles.optionTime} tabular`} aria-hidden="true">{offer.time}</span>
+                <span
+                  className={`${styles.optionPrice} tabular`}
+                  data-free={offer.free}
+                >
+                  {offer.price}
+                </span>
+              </span>
               <span className={styles.optionSub}>{offer.sub}</span>
-            </span>
-            <span className={`${styles.optionPrice} tabular`}>{offer.price}</span>
-          </label>
-        ))}
+            </label>
+          ))}
+        </div>
       </fieldset>
 
       {state.error ? <p className={styles.optionError} role="alert">{state.error}</p> : null}
