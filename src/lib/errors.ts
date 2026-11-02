@@ -141,6 +141,21 @@ export class TooManyAttemptsError extends AppError {
 }
 
 /**
+ * Something this server needs is not set up — picture storage with no bucket
+ * configured (D-093). The request was fine; retrying will not help until an
+ * operator acts, and the message says so instead of pretending it was the
+ * user's mistake.
+ */
+export class UnavailableError extends AppError {
+  readonly code = 'UNAVAILABLE';
+  readonly publicMessage: string;
+  constructor(publicMessage: string, context: Record<string, unknown> = {}) {
+    super(publicMessage, context);
+    this.publicMessage = publicMessage;
+  }
+}
+
+/**
  * The single mapping point. Adding a status anywhere else is how a 403 ends up
  * leaking the existence of another hotel's data.
  */
@@ -153,6 +168,7 @@ export function httpStatusFor(error: unknown): number {
     case 'VALIDATION': return 422;
     case 'CONFLICT': return 409;
     case 'TOO_MANY_ATTEMPTS': return 429;
+    case 'UNAVAILABLE': return 503;
     default: return 500;
   }
 }

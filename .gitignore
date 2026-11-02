@@ -55,3 +55,7 @@ mobile/android/
 # credential for the account that signs and publishes the app.
 .eas-token
 mobile/.eas-token
+
+# Uploaded pictures in development and the e2e suite (D-093)
+.media/
+.media-e2e/

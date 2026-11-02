@@ -86,7 +86,7 @@ export function apiDish(dish: MenuDish, ranks: DishRanks): ApiDish {
     dietaryFlags: dish.dietaryFlags,
     spiceLevel: dish.spiceLevel,
     prepTimeMinutes: dish.prepTimeMinutes,
-    imageUrl: dish.imageUrl,
+    imageUrl: absoluteImage(dish.imageUrl),
     blurhash: dish.blurhash,
     canQuickAdd: dish.canQuickAdd,
     // Absent is null, never 0: a dish nobody ordered has no rank, and zero
@@ -198,7 +198,7 @@ function apiCartLine(line: CartLine, currency: CurrencyCode): ApiCartLine {
     lineTotal: apiMoney(line.lineTotalMinor, currency),
     notes: line.notes,
     isAvailable: line.isAvailable,
-    imageUrl: line.imageUrl,
+    imageUrl: absoluteImage(line.imageUrl),
   };
 }
 
@@ -398,4 +398,17 @@ function dayLabel(instant: Date, timeZone: string): string {
     // zone out is still better than a 500 on a storefront.
     return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(instant);
   }
+}
+
+/**
+ * An uploaded picture is stored as a path (`/media/...`, D-093), which a
+ * browser resolves against the page and a phone app cannot: it has no page.
+ * The app gets the full address, from APP_URL — this server's public origin,
+ * the same one the console prints on QR codes. A URL pasted before uploads is
+ * already absolute and passes through.
+ */
+function absoluteImage(url: string | null): string | null {
+  if (!url || !url.startsWith('/')) return url;
+  const origin = process.env.APP_URL?.replace(/\/+$/, '');
+  return origin ? `${origin}${url}` : url;
 }

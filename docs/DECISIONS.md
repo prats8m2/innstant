@@ -3162,3 +3162,42 @@ second button, and the user read the result ("not signed in", the old password
 refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
 manager also holds `staff:invite`, and the panel shows the link once, with what
 it is for.
+
+### D-093 · Pictures are uploaded, into a Railway bucket, through the app
+The user asked for uploads in place of pasted image links, for the console
+only — menu photos, the logo, the cover and the like; no guest photos — and
+chose Railway's storage over Cloudflare R2 for now.
+
+**Through the app, not straight into the bucket.** `/api/admin/media` takes
+the file (a Route Handler: a Server Action caps a body at 1MB and cannot
+report upload progress), reads the FORMAT from the bytes, refuses anything
+but JPEG, PNG, WebP and AVIF (so SVG, which can carry script, never gets in),
+rotates it upright, drops all metadata — a phone photo carries the GPS
+position it was taken at, and these go on a public menu — and stores three
+WebP widths per purpose plus a blurhash. Nothing unchecked is ever in storage.
+8MB is the ceiling, under the middleware's 10MB body buffer.
+
+**Served by the app, because Railway buckets are private.** `/media/<id>/<w>.webp`
+reads the object and returns it with `immutable` and a year's max-age: a
+path is never reused, so a browser downloads each picture once. Presigned
+URLs were rejected because they expire, which would defeat that cache. The
+cost is the app's egress on pictures, which at 30–80KB a thumbnail is small.
+
+**A path, not a foreign key.** Uploads write `/media/<id>/<largest>.webp`
+into the `image_url` / `logoUrl` / `coverUrl` that already existed, and
+`media_assets` is the record behind it (DATA-MODEL §4). Every existing reader,
+the order line's snapshot included, keeps working, and moving to R2 later is
+copying objects and changing where `/media` reads from. Because the widths
+are fixed per purpose and always all written, a `srcset` is built from the
+path alone. Saves check the upload is this property's.
+
+**Storage picks itself.** `MEDIA_BUCKET` (+ endpoint and keys) → the bucket;
+otherwise a folder (`MEDIA_DIR`, default `.media`) outside production; and
+in production with neither, uploads answer 503 "not set up" rather than
+writing to a container disk the next deploy wipes.
+
+`sharp`, `@aws-sdk/client-s3` and `blurhash` are server-only; the browser
+bundle did not change. One reusable `ImageField` replaces every URL field
+in the console. Collections, outlets and nearby places store an image but
+have no console field for one yet; when they get one it is this component.
+

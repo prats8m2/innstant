@@ -4,8 +4,10 @@ import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { BedDouble, Compass, ConciergeBell, Sparkles } from 'lucide-react';
 import {
-  accentContrast, brandingStyle, BRAND_PRESETS, type PropertyBranding,
+  accentContrast, brandingStyle, BRAND_PRESETS, GUEST_GROUND, type PropertyBranding,
 } from '@/modules/identity/branding';
+import { mediaSrcSet } from '@/modules/media/paths';
+import { ImageField } from '../image-field';
 import { saveBranding, type PropertyState } from './actions';
 import styles from '../admin.module.css';
 import s from './settings.module.css';
@@ -125,34 +127,34 @@ export function BrandingEditor({
           <fieldset disabled={!mayEdit} className={`${s.formSection} ${s.fieldset}`}>
             <h3 className={s.formSectionTitle}>Pictures</h3>
             <div className={styles.formGrid}>
-              <label className={`${styles.field} ${styles.wide}`}>
-                <span className={styles.label}>Logo</span>
-                <input
+              {/* Uploaded, checked and cut to size by the server (D-093). The
+                  logo is previewed on the guest app's own ground, where it
+                  will actually sit. */}
+              <div className={styles.wide}>
+                <ImageField
                   name="logoUrl"
-                  className={styles.input}
+                  label="Logo"
+                  hint="Replaces the hotel’s name at the top of the guest home. A light logo on a transparent background (PNG) works best."
+                  propertyId={propertyId}
+                  purpose="logo"
                   value={logoUrl}
-                  onChange={(event) => setLogoUrl(event.target.value)}
-                  placeholder="https://…/logo.png"
-                  inputMode="url"
+                  onChange={setLogoUrl}
+                  aspect="3 / 1"
+                  ground={GUEST_GROUND}
                 />
-                <span className={styles.hint}>
-                  Replaces the hotel&rsquo;s name at the top of the guest home. A light logo on a transparent background works best.
-                </span>
-              </label>
-              <label className={`${styles.field} ${styles.wide}`}>
-                <span className={styles.label}>Cover photo</span>
-                <input
+              </div>
+              <div className={styles.wide}>
+                <ImageField
                   name="coverUrl"
-                  className={styles.input}
+                  label="Cover photo"
+                  hint="Behind the arch on the guest home, dimmed so the kitchen’s hours stay readable."
+                  propertyId={propertyId}
+                  purpose="cover"
                   value={coverUrl}
-                  onChange={(event) => setCoverUrl(event.target.value)}
-                  placeholder="https://…/courtyard.jpg"
-                  inputMode="url"
+                  onChange={setCoverUrl}
+                  aspect="16 / 9"
                 />
-                <span className={styles.hint}>
-                  Behind the arch on the guest home, dimmed so the kitchen&rsquo;s hours stay readable.
-                </span>
-              </label>
+              </div>
             </div>
           </fieldset>
 
@@ -185,18 +187,18 @@ export function BrandingEditor({
         <div className={s.phone} data-theme="kesari" style={previewStyle as React.CSSProperties}>
           <div className={s.phoneScreen}>
             <div className={s.pMast}>
-              {logoUrl.startsWith('https://') ? (
-                // eslint-disable-next-line @next/next/no-img-element -- a preview of any host the hotel pastes
-                <img src={logoUrl} alt={propertyName} className={s.pLogo} />
+              {showable(logoUrl) ? (
+                // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads existed
+                <img src={logoUrl} srcSet={mediaSrcSet(logoUrl)} sizes="160px" alt={propertyName} className={s.pLogo} />
               ) : (
                 <p className={s.pWordmark}>{propertyName}</p>
               )}
               <span className={s.pChip}>Room 214</span>
             </div>
             <div className={s.pArch}>
-              {coverUrl.startsWith('https://') ? (
-                // eslint-disable-next-line @next/next/no-img-element -- a preview of any host the hotel pastes
-                <img src={coverUrl} alt="" className={s.pCover} />
+              {showable(coverUrl) ? (
+                // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads existed
+                <img src={coverUrl} srcSet={mediaSrcSet(coverUrl)} sizes="320px" alt="" className={s.pCover} />
               ) : null}
               <span className={s.pGlow} aria-hidden="true" />
               <p className={s.pArchText}>Kitchen open until 1am</p>
@@ -223,4 +225,9 @@ function SaveButton({ disabled }: { disabled: boolean }) {
       {pending ? 'Saving…' : 'Save branding'}
     </button>
   );
+}
+
+/** An upload (`/media/...`) or a full https URL pasted before uploads. */
+function showable(url: string): boolean {
+  return url.startsWith('/media/') || url.startsWith('https://');
 }

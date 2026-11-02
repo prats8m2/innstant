@@ -21,6 +21,18 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**2 November: picture uploads (D-093), branch `feat/media-uploads`.** The
+console's dish photo, logo and cover fields are one `ImageField` picker
+instead of a pasted URL; uploads are checked, stripped of metadata and cut to
+three WebP widths, stored in object storage and served at `/media/...`.
+Migration **0014** (`media_assets`) is applied locally only. Before deploying:
+create a Railway bucket in production (the project token cannot — "Bad
+Access"), give `kesari` the variables `MEDIA_BUCKET`, `MEDIA_ENDPOINT`,
+`MEDIA_ACCESS_KEY_ID`, `MEDIA_SECRET_ACCESS_KEY` (and `MEDIA_REGION=auto`)
+referencing the bucket's own, and run the migration. Without the bucket,
+production uploads answer "not set up"; nothing else breaks.
+
+
 **29 October: Setup and the floor screens, redesigned — local only, not
 pushed.** The user will test the whole flow locally, in one go, before
 anything is pushed. Branch `feat/admin-setup-floor` (from `main` at

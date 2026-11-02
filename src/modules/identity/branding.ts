@@ -2,6 +2,7 @@ import { colord, extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import mixPlugin from 'colord/plugins/mix';
 import { ValidationError } from '@/lib/errors';
+import { isMediaPath } from '@/modules/media/paths';
 
 extend([a11yPlugin, mixPlugin]);
 
@@ -26,9 +27,10 @@ extend([a11yPlugin, mixPlugin]);
 export interface PropertyBranding {
   /** `#RRGGBB`. Null keeps the theme's saffron. */
   accent: string | null;
-  /** https only. Shown in place of the wordmark on the guest home. */
+  /** An upload's `/media/...` path, or an https URL pasted before uploads.
+   *  Shown in place of the wordmark on the guest home. */
   logoUrl: string | null;
-  /** https only. Behind the arch on the guest home. */
+  /** An upload's path or an https URL. Behind the arch on the guest home. */
   coverUrl: string | null;
 }
 
@@ -72,7 +74,7 @@ export function readBranding(raw: unknown): PropertyBranding {
   const accent = typeof value.accent === 'string' && HEX.test(value.accent)
     ? value.accent.toUpperCase()
     : null;
-  const url = (v: unknown) => (typeof v === 'string' && isHttpsUrl(v) ? v : null);
+  const url = (v: unknown) => (typeof v === 'string' && (isMediaPath(v) || isHttpsUrl(v)) ? v : null);
   return { accent, logoUrl: url(value.logoUrl), coverUrl: url(value.coverUrl) };
 }
 
@@ -178,11 +180,17 @@ function isHttpsUrl(value: string): boolean {
   }
 }
 
+/**
+ * An uploaded picture's path (`/media/<id>/<width>.webp`, D-093), or a full
+ * https URL — the second is what this took before uploads, and a logo pasted
+ * then keeps working. Whether an upload belongs to THIS property is the save
+ * action's check: it needs the database, and this module is pure.
+ */
 function cleanUrl(value: string | null | undefined, label: string): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
-  if (!isHttpsUrl(trimmed)) {
-    throw new ValidationError(`${label} needs a full https:// address.`);
+  if (!isMediaPath(trimmed) && !isHttpsUrl(trimmed)) {
+    throw new ValidationError(`${label} needs to be an uploaded picture or a full https:// address.`);
   }
   return trimmed;
 }

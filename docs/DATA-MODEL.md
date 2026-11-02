@@ -484,6 +484,32 @@ date the portions were taken. The menu read, `getDish()` and
 
 ---
 
+### Uploaded pictures: `media_assets` (D-093, migration 0014)
+
+A dish photo, the logo and the cover were pasted URLs. They are uploaded now,
+through `/api/admin/media`, which decodes the file, refuses anything that is
+not JPEG, PNG, WebP or AVIF (SVG included), drops every bit of metadata (a
+phone photo's GPS position among it), and cuts it to three widths of WebP.
+The bytes are in object storage at `media/<id>/<width>.webp` — a Railway
+bucket in production, `.media/` on disk in development — and served by the
+app at `/media/<id>/<width>.webp`, cacheable for a year because a path is
+never reused.
+
+`media_assets` is the record behind a path: tenant, property, `purpose`
+(`dish`, `logo`, `cover`, CHECK-ed), the largest width's `width`/`height`,
+the `widths` stored, `blurhash`, `bytes`, and `uploaded_by_staff_id`. Written
+once, after every width is stored, with a `media.uploaded` event; the app
+role has no UPDATE on it.
+
+**Nothing points at it by foreign key, deliberately.** What a dish or the
+branding stores is the upload's PATH, in the same `image_url` / `logoUrl` /
+`coverUrl` it always had: relative, so it survives a change of domain or of
+storage, and an order line's `image_url_snapshot` copies it like any other
+value (#6). A save checks the path is an upload of THIS property
+(`checkOwnMedia`), and a dish takes the upload's blurhash. Pasted URLs from
+before keep working untouched. The API hands the mobile app absolute URLs
+(`APP_URL` + path), since an app has no page to resolve a path against.
+
 ## 5. Money
 
 Integer minor units (`*_minor`), plus a `currency` column on every row that

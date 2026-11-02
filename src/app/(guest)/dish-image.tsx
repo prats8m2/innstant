@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { mediaSrcSet } from '@/modules/media/paths';
 import styles from './dish-image.module.css';
 
 /**
@@ -42,10 +43,15 @@ export function DishImage({
   if (!src || failed) return null;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- any host, until uploads land (APP-REDESIGN-PLAN)
+    // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
     <img
       ref={ref}
       src={src}
+      // An upload comes in three widths; the browser takes the smallest that
+      // is sharp for the slot. A pasted URL has no set and renders as before.
+      // The hero is the screen's width; every other slot is a thumbnail.
+      srcSet={mediaSrcSet(src)}
+      sizes={priority ? '(max-width: 640px) 100vw, 640px' : '160px'}
       alt=""
       className={styles.photo}
       loading={priority ? 'eager' : 'lazy'}

@@ -42,3 +42,7 @@ src/app/images/innstant_logo_*.png
 # its own toolchain, built by EAS rather than by this Dockerfile, and nothing
 # in the Next.js server imports a line of it.
 mobile/
+
+# Uploaded pictures from development (D-093)
+.media/
+.media-e2e/
