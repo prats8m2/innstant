@@ -1,42 +1,45 @@
-import { Skeleton, SkeletonCard, SkeletonTotal, SkeletonScreen } from '@/components/skeleton';
-import styles from '@/components/skeleton.module.css';
+import { Skeleton, SkeletonScreen } from '@/components/skeleton';
+import styles from './cart.module.css';
 
 /**
- * The order sheet, waiting.
+ * The order, waiting (D-077).
  *
- * The cart is not a page — it is a sheet over the menu, with a scrim behind
- * it — so this is too. A full-page skeleton here would cover the menu the
- * guest is still looking at and then uncover it again a moment later, which
- * is a bigger movement than the one it is hiding.
- *
- * Two lines and three totals: the median order, and enough that the Send
- * button sits at roughly its real height on the screen.
+ * Drawn to the Direction A cart page: the bar with "Your order", two lines
+ * (the median order), three totals, the payment option, and the send button
+ * pinned where the real one lands.
  */
 export default function LoadingCart() {
   return (
-    <SkeletonScreen label="Loading your order">
-      <div className={styles.scrim} />
+    <SkeletonScreen label="Loading your order" className={styles.skScreen}>
+      <div className={styles.skHead}>
+        <span className={styles.skIcon} />
+        <Skeleton w="124px" h="22px" />
+      </div>
 
-      <div className={styles.sheet}>
-        <div className={styles.handle} />
+      <div className={styles.lines}>
+        {[0, 1].map((n) => (
+          <div key={n} className={styles.skLine}>
+            <div className={styles.skLineHead}>
+              <Skeleton w="58%" h="1rem" />
+              <Skeleton w="64px" h="1rem" />
+            </div>
+            <Skeleton w="40%" h="0.8rem" />
+            <Skeleton w="116px" h="44px" />
+          </div>
+        ))}
+      </div>
 
-        <div className={styles.headingRow}>
-          <Skeleton w="44%" h="1.4rem" />
-          <Skeleton w="96px" h="0.8rem" />
+      <div className={styles.summary}>
+        <div className={styles.skTotals}>
+          <Skeleton w="100%" h="0.85rem" />
+          <Skeleton w="100%" h="0.85rem" />
+          <Skeleton w="100%" h="1.1rem" />
         </div>
+        <Skeleton w="100%" h="52px" />
+      </div>
 
-        <div className={styles.stack}>
-          {[0, 1].map((line) => <SkeletonCard key={line} thumb />)}
-        </div>
-
-        <div>
-          <SkeletonTotal />
-          <SkeletonTotal />
-          <SkeletonTotal grand />
-        </div>
-
-        <Skeleton w="100%" h="58px" />
-        <Skeleton w="74%" h="0.75rem" />
+      <div className={styles.sendBar}>
+        <Skeleton w="100%" h="56px" />
       </div>
     </SkeletonScreen>
   );

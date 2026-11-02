@@ -1,33 +1,32 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { BedDouble } from 'lucide-react';
 import { withTenant } from '@/db';
 import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
-import { findProperty } from '@/modules/identity';
+import { findProperty, getPropertyProfile, dialable } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
 import { getCart, contextForSession } from '@/modules/ordering';
-import { formatMoney, money, type CurrencyCode } from '@/lib/money';
+import { formatMoney, type CurrencyCode } from '@/lib/money';
+import {
+  CartShell, CartEmpty, CartLines, CartTotals, CartNotices, PaymentNote, shortfallMinor,
+} from './cart-view';
 import { LineControls } from './line-controls';
 import { SendOrder } from './send-order';
+import { updateLineQuantity } from './actions';
 import styles from './cart.module.css';
-import { DishImage } from '../../../dish-image';
 
 /**
  * The order, before it is an order.
  *
- * ─── A route, drawn as the reference's sheet ───────────────────────────────
+ * ─── A page, as Direction A draws it ──────────────────────────────────────
  *
- * The design opens the cart as a bottom sheet over the menu. This is a real
- * route that looks like that sheet — scrim, rounded top, spring on entry —
- * rather than client state on the menu screen, for three reasons that matter
- * more than the mechanism: the back button closes it, the URL is shareable
- * with the front desk, and it renders and edits with JavaScript off.
- *
- * The drag-to-dismiss handle is drawn because the shape reads wrong without it,
- * and the scrim behind it is a link back to the menu — so the gesture people
- * actually use (tap outside) works, and the one that needs a pointer library
- * does not pretend to.
+ * GuestCart.dc.html makes the cart a page of its own — the bar with the way
+ * back, the lines, the totals and how it is paid — and keeps the bottom sheet
+ * for the one thing that interrupts it: the verification prompt at the first
+ * charge to the room (D-012, CLAUDE.md #9). It is a real route, so the back
+ * button leaves it, and it renders and edits with JavaScript off. The parts
+ * it shares with the property link's cart are in `cart-view.tsx`.
  */
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +56,11 @@ export default async function CartScreen({
 
       return {
         minimumOrderMinor: outlet.minimumOrderMinor,
+        taxRateBps: outlet.taxRateBps,
+        // The desk's number, for "Not your phone? Call the desk" in the
+        // prompt. Only when the hotel has given one — never invented.
+        deskPhone: await getPropertyProfile(tx, session.propertyId)
+          .then((p) => (p?.guestInfo.contactPhone ? dialable(p.guestInfo.contactPhone).tel : null)),
         currency: outlet.currency as CurrencyCode,
         cart: await getCart(tx, {
           propertyId: session.propertyId,
@@ -75,20 +79,7 @@ export default async function CartScreen({
   );
 
   const cart = loaded?.cart ?? null;
-  const lines = cart?.lines ?? [];
-  const unavailable = lines.filter((l) => !l.isAvailable);
-
-  /**
-   * How far short of the outlet's minimum this order is.
-   *
-   * `placeOrder()` has always refused below the minimum — it is the money path
-   * and that is where the rule belongs. What was missing is telling the guest
-   * BEFORE they press send: being refused after committing is the worst moment
-   * to learn a rule, and the number was sitting one field away.
-   */
-  const shortfallMinor = loaded
-    ? Math.max(0, loaded.minimumOrderMinor - (cart?.totals.subtotal.amountMinor ?? 0))
-    : 0;
+  const menuHref = `${base}/menu`;
 
   // One key per render of this screen. Every tap of the button that is on the
   // page right now sends this same value, which is what makes a double-tap
@@ -96,127 +87,51 @@ export default async function CartScreen({
   const idempotencyKey = crypto.randomUUID();
 
   return (
-    <main className={styles.shell}>
-      {/* Tapping outside closes the sheet — a link, so it works without JS. */}
-      <Link href={`${base}/menu`} className={styles.scrim} aria-label="Back to the menu" />
-
-      <section className={styles.sheet} aria-labelledby="cart-heading">
-        <div className={styles.handle} aria-hidden="true" />
-
-        <header className={styles.head}>
-          <h1 id="cart-heading" className={styles.title}>Your order</h1>
-          <p className={styles.room}>To room {session.roomNumber}</p>
-        </header>
-
-        {lines.length === 0 ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyLine}>Nothing in the order yet.</p>
-            <Link href={`${base}/menu`} className={styles.emptyLink}>Back to the menu</Link>
-          </div>
-        ) : (
-          <>
-            <ul className={styles.lines}>
-              {lines.map((line) => (
-                <li key={line.id} className={styles.line} data-unavailable={!line.isAvailable}>
-                  <span className={styles.thumb} aria-hidden="true">
-                    <DishImage src={line.imageUrl} />
-                  </span>
-                  <div className={styles.lineBody}>
-                    <p className={styles.lineName}>{line.name}</p>
-                    {/* "Nothing" under an optional group is a real choice and
-                        it is stored — it just says nothing worth reading. */}
-                    {line.modifiers.some((m) => !m.isNoOp) ? (
-                      <p className={styles.lineMods}>
-                        {line.modifiers.filter((m) => !m.isNoOp).map((m) => m.name).join(' · ')}
-                      </p>
-                    ) : null}
-                    {line.notes ? <p className={styles.lineNote}>“{line.notes}”</p> : null}
-                    {!line.isAvailable ? (
-                      <p className={styles.lineGone}>
-                        The kitchen has taken this off tonight. It is not charged.
-                      </p>
-                    ) : null}
-
-                    <LineControls
-                      qrCode={qrCode}
-                      cartItemId={line.id}
-                      quantity={line.quantity}
-                      lineTotal={
-                        line.isAvailable
-                          ? formatMoney(money(line.lineTotalMinor, cart!.currency))
-                          : null
-                      }
-                      name={line.name}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <footer className={styles.foot}>
-              <dl className={styles.totals}>
-                <div className={styles.row}>
-                  <dt>Subtotal</dt>
-                  <dd className="tabular">{formatMoney(cart!.totals.subtotal)}</dd>
-                </div>
-                {cart!.totals.serviceCharge.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Service, {(cart!.totals.serviceCharge.amountMinor / cart!.totals.subtotal.amountMinor * 100).toFixed(0)}%</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.serviceCharge)}</dd>
-                  </div>
-                ) : null}
-                {cart!.totals.tax.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Tax</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.tax)}</dd>
-                  </div>
-                ) : null}
-                {cart!.totals.deliveryFee.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Delivery</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.deliveryFee)}</dd>
-                  </div>
-                ) : null}
-                <div className={`${styles.row} ${styles.grand}`}>
-                  <dt>Charged to room {session.roomNumber}</dt>
-                  <dd className="tabular">{formatMoney(cart!.totals.total)}</dd>
-                </div>
-              </dl>
-
-              {unavailable.length ? (
-                <p className={styles.warning} role="status">
-                  {unavailable.length === 1
-                    ? 'One dish came off the menu while you were choosing. It is not in the total.'
-                    : `${unavailable.length} dishes came off the menu while you were choosing. They are not in the total.`}
-                </p>
-              ) : null}
-
-              {/* The key is minted HERE, per render, and travels in the form.
-                  Two taps of the same rendered button carry the same key and
-                  place one order (#8). */}
-              {shortfallMinor > 0 ? (
-                <p className={styles.warning} role="status">
-                  Orders start at{' '}
-                  {formatMoney(money(loaded!.minimumOrderMinor, loaded!.currency))}
-                  {' '}— {formatMoney(money(shortfallMinor, loaded!.currency))} to go.
-                </p>
-              ) : null}
-
-              <SendOrder
-                qrCode={qrCode}
-                idempotencyKey={idempotencyKey}
-                total={formatMoney(cart!.totals.total)}
-                roomNumber={session.roomNumber}
-                belowMinimum={shortfallMinor > 0}
+    <CartShell
+      menuHref={menuHref}
+      where={<>To room <span className="tabular">{session.roomNumber}</span></>}
+    >
+      {!cart || cart.lines.length === 0 ? (
+        <CartEmpty menuHref={menuHref} />
+      ) : (
+        <>
+          <CartLines
+            cart={cart}
+            controls={(line) => (
+              <LineControls
+                action={updateLineQuantity}
+                scope={{ name: 'qrCode', value: qrCode }}
+                cartItemId={line.id}
+                quantity={line.quantity}
+                name={line.name}
               />
+            )}
+          />
 
-              <p className={styles.folioNote}>
-                Nothing is charged to a card. It goes on your folio.
-              </p>
-            </footer>
-          </>
-        )}
-      </section>
-    </main>
+          <div className={styles.summary}>
+            <CartTotals cart={cart} taxRateBps={loaded!.taxRateBps} />
+            <CartNotices
+              cart={cart}
+              minimumOrderMinor={loaded!.minimumOrderMinor}
+              currency={loaded!.currency}
+            />
+            <PaymentNote
+              icon={<BedDouble size={20} strokeWidth={1.5} />}
+              title={<>Charge to room <span className="tabular">{session.roomNumber}</span></>}
+              detail="It goes on your folio. Nothing is charged to a card."
+            />
+          </div>
+
+          <SendOrder
+            qrCode={qrCode}
+            idempotencyKey={idempotencyKey}
+            total={formatMoney(cart.totals.total)}
+            roomNumber={session.roomNumber}
+            deskPhone={loaded!.deskPhone}
+            belowMinimum={shortfallMinor(cart, loaded!.minimumOrderMinor) > 0}
+          />
+        </>
+      )}
+    </CartShell>
   );
 }

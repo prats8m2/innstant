@@ -1,19 +1,18 @@
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveVisitSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getDish } from '@/modules/catalog';
 import { getCart, contextForSession } from '@/modules/ordering';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
-import { formatMoney, money, type CurrencyCode } from '@/lib/money';
-import { DishForm } from './dish-form';
-// The room flow's stylesheet, imported rather than copied — the design is the
-// same design, and two copies is how one of them stops matching the other.
-import styles from '../../../../r/[qrCode]/menu/[itemId]/dish.module.css';
-import { DishImage } from '../../../../dish-image';
-import { OfferPrice } from '../../../../offer-price';
+import { formatMoney, type CurrencyCode } from '@/lib/money';
+// The room flow's view and form, imported rather than copied — the design is
+// the same design, and two copies is how one of them stops matching the other.
+// The action is this flow's own.
+import { DishForm } from '../../../../r/[qrCode]/menu/[itemId]/dish-form';
+import { DishView } from '../../../../r/[qrCode]/menu/[itemId]/dish-view';
+import { addToOrder } from './actions';
 
 /**
  * One dish, opened from a property link. D-079.
@@ -27,9 +26,8 @@ import { OfferPrice } from '../../../../offer-price';
  * placement (see modules/access/visit-sessions.ts). What is asked for instead
  * is a name and a number, at the cart, so the kitchen can ring.
  *
- * Rebuilt from `design/reference/` as real components — the arch hero, the
- * modifier chips, the stepper, and the saffron bar pinned to the bottom 40%
- * where a thumb reaches (DESIGN-SPEC "Viewport").
+ * Rebuilt from `design/reference/direction-a/GuestDish.dc.html` as real
+ * components — see `dish-view.tsx`, shared with the room's dish screen.
  *
  * CLAUDE.md #9 still holds here: reading a dish and choosing modifiers needs no
  * verification. The one prompt comes at the first charge to the room, which is
@@ -96,59 +94,32 @@ export default async function VisitDishScreen({
   const { dish, outlet, modifierGroups } = detail;
   const currency = dish.currency as CurrencyCode;
   const isOrderable = dish.isAvailable && outlet.isAcceptingOrders;
+  const base = `/p/${encodeURIComponent(code)}`;
+
+  const foot = !outlet.isAcceptingOrders
+    ? 'The kitchen has stopped taking orders for tonight.'
+    /* "travels up covered" belongs to a tray going to a room. A diner at a
+       table and somebody collecting at a counter are told the one thing
+       that is true for both: how long. */
+    : `Cooked to order. About ${dish.prepTimeMinutes ?? outlet.prepTimeMinutes} minutes.`;
 
   return (
-    <main className={styles.shell}>
-      <div className={styles.hero} data-photo={dish.imageUrl ? true : undefined}>
-        <DishImage src={dish.imageUrl} priority />
-        <div className={styles.heroWash} aria-hidden="true" />
-        <Link
-          href={`/p/${encodeURIComponent(code)}/menu`}
-          className={styles.back}
-          aria-label="Back to the menu"
-        >
-          ←
-        </Link>
-      </div>
-
-      <div className={styles.body}>
-        {dish.prepTimeMinutes ? (
-          <p className={styles.tag}>{dish.prepTimeMinutes} minutes</p>
-        ) : null}
-
-        <h1 className={styles.name}>{dish.name}</h1>
-        <p className={`${styles.price} tabular`}>
-          {formatMoney(money(dish.priceMinor, currency))}
-          {' '}
-          <OfferPrice listPriceMinor={dish.listPriceMinor} offer={dish.offer} currency={dish.currency} />
-        </p>
-
-        {dish.description ? <p className={styles.note}>{dish.description}</p> : null}
-
-        <DishForm
-          code={code}
-          dish={{ id: dish.id, priceMinor: dish.priceMinor }}
-          groups={modifierGroups}
-          currency={currency}
-          isOrderable={isOrderable}
-          /* Formatted here: a client component importing from a `modules/*`
-             index drags `pg` into the browser bundle, and money formatting
-             belongs in one place (#5). */
-          cart={cart && cart.itemCount > 0
-            ? { itemCount: cart.itemCount, total: formatMoney(cart.totals.total) }
-            : null}
-        />
-
-        <p className={styles.foot}>
-          {dish.dietaryFlags.includes('VEGETARIAN') ? 'Vegetarian. ' : ''}
-          {!outlet.isAcceptingOrders
-            ? 'The kitchen has stopped taking orders for tonight.'
-            /* "travels up covered" belongs to a tray going to a room. A diner
-               at a table and somebody collecting at a counter are told the one
-               thing that is true for both: how long. */
-            : `Cooked to order. About ${dish.prepTimeMinutes ?? outlet.prepTimeMinutes} minutes.`}
-        </p>
-      </div>
-    </main>
+    <DishView dish={dish} backHref={`${base}/menu`} foot={foot}>
+      <DishForm
+        action={addToOrder}
+        scope={{ name: 'code', value: code }}
+        cartHref={`${base}/cart`}
+        dish={{ id: dish.id, priceMinor: dish.priceMinor }}
+        groups={modifierGroups}
+        currency={currency}
+        isOrderable={isOrderable}
+        /* Formatted here: a client component importing from a `modules/*`
+           index drags `pg` into the browser bundle, and money formatting
+           belongs in one place (#5). */
+        cart={cart && cart.itemCount > 0
+          ? { itemCount: cart.itemCount, total: formatMoney(cart.totals.total) }
+          : null}
+      />
+    </DishView>
   );
 }

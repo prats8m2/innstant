@@ -12,8 +12,9 @@ import { MenuView } from './menu-view';
 /**
  * In-room dining — the menu.
  *
- * Rebuilt from `design/reference/` as real components; the export is a picture
- * to match, not markup to copy. Every value comes from `theme.css`.
+ * Rebuilt from `design/reference/direction-a/GuestMenu.dc.html` as real
+ * components; the board is a picture to match, not markup to copy. Every
+ * colour is a guest token (`--g-*`, D-100).
  *
  * CLAUDE.md #9 — browsing is never gated. This renders for an anonymous
  * REQUEST-tier session: prices, dishes and the whole menu, with no
@@ -34,10 +35,9 @@ export default async function MenuScreen({
   // link, which issues a fresh session or 404s (#10).
   if (!session) redirect(`/r/${encodeURIComponent(qrCode)}`);
 
-
-  // Menu and cart in one transaction — the pill is part of this screen, not a
-  // second render, and a guest who has already chosen must not see it appear
-  // late.
+  // Menu and cart in one transaction — the order bar is part of this screen,
+  // not a second render, and a guest who has already chosen must not see it
+  // appear late.
   const { menu, cart, hours, at } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
@@ -103,6 +103,7 @@ export default async function MenuScreen({
       at={at}
       inCart={inCart}
       cart={cart && cart.itemCount > 0 ? { itemCount: cart.itemCount, total: cart.totals.total } : null}
+      roomNumber={session.roomNumber}
     />
   );
 }

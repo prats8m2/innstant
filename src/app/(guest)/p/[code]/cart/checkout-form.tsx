@@ -1,8 +1,10 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { ReceiptText } from 'lucide-react';
 import { sendVisitOrder, type CartEditState } from './actions';
+import { PaymentNote } from '../../../r/[qrCode]/cart/cart-view';
 import styles from '../../../r/[qrCode]/cart/cart.module.css';
 import own from './checkout.module.css';
 
@@ -139,19 +141,21 @@ export function CheckoutForm({
         </>
       ) : null}
 
-      {state.error ? (
-        <p className={styles.warning} role="alert">{state.error}</p>
-      ) : null}
+      {/* Said plainly, because the alternative is a customer expecting a card
+          screen that does not exist. Online payment is not wired up — see
+          D-079; when it is, it attaches to the order. */}
+      <PaymentNote
+        icon={<ReceiptText size={20} strokeWidth={1.5} />}
+        title={mode === 'DELIVERY' ? 'Pay the rider' : 'Pay at the counter'}
+        detail="Nothing is charged now."
+      />
 
-      <SendButton total={total} where={where} belowMinimum={belowMinimum} />
-
-      <p className={styles.folioNote}>
-        {/* Said plainly, because the alternative is a customer expecting a
-            card screen that does not exist. Online payment is not wired up —
-            see D-079; when it is, it attaches to the order. */}
-        You pay {mode === 'DELIVERY' ? 'the rider' : 'at the counter'}. Nothing is
-        charged now.
-      </p>
+      <div className={styles.sendBar}>
+        {state.error ? (
+          <p className={styles.notice} role="alert">{state.error}</p>
+        ) : null}
+        <SendButton total={total} where={where} belowMinimum={belowMinimum} />
+      </div>
     </form>
   );
 }
@@ -165,19 +169,19 @@ function SendButton({
   total, where, belowMinimum,
 }: { total: string; where: string; belowMinimum: boolean }) {
   const { pending } = useFormStatus();
+  const whereId = useId();
 
   return (
-    <>
-      <button
-        type="submit"
-        className={styles.send}
-        disabled={pending || belowMinimum}
-        data-pending={pending || undefined}
-      >
-        <span>{pending ? 'Sending…' : 'Send to the kitchen'}</span>
-        <span className="tabular">{total}</span>
-      </button>
-      <p className={styles.sendSub}>{where}</p>
-    </>
+    <button
+      type="submit"
+      className={styles.send}
+      disabled={pending || belowMinimum}
+      data-blocked={(belowMinimum && !pending) || undefined}
+      aria-describedby={whereId}
+    >
+      <span>{pending ? 'Sending…' : 'Send to the kitchen'}</span>
+      <span className="tabular">{total}</span>
+      <span id={whereId} className={styles.srOnly}>{where}</span>
+    </button>
   );
 }
