@@ -21,6 +21,16 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**The Direction A redesign has started (D-100), on the same combined branch.**
+Source: the Claude Design canvas (memory: redesign-direction-a), copied to
+`design/reference/direction-a/`. Backup: git tag `pre-redesign`. The user's
+answers: tokens from their file; build the "small additions" (console dark
+mode per person, five guest themes, publish/discard for branding, revenue and
+trends on Overview, ⌘K search, menu search); leave the bigger ones (guest UPI,
+UPI request and email invoice, striking dishes on the KDS, "no answer at the
+door", WhatsApp) until they decide. Order: 1 tokens, fonts, shared pieces ✅ →
+2 guest app → 3 console shell and its five pages → 4 floor screens.
+
 **CI made green (same branch), D-099.** The e2e suite was 24 red against
 this branch; it is now 111 passed / 0 failed on a production build run the
 way CI runs it (2 workers, 2 retries). Mostly stale assertions after the

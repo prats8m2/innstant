@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console requests</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.btn{height:36px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent-text)}
+</style>
+</helmet>
+<div style="{{root}}">
+
+  <nav aria-label="Console" style="flex:1 1 248px;max-width:100%;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+    <button style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);text-align:left;margin-bottom:10px">
+      <span style="width:32px;height:32px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="18" viewBox="0 0 200 260" aria-hidden="true"><path d="M10 260 V110 C10 60 55 32 100 10 C145 32 190 60 190 110 V260" fill="none" stroke="var(--accent-fg)" stroke-width="20"></path></svg></span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-family:'Marcellus',serif;font-size:15px">The Kesari</span><span style="font-size:12px;color:var(--text-3)">Udaipur · 34 rooms</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:14px;margin-bottom:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="flex:1">Search rooms, guests, orders</span><span class="mono" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:0 5px">⌘K</span></label>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <span class="lbl" style="padding:14px 10px 6px">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg><span>{{n.label}}</span><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if></a>
+      </sc-for>
+    </sc-for>
+  </nav>
+
+  <div style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column">
+    <header style="min-height:60px;padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--border);background:var(--surface);display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <span style="font-size:14px;color:var(--text-3)">Service</span><span style="color:var(--text-3)">/</span><span style="font-size:14px;font-weight:600">Requests</span>
+      <span style="flex:1"></span>
+      <button style="height:36px;padding:0 14px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Raise for a guest who phoned</button>
+    </header>
+
+    <div style="flex:1;display:flex;flex-wrap:wrap;align-items:stretch">
+      <main style="flex:999 1 520px;min-width:0;padding:24px clamp(16px,3vw,32px) 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em">Requests</h1><span style="font-size:14px;color:var(--text-2)">Everything guests have asked for tonight. Promise: 15 minutes.</span></div>
+
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--border)">
+          <div role="tablist" aria-label="Request views" style="display:flex;flex-wrap:wrap;gap:2px">
+            <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4"><button role="tab" aria-selected="{{t.sel}}" style="{{t.style}}">{{t.label}} <span class="pill" style="{{t.countStyle}}">{{t.n}}</span></button></sc-for>
+          </div>
+          <div style="display:flex;gap:8px;padding-bottom:8px"><button class="btn">Floor: all</button><button class="btn">Group: none</button></div>
+        </div>
+
+        <section class="card" style="overflow-x:auto">
+          <table style="width:100%;min-width:640px;border-collapse:collapse;font-size:14px">
+            <thead><tr style="text-align:left;background:var(--surface-2)"><th class="lbl" style="padding:10px 16px">Request</th><th class="lbl" style="padding:10px 8px">Who has it</th><th class="lbl" style="padding:10px 8px;width:180px">Time left</th><th class="lbl" style="padding:10px 16px;text-align:right">Status</th></tr></thead>
+            <tbody>
+              <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+                <tr style="{{r.rowStyle}}">
+                  <td style="padding:12px 16px"><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="font-size:15px;font-weight:500;min-width:32px">{{r.room}}</span><span style="display:flex;flex-direction:column"><span style="font-weight:500">{{r.what}}</span><span style="font-size:12.5px;color:var(--text-3)">{{r.src}}</span></span></span></td>
+                  <td style="padding:12px 8px"><span style="{{r.whoStyle}}"><span style="{{r.avStyle}}">{{r.initials}}</span>{{r.who}}</span></td>
+                  <td style="padding:12px 8px"><span style="display:flex;flex-direction:column;gap:5px"><span class="mono" style="font-size:13px;color:{{r.slaColor}}">{{r.slaText}}</span><span role="img" aria-label="{{r.slaText}}" style="height:4px;border-radius:2px;background:var(--surface-2);display:flex;overflow:hidden"><span style="{{r.slaBar}}"></span></span></span></td>
+                  <td style="padding:12px 16px;text-align:right"><span class="pill" style="{{r.statusStyle}}">{{r.status}}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </section>
+
+        <section style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0;font-size:15px;font-weight:600">Team on shift</h2><a href="#" style="font-size:13px;text-decoration:none;font-weight:500">Staff →</a></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:12px">
+            <sc-for list="{{team}}" as="p" hint-placeholder-count="4">
+              <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:10px">
+                <span style="display:flex;gap:10px;align-items:center"><span style="width:34px;height:34px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">{{p.ini}}</span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">{{p.name}}</span><span style="font-size:12px;color:var(--text-3)">{{p.role}}</span></span></span>
+                <span style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-2)"><span>Has <b class="mono" style="color:var(--text)">{{p.has}}</b> · done <b class="mono" style="color:var(--text)">{{p.done}}</b></span><span class="mono" style="color:{{p.rateColor}};font-weight:600">{{p.rate}}</span></span>
+                <span role="img" aria-label="On time {{p.rate}}" style="height:4px;border-radius:2px;background:var(--surface-2);display:flex;overflow:hidden"><span style="{{p.bar}}"></span></span>
+              </div>
+            </sc-for>
+          </div>
+        </section>
+      </main>
+
+      <aside aria-label="Assign request" style="flex:1 1 340px;max-width:100%;background:var(--surface);border-left:1px solid var(--border);padding:20px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;flex-direction:column;gap:6px"><span class="pill" style="background:var(--crit-soft);color:var(--crit);width:max-content"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Late 6 min</span><span style="font-size:18px;font-weight:600">Ice bucket + 2 glasses</span><span style="font-size:13px;color:var(--text-2)">Room <span class="mono">302</span> · Anand &amp; Priya Iyer · promised <span class="mono">8:52pm</span></span></div>
+          <button aria-label="Close" style="width:36px;height:36px;border:0;border-radius:6px;background:transparent;color:var(--text-2);font-size:20px">×</button>
+        </div>
+        <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+          <legend class="lbl" style="margin-bottom:8px">Give it to</legend>
+          <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid var(--accent);background:var(--accent-soft);border-radius:8px;cursor:pointer"><input type="radio" name="who" checked style="accent-color:var(--accent);width:16px;height:16px"><span style="width:32px;height:32px;border-radius:50%;background:var(--surface);color:var(--text);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">ME</span><span style="display:flex;flex-direction:column;flex:1"><span style="font-size:14px;font-weight:600">Meena</span><span style="font-size:12.5px;color:var(--text-2)">On Second floor · 1 open</span></span><span class="pill" style="background:var(--surface);color:var(--accent-text)">Closest</span></label>
+          <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer"><input type="radio" name="who" style="accent-color:var(--accent);width:16px;height:16px"><span style="width:32px;height:32px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">DE</span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">Devraj</span><span style="font-size:12.5px;color:var(--text-2)">Runner · at the pass</span></span></label>
+          <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer"><input type="radio" name="who" style="accent-color:var(--accent);width:16px;height:16px"><span style="width:32px;height:32px;border-radius:50%;background:var(--surface-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600">SU</span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">Sunita</span><span style="font-size:12.5px;color:var(--text-2)">First floor · turndown at 9pm</span></span></label>
+        </fieldset>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text-2);font-weight:500">Note for Meena<textarea rows="3" style="font-family:inherit;font-size:14px;border:1px solid var(--border-strong);border-radius:6px;padding:8px 10px;background:var(--surface);color:var(--text);resize:vertical">They're celebrating — say sorry for the wait.</textarea></label>
+        <button style="height:42px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:15px;font-weight:600">Assign to Meena</button>
+        <div style="padding:12px;border-radius:8px;background:var(--surface-2);font-size:13px;color:var(--text-2);line-height:1.45">Guest will see: <b style="color:var(--text)">"Meena is bringing it up. Sorry for the wait."</b></div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["light","dark"],"default":"light"},"theme":{"editor":"enum","options":["kesari","pichola","gulabi","mehendi","sandstone"],"default":"kesari"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+  vars() {
+    const app = this.props.appearance ?? 'light';
+    const acc = { kesari:['#0F766E','#3FB6A8'], pichola:['#0E7490','#5BC0D8'], gulabi:['#A21CAF','#E08AF0'], mehendi:['#4D7C0F','#A8CC62'], sandstone:['#B45309','#E3A458'] }[this.props.theme ?? 'kesari'];
+    const L = { bg:'#F5F6F4', surface:'#FFFFFF', 'surface-2':'#F0F1EE', border:'#E3E5E1', 'border-strong':'#CFD3CD', text:'#16191B', 'text-2':'#4A5054', 'text-3':'#646A6E', pos:'#166534', 'pos-soft':'#DCF3E3', warn:'#92570A', 'warn-soft':'#FBEFD5', crit:'#B42318', 'crit-soft':'#FBE3E0', info:'#1D4ED8', 'info-soft':'#E3EAFC', accent:acc[0], 'accent-soft':acc[0]+'1A', 'accent-fg':'#FFFFFF', 'accent-text':acc[0], shadow:'0 1px 2px rgba(22,25,27,.05)' };
+    const D = { bg:'#0D1013', surface:'#14181C', 'surface-2':'#1B2025', border:'#262D33', 'border-strong':'#363E46', text:'#E9EDF0', 'text-2':'#AAB3BB', 'text-3':'#8D969E', pos:'#5CC98A', 'pos-soft':'rgba(92,201,138,.14)', warn:'#E5B04E', 'warn-soft':'rgba(229,176,78,.14)', crit:'#F2786B', 'crit-soft':'rgba(242,120,107,.15)', info:'#86A9F5', 'info-soft':'rgba(134,169,245,.14)', accent:acc[1], 'accent-soft':acc[1]+'29', 'accent-fg':'#0D1013', 'accent-text':acc[1], shadow:'none' };
+    const t = app === 'dark' ? D : L;
+    return Object.keys(t).map(k => '--' + k + ':' + t[k]).join(';') + ';color-scheme:' + app + ';min-height:100vh;background:var(--bg);color:var(--text);font-family:Mukta,system-ui,sans-serif;display:flex;flex-wrap:wrap';
+  }
+  nav(active) {
+    const I = { grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', desk:'M3 18h18M5 18a7 7 0 0 1 14 0M12 9V7M10 7h4', bed:'M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', out:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', menu:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20M19 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v7', req:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', brand:'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-2a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22ZM7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', mon:'M2 4h20v12H2zM8 20h8M12 16v4', chef:'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 9.18 0A4 4 0 0 1 18 13.87V21H6ZM6 17h12', run:'M5 12h14M13 6l6 6-6 6', hk:'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z' };
+    const G = [['Today',[['Overview','grid','ConsoleOverview.dc.html'],['Front desk','desk','ConsolePhone.dc.html'],['Rooms','bed','ConsoleRooms.dc.html'],['Leaving','out','ConsoleCheckout.dc.html','2','warn']]],
+      ['Service',[['Menu','menu','#'],['Requests','req','ConsoleRequests.dc.html','1 late','crit'],['Links','link','#']]],
+      ['Setup',[['Property & branding','brand','ConsoleBranding.dc.html'],['Staff','users','#']]],
+      ['Floor screens',[['Live floor','mon','#'],['Kitchen display','chef','Kitchen.dc.html'],['Runner','run','Runner.dc.html'],['Housekeeping','hk','Housekeeping.dc.html']]]];
+    return G.map(([label, items]) => ({ label, items: items.map(([l, ic, href, b, bt]) => { const on = l === active; return { label:l, d:I[ic], href, current: on ? 'page' : 'false', hasBadge: !!b, badge: b || '',
+      style: 'display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;font-size:14px;' + (on ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'color:var(--text-2)'),
+      badgeStyle: 'margin-left:auto;font-family:DM Mono,monospace;font-size:11px;padding:1px 7px;border-radius:999px;' + (bt === 'crit' ? 'background:var(--crit-soft);color:var(--crit)' : 'background:var(--warn-soft);color:var(--warn)') }; }) }));
+  }
+  renderVals() {
+    const tabs = [['Open','6','var(--surface-2)','var(--text-2)',1],['Late','1','var(--crit-soft)','var(--crit)'],['Nobody has it','2','var(--warn-soft)','var(--warn)'],['Done today','34','var(--surface-2)','var(--text-2)']].map(([label, n, bg, fg, sel]) => ({ label, n, sel: sel ? 'true' : 'false',
+      style: 'height:42px;padding:0 12px;border:0;background:transparent;font-size:14px;display:flex;align-items:center;gap:6px;' + (sel ? 'border-bottom:2px solid var(--accent);color:var(--text);font-weight:600' : 'border-bottom:2px solid transparent;color:var(--text-2)'),
+      countStyle: 'background:' + bg + ';color:' + fg }));
+    const R = (room, what, src, who, ini, left, pct, state) => {
+      const late = state === 'late', none = !who;
+      const sc = late ? 'var(--crit)' : pct > 60 ? 'var(--warn)' : 'var(--pos)';
+      return { room, what, src, who: who || 'Nobody yet', initials: ini || '?',
+        whoStyle: 'display:inline-flex;align-items:center;gap:8px;font-size:14px;' + (none ? 'color:var(--warn);font-weight:600' : 'color:var(--text)'),
+        avStyle: 'width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;' + (none ? 'border:1px dashed var(--warn);color:var(--warn)' : 'background:var(--accent-soft);color:var(--accent-text)'),
+        slaText: left, slaColor: sc, slaBar: 'width:' + Math.min(pct, 100) + '%;background:' + sc,
+        status: late ? 'Late' : none ? 'Unassigned' : 'On the way', statusStyle: late ? 'background:var(--crit-soft);color:var(--crit)' : none ? 'background:var(--warn-soft);color:var(--warn)' : 'background:var(--info-soft);color:var(--info)',
+        rowStyle: 'border-top:1px solid var(--border);' + (late ? 'background:var(--crit-soft)' : '') };
+    };
+    const rows = [
+      R('302','Ice bucket + 2 glasses','Guest app · 8:37pm',null,null,'6 min over',100,'late'),
+      R('108','Feather-free pillow','Phoned the desk · 8:49pm',null,null,'12 min left',20),
+      R('214','Turndown','Scheduled · 9pm','Sunita','SU','8 min left',47),
+      R('401','Iron and board','Guest app · 8:46pm','Meena','ME','9 min left',40),
+      R('205','Laundry pickup · 4 pieces','Guest app · 8:30pm','Kamla','KA','2 min left',87),
+      R('303','Phone charger, USB-C','Guest app · 8:51pm','Devraj','DE','14 min left',7)
+    ];
+    const team = [['Sunita','Housekeeping · First','SU',1,11,100],['Meena','Housekeeping · Second, Rooftop','ME',1,9,89],['Kamla','Housekeeping · Courtyard','KA',1,8,88],['Devraj','Runner · all floors','DE',1,6,83]].map(([name, role, ini, has, done, rate]) => ({ name, role, ini, has, done, rate: rate + '%',
+      rateColor: rate >= 90 ? 'var(--pos)' : 'var(--warn)', bar: 'width:' + rate + '%;background:' + (rate >= 90 ? 'var(--pos)' : 'var(--warn)') }));
+    return { root: this.vars(), groups: this.nav('Requests'), tabs, rows, team };
+  }
+}
+</script>
+</body>
+</html>

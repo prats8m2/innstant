@@ -3,69 +3,58 @@
  *
  * ─── Why this is a hand-kept copy and not generated ────────────────────────
  *
- * The web's single source of truth is `src/styles/theme.css`, hand-maintained
- * (D-023 killed the token build pipeline on purpose — there is no tokens.json
- * and no `pnpm tokens:build`). React Native has no CSS custom properties and
- * no `color-mix()`, so the web file cannot be consumed here whatever we do.
+ * The source of truth is `design/tokens/innstant-themes.css` (D-100), whose
+ * Kesari guest theme this is; `innstant-themes.json` beside it mirrors it.
+ * React Native has no CSS custom properties and no `color-mix()`, and Metro
+ * does not reach outside `mobile/`, so this stays a copy that says it is one.
+ * `tests/unit/mobile-theme.test.ts` keeps it honest: every colour here that
+ * IS a token must equal that token in the JSON.
  *
- * The options were a build step that parses CSS to produce this file —
- * reintroducing the generator D-023 removed, for one consumer — or a copy that
- * says it is one. This is the copy. `mobile/lib/theme.test.ts` is the thing
- * that keeps it honest: it reads `theme.css` off disk and asserts every value
- * here still matches its `[data-theme='kesari']` primitive.
+ * The rest are the web's `color-mix()` steps (a hover, a tint, a soft line),
+ * resolved for Kesari and written down; their comments name the mix.
  *
- * ─── The two traps when porting from the web theme ─────────────────────────
- *
- *   · Saffron HOVER goes LIGHTER on this theme, not darker. It is the opposite
- *     of the console's and the single most common thing to get wrong.
- *   · Text on saffron is the GROUND (#101E33), never white.
- *
- * `color-mix()` values are resolved to their literal equivalents here, because
- * RN cannot compute them: `--ink-dim` is 62% of --ink over the ground, and
- * `--ink-faint` is 45%. Those two percentages are asserted in theme.css's own
- * contrast test and are repeated in the comment there for this reason.
+ *   · Text on the accent is --g-on-accent, a dark brown, never white.
+ *   · The accent's hover moves toward the ink: lighter, on this dark theme.
  */
 
 export const colors = {
-  /** The full-bleed backdrop behind a hero — NOT the app's ground. */
+  /** The page. Direction A put the app's ground on --g-page (D-100). */
   paperDeep: '#0A1220',
   /** The app's ground. */
-  paper: '#101E33',
-  /** A card, a tile, a sheet. On a dark ground, raised means lighter. */
+  paper: '#0A1220',
+  /** A card, a tile, a sheet. */
   card: '#1B2B45',
-  /** A step above a card. */
-  raised: '#22354F',
+  /** A step above a card — color-mix(--g-line 55%, --g-card), resolved. */
+  raised: '#23344F',
 
-  line: '#243755',
-  lineSoft: '#223353',
-  /** Borders and dividers ONLY — 2.39:1 on the surface, nowhere near AA.
-   *  Never a text colour. */
-  lineFaint: '#4A5A73',
+  line: '#2A3B58',
+  /** color-mix(--g-line 60%, --g-card), resolved. */
+  lineSoft: '#243550',
+  /** Borders and dividers ONLY. Never a text colour. */
+  lineFaint: '#56647D',
 
-  /** Saffron. `accentHover` is LIGHTER — see the note above. */
+  /** Saffron in Kesari. `accentHover` moves toward the ink. */
   accent: '#E9A227',
-  accentHover: '#F2B84B',
-  accentTint: '#22354F',
-  /** Text on saffron is the ground, not white. */
-  accentInk: '#101E33',
+  accentHover: '#EBAF48',
+  accentTint: '#3C3E40',
+  /** Text on the accent. */
+  accentInk: '#1A1206',
 
-  /** Lime plaster, not white — the wall colour of the haveli. */
-  ink: '#E3E5DB',
-  inkSecondary: '#C3C7BC',
-  /** 62% of --ink over the ground, resolved. */
-  inkDim: 'rgba(227, 229, 219, 0.62)',
-  /** 45%. */
-  inkFaint: 'rgba(227, 229, 219, 0.45)',
+  /** Warm ivory, not white — pure white glares in a dark room. */
+  ink: '#F4ECDD',
+  inkSecondary: '#B9C2D0',
+  /** The design's third ink, --g-ink-3; both older steps read it. */
+  inkDim: '#8B97AB',
+  inkFaint: '#8B97AB',
 
-  positive: '#7FA9A2',
+  positive: '#6E9C95',
   attention: '#E9A227',
-  /** Terracotta rather than a pure red: it sits in the haveli palette beside
-   *  saffron, and it clears AA on all three grounds. */
-  critical: '#E4867A',
-  attentionTint: '#2A2416',
-  criticalTint: '#33201D',
-  noteBg: '#2A2416',
-  noteInk: '#F0D9A8',
+  /** "Running late": a soft sindoor, honesty rather than an alarm. */
+  critical: '#F08A6C',
+  attentionTint: '#292621',
+  criticalTint: '#2A232B',
+  noteBg: '#292621',
+  noteInk: '#F0D29D',
 } as const;
 
 /**
@@ -119,17 +108,17 @@ export const tabular = { fontVariant: ['tabular-nums' as const] };
  * The same hue as `paper`, at zero alpha.
  *
  * The bottom bar's gradient fades the ground out rather than fading a
- * different colour in: `rgba(16, 30, 51, 0)` IS `--paper` with the alpha
+ * different colour in: `rgba(10, 18, 32, 0)` IS `--paper` with the alpha
  * removed, so content sliding under it loses opacity without shifting colour.
  * Written once here because a gradient stop is still a colour, and a component
- * holding `'rgba(16, 30, 51, 0)'` is a hardcoded hex wearing a hat.
+ * holding `'rgba(10, 18, 32, 0)'` is a hardcoded hex wearing a hat.
  *
  * Not in the MAPPING of the drift test: there is no `--paper-transparent` on
  * the web, because CSS can write `transparent` and get the same result without
  * naming the hue. RN's gradient cannot — `transparent` is black at zero alpha
  * on Android and the fade goes grey.
  */
-export const paperTransparent = 'rgba(16, 30, 51, 0)';
+export const paperTransparent = 'rgba(10, 18, 32, 0)';
 
 /**
  * The scrim over the hero photograph. Phase 2 of the redesign.

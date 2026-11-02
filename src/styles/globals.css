@@ -3,6 +3,8 @@
  * hand-maintained from design/reference/DESIGN-SPEC.md — there is no build
  * step (D-023).
  */
+/* The colours first (D-100), then the roles and scales that read them. */
+@import '../../design/tokens/innstant-themes.css';
 @import './theme.css';
 
 @tailwind base;

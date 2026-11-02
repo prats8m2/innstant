@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Foundations</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{
+--g-page:#0A1220;--g-surface:#101E33;--g-card:#1B2B45;--g-line:#2A3B58;
+--g-ink:#F4ECDD;--g-ink-2:#B9C2D0;--g-ink-3:#8B97AB;
+--g-accent:#E9A227;--g-on-accent:#1A1206;--g-ready:#6E9C95;--g-late:#F08A6C;
+--c-page:#F3F4F2;--c-raised:#E9EBE8;--c-card:#FBFBFA;--c-line:#D5D8D4;
+--c-ink:#16191B;--c-ink-2:#4A5054;--c-ink-3:#62686C;
+--c-accent:#0F766E;--c-accent-soft:#DCEBE8;
+--c-pos:#1E7A46;--c-pos-soft:#DDEFE3;--c-attn:#8A5300;--c-attn-soft:#F6E7C8;--c-crit:#B42318;--c-crit-soft:#F8DEDA;
+--f-display:'Marcellus',Georgia,serif;--f-body:'Mukta',system-ui,sans-serif;--f-mono:'DM Mono',ui-monospace,monospace;
+}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+a{color:#0F766E}a:hover{color:#0B5A54}
+</style>
+</helmet>
+<div style="width:1440px;min-height:2240px;background:var(--c-page);color:var(--c-ink);font-family:var(--f-body);box-sizing:border-box">
+
+<!-- HERO -->
+<header style="background:var(--g-page);color:var(--g-ink);padding:72px 96px 64px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:64px;position:relative;overflow:hidden">
+  <div style="display:flex;flex-direction:column;gap:28px">
+    <div class="mono" style="font-size:12px;letter-spacing:.16em;color:var(--g-accent)">INNSTANT · DESIGN SYSTEM 1.0 · NOV 2026</div>
+    <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:96px;line-height:1;letter-spacing:-.01em">The Kesari</h1>
+    <p style="margin:0;font-size:24px;line-height:1.4;color:var(--g-ink-2);max-width:620px;font-weight:300">Everything that happens after the guest walks into the room. One system, five surfaces, and a palette any hotel can make its own.</p>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin-top:24px;border-top:1px solid var(--g-line);padding-top:24px">
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="font-family:var(--f-display);font-size:20px">Quiet confidence</div><div style="font-size:14px;line-height:1.5;color:var(--g-ink-2)">Few colours, generous dark, one accent doing the talking.</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="font-family:var(--f-display);font-size:20px">One ornament</div><div style="font-size:14px;line-height:1.5;color:var(--g-ink-2)">The jharokha arch, once per screen, as a 1px line.</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="font-family:var(--f-display);font-size:20px">Numbers you trust</div><div style="font-size:14px;line-height:1.5;color:var(--g-ink-2)">Every rupee, room and minute set in tabular mono.</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px"><div style="font-family:var(--f-display);font-size:20px">Swap, not redesign</div><div style="font-size:14px;line-height:1.5;color:var(--g-ink-2)">Every value is a token. A new hotel is new values.</div></div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:flex-end;justify-content:center">
+    <svg width="300" height="390" viewBox="0 0 200 260" aria-hidden="true" style="overflow:visible">
+      <path d="M0 260 V110 C0 60 50 30 100 0 C150 30 200 60 200 110 V260" fill="none" stroke="#E9A227" stroke-width="1"></path>
+      <path d="M20 260 V122 a16 16 0 0 1 14 -22 a18 18 0 0 1 20 -24 a20 20 0 0 1 26 -22 Q90 40 100 22 Q110 40 120 54 a20 20 0 0 1 26 22 a18 18 0 0 1 20 24 a16 16 0 0 1 14 22 V260" fill="none" stroke="#E9A227" stroke-opacity=".55" stroke-width=".75"></path>
+      <line x1="-30" y1="260" x2="230" y2="260" stroke="#2A3B58" stroke-width="1"></line>
+    </svg>
+  </div>
+</header>
+
+<main style="padding:72px 96px 96px;display:flex;flex-direction:column;gap:88px">
+
+<!-- 01 COLOUR -->
+<section style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">01</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">Colour</h2><span style="font-size:16px;color:var(--c-ink-2)">Two grounds, one logic. Contrast ratios are against the surface each colour actually sits on.</span></div>
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:32px">
+    <!-- guest -->
+    <div style="background:var(--g-page);border-radius:10px;padding:28px;display:flex;flex-direction:column;gap:20px;color:var(--g-ink)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-family:var(--f-display);font-size:24px">Guest · Night</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">theme="guest"</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#0A1220;border:1px solid var(--g-line);border-radius:4px"></div><div class="mono" style="font-size:12px">--page</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#0A1220</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#101E33;border-radius:4px"></div><div class="mono" style="font-size:12px">--surface</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#101E33</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#1B2B45;border-radius:4px"></div><div class="mono" style="font-size:12px">--card</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#1B2B45</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#F4ECDD;border-radius:4px"></div><div class="mono" style="font-size:12px">--ink <span style="color:var(--g-ink-3)">· new</span></div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#F4ECDD · 13.9:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#B9C2D0;border-radius:4px"></div><div class="mono" style="font-size:12px">--ink-2</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#B9C2D0 · 7.6:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#8B97AB;border-radius:4px"></div><div class="mono" style="font-size:12px">--ink-3</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#8B97AB · 4.8:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#E9A227;border-radius:4px"></div><div class="mono" style="font-size:12px">--accent · kesari</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#E9A227 · 7.3:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#6E9C95;border-radius:4px"></div><div class="mono" style="font-size:12px">--ready</div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#6E9C95 · 5.5:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#F08A6C;border-radius:4px"></div><div class="mono" style="font-size:12px">--late <span style="color:var(--g-ink-3)">· new</span></div><div class="mono" style="font-size:12px;color:var(--g-ink-3)">#F08A6C · 5.8:1</div></div>
+      </div>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:var(--g-ink-2)">Text is a warm ivory, not white: pure white on indigo glares in a dark room. Saffron is for the one thing to do next. Teal means open or ready. A soft sindoor marks "running late" — the guest sees honesty, never an alarm.</p>
+    </div>
+    <!-- console -->
+    <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:10px;padding:28px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-family:var(--f-display);font-size:24px">Console · Paper</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">theme="console"</div></div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#F3F4F2;border:1px solid var(--c-line);border-radius:4px"></div><div class="mono" style="font-size:12px">--page</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#F3F4F2</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#E9EBE8;border:1px solid var(--c-line);border-radius:4px"></div><div class="mono" style="font-size:12px">--raised</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#E9EBE8</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#FBFBFA;border:1px solid var(--c-line);border-radius:4px"></div><div class="mono" style="font-size:12px">--card <span style="color:var(--c-ink-3)">· new</span></div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#FBFBFA</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#16191B;border-radius:4px"></div><div class="mono" style="font-size:12px">--ink</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#16191B · 16.1:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#4A5054;border-radius:4px"></div><div class="mono" style="font-size:12px">--ink-2</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#4A5054 · 7.4:1</div></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:72px;background:#0F766E;border-radius:4px"></div><div class="mono" style="font-size:12px">--accent</div><div class="mono" style="font-size:12px;color:var(--c-ink-3)">#0F766E · 5.0:1</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+        <div style="background:var(--c-pos-soft);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:4px"><div style="font-weight:600;color:var(--c-pos);font-size:14px">Positive</div><div class="mono" style="font-size:12px;color:var(--c-pos)">#1E7A46 on #DDEFE3</div></div>
+        <div style="background:var(--c-attn-soft);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:4px"><div style="font-weight:600;color:var(--c-attn);font-size:14px">Attention</div><div class="mono" style="font-size:12px;color:var(--c-attn)">#8A5300 on #F6E7C8</div></div>
+        <div style="background:var(--c-crit-soft);border-radius:4px;padding:12px 14px;display:flex;flex-direction:column;gap:4px"><div style="font-weight:600;color:var(--c-crit);font-size:14px">Critical · late only</div><div class="mono" style="font-size:12px;color:var(--c-crit)">#B42318 on #F8DEDA</div></div>
+      </div>
+      <p style="margin:0;font-size:14px;line-height:1.55;color:var(--c-ink-2)">Teal is for actions and selection, never for alarm. Status always pairs colour with a word or an icon: "Late 6 min", never just a red dot. Amber text is darkened to #8A5300 so it reads on paper.</p>
+    </div>
+  </div>
+
+  <!-- palette swap -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;align-items:baseline;gap:16px"><h3 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:24px">A second hotel is four values</h3><span style="font-size:15px;color:var(--c-ink-2)">Hotels set --accent, --page, --ready and a cover photo. Surface, card, line and ink-2/3 are derived in OKLCH from --page so contrast holds. The other two hotels are fictional examples.</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px">
+      <div style="background:#0A1220;border-radius:10px;padding:22px;display:flex;flex-direction:column;gap:14px;color:#F4ECDD">
+        <div style="display:flex;justify-content:space-between"><span style="font-family:var(--f-display);font-size:22px">The Kesari</span><span class="mono" style="font-size:12px;color:#8B97AB">Udaipur</span></div>
+        <div style="display:flex;gap:8px"><span style="width:36px;height:36px;border-radius:2px;background:#0A1220;border:1px solid #2A3B58"></span><span style="width:36px;height:36px;border-radius:2px;background:#1B2B45"></span><span style="width:36px;height:36px;border-radius:2px;background:#E9A227"></span><span style="width:36px;height:36px;border-radius:2px;background:#6E9C95"></span></div>
+        <div style="height:48px;border-radius:4px;background:#E9A227;color:#1A1206;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px">Order dinner to room 214</div>
+      </div>
+      <div style="background:#0B1A19;border-radius:10px;padding:22px;display:flex;flex-direction:column;gap:14px;color:#EEF0E8">
+        <div style="display:flex;justify-content:space-between"><span style="font-family:var(--f-display);font-size:22px">Saltpan House</span><span class="mono" style="font-size:12px;color:#8FA39F">Goa · example</span></div>
+        <div style="display:flex;gap:8px"><span style="width:36px;height:36px;border-radius:2px;background:#0B1A19;border:1px solid #24403C"></span><span style="width:36px;height:36px;border-radius:2px;background:#16302D"></span><span style="width:36px;height:36px;border-radius:2px;background:#EE8A6A"></span><span style="width:36px;height:36px;border-radius:2px;background:#9CC6B9"></span></div>
+        <div style="height:48px;border-radius:4px;background:#EE8A6A;color:#22100A;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px">Order dinner to room 12</div>
+      </div>
+      <div style="background:#16120E;border-radius:10px;padding:22px;display:flex;flex-direction:column;gap:14px;color:#F1EADF">
+        <div style="display:flex;justify-content:space-between"><span style="font-family:var(--f-display);font-size:22px">Deodar Lodge</span><span class="mono" style="font-size:12px;color:#A39886">Manali · example</span></div>
+        <div style="display:flex;gap:8px"><span style="width:36px;height:36px;border-radius:2px;background:#16120E;border:1px solid #3A3127"></span><span style="width:36px;height:36px;border-radius:2px;background:#2A231C"></span><span style="width:36px;height:36px;border-radius:2px;background:#CDA868"></span><span style="width:36px;height:36px;border-radius:2px;background:#8FB39A"></span></div>
+        <div style="height:48px;border-radius:4px;background:#CDA868;color:#1C150A;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px">Order dinner to cottage 3</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 02 TYPE -->
+<section style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">02</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">Type</h2><span style="font-size:16px;color:var(--c-ink-2)">Marcellus speaks, Mukta explains, DM Mono counts. One family set across every surface.</span></div>
+  <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:40px">
+    <div style="display:flex;flex-direction:column;border-top:1px solid var(--c-line)">
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">display · 44/48</span><span style="font-family:var(--f-display);font-size:44px;line-height:48px">Good evening, Camille</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">title-1 · 32/38</span><span style="font-family:var(--f-display);font-size:32px;line-height:38px">Chef Bhairav's table</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">title-2 · 24/30</span><span style="font-family:var(--f-display);font-size:24px;line-height:30px">Laal maas, Mathania chilli</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">heading · 18/24 600</span><span style="font-size:18px;line-height:24px;font-weight:600">Plated and covered</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">body · 16/24</span><span style="font-size:16px;line-height:24px">Slow-cooked mutton in a smoked red-chilli gravy. Served with two bajre ki roti and garlic chutney.</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">small · 14/20</span><span style="font-size:14px;line-height:20px;color:var(--c-ink-2)">Usually 12 min · Sunita is on your floor</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">label · 12/16 600 +.08em</span><span style="font-size:12px;line-height:16px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-2)">After 10pm</span></div>
+      <div style="display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;align-items:baseline;padding:18px 0;border-bottom:1px solid var(--c-line)"><span class="mono" style="font-size:12px;color:var(--c-ink-3)">mono · 15/20 tnum</span><span class="mono" style="font-size:15px;line-height:20px">₹1,150 · ₹1,30,740 · Room 214 · #K-4821 · 9:14pm</span></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-3)">Why one set</div>
+        <p style="margin:0;font-size:15px;line-height:1.6;color:var(--c-ink-2)">I'd retire Public Sans and Red Hat Mono in the console. Mukta was drawn for Devanagari and Latin together, so a Hindi guest name or a "खम्मा घणी" greeting sets cleanly beside English — Public Sans has no Devanagari. One mono for numbers means a bill reads the same on the guest's phone and the desk's printer.</p>
+      </div>
+      <div style="background:var(--g-page);color:var(--g-ink);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:10px">
+        <div style="font-family:var(--f-body);font-size:15px;color:var(--g-accent)">खम्मा घणी</div>
+        <div style="font-family:var(--f-display);font-size:30px;line-height:1.15">Good evening, Ms. Laurent</div>
+        <div style="font-size:14px;color:var(--g-ink-2)">Mukta carries both scripts at the same weight.</div>
+      </div>
+      <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:10px;padding:24px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-3)">Number rules</div>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:14px">
+          <span class="mono" style="color:var(--c-pos)">₹1,30,740</span><span class="mono" style="color:var(--c-crit);text-decoration:line-through">₹130,740</span>
+          <span class="mono" style="color:var(--c-pos)">₹1,150</span><span class="mono" style="color:var(--c-crit);text-decoration:line-through">₹1.15k</span>
+          <span class="mono" style="color:var(--c-pos)">Thu, 11am</span><span class="mono" style="color:var(--c-crit);text-decoration:line-through">11:00 UTC</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 SPACE RADIUS MOTION -->
+<section style="display:flex;flex-direction:column;gap:32px">
+  <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">03</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">Space, shape, motion</h2></div>
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-3)">Spacing · 4px base</div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-1 4</span><span style="width:4px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-2 8</span><span style="width:8px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-3 12</span><span style="width:12px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-4 16</span><span style="width:16px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-5 24</span><span style="width:24px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-6 32</span><span style="width:32px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-7 48</span><span style="width:48px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="display:flex;align-items:center;gap:16px"><span class="mono" style="width:80px;font-size:12px">--s-8 64</span><span style="width:64px;height:12px;background:var(--c-accent)"></span></div>
+      <div style="font-size:14px;color:var(--c-ink-2);line-height:1.5">Guest gutters 20, console 24, kitchen 16. Touch target floor: 44 guest and console, 56 runner, housekeeping and kitchen.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-3)">Radius</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:64px;border:1.5px solid var(--c-ink);border-radius:2px"></div><span class="mono" style="font-size:12px">--r-1 2 · inputs, tags</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:64px;border:1.5px solid var(--c-ink);border-radius:4px"></div><span class="mono" style="font-size:12px">--r-2 4 · buttons, tiles</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:64px;border:1.5px solid var(--c-ink);border-radius:10px"></div><span class="mono" style="font-size:12px">--r-card 10 · cards, sheets</span></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><div style="height:64px;display:flex;align-items:center"><div style="height:32px;width:100%;border:1.5px solid var(--c-ink);border-radius:999px"></div></div><span class="mono" style="font-size:12px">--r-pill · chips only</span></div>
+      </div>
+      <div style="font-size:14px;color:var(--c-ink-2);line-height:1.5">The only curve with character is the arch. Everything else stays near-square, which is what keeps it from reading as a stock kit.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--c-ink-3)">Motion</div>
+      <div style="display:flex;flex-direction:column;border-top:1px solid var(--c-line)">
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-line);font-size:14px"><span>--t-fast · press, toggle</span><span class="mono">180ms</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-line);font-size:14px"><span>--t-base · rise-in 8px</span><span class="mono">240ms</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-line);font-size:14px"><span>--t-slow · arch reveal, sheet</span><span class="mono">320ms</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-line);font-size:14px"><span>--ease</span><span class="mono">cubic-bezier(.2,.7,.2,1)</span></div>
+        <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--c-line);font-size:14px"><span>Stagger, lists</span><span class="mono">40ms × 6 max</span></div>
+      </div>
+      <div style="font-size:14px;color:var(--c-ink-2);line-height:1.5">Arch reveal: the stroke draws bottom-up once, on room home only. With reduced motion every duration becomes 0 and the arch is simply there.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 MOTIF + ICONS -->
+<section style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px">
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">04</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">The jharokha</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+      <div style="background:var(--g-page);border-radius:10px;height:180px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:20px"><svg width="90" height="117" viewBox="0 0 200 260" aria-hidden="true"><path d="M0 260 V110 C0 60 50 30 100 0 C150 30 200 60 200 110 V260" fill="none" stroke="#E9A227" stroke-width="2"></path><path d="M20 260 V122 a16 16 0 0 1 14 -22 a18 18 0 0 1 20 -24 a20 20 0 0 1 26 -22 Q90 40 100 22 Q110 40 120 54 a20 20 0 0 1 26 22 a18 18 0 0 1 20 24 a16 16 0 0 1 14 22 V260" fill="none" stroke="#E9A227" stroke-opacity=".55" stroke-width="1.5"></path></svg></div>
+      <div style="background:var(--g-page);border-radius:10px;height:180px;display:flex;align-items:center;justify-content:center"><div style="width:96px;height:120px;border-radius:48px 48px 2px 2px;border:1px solid #E9A227;display:flex;align-items:center;justify-content:center;color:#F4ECDD;font-family:'DM Mono',monospace;font-size:22px">214</div></div>
+      <div style="background:var(--c-card);border:1px solid var(--c-line);border-radius:10px;height:180px;display:flex;align-items:center;justify-content:center"><svg width="44" height="57" viewBox="0 0 200 260" aria-hidden="true"><path d="M0 260 V110 C0 60 50 30 100 0 C150 30 200 60 200 110 V260" fill="none" stroke="#0F766E" stroke-width="8"></path></svg></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;font-size:14px;line-height:1.5;color:var(--c-ink-2)">
+      <span>Full cusped arch: room home hero and the printed QR sticker. Nowhere else.</span>
+      <span>Simplified arch: a frame for the room number, empty states.</span>
+      <span>Console: the outline only, as the product mark and loading glyph.</span>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">05</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">Icons &amp; marks</h2></div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px">
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Room service"><path d="M3 17h18"></path><path d="M5 17a7 7 0 0 1 14 0"></path><path d="M12 8V6"></path><path d="M10 6h4"></path></svg></div>
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Bell"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></div>
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Clock"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></div>
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16191B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Map pin"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;border:1.5px solid #1E7A46;border-radius:2px;display:flex;align-items:center;justify-content:center" role="img" aria-label="Vegetarian"><span style="width:7px;height:7px;border-radius:50%;background:#1E7A46"></span></span></div>
+      <div style="height:72px;border:1px solid var(--c-line);border-radius:4px;display:flex;align-items:center;justify-content:center"><span style="width:16px;height:16px;border:1.5px solid #8A3B12;border-radius:2px;display:flex;align-items:center;justify-content:center" role="img" aria-label="Non-vegetarian"><span style="width:0;height:0;border-left:4.5px solid transparent;border-right:4.5px solid transparent;border-bottom:8px solid #8A3B12"></span></span></div>
+    </div>
+    <p style="margin:0;font-size:14px;line-height:1.55;color:var(--c-ink-2)">Lucide line icons at 1.5px stroke, 20 or 24px. Veg and non-veg use the FSSAI square marks Indian guests already read — dot for veg, triangle for non-veg — so shape carries meaning, not just green and brown. Spice is three small chilli strokes, filled count = heat, with "Mild / Medium / Hot" in text beside.</p>
+  </div>
+</section>
+
+<!-- 06 TOKENS -->
+<section style="display:flex;flex-direction:column;gap:20px">
+  <div style="display:flex;align-items:baseline;gap:20px"><span class="mono" style="font-size:13px;color:var(--c-ink-3)">06</span><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:40px">Tokens</h2><span style="font-size:16px;color:var(--c-ink-2)">Components read only semantic names. The theme block is the only place a hex lives.</span></div>
+  <pre class="mono" style="margin:0;background:var(--c-ink);color:#E6E8E4;border-radius:10px;padding:28px 32px;font-size:13px;line-height:1.7;white-space:pre-wrap">[data-theme="guest"]   { --bg-page:#0A1220; --bg-surface:#101E33; --bg-card:#1B2B45; --line:#2A3B58;
+                         --ink:#F4ECDD; --ink-2:#B9C2D0; --ink-3:#8B97AB;
+                         --accent:#E9A227; --on-accent:#1A1206; --ready:#6E9C95; --late:#F08A6C; }
+[data-theme="console"] { --bg-page:#F3F4F2; --bg-surface:#E9EBE8; --bg-card:#FBFBFA; --line:#D5D8D4;
+                         --ink:#16191B; --ink-2:#4A5054; --ink-3:#62686C;
+                         --accent:#0F766E; --on-accent:#FFFFFF; --positive:#1E7A46; --attention:#8A5300; --critical:#B42318; }
+[data-theme="kitchen-night"] { --bg-page:#07090C; --bg-card:#12161C; --ink:#F2F4F5; --attention:#F2B544; --critical:#FF7A66; }
+:root { --r-1:2px; --r-2:4px; --r-card:10px; --r-pill:999px; --t-fast:180ms; --t-base:240ms; --t-slow:320ms;
+        --ease:cubic-bezier(.2,.7,.2,1); --font-display:'Marcellus'; --font-body:'Mukta'; --font-mono:'DM Mono'; }
+@media (prefers-reduced-motion: reduce) { :root { --t-fast:0ms; --t-base:0ms; --t-slow:0ms; } }
+:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }</pre>
+</section>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2240}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

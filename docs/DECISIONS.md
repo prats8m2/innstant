@@ -3343,3 +3343,50 @@ by the top bar (D-092), and the order and request
 screens are mostly reached from a form whose button is already pending.
 `useLiveRefresh` says so in its header, so the next live screen does not
 grow a skeleton and the same silent freeze.
+
+### D-100 · Direction A: one token file for colour, one type set for every surface
+The user redesigned the guest app, the console and the floor screens in Claude
+Design and chose Direction A. The boards are in
+`design/reference/direction-a/`; the pre-redesign tree is tagged
+`pre-redesign`, so any screen can be put back with
+`git checkout pre-redesign -- <path>`.
+
+**Colour lives in `design/tokens/innstant-themes.css`, the user's file.** It
+has two axes: five guest themes (`kesari`, `pichola`, `gulabi`, `mehendi`,
+`sandstone`) as `--g-*`, picked per property with `data-guest-theme`; and the
+console's `light` and `dark` with an accent per guest theme, picked with
+`data-console` and `data-accent`. `<html>` carries `data-console="light"
+data-accent="kesari"` as the default. This reverses half of D-023 — there is a
+token FILE again, and a JSON mirror of it — but not the other half: there is
+still no generator, both are hand-kept, and `theme-tokens.test.ts` asserts they
+match and that every theme meets the floors its header claims. It found one
+miss: the light console's mehendi accent carries white at 4.99:1 against a
+claimed 5:1. It passes AA and the test holds AA; the value is the user's.
+
+**`theme.css` stays, as the map.** About 250 module stylesheets read
+`--paper`, `--teal-600`, `--ink`, `--saffron`. Rewriting them before each
+screen is rebuilt would be churn, so the console and Kesari blocks now point
+those names at the tokens (`--paper: var(--bg)`, `--teal-600:
+var(--g-accent)`) and hold no hex. Two traps, both written down where they
+bite: a var() resolves on the element that declares it, so the console's map
+is declared on `[data-console]` as well as `:root`; and the five names the
+token file owns for the console (`--bg`, `--surface`, `--border`, `--text`,
+`--accent`) are no longer aliased on `:root`, because `--paper: var(--bg)` next
+to `--bg: var(--paper)` is a cycle and a cycle is silently transparent.
+
+**The scales do not move.** The token file's spacing, radius and duration
+names overlap `theme.css`'s with different numbers (`--space-6` is 32px there,
+24px here; `--radius-sm` 4px against 6px). `theme.css` is imported after the
+tokens and its values win, because flipping them would double gaps on console
+pages that have no board to be rebuilt against. Rebuilt screens use the
+boards' px values through the existing scale. The guest's radii did change to
+the design's (4px controls, 10px cards, pills for chips only).
+
+**One type set.** Marcellus speaks, Mukta explains, DM Mono counts — on the
+console too. Public Sans and Red Hat Mono are deleted: Mukta was drawn for
+Devanagari and Latin together, and Public Sans has no Devanagari, so a guest's
+Hindi name now sets properly on the desk's screen. The console's headings are
+Mukta at weight; Marcellus stays on the guest's screens.
+
+The Expo app's palette moved with the Kesari theme, as the token file's
+header says it should; `mobile-theme.test.ts` now reads the JSON.

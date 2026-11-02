@@ -14,14 +14,14 @@ import { readFileSync } from 'node:fs';
  * unreadable to plenty of the 30–55 year-old guests this product is for, in a
  * dim hotel room.
  *
- * ─── Why it runs twice ─────────────────────────────────────────────────────
+ * ─── Which palettes ────────────────────────────────────────────────────────
  *
- * D-050 gave the product two themes: the staff console on `:root`, and the
- * guest app's Kesari under `[data-theme='kesari']`; the marketing site added a
- * third, `[data-theme='innstant']`. The guest one is the theme
- * somebody reads at 9:40pm on their own phone, which is the harder case and the
- * one this file was originally written for. Testing only the default would
- * leave it uncovered, so the same suite runs over each palette's own grounds.
+ * Only the marketing site's now. Since D-100 the console's and the guest
+ * app's colours live in design/tokens/innstant-themes.css, and theme.css maps
+ * role names onto them with var() and color-mix() — there is no hex left in
+ * those two blocks to read. Their contrast is asserted against the token file
+ * itself, in theme-tokens.test.ts, for all five guest themes and both console
+ * appearances.
  */
 const theme = readFileSync('src/styles/theme.css', 'utf8');
 
@@ -47,8 +47,6 @@ interface Palette {
 }
 
 const PALETTES: Palette[] = [
-  { name: 'console', css: blockFor(':root'), splitsAttention: true },
-  { name: 'kesari', css: blockFor("[data-theme='kesari']"), splitsAttention: false },
   /**
    * The marketing site. Held to the same bar as the two product themes and for
    * a blunter reason: it is the only surface in this repo a stranger reaches
@@ -195,28 +193,6 @@ describe.each(PALETTES)('WCAG AA contrast · $name', (palette) => {
     // A border, and only a border, in both palettes.
     expect(contrast(hexOf(palette, '--line-faint'), hexOf(palette, '--white')))
       .toBeLessThan(4.5);
-  });
-});
-
-/**
- * Console-only, because it describes a split the Kesari does not make.
- *
- * On paper, the design's amber is 3.64:1 — fine for a dot, a fill or a left
- * border, and unreadable as a word — so the console carries two values and this
- * pins the graphic one below AA to make misuse loud. On indigo the attention
- * tone IS saffron, it passes AA outright, and there is nothing to separate.
- */
-describe('the console splits attention into a text tone and a graphic', () => {
-  const console_ = PALETTES.find((p) => p.name === 'console')!;
-  const grounds = ['--paper', '--white', '--paper-raised'] as const;
-
-  it('the attention MARK is a graphic, and is never claimed to be text', () => {
-    for (const ground of grounds) {
-      const ratio = contrast(hexOf(console_, '--status-attention-mark'), hexOf(console_, ground));
-      expect(ratio, `--status-attention-mark on ${ground}`).toBeGreaterThanOrEqual(3);
-      expect(ratio, 'if this passes 4.5, merge it into --status-attention and delete this')
-        .toBeLessThan(4.5);
-    }
   });
 });
 

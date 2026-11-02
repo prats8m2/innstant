@@ -51,15 +51,16 @@ export const BRAND_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
 ];
 
 /**
- * The guest app's ground and its two inks, as `[data-theme='kesari']` declares
- * them. Duplicated by necessity — the check runs on the server, before any
- * stylesheet — and `branding.test.ts` reads theme.css to keep them in step, the
- * same arrangement the layout's `themeColor` has with theme-discipline.test.ts.
+ * The Kesari guest theme's page, card and two inks, as
+ * design/tokens/innstant-themes.css declares them (D-100). Duplicated by
+ * necessity — the check runs on the server, before any stylesheet — and
+ * `branding.test.ts` reads the token file to keep them in step, the same
+ * arrangement the layout's `themeColor` has with theme-discipline.test.ts.
  */
-export const GUEST_GROUND = '#101E33';
+export const GUEST_GROUND = '#0A1220';
 export const GUEST_CARD = '#1B2B45';
-export const GUEST_INK_DARK = '#101E33';
-export const GUEST_INK_LIGHT = '#E3E5DB';
+export const GUEST_INK_DARK = '#1A1206';
+export const GUEST_INK_LIGHT = '#F4ECDD';
 
 /** WCAG 2.2: 3:1 for a component and its large text, 4.5:1 for body text. */
 const ON_GROUND_MIN = 3;

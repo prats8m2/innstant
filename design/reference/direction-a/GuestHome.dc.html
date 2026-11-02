@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Room home</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--g-page:#0A1220;--g-surface:#101E33;--g-card:#1B2B45;--g-line:#2A3B58;--g-ink:#F4ECDD;--g-ink-2:#B9C2D0;--g-ink-3:#8B97AB;--g-on-accent:#1A1206;--g-ready:#6E9C95;--f-display:'Marcellus',Georgia,serif;--f-body:'Mukta',system-ui,sans-serif;--f-mono:'DM Mono',ui-monospace,monospace}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.photo{background-color:#22334F;background-image:repeating-linear-gradient(135deg,rgba(244,236,221,.05) 0 1px,transparent 1px 9px)}
+@keyframes draw{from{stroke-dashoffset:900}to{stroke-dashoffset:0}}
+.arch{stroke-dasharray:900;animation:draw 320ms cubic-bezier(.2,.7,.2,1) both}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.rise{animation:rise 240ms cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){.arch,.rise{animation:none}}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:var(--g-page);color:var(--g-ink);font-family:var(--f-body);position:relative;overflow:hidden;display:flex;flex-direction:column">
+
+  <header style="height:56px;padding:0 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;margin-top:44px">
+    <span style="font-family:var(--f-display);font-size:15px;letter-spacing:.24em">THE KESARI</span>
+    <a href="GuestStay.dc.html" style="text-decoration:none;display:flex;align-items:center;gap:8px;height:44px;padding:0 4px;color:var(--g-ink-2);font-size:14px">Room <span class="mono" style="color:var(--g-ink)">214</span></a>
+  </header>
+
+  <section style="padding:4px 20px 0;display:flex;gap:18px;align-items:flex-end">
+    <div style="position:relative;width:132px;height:172px;flex-shrink:0">
+      <div class="photo" style="position:absolute;left:9px;right:9px;bottom:0;top:12px;border-radius:57px 57px 0 0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:8px"><span class="mono" style="font-size:9px;color:var(--g-ink-3);text-align:center;line-height:1.3">COVER<br>courtyard, dusk</span></div>
+      <svg width="132" height="172" viewBox="0 0 200 260" aria-hidden="true" style="position:absolute;inset:0;overflow:visible">
+        <path class="arch" d="M0 260 V110 C0 60 50 30 100 0 C150 30 200 60 200 110 V260" fill="none" stroke="{{accent}}" stroke-width="1.5"></path>
+      </svg>
+    </div>
+    <div class="rise" style="display:flex;flex-direction:column;gap:6px;padding-bottom:6px">
+      <span style="font-size:15px;color:{{accent}}">खम्मा घणी</span>
+      <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:31px;line-height:1.08">Good evening, Camille</h1>
+      <span style="font-size:14px;color:var(--g-ink-2);line-height:1.4">Jharokha Suite · until <span class="mono" style="font-size:13px">Thu, 11am</span></span>
+    </div>
+  </section>
+
+  <a href="GuestTracking.dc.html" class="rise" style="margin:22px 20px 0;text-decoration:none;background:var(--g-surface);border:1px solid var(--g-line);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;min-height:64px;box-sizing:border-box">
+    <span style="width:10px;height:10px;border-radius:50%;background:{{accent}};box-shadow:0 0 0 5px rgba(233,162,39,.16);flex-shrink:0"></span>
+    <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-size:15px;font-weight:500">Dinner is plated and covered</span><span style="font-size:13px;color:var(--g-ink-2)">At your door around <span class="mono">9:05pm</span></span></span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8B97AB" stroke-width="1.5" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+  </a>
+
+  <nav aria-label="Services" style="margin:12px 20px 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <a href="GuestAmenities.dc.html" style="text-decoration:none;background:var(--g-card);border-radius:4px;padding:16px;height:120px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path><path d="M4 11h16"></path><path d="M9 7V5h6v2"></path></svg>
+      <span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:500">Amenities</span><span style="font-size:13px;color:var(--g-ink-2)">Towels, pillows, laundry</span></span>
+    </a>
+    <a href="#" style="text-decoration:none;background:var(--g-card);border-radius:4px;padding:16px;height:120px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+      <span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:500">Call for service</span><span style="font-size:13px;color:var(--g-ink-2)">Someone in about 4 min</span></span>
+    </a>
+    <a href="GuestStay.dc.html" style="text-decoration:none;background:var(--g-card);border-radius:4px;padding:16px;height:120px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V10l9-6 9 6v11"></path><path d="M9 21v-6h6v6"></path></svg>
+      <span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:500">Your stay</span><span style="font-size:13px;color:var(--g-ink-2)">Bill, Wi-Fi, checkout</span></span>
+    </a>
+    <a href="GuestPlanDay.dc.html" style="text-decoration:none;background:var(--g-card);border-radius:4px;padding:16px;height:120px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      <span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:500">Plan my day</span><span style="font-size:13px;color:var(--g-ink-2)">Seven places we vouch for</span></span>
+    </a>
+  </nav>
+
+  <div style="margin-top:auto;padding:16px 20px 34px;display:flex;flex-direction:column;gap:10px;background:var(--g-page);border-top:1px solid var(--g-line)">
+    <a href="GuestMenu.dc.html" style="text-decoration:none;height:58px;border-radius:4px;background:{{accent}};color:var(--g-on-accent);display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-size:17px;font-weight:600">
+      <span>Order dinner to room <span class="mono">214</span></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1206" stroke-width="2" aria-hidden="true"><path d="M5 12h14"></path><path d="M13 6l6 6-6 6"></path></svg>
+    </a>
+    <span style="font-size:13px;color:var(--g-ink-3);text-align:center">Kitchen open till 11pm · after-hours menu till 2am</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#E9A227","options":["#E9A227","#EE8A6A","#CDA868","#9CC6B9"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return { accent: this.props.accent ?? '#E9A227' }; }
+}
+</script>
+</body>
+</html>

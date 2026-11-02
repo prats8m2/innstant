@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console rooms</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.btn{height:36px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent-text)}
+</style>
+</helmet>
+<div style="{{root}}">
+
+  <nav aria-label="Console" style="flex:1 1 248px;max-width:100%;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+    <button style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);text-align:left;margin-bottom:10px">
+      <span style="width:32px;height:32px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="18" viewBox="0 0 200 260" aria-hidden="true"><path d="M10 260 V110 C10 60 55 32 100 10 C145 32 190 60 190 110 V260" fill="none" stroke="var(--accent-fg)" stroke-width="20"></path></svg></span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-family:'Marcellus',serif;font-size:15px">The Kesari</span><span style="font-size:12px;color:var(--text-3)">Udaipur · 34 rooms</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:14px;margin-bottom:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="flex:1">Search rooms, guests, orders</span><span class="mono" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:0 5px">⌘K</span></label>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <span class="lbl" style="padding:14px 10px 6px">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg><span>{{n.label}}</span><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if></a>
+      </sc-for>
+    </sc-for>
+  </nav>
+
+  <div style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column">
+    <header style="min-height:60px;padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--border);background:var(--surface);display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <span style="font-size:14px;color:var(--text-3)">Today</span><span style="color:var(--text-3)">/</span><span style="font-size:14px;font-weight:600">Rooms</span>
+      <span style="flex:1"></span>
+      <button class="btn">Print QR stickers</button>
+      <button style="height:36px;padding:0 14px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600">Walk-in check-in</button>
+    </header>
+
+    <div style="flex:1;display:flex;flex-wrap:wrap;align-items:stretch">
+      <main style="flex:999 1 520px;min-width:0;padding:24px clamp(16px,3vw,32px) 40px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px">
+          <div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em">Rooms</h1><span style="font-size:14px;color:var(--text-2)">34 rooms on 4 floors · 29 in house · 7 to make up</span></div>
+          <div role="group" aria-label="View" style="display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:3px"><button style="height:30px;padding:0 12px;border:0;border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;box-shadow:var(--shadow)">Grid</button><button style="height:30px;padding:0 12px;border:0;border-radius:4px;background:transparent;color:var(--text-2);font-size:13px">List</button></div>
+        </div>
+
+        <div class="card" style="padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+          <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;flex:1 1 200px;color:var(--text-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="position:absolute;left:-9999px">Filter rooms</span><input placeholder="Room number or guest" style="border:0;outline:0;background:transparent;color:var(--text);font-family:inherit;font-size:14px;flex:1;min-width:0"></label>
+          <sc-for list="{{chips}}" as="c" hint-placeholder-count="6"><button aria-pressed="{{c.on}}" style="{{c.style}}">{{c.label}} <span class="mono" style="opacity:.75">{{c.n}}</span></button></sc-for>
+        </div>
+
+        <sc-for list="{{floors}}" as="f" hint-placeholder-count="4">
+          <section style="display:flex;flex-direction:column;gap:10px">
+            <h2 style="margin:0;display:flex;align-items:baseline;gap:10px;font-size:14px;font-weight:600">{{f.name}} <span style="font-weight:400;color:var(--text-3);font-size:13px">{{f.summary}}</span></h2>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
+              <sc-for list="{{f.rooms}}" as="r" hint-placeholder-count="8">
+                <button aria-label="{{r.aria}}" style="{{r.tile}}">
+                  <span style="display:flex;justify-content:space-between;align-items:center;width:100%"><span class="mono" style="font-size:18px;font-weight:500">{{r.num}}</span><span style="display:flex;gap:6px;align-items:center"><sc-if value="{{r.live}}" hint-placeholder-val="{{ false }}"><span title="{{r.liveText}}" style="width:8px;height:8px;border-radius:50%;background:var(--accent)"></span></sc-if><sc-if value="{{r.vip}}" hint-placeholder-val="{{ false }}"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--accent-text);background:var(--accent-soft);padding:1px 5px;border-radius:3px">VIP</span></sc-if></span></span>
+                  <span style="font-size:14px;color:{{r.guestColor}};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;text-align:left">{{r.guest}}</span>
+                  <span style="display:flex;gap:4px;flex-wrap:wrap"><span class="pill" style="{{r.occStyle}}">{{r.occ}}</span><span class="pill" style="{{r.cleanStyle}}">{{r.clean}}</span></span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+        </sc-for>
+      </main>
+
+      <aside aria-label="Room 214" style="flex:1 1 340px;max-width:100%;background:var(--surface);border-left:1px solid var(--border);box-sizing:border-box;display:flex;flex-direction:column">
+        <div style="padding:20px 20px 0;display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-weight:600">CL</span><span style="display:flex;flex-direction:column"><span style="font-size:17px;font-weight:600">Camille Laurent <span style="font-weight:400;color:var(--text-3)">+1</span></span><span style="font-size:13px;color:var(--text-2)">Room <span class="mono">214</span> · Jharokha Suite · First floor</span></span></div>
+          <button aria-label="Close" style="width:36px;height:36px;border:0;border-radius:6px;background:transparent;color:var(--text-2);font-size:20px">×</button>
+        </div>
+        <div role="tablist" style="display:flex;gap:4px;padding:14px 20px 0;border-bottom:1px solid var(--border)">
+          <button role="tab" aria-selected="true" style="height:38px;padding:0 10px;border:0;border-bottom:2px solid var(--accent);background:transparent;color:var(--text);font-size:14px;font-weight:600">Stay</button>
+          <button role="tab" aria-selected="false" style="height:38px;padding:0 10px;border:0;background:transparent;color:var(--text-2);font-size:14px">Folio</button>
+          <button role="tab" aria-selected="false" style="height:38px;padding:0 10px;border:0;background:transparent;color:var(--text-2);font-size:14px">Activity</button>
+        </div>
+        <div style="padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill" style="background:var(--accent-soft);color:var(--accent-text)">In house</span><span class="pill" style="background:var(--warn-soft);color:var(--warn)">To make up</span><span class="pill" style="background:var(--accent-soft);color:var(--accent-text)">VIP</span></div>
+          <dl style="margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 16px;font-size:14px">
+            <dt style="color:var(--text-3)">Arrived</dt><dd style="margin:0">Mon 2 Nov, <span class="mono">2:10pm</span></dd>
+            <dt style="color:var(--text-3)">Leaving</dt><dd style="margin:0">Thu 5 Nov, <span class="mono">11am</span></dd>
+            <dt style="color:var(--text-3)">Phone</dt><dd style="margin:0" class="mono">+33 •• •• •• 40</dd>
+            <dt style="color:var(--text-3)">Notes</dt><dd style="margin:0">Feather-free pillows. Anniversary on Wednesday.</dd>
+          </dl>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span class="lbl">Live in this room</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px"><span>Dinner <span class="mono" style="color:var(--text-3)">#K-4821</span></span><span class="pill" style="background:var(--info-soft);color:var(--info)">At the pass</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px"><span>Turndown, 9pm</span><span style="font-size:13px;color:var(--text-2)">Sunita</span></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;background:var(--surface-2);border-radius:8px"><span style="font-size:14px;color:var(--text-2)">Folio so far</span><span class="mono" style="font-size:20px">₹62,480</span></div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <button class="btn">Move checkout</button><button class="btn">Raise request</button><button class="btn">QR sticker</button>
+            <a href="ConsoleCheckout.dc.html" style="height:36px;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;text-decoration:none">Check out</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["light","dark"],"default":"light"},"theme":{"editor":"enum","options":["kesari","pichola","gulabi","mehendi","sandstone"],"default":"kesari"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+  vars() {
+    const app = this.props.appearance ?? 'light';
+    const acc = { kesari:['#0F766E','#3FB6A8'], pichola:['#0E7490','#5BC0D8'], gulabi:['#A21CAF','#E08AF0'], mehendi:['#4D7C0F','#A8CC62'], sandstone:['#B45309','#E3A458'] }[this.props.theme ?? 'kesari'];
+    const L = { bg:'#F5F6F4', surface:'#FFFFFF', 'surface-2':'#F0F1EE', border:'#E3E5E1', 'border-strong':'#CFD3CD', text:'#16191B', 'text-2':'#4A5054', 'text-3':'#646A6E', pos:'#166534', 'pos-soft':'#DCF3E3', warn:'#92570A', 'warn-soft':'#FBEFD5', crit:'#B42318', 'crit-soft':'#FBE3E0', info:'#1D4ED8', 'info-soft':'#E3EAFC', accent:acc[0], 'accent-soft':acc[0]+'1A', 'accent-fg':'#FFFFFF', 'accent-text':acc[0], shadow:'0 1px 2px rgba(22,25,27,.05)' };
+    const D = { bg:'#0D1013', surface:'#14181C', 'surface-2':'#1B2025', border:'#262D33', 'border-strong':'#363E46', text:'#E9EDF0', 'text-2':'#AAB3BB', 'text-3':'#8D969E', pos:'#5CC98A', 'pos-soft':'rgba(92,201,138,.14)', warn:'#E5B04E', 'warn-soft':'rgba(229,176,78,.14)', crit:'#F2786B', 'crit-soft':'rgba(242,120,107,.15)', info:'#86A9F5', 'info-soft':'rgba(134,169,245,.14)', accent:acc[1], 'accent-soft':acc[1]+'29', 'accent-fg':'#0D1013', 'accent-text':acc[1], shadow:'none' };
+    const t = app === 'dark' ? D : L;
+    return Object.keys(t).map(k => '--' + k + ':' + t[k]).join(';') + ';color-scheme:' + app + ';min-height:100vh;background:var(--bg);color:var(--text);font-family:Mukta,system-ui,sans-serif;display:flex;flex-wrap:wrap';
+  }
+  nav(active) {
+    const I = { grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', desk:'M3 18h18M5 18a7 7 0 0 1 14 0M12 9V7M10 7h4', bed:'M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', out:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', menu:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20M19 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v7', req:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', brand:'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-2a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22ZM7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', mon:'M2 4h20v12H2zM8 20h8M12 16v4', chef:'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 9.18 0A4 4 0 0 1 18 13.87V21H6ZM6 17h12', run:'M5 12h14M13 6l6 6-6 6', hk:'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z' };
+    const G = [['Today',[['Overview','grid','ConsoleOverview.dc.html'],['Front desk','desk','ConsolePhone.dc.html'],['Rooms','bed','ConsoleRooms.dc.html'],['Leaving','out','ConsoleCheckout.dc.html','2','warn']]],
+      ['Service',[['Menu','menu','#'],['Requests','req','ConsoleRequests.dc.html','1 late','crit'],['Links','link','#']]],
+      ['Setup',[['Property & branding','brand','ConsoleBranding.dc.html'],['Staff','users','#']]],
+      ['Floor screens',[['Live floor','mon','#'],['Kitchen display','chef','Kitchen.dc.html'],['Runner','run','Runner.dc.html'],['Housekeeping','hk','Housekeeping.dc.html']]]];
+    return G.map(([label, items]) => ({ label, items: items.map(([l, ic, href, b, bt]) => { const on = l === active; return { label:l, d:I[ic], href, current: on ? 'page' : 'false', hasBadge: !!b, badge: b || '',
+      style: 'display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;font-size:14px;' + (on ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'color:var(--text-2)'),
+      badgeStyle: 'margin-left:auto;font-family:DM Mono,monospace;font-size:11px;padding:1px 7px;border-radius:999px;' + (bt === 'crit' ? 'background:var(--crit-soft);color:var(--crit)' : 'background:var(--warn-soft);color:var(--warn)') }; }) }));
+  }
+  renderVals() {
+    const chips = [['All','34',1],['In house','29'],['Arriving','2'],['Leaving','5'],['To make up','7'],['Out of order','1']].map(([label, n, on]) => ({ label, n, on: on ? 'true' : 'false',
+      style: 'height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;' + (on ? 'border:1px solid var(--text);background:var(--text);color:var(--bg)' : 'border:1px solid var(--border);background:var(--surface);color:var(--text)') }));
+    const OCC = { in:['In house','background:var(--accent-soft);color:var(--accent-text)'], out:['Out today','background:var(--warn-soft);color:var(--warn)'], arr:['Arriving','background:var(--info-soft);color:var(--info)'], empty:['Empty','background:var(--surface-2);color:var(--text-2)'] };
+    const CL = { ready:['✓ Ready','background:var(--pos-soft);color:var(--pos)'], make:['◌ Make up','background:transparent;color:var(--warn);box-shadow:inset 0 0 0 1px var(--warn)'], insp:['✓✓ Inspected','background:var(--pos-soft);color:var(--pos)'], ooo:['■ Out of order','background:var(--text);color:var(--bg)'] };
+    const mk = (num, guest, occ, clean, vip, live) => { const sel = num === 214; return { num, vip: !!vip, live: !!live, liveText: live || '',
+      guest: guest || (clean === 'ooo' ? 'Plumbing, till Wed' : '—'), guestColor: guest ? 'var(--text)' : 'var(--text-3)',
+      occ: OCC[occ][0], occStyle: OCC[occ][1], clean: CL[clean][0], cleanStyle: CL[clean][1],
+      aria: 'Room ' + num + ', ' + (guest || 'empty') + ', ' + OCC[occ][0] + ', ' + CL[clean][0].replace(/^[^A-Za-z]+/, ''),
+      tile: 'display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:12px;border-radius:8px;background:' + (occ === 'empty' ? 'var(--surface-2)' : 'var(--surface)') + ';color:var(--text);' + (sel ? 'border:2px solid var(--accent);box-shadow:0 0 0 3px var(--accent-soft)' : 'border:1px solid var(--border);box-shadow:var(--shadow)') }; };
+    const floors = [
+      { name:'Courtyard', summary:'8 rooms · 7 in house', rooms:[mk(101,'Brenner','in','ready'),mk(102,'Rao','in','insp'),mk(103,'Okafor','out','make'),mk(104,'Malhotra','in','ready',1),mk(105,'Lindqvist','in','make'),mk(106,null,'empty','ready'),mk(107,'Desai','in','ready',0,'Order cooking'),mk(108,'T. Brenner','out','make')] },
+      { name:'First', summary:'14 rooms · 12 in house', rooms:[mk(201,'Sato','in','ready'),mk(202,'Bhandari','in','insp'),mk(203,'Moreau','in','make',1),mk(204,'Kulkarni','in','ready'),mk(205,'Haas','in','ready',0,'Laundry pickup'),mk(206,'Kapoor','arr','insp'),mk(207,null,'empty','ready'),mk(208,'Nair','in','make'),mk(209,'Wright','out','ready'),mk(210,'Chauhan','in','insp'),mk(211,'Gill','in','make'),mk(212,'Mehra','in','ready'),mk(213,'Sharma','in','ready'),mk(214,'Camille Laurent','in','make',1,'Dinner at the pass')] },
+      { name:'Second', summary:'8 rooms · 6 in house', rooms:[mk(301,'Kaur','in','ready'),mk(302,'A. & P. Iyer','in','ready',0,'Late request'),mk(303,'Dubois','in','insp',0,'Charger on the way'),mk(304,null,'empty','ooo'),mk(305,'Shah','arr','make'),mk(306,'Novak','in','ready'),mk(307,null,'empty','insp'),mk(308,'Reddy','in','ready')] },
+      { name:'Rooftop', summary:'4 suites · all in house', rooms:[mk(401,'Shekhawat','in','ready',1,'Late checkout asked'),mk(402,'Hoffman','in','insp',1),mk(403,'Bose','in','ready'),mk(404,'Al-Mansouri','in','ready',1)] }
+    ];
+    return { root: this.vars(), groups: this.nav('Rooms'), chips, floors };
+  }
+}
+</script>
+</body>
+</html>

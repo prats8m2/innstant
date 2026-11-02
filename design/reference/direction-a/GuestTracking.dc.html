@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Order tracking</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--g-page:#0A1220;--g-surface:#101E33;--g-card:#1B2B45;--g-line:#2A3B58;--g-ink:#F4ECDD;--g-ink-2:#B9C2D0;--g-ink-3:#8B97AB;--g-accent:#E9A227;--g-on-accent:#1A1206;--g-ready:#6E9C95;--g-late:#F08A6C;--f-display:'Marcellus',Georgia,serif;--f-body:'Mukta',system-ui,sans-serif;--f-mono:'DM Mono',ui-monospace,monospace}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 4px rgba(233,162,39,.18)}50%{box-shadow:0 0 0 8px rgba(233,162,39,.06)}}
+.now{animation:pulse 2.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.now{animation:none}}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:var(--g-page);color:var(--g-ink);font-family:var(--f-body);display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="padding:44px 8px 0;height:100px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between">
+    <a href="GuestHome.dc.html" aria-label="Back to room home" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F4ECDD" stroke-width="1.5" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <span class="mono" style="font-size:14px;color:var(--g-ink-2)">Dinner · #K-4821</span>
+    <span style="width:44px"></span>
+  </header>
+
+  <section style="padding:8px 20px 0;display:flex;flex-direction:column;gap:10px" aria-live="polite">
+    <sc-if value="{{isOnTrack}}" hint-placeholder-val="{{ true }}">
+      <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:32px;line-height:1.12">Plated. The window is as tight as it gets.</h1>
+      <div style="display:flex;align-items:baseline;gap:12px"><span class="mono" style="font-size:44px;color:var(--g-accent);letter-spacing:-.02em">9:05</span><span style="font-size:15px;color:var(--g-ink-2)">pm at your door · about 6 min</span></div>
+    </sc-if>
+    <sc-if value="{{isLate}}" hint-placeholder-val="{{ false }}">
+      <span style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--g-late)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F08A6C" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>About 8 minutes behind</span>
+      <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:32px;line-height:1.12">The tandoor is full tonight. We'd rather it's right.</h1>
+      <div style="display:flex;align-items:baseline;gap:12px"><span class="mono" style="font-size:44px;color:var(--g-late);letter-spacing:-.02em">9:13</span><span style="font-size:15px;color:var(--g-ink-2)">pm now · <span style="text-decoration:line-through">9:05</span></span></div>
+    </sc-if>
+    <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+      <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:36px;line-height:1.12">He is at your door.</h1>
+      <span style="font-size:15px;color:var(--g-ink-2)">Arjun knocked at <span class="mono">9:04pm</span>. Enjoy it hot.</span>
+    </sc-if>
+  </section>
+
+  <ol style="list-style:none;margin:28px 20px 0;padding:0;display:flex;flex-direction:column;position:relative">
+    <span aria-hidden="true" style="position:absolute;left:7px;top:10px;bottom:10px;width:1px;background:var(--g-line)"></span>
+    <li style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding-bottom:20px;position:relative"><span style="width:15px;height:15px;border-radius:50%;background:var(--g-ready);margin-top:4px"></span><span style="display:flex;flex-direction:column"><span style="font-size:16px">Order received</span><span style="font-size:13px;color:var(--g-ink-3)">Charged to room 214</span></span><span class="mono" style="font-size:14px;color:var(--g-ink-2)">8:42pm</span></li>
+    <li style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding-bottom:20px;position:relative"><span style="width:15px;height:15px;border-radius:50%;background:var(--g-ready);margin-top:4px"></span><span style="display:flex;flex-direction:column"><span style="font-size:16px">In the kitchen</span><span style="font-size:13px;color:var(--g-ink-3)">Chef Bhairav's line</span></span><span class="mono" style="font-size:14px;color:var(--g-ink-2)">8:44pm</span></li>
+    <li style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding-bottom:20px;position:relative"><span style="{{dot3}}" class="now"></span><span style="display:flex;flex-direction:column"><span style="font-size:16px;font-weight:600;color:{{c3}}">Plated and covered</span><span style="font-size:13px;color:var(--g-ink-3)">Brass cloche, kept warm</span></span><span class="mono" style="font-size:14px;color:{{c3}}">{{t3}}</span></li>
+    <li style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;padding-bottom:20px;position:relative"><span style="{{dot4}}"></span><span style="display:flex;flex-direction:column"><span style="font-size:16px;color:{{c4}}">On the way up</span><span style="font-size:13px;color:var(--g-ink-3)">Arjun is bringing it</span></span><span class="mono" style="font-size:14px;color:var(--g-ink-3)">{{t4}}</span></li>
+    <li style="display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:14px;align-items:start;position:relative"><span style="{{dot5}}"></span><span style="font-size:16px;color:{{c5}}">At your door</span><span class="mono" style="font-size:14px;color:var(--g-ink-3)">{{t5}}</span></li>
+  </ol>
+
+  <div style="margin:auto 20px 0;display:flex;flex-direction:column;gap:12px;padding-bottom:34px">
+    <div style="background:var(--g-surface);border:1px solid var(--g-line);border-radius:10px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <span style="display:flex;flex-direction:column"><span style="font-size:15px">Laal maas, Soola chicken</span><span style="font-size:13px;color:var(--g-ink-3)">Cutlery for 2 · no onions in the chutney</span></span>
+      <span class="mono" style="font-size:15px">₹2,268</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px">
+      <a href="#" style="text-decoration:none;height:52px;border:1px solid var(--g-ink-3);border-radius:4px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F4ECDD" stroke-width="1.5" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"></path></svg>Call the desk</a>
+      <a href="GuestMenu.dc.html" style="text-decoration:none;height:52px;border:1px solid var(--g-line);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--g-ink-2)">Add a dessert</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"stage":{"editor":"enum","options":["on time","late","delivered"],"default":"on time"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.props.stage ?? 'on time';
+    const done = 'width:15px;height:15px;border-radius:50%;background:#6E9C95;margin-top:4px';
+    const nowA = 'width:15px;height:15px;border-radius:50%;border:2px solid #E9A227;box-sizing:border-box;margin-top:4px';
+    const nowL = 'width:15px;height:15px;border-radius:50%;border:2px solid #F08A6C;box-sizing:border-box;margin-top:4px';
+    const todo = 'width:15px;height:15px;border-radius:50%;border:1.5px solid #8B97AB;background:#0A1220;box-sizing:border-box;margin-top:4px';
+    if (st === 'delivered') return { isOnTrack:false, isLate:false, isDone:true,
+      dot3:done, dot4:done, dot5:done, c3:'#F4ECDD', c4:'#F4ECDD', c5:'#F4ECDD', t3:'8:58pm', t4:'9:00pm', t5:'9:04pm' };
+    if (st === 'late') return { isOnTrack:false, isLate:true, isDone:false,
+      dot3:nowL, dot4:todo, dot5:todo, c3:'#F08A6C', c4:'#8B97AB', c5:'#8B97AB', t3:'cooking', t4:'~9:10', t5:'~9:13' };
+    return { isOnTrack:true, isLate:false, isDone:false,
+      dot3:nowA, dot4:todo, dot5:todo, c3:'#E9A227', c4:'#8B97AB', c5:'#8B97AB', t3:'now', t4:'~9:02', t5:'~9:05' };
+  }
+}
+</script>
+</body>
+</html>

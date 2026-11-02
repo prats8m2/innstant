@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dish · Laal maas</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--g-page:#0A1220;--g-surface:#101E33;--g-card:#1B2B45;--g-line:#2A3B58;--g-ink:#F4ECDD;--g-ink-2:#B9C2D0;--g-ink-3:#8B97AB;--g-accent:#E9A227;--g-on-accent:#1A1206;--g-late:#F08A6C;--f-display:'Marcellus',Georgia,serif;--f-body:'Mukta',system-ui,sans-serif;--f-mono:'DM Mono',ui-monospace,monospace}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.photo{background-color:#22334F;background-image:repeating-linear-gradient(135deg,rgba(244,236,221,.05) 0 1px,transparent 1px 9px)}
+button{font-family:inherit;cursor:pointer;transition:background-color 180ms,border-color 180ms}
+button:focus-visible,a:focus-visible{outline:2px solid #F4ECDD;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:var(--g-page);color:var(--g-ink);font-family:var(--f-body);position:relative;overflow:hidden;display:flex;flex-direction:column">
+
+  <div class="photo" style="height:300px;flex-shrink:0;position:relative;display:flex;align-items:flex-end;padding:16px 20px">
+    <a href="GuestMenu.dc.html" aria-label="Back to menu" style="position:absolute;top:52px;left:12px;width:44px;height:44px;border-radius:4px;background:rgba(10,18,32,.72);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F4ECDD" stroke-width="1.5" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <span class="mono" style="font-size:11px;color:var(--g-ink-3)">PHOTO · laal maas, top-down, brass</span>
+  </div>
+
+  <div style="flex:1;overflow:hidden;padding:20px 20px 0;display:flex;flex-direction:column;gap:18px">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--g-accent)">Chef Bhairav's table</span>
+      <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:32px;line-height:1.1">Laal maas</h1>
+      <p style="margin:0;font-size:15px;line-height:1.5;color:var(--g-ink-2)">Mutton slow-cooked four hours with Mathania chillies and smoked ghee. Contains dairy.</p>
+    </div>
+
+    <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+      <legend style="font-size:13px;color:var(--g-ink-3);margin-bottom:8px">Heat</legend>
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+        <sc-for list="{{heats}}" as="h" hint-placeholder-count="3">
+          <button onClick="{{h.pick}}" aria-pressed="{{h.on}}" style="{{h.style}}">{{h.label}}</button>
+        </sc-for>
+      </div>
+    </fieldset>
+
+    <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column">
+      <legend style="font-size:13px;color:var(--g-ink-3);margin-bottom:4px">Add to it</legend>
+      <sc-for list="{{addons}}" as="a" hint-placeholder-count="3">
+        <button onClick="{{a.toggle}}" aria-pressed="{{a.on}}" style="display:flex;align-items:center;justify-content:space-between;min-height:48px;border:0;border-bottom:1px solid var(--g-line);background:transparent;color:var(--g-ink);padding:0;text-align:left;font-size:16px">
+          <span style="display:flex;align-items:center;gap:12px"><span style="{{a.box}}">{{a.tick}}</span>{{a.label}}</span>
+          <span class="mono" style="font-size:14px;color:var(--g-ink-2)">+{{a.priceText}}</span>
+        </button>
+      </sc-for>
+    </fieldset>
+  </div>
+
+  <div style="padding:14px 20px 34px;border-top:1px solid var(--g-line);display:flex;gap:12px;align-items:center;background:var(--g-page)">
+    <div style="display:flex;align-items:center;border:1px solid var(--g-line);border-radius:4px;height:56px">
+      <button onClick="{{dec}}" aria-label="One fewer" style="width:48px;height:54px;border:0;background:transparent;color:var(--g-ink);font-size:22px">−</button>
+      <span class="mono" aria-live="polite" style="width:28px;text-align:center;font-size:17px">{{qty}}</span>
+      <button onClick="{{inc}}" aria-label="One more" style="width:48px;height:54px;border:0;background:transparent;color:var(--g-accent);font-size:22px">+</button>
+    </div>
+    <a href="GuestCart.dc.html" style="flex:1;text-decoration:none;height:56px;border-radius:4px;background:var(--g-accent);color:var(--g-on-accent);display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:16px;font-weight:600"><span>Add to order</span><span class="mono" aria-live="polite">{{totalText}}</span></a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { qty: 1, heat: 'hot', picked: { roti: true } }; }
+  renderVals() {
+    const inr = (n) => '₹' + n.toLocaleString('en-IN');
+    const s = this.state;
+    const heatList = [['mild','Milder'],['medium','Medium'],['hot','As Chef makes it']];
+    const heats = heatList.map(([id,label]) => {
+      const on = s.heat === id;
+      return { label, on: on ? 'true' : 'false', pick: () => this.setState({ heat: id }),
+        style: 'min-height:48px;border-radius:4px;font-size:14px;line-height:1.2;padding:4px 6px;' + (on ? 'border:1px solid #E9A227;background:rgba(233,162,39,.14);color:#E9A227;font-weight:600' : 'border:1px solid #2A3B58;background:transparent;color:#F4ECDD') };
+    });
+    const addList = [['roti','Two more bajre ki roti',120],['raita','Boondi raita',150],['ghee','Extra smoked ghee',60]];
+    let extra = 0;
+    const addons = addList.map(([id,label,price]) => {
+      const on = !!s.picked[id];
+      if (on) extra += price;
+      return { label, priceText: inr(price), on: on ? 'true' : 'false', tick: on ? '✓' : '',
+        toggle: () => this.setState({ picked: { ...s.picked, [id]: !on } }),
+        box: 'width:20px;height:20px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:13px;' + (on ? 'background:#E9A227;color:#1A1206;border:1px solid #E9A227' : 'border:1px solid #8B97AB;color:transparent') };
+    });
+    return {
+      heats, addons, qty: s.qty,
+      totalText: inr((1150 + extra) * s.qty),
+      inc: () => this.setState({ qty: Math.min(9, s.qty + 1) }),
+      dec: () => this.setState({ qty: Math.max(1, s.qty - 1) })
+    };
+  }
+}
+</script>
+</body>
+</html>

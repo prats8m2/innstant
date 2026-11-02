@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Branding and themes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.h2{margin:0;font-size:16px;font-weight:600}
+.sub{font-size:14px;color:var(--text-2);line-height:1.45}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+button{font-family:inherit;cursor:pointer;transition:background-color 180ms,border-color 180ms,color 180ms}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+a{color:var(--accent-text)}
+</style>
+</helmet>
+<div style="{{root}}">
+
+  <!-- SIDEBAR -->
+  <nav aria-label="Console" style="flex:1 1 248px;max-width:100%;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+    <button style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);text-align:left;margin-bottom:10px">
+      <span style="width:32px;height:32px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="18" viewBox="0 0 200 260" aria-hidden="true"><path d="M10 260 V110 C10 60 55 32 100 10 C145 32 190 60 190 110 V260" fill="none" stroke="var(--accent-fg)" stroke-width="20"></path></svg></span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-family:'Marcellus',serif;font-size:15px">The Kesari</span><span style="font-size:12px;color:var(--text-3)">Udaipur · 34 rooms</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:14px;margin-bottom:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="flex:1">Search</span><span class="mono" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:0 5px">⌘K</span></label>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <span class="lbl" style="padding:14px 10px 6px">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg><span>{{n.label}}</span><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if></a>
+      </sc-for>
+    </sc-for>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 0;border-top:1px solid var(--border)"><span style="width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">AR</span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">Aditi Rathore</span><span style="font-size:12px;color:var(--text-3)">General manager</span></span></div>
+  </nav>
+
+  <!-- MAIN -->
+  <div style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column">
+    <header style="height:60px;padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px">
+      <span style="font-size:14px;color:var(--text-3)">Setup</span><span style="color:var(--text-3)">/</span><span style="font-size:14px;font-weight:600">Property &amp; branding</span>
+      <span style="flex:1"></span>
+      <button onClick="{{flipApp}}" aria-label="{{flipLabel}}" style="width:40px;height:40px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-2);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="{{flipIcon}}"></path></svg></button>
+      <button aria-label="Notifications, 3 new" style="position:relative;width:40px;height:40px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-2);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--crit)"></span></button>
+    </header>
+
+    <main style="padding:28px clamp(16px,3vw,32px) 48px;display:flex;flex-direction:column;gap:24px;max-width:1240px;width:100%;box-sizing:border-box">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em">Branding &amp; themes</h1><span class="sub">What guests see on their phones, and how this console looks to your team. New scans pick it up within a minute.</span></div>
+        <div style="display:flex;gap:8px"><button onClick="{{reset}}" style="height:40px;padding:0 16px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:500">Discard</button><button style="height:40px;padding:0 16px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600">Publish theme</button></div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+        <!-- SETTINGS -->
+        <div style="flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:20px">
+
+          <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:2px"><h2 class="h2">Guest app theme</h2><span class="sub">Five themes, each checked for AA contrast. Pick one; your logo and cover photo sit on top.</span></div><span style="font-size:13px;color:var(--text-3)">Live now: <b style="color:var(--text)">Kesari Night</b></span></div>
+            <div role="radiogroup" aria-label="Guest theme" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(176px,100%),1fr));gap:12px">
+              <sc-for list="{{themes}}" as="t" hint-placeholder-count="5">
+                <button role="radio" aria-checked="{{t.checked}}" onClick="{{t.pick}}" style="{{t.cardStyle}}">
+                  <span style="{{t.swatch}}">
+                    <svg width="26" height="34" viewBox="0 0 200 260" aria-hidden="true"><path d="M8 260 V110 C8 60 54 32 100 8 C146 32 192 60 192 110 V260" fill="none" stroke="{{t.accent}}" stroke-width="10"></path></svg>
+                    <span style="display:flex;flex-direction:column;gap:5px;flex:1"><span style="{{t.bar1}}"></span><span style="{{t.bar2}}"></span><span style="{{t.btn}}"></span></span>
+                  </span>
+                  <span style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px 2px"><span style="font-size:15px;font-weight:600">{{t.name}}</span><sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}"><span style="width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span></sc-if></span>
+                  <span style="padding:0 12px 12px;font-size:12px;color:var(--text-3);text-align:left">{{t.origin}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </section>
+
+          <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;flex-direction:column;gap:2px"><h2 class="h2">Staff console</h2><span class="sub">Each person can override this for themselves from the moon icon in the top bar.</span></div>
+            <div role="radiogroup" aria-label="Console appearance" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+              <sc-for list="{{apps}}" as="a" hint-placeholder-count="3">
+                <button role="radio" aria-checked="{{a.checked}}" onClick="{{a.pick}}" style="{{a.style}}">
+                  <span style="{{a.thumb}}"><span style="{{a.side}}"></span><span style="display:flex;flex-direction:column;gap:4px;flex:1;padding:6px"><span style="{{a.l1}}"></span><span style="{{a.l2}}"></span></span></span>
+                  <span style="font-size:14px;font-weight:600;padding:8px 2px 0;text-align:left">{{a.label}}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;background:var(--surface-2);border-radius:8px">
+              <span style="width:36px;height:36px;border-radius:6px;background:var(--accent);flex-shrink:0"></span>
+              <span style="display:flex;flex-direction:column;flex:1"><span style="font-size:14px;font-weight:600">Console accent follows the guest theme</span><span style="font-size:13px;color:var(--text-2)">A deeper tone chosen for paper, <span class="mono">{{consoleAccent}}</span>. Red is never offered — it's reserved for late.</span></span>
+            </div>
+          </section>
+
+          <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><h2 class="h2">Contrast check · {{themeName}}</h2><span style="font-size:13px;color:var(--text-3)">Computed live, WCAG 2.2</span></div>
+            <div style="display:flex;flex-direction:column">
+              <sc-for list="{{contrast}}" as="c" hint-placeholder-count="7">
+                <div style="display:grid;grid-template-columns:40px minmax(0,1fr) 64px 72px;gap:12px;align-items:center;padding:9px 0;border-top:1px solid var(--border);font-size:14px">
+                  <span style="{{c.chip}}">Aa</span><span>{{c.label}}</span><span class="mono" style="text-align:right">{{c.ratio}}</span><span style="{{c.badge}}">{{c.verdict}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </section>
+
+          <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div style="display:flex;flex-direction:column;gap:2px"><h2 class="h2">Developer tokens</h2><span class="sub">The selected theme as CSS custom properties. The full set is in innstant-themes.css.</span></div><button onClick="{{copy}}" style="height:36px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:13px;font-weight:500">{{copyLabel}}</button></div>
+            <pre class="mono" style="margin:0;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:12.5px;line-height:1.7;white-space:pre;overflow-x:auto;color:var(--text)">{{css}}</pre>
+          </section>
+        </div>
+
+        <!-- PREVIEW -->
+        <aside aria-label="Live preview" style="flex:1 1 340px;max-width:100%;display:flex;flex-direction:column;gap:16px">
+          <span class="lbl">Live preview</span>
+          <div style="align-self:center;width:300px;border-radius:36px;padding:10px;background:#0B0B0C;box-shadow:0 20px 40px rgba(0,0,0,.18)">
+            <div style="height:600px;border-radius:28px;overflow:hidden;background:var(--g-page);color:var(--g-ink);font-family:'Mukta',sans-serif;display:flex;flex-direction:column;padding:34px 16px 18px;box-sizing:border-box;gap:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'Marcellus',serif;font-size:12px;letter-spacing:.24em">THE KESARI</span><span style="font-size:11px;color:var(--g-ink-2)">Room <span class="mono" style="color:var(--g-ink)">214</span></span></div>
+              <div style="display:flex;gap:12px;align-items:flex-end">
+                <svg width="74" height="96" viewBox="0 0 200 260" aria-hidden="true" style="flex-shrink:0"><path d="M2 260 V110 C2 60 50 30 100 2 C150 30 198 60 198 110 V260" fill="var(--g-card)" stroke="var(--g-accent)" stroke-width="4"></path></svg>
+                <span style="display:flex;flex-direction:column;gap:2px"><span style="font-size:11px;color:var(--g-accent)">खम्मा घणी</span><span style="font-family:'Marcellus',serif;font-size:20px;line-height:1.1">Good evening, Camille</span></span>
+              </div>
+              <div style="background:var(--g-surface);border:1px solid var(--g-line);border-radius:8px;padding:9px 11px;display:flex;align-items:center;gap:9px"><span style="width:7px;height:7px;border-radius:50%;background:var(--g-accent)"></span><span style="display:flex;flex-direction:column"><span style="font-size:12px;font-weight:500">Dinner is plated and covered</span><span style="font-size:10.5px;color:var(--g-ink-2)">At your door around 9:05pm</span></span></div>
+              <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+                <span style="background:var(--g-card);border-radius:4px;padding:10px;height:72px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end"><span style="font-size:12px;font-weight:500">Amenities</span><span style="font-size:10px;color:var(--g-ink-2)">Towels, pillows</span></span>
+                <span style="background:var(--g-card);border-radius:4px;padding:10px;height:72px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end"><span style="font-size:12px;font-weight:500">Call for service</span><span style="font-size:10px;color:var(--g-ink-2)">About 4 min</span></span>
+                <span style="background:var(--g-card);border-radius:4px;padding:10px;height:72px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end"><span style="font-size:12px;font-weight:500">Your stay</span><span style="font-size:10px;color:var(--g-ink-2)">Bill, Wi-Fi</span></span>
+                <span style="background:var(--g-card);border-radius:4px;padding:10px;height:72px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-end"><span style="font-size:12px;font-weight:500">Plan my day</span><span style="font-size:10px;color:var(--g-ink-2)">Seven places</span></span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--g-ready);color:var(--g-ready)">● Open till 11pm</span><span style="font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--g-late);color:var(--g-late)">About 6 min behind</span></div>
+              <span style="margin-top:auto;height:42px;border-radius:4px;background:var(--g-accent);color:var(--g-on-accent);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:13px;font-weight:600"><span>Order dinner to room 214</span><span>→</span></span>
+            </div>
+          </div>
+          <div class="card" style="overflow:hidden;display:flex;height:180px">
+            <span style="width:64px;background:var(--surface-2);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:6px;padding:10px 8px"><span style="height:8px;border-radius:2px;background:var(--accent)"></span><span style="height:8px;border-radius:2px;background:var(--border)"></span><span style="height:8px;border-radius:2px;background:var(--border)"></span><span style="height:8px;border-radius:2px;background:var(--border)"></span></span>
+            <span style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)">
+              <span style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px"><span class="card" style="padding:8px;display:flex;flex-direction:column"><span style="font-size:10px;color:var(--text-3)">Revenue</span><span class="mono" style="font-size:15px">₹1,30,740</span></span><span class="card" style="padding:8px;display:flex;flex-direction:column"><span style="font-size:10px;color:var(--text-3)">On time</span><span class="mono" style="font-size:15px">92%</span></span></span>
+              <span style="display:flex;gap:6px;flex-wrap:wrap"><span style="font-size:10px;padding:1px 7px;border-radius:999px;background:var(--pos-soft);color:var(--pos)">Ready</span><span style="font-size:10px;padding:1px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn)">Nobody has it</span><span style="font-size:10px;padding:1px 7px;border-radius:999px;background:var(--crit-soft);color:var(--crit)">Late 6 min</span></span>
+              <span style="margin-top:auto;align-self:flex-start;height:26px;padding:0 12px;border-radius:4px;background:var(--accent);color:var(--accent-fg);font-size:11px;font-weight:600;display:flex;align-items:center">Assign</span>
+            </span>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1560}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { theme: 'kesari', app: 'light', copied: false }; }
+  guestThemes() {
+    return {
+      kesari:   { name:'Kesari Night', origin:'Udaipur · indigo and saffron', dark:true, page:'#0A1220', surface:'#101E33', card:'#1B2B45', line:'#2A3B58', ink:'#F4ECDD', ink2:'#B9C2D0', ink3:'#8B97AB', accent:'#E9A227', onAccent:'#1A1206', ready:'#6E9C95', late:'#F08A6C', c:['#0F766E','#3FB6A8'] },
+      pichola:  { name:'Pichola Lake', origin:'Lakeside · deep water, silver-green', dark:true, page:'#08171B', surface:'#0E242A', card:'#163640', line:'#24505C', ink:'#EAF2F0', ink2:'#B3C7C6', ink3:'#86A0A1', accent:'#9ED8D0', onAccent:'#062320', ready:'#9CCB7A', late:'#F2967A', c:['#0E7490','#5BC0D8'] },
+      gulabi:   { name:'Gulabi', origin:'Jaipur · rose plum and pink', dark:true, page:'#170C14', surface:'#22111D', card:'#31192A', line:'#4A2840', ink:'#F7E9EF', ink2:'#D3B8C6', ink3:'#A9899A', accent:'#F29BBE', onAccent:'#2A0A18', ready:'#8FC9A9', late:'#F5A25C', c:['#A21CAF','#E08AF0'] },
+      mehendi:  { name:'Mehendi', origin:'Garden · henna green and lime', dark:true, page:'#0E130C', surface:'#161E13', card:'#212C1C', line:'#34432C', ink:'#EFF0E4', ink2:'#C1C7AE', ink3:'#95A086', accent:'#C9D86B', onAccent:'#1A2008', ready:'#8CC7B4', late:'#F0956C', c:['#4D7C0F','#A8CC62'] },
+      sandstone:{ name:'Jaisalmer Sandstone', origin:'Desert · the daylight theme', dark:false, page:'#F5EEE2', surface:'#EDE2D0', card:'#FFFAF2', line:'#DCCDB4', ink:'#2A1E12', ink2:'#5B4A38', ink3:'#7A6853', accent:'#A4500F', onAccent:'#FFFFFF', ready:'#2F6F5E', late:'#B3261E', c:['#B45309','#E3A458'] }
+    };
+  }
+  consoleVars(app, acc) {
+    const L = { bg:'#F5F6F4', surface:'#FFFFFF', 'surface-2':'#F0F1EE', border:'#E3E5E1', 'border-strong':'#CFD3CD', text:'#16191B', 'text-2':'#4A5054', 'text-3':'#646A6E', pos:'#166534', 'pos-soft':'#DCF3E3', warn:'#92570A', 'warn-soft':'#FBEFD5', crit:'#B42318', 'crit-soft':'#FBE3E0', info:'#1D4ED8', 'info-soft':'#E3EAFC', accent:acc[0], 'accent-soft':acc[0]+'1A', 'accent-fg':'#FFFFFF', 'accent-text':acc[0], shadow:'0 1px 2px rgba(22,25,27,.05)' };
+    const D = { bg:'#0D1013', surface:'#14181C', 'surface-2':'#1B2025', border:'#262D33', 'border-strong':'#363E46', text:'#E9EDF0', 'text-2':'#AAB3BB', 'text-3':'#8D969E', pos:'#5CC98A', 'pos-soft':'rgba(92,201,138,.14)', warn:'#E5B04E', 'warn-soft':'rgba(229,176,78,.14)', crit:'#F2786B', 'crit-soft':'rgba(242,120,107,.15)', info:'#86A9F5', 'info-soft':'rgba(134,169,245,.14)', accent:acc[1], 'accent-soft':acc[1]+'29', 'accent-fg':'#0D1013', 'accent-text':acc[1], shadow:'none' };
+    return app === 'dark' ? D : L;
+  }
+  lum(hex) { const h = hex.replace('#',''); const v = [0,2,4].map(i => parseInt(h.substr(i,2),16)/255).map(c => c <= .03928 ? c/12.92 : Math.pow((c+.055)/1.055, 2.4)); return .2126*v[0] + .7152*v[1] + .0722*v[2]; }
+  ratio(a, b) { const x = this.lum(a), y = this.lum(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); }
+  nav(active) {
+    const I = { grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', desk:'M3 18h18M5 18a7 7 0 0 1 14 0M12 9V7M10 7h4', bed:'M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', out:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', menu:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20M19 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v7', req:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', brand:'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-2a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22ZM7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', mon:'M2 4h20v12H2zM8 20h8M12 16v4', chef:'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 9.18 0A4 4 0 0 1 18 13.87V21H6ZM6 17h12', run:'M5 12h14M13 6l6 6-6 6', hk:'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z' };
+    const G = [['Today',[['Overview','grid','ConsoleOverview.dc.html'],['Front desk','desk','ConsolePhone.dc.html'],['Rooms','bed','ConsoleRooms.dc.html'],['Leaving','out','ConsoleCheckout.dc.html','2','warn']]],
+      ['Service',[['Menu','menu','#'],['Requests','req','ConsoleRequests.dc.html','1 late','crit'],['Links','link','#']]],
+      ['Setup',[['Property & branding','brand','ConsoleBranding.dc.html'],['Staff','users','#']]],
+      ['Floor screens',[['Live floor','mon','#'],['Kitchen display','chef','Kitchen.dc.html'],['Runner','run','Runner.dc.html'],['Housekeeping','hk','Housekeeping.dc.html']]]];
+    return G.map(([label, items]) => ({ label, items: items.map(([l, ic, href, b, bt]) => { const on = l === active; return { label:l, d:I[ic], href, current: on ? 'page' : 'false', hasBadge: !!b, badge: b || '',
+      style: 'display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;font-size:14px;' + (on ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'color:var(--text-2)'),
+      badgeStyle: 'margin-left:auto;font-family:DM Mono,monospace;font-size:11px;padding:1px 7px;border-radius:999px;' + (bt === 'crit' ? 'background:var(--crit-soft);color:var(--crit)' : 'background:var(--warn-soft);color:var(--warn)') }; }) }));
+  }
+  renderVals() {
+    const T = this.guestThemes(); const key = this.state.theme; const t = T[key]; const app = this.state.app;
+    const cv = this.consoleVars(app, t.c);
+    const gv = { 'g-page':t.page, 'g-surface':t.surface, 'g-card':t.card, 'g-line':t.line, 'g-ink':t.ink, 'g-ink-2':t.ink2, 'g-ink-3':t.ink3, 'g-accent':t.accent, 'g-on-accent':t.onAccent, 'g-ready':t.ready, 'g-late':t.late };
+    const all = { ...cv, ...gv };
+    const root = Object.keys(all).map(k => '--' + k + ':' + all[k]).join(';') + ';color-scheme:' + app + ';min-height:100vh;background:var(--bg);color:var(--text);font-family:Mukta,system-ui,sans-serif;display:flex;flex-wrap:wrap';
+    const themes = Object.keys(T).map(k => { const x = T[k]; const on = k === key; return { name:x.name, origin:x.origin, accent:x.accent, on, checked: on ? 'true' : 'false', pick: () => this.setState({ theme:k, copied:false }),
+      cardStyle: 'display:flex;flex-direction:column;padding:0;border-radius:10px;overflow:hidden;background:var(--surface);color:var(--text);text-align:left;' + (on ? 'border:2px solid var(--accent)' : 'border:2px solid var(--border)'),
+      swatch: 'display:flex;gap:12px;align-items:flex-end;height:84px;padding:12px;box-sizing:border-box;background:' + x.page,
+      bar1: 'height:6px;width:70%;border-radius:1px;background:' + x.ink, bar2: 'height:6px;width:45%;border-radius:1px;background:' + x.card,
+      btn: 'height:14px;border-radius:2px;background:' + x.accent }; });
+    const apps = [['light','Light','#F5F6F4','#FFFFFF','#E3E5E1'],['dark','Dark','#0D1013','#14181C','#262D33'],['system','Match device','#F5F6F4','#14181C','#262D33']].map(([k,label,bg,side,line]) => { const on = (k === app) || (k === 'system' && false); return { label, checked: on ? 'true' : 'false', pick: () => this.setState({ app: k === 'system' ? 'light' : k }),
+      style: 'display:flex;flex-direction:column;padding:8px;border-radius:10px;background:var(--surface);color:var(--text);' + (on ? 'border:2px solid var(--accent)' : 'border:2px solid var(--border)'),
+      thumb: 'display:flex;height:64px;border-radius:6px;overflow:hidden;border:1px solid ' + line + ';background:' + (k === 'system' ? 'linear-gradient(90deg,#F5F6F4 50%,#0D1013 50%)' : bg),
+      side: 'width:22px;background:' + side + ';border-right:1px solid ' + line,
+      l1: 'height:6px;width:70%;border-radius:1px;background:' + t.c[k === 'dark' ? 1 : 0], l2: 'height:6px;width:50%;border-radius:1px;background:' + line }; });
+    const pairs = [['Body text on page', t.ink, t.page, 4.5], ['Secondary text on card', t.ink2, t.card, 4.5], ['Hint text on card', t.ink3, t.card, 4.5], ['Accent on page', t.accent, t.page, 3], ['Button label on accent', t.onAccent, t.accent, 4.5], ['"Open / ready" on card', t.ready, t.card, 4.5], ['"Running late" on card', t.late, t.card, 4.5]];
+    const contrast = pairs.map(([label, fg, bg, min]) => { const r = this.ratio(fg, bg); const ok = r >= min; return { label, ratio: r.toFixed(1) + ':1', verdict: ok ? (r >= 7 ? 'AAA' : 'AA') : 'Fails',
+      chip: 'width:36px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;background:' + bg + ';color:' + fg + ';border:1px solid var(--border)',
+      badge: 'justify-self:end;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;' + (ok ? 'background:var(--pos-soft);color:var(--pos)' : 'background:var(--crit-soft);color:var(--crit)') }; });
+    const css = '/* Innstant · guest theme: ' + t.name + ' */\n[data-guest-theme="' + key + '"] {\n' + Object.keys(gv).map(k => '  --' + k + ': ' + gv[k] + ';').join('\n') + '\n}\n\n/* Staff console · ' + app + ' · accent from ' + key + ' */\n[data-console="' + app + '"][data-accent="' + key + '"] {\n' + Object.keys(cv).filter(k => k !== 'shadow').map(k => '  --' + k + ': ' + cv[k] + ';').join('\n') + '\n}';
+    return { root, groups: this.nav('Property & branding'), themes, apps, contrast, css, themeName: t.name, consoleAccent: t.c[app === 'dark' ? 1 : 0],
+      copyLabel: this.state.copied ? 'Copied' : 'Copy tokens',
+      copy: () => { try { navigator.clipboard.writeText(css); } catch (e) {} this.setState({ copied: true }); },
+      reset: () => this.setState({ theme:'kesari', app:'light', copied:false }),
+      flipApp: () => this.setState({ app: app === 'dark' ? 'light' : 'dark' }),
+      flipLabel: app === 'dark' ? 'Switch to light' : 'Switch to dark',
+      flipIcon: app === 'dark' ? 'M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z' : 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z' };
+  }
+}
+</script>
+</body>
+</html>

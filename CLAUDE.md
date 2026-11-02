@@ -279,21 +279,31 @@ not iconography: the jharokha arch on the guest home is drawn by hand because
 it is the brand, and no package has it.
 
 **CSS custom properties are the only source of colour, radius, type, and motion
-values.** They live in `src/styles/theme.css`, hand-maintained. Never hardcode a
-hex, a radius, or a duration in a component — use `var(--saffron)`, not
-`#E9A227`. This is what keeps a second hotel a palette swap rather than a
-layout fork (D-016), and `properties.branding` sets the same variables at
-runtime.
+values.** Colours live in `design/tokens/innstant-themes.css` — five guest
+themes (`--g-*`, chosen per property with `data-guest-theme`) and the console's
+light and dark (`--bg`, `--surface`, `--text`, `--accent`…, chosen with
+`data-console` and `data-accent`). `src/styles/theme.css` is imported after it:
+it maps the older role names (`--paper`, `--teal-600`, `--saffron`…) onto those
+tokens and owns the spacing, radius, duration and font values (D-100). Never
+hardcode a hex, a radius, or a duration in a component — use `var(--g-accent)`,
+not `#E9A227`. This is what keeps a second hotel a palette swap rather than a
+layout fork (D-016).
 
-There is no token build pipeline — no `tokens.json`, no `pnpm tokens:build`
-(D-023, superseding the generator half of D-016).
+There is no token build pipeline and no `pnpm tokens:build` (D-023).
+`design/tokens/innstant-themes.json` is a hand-kept mirror of the CSS for the
+Expo app; `tests/unit/theme-tokens.test.ts` keeps the two equal and holds every
+theme to the contrast its header promises.
 
-`design/reference/kesari-guest-app.html` is the design reference. It is a
-compiled bundle; run `pnpm design:decode` to read it, and
-`design/reference/DESIGN-SPEC.md` for the extracted palette, type, shape and
-motion values. **Match the reference — but rebuild it with real components; do
-not paste its markup.** When the reference and `theme.css` disagree, the
-reference wins and `theme.css` gets fixed.
+The design reference is **Direction A** of the Claude Design canvas, copied
+into `design/reference/direction-a/*.dc.html` (Main = foundations, Components =
+states, Guest*, Console*, Kitchen, Runner, Housekeeping). Each board is plain
+HTML with inline styles; read it for the layout, the copy and the states.
+**Match the reference — but rebuild it with real components; do not paste its
+markup.** When a board and the token file disagree, the token file wins for
+colour and the board wins for everything else. The old
+`design/reference/kesari-guest-app.html` describes the pre-redesign app and is
+kept only as history; the whole pre-redesign tree is the git tag
+`pre-redesign`.
 
 ---
 

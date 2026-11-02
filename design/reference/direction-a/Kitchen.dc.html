@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kitchen display</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Mukta:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width:1280px;height:800px;background:{{t.bg}};color:{{t.ink}};font-family:'Mukta',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="height:60px;padding:0 20px;display:flex;align-items:center;gap:24px;border-bottom:1px solid {{t.line}};flex-shrink:0">
+    <span style="font-size:22px;font-weight:700">Kitchen</span>
+    <span class="mono" style="font-size:22px">8:52pm</span>
+    <span style="font-size:18px;color:{{t.ink2}}"><span class="mono">11</span> open · promise <span class="mono">25</span> min</span>
+    <span style="margin-left:auto;font-size:15px;color:{{t.ink2}}">{{modeLabel}}</span>
+  </header>
+
+  <div style="flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 250px;gap:14px;padding:14px;min-height:0">
+
+    <section style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <h2 style="margin:0;font-size:18px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:{{t.ink2}};display:flex;justify-content:space-between">New <span class="mono">2</span></h2>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{t.ink2}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">303</span><span class="mono" style="font-size:22px">0:48</span></div>
+        <span class="mono" style="font-size:14px;color:{{t.ink2}}">#K-4830 · room service</span>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:21px">
+          <span><b class="mono">2</b>  Dal baati churma</span>
+          <span><b class="mono">1</b>  Makhaniya lassi</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:2px solid {{t.crit}};border-radius:4px;color:{{t.crit}};font-size:18px;font-weight:700"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 3l10 18H2Z"></path><path d="M12 10v5M12 18h.01"></path></svg>ALLERGY · CASHEW</div>
+        <button style="height:56px;border:0;border-radius:4px;background:{{t.ink}};color:{{t.bg}};font-size:19px;font-weight:700">Start</button>
+      </article>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{t.ink2}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">T4</span><span class="mono" style="font-size:22px">0:12</span></div>
+        <span class="mono" style="font-size:14px;color:{{t.ink2}}">#K-4831 · rooftop table 4</span>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:21px"><span><b class="mono">3</b>  Mirchi vada</span></div>
+      </article>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <h2 style="margin:0;font-size:18px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:{{t.ink2}};display:flex;justify-content:space-between">Cooking <span class="mono">3</span></h2>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{t.crit}};outline:2px solid {{t.crit}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">302</span><span class="mono" style="font-size:22px;font-weight:600;color:{{t.crit}}">+3:40 LATE</span></div>
+        <span role="img" aria-label="28 of 25 minutes used" style="height:6px;border-radius:1px;background:{{t.crit}}"></span>
+        <span class="mono" style="font-size:14px;color:{{t.ink2}}">#K-4817 · promised 8:48pm</span>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:21px">
+          <button style="text-align:left;background:transparent;border:0;padding:4px 0;color:{{t.ink3}};font-size:21px;text-decoration:line-through;min-height:44px"><b class="mono">1</b>  Ker sangri</button>
+          <button style="text-align:left;background:transparent;border:0;padding:4px 0;color:{{t.ink}};font-size:21px;min-height:44px"><b class="mono">2</b>  Laal maas <span style="font-size:16px;color:{{t.attn}}">— milder</span></button>
+          <button style="text-align:left;background:transparent;border:0;padding:4px 0;color:{{t.ink}};font-size:21px;min-height:44px"><b class="mono">4</b>  Bajre ki roti</button>
+        </div>
+      </article>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{t.attn}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">105</span><span class="mono" style="font-size:22px;color:{{t.attn}}">19:05</span></div>
+        <span role="img" aria-label="19 of 25 minutes used" style="height:6px;border-radius:1px;background:{{t.track}};display:flex"><span style="width:76%;background:{{t.attn}};border-radius:1px"></span></span>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:21px"><span><b class="mono">1</b>  Gatte ki sabzi</span><span><b class="mono">1</b>  Safed maas</span></div>
+      </article>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;border-top:4px solid {{t.ok}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">401</span><span class="mono" style="font-size:22px">07:30</span></div>
+        <span role="img" aria-label="7 of 25 minutes used" style="height:6px;border-radius:1px;background:{{t.track}};display:flex"><span style="width:30%;background:{{t.ok}};border-radius:1px"></span></span>
+        <div style="font-size:21px"><b class="mono">2</b>  Ghewar, rabri</div>
+      </article>
+    </section>
+
+    <section style="display:flex;flex-direction:column;gap:12px;min-height:0">
+      <h2 style="margin:0;font-size:18px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:{{t.ink2}};display:flex;justify-content:space-between">At the pass <span class="mono">1</span></h2>
+      <article style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid {{t.ok}}">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:34px;font-weight:500">214</span><span class="mono" style="font-size:22px">14:20</span></div>
+        <span class="mono" style="font-size:14px;color:{{t.ink2}}">#K-4821 · VIP · cutlery for 2</span>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:21px;color:{{t.ink3}};text-decoration:line-through"><span><b class="mono">1</b>  Laal maas + 2 roti</span><span><b class="mono">1</b>  Soola chicken</span></div>
+        <span style="font-size:17px;color:{{t.attn}}">No onions in the chutney</span>
+        <span style="font-size:17px;color:{{t.ink2}}">Waiting for a runner · Arjun 1 min away</span>
+      </article>
+      <div style="margin-top:auto;border:1px dashed {{t.line}};border-radius:6px;padding:18px;font-size:17px;color:{{t.ink2}};text-align:center">Tap a dish to strike it. Tap the room number to bump the ticket.</div>
+    </section>
+
+    <aside style="background:{{t.card}};border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:4px">
+      <h2 style="margin:0 0 8px;font-size:18px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:{{t.ink2}}">All day</h2>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Bajre ki roti</span><b class="mono">4</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Mirchi vada</span><b class="mono">3</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Laal maas</span><b class="mono">2</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Dal baati</span><b class="mono">2</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Ghewar</span><b class="mono">2</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Gatte</span><b class="mono">1</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0;border-bottom:1px solid {{t.line}}"><span>Safed maas</span><b class="mono">1</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:21px;padding:8px 0"><span>Lassi</span><b class="mono">1</b></div>
+      <div style="margin-top:auto;font-size:15px;color:{{t.attn}};font-weight:600">Safed maas: last one tonight</div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"night":{"editor":"boolean","default":true},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const night = this.props.night ?? true;
+    const t = night
+      ? { bg:'#07090C', card:'#12161C', line:'#2A3038', ink:'#F2F4F5', ink2:'#A9B1BA', ink3:'#6F7883', attn:'#F2B544', crit:'#FF7A66', ok:'#5FC59A', track:'#2A3038' }
+      : { bg:'#F3F4F2', card:'#FFFFFF', line:'#D5D8D4', ink:'#16191B', ink2:'#4A5054', ink3:'#8A9095', attn:'#8A5300', crit:'#B42318', ok:'#1E7A46', track:'#E9EBE8' };
+    return { t, modeLabel: night ? 'Night mode · auto after 7pm' : 'Day mode' };
+  }
+}
+</script>
+</body>
+</html>

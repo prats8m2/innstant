@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import {
-  publicSans, redHatMono, marcellus, mukta, dmMono, instrumentSerif, figtree,
+  marcellus, mukta, dmMono, instrumentSerif, figtree,
 } from './fonts';
 import NextTopLoader from 'nextjs-toploader';
 import '@/styles/globals.css';
@@ -23,13 +23,18 @@ export const viewport: Viewport = {
    * guest's phone must not flash paper-white before an indigo page paints —
    * that flash is the first thing they see at 9:40pm.
    */
-  themeColor: '#F3F4F2',
+  themeColor: '#F5F6F4',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={[
-        publicSans.variable, redHatMono.variable,
+    /*
+     * data-console and data-accent select the console's colours from
+     * design/tokens/innstant-themes.css (D-100). These are the defaults every
+     * page starts from; the console shell sets its own for the person signed
+     * in, and the guest's routes wear their own theme on a subtree.
+     */
+    <html lang="en" data-console="light" data-accent="kesari" className={[
         marcellus.variable, mukta.variable, dmMono.variable,
         instrumentSerif.variable, figtree.variable,
       ].join(' ')}>

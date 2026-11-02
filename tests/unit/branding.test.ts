@@ -7,14 +7,14 @@ import {
 import { cleanGuestInfo, dialable } from '@/modules/identity/guest-info';
 
 describe('branding', () => {
-  it('keeps the guest palette constants in step with theme.css', () => {
-    const css = readFileSync('src/styles/theme.css', 'utf8');
-    const block = css.slice(css.indexOf("[data-theme='kesari'] {"));
+  it('keeps the guest palette constants in step with the Kesari tokens', () => {
+    const css = readFileSync('design/tokens/innstant-themes.css', 'utf8');
+    const block = css.slice(css.indexOf('[data-guest-theme="kesari"] {'));
     const value = (name: string) => block.match(new RegExp(`${name}:\\s*(#[0-9A-Fa-f]{6})`))?.[1]?.toUpperCase();
-    expect(value('--paper')).toBe(GUEST_GROUND);
-    expect(value('--white')).toBe(GUEST_CARD);
-    expect(value('--accent-ink')).toBe(GUEST_INK_DARK);
-    expect(value('--ink')).toBe(GUEST_INK_LIGHT);
+    expect(value('--g-page')).toBe(GUEST_GROUND);
+    expect(value('--g-card')).toBe(GUEST_CARD);
+    expect(value('--g-on-accent')).toBe(GUEST_INK_DARK);
+    expect(value('--g-ink')).toBe(GUEST_INK_LIGHT);
   });
 
   it('accepts the theme\'s own saffron, with dark text on it', () => {

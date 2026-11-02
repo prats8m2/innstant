@@ -1,0 +1,221 @@
+/* ==========================================================================
+   Innstant · theme tokens (Direction A)
+   --------------------------------------------------------------------------
+   Two independent axes:
+     1. Guest theme   → <html data-guest-theme="kesari|pichola|gulabi|mehendi|sandstone">
+        Set per property (Setup › Property & branding). Applies to the guest
+        web app, the Expo app, and the guest preview inside the console.
+     2. Console look  → <html data-console="light|dark" data-accent="<guest theme key>">
+        Light/dark is per staff member (top-bar toggle; default = property
+        setting; "system" resolves via prefers-color-scheme). The accent follows
+        the property's guest theme, using a deeper tone picked for AA on paper.
+   Floor screens (kitchen, runner, housekeeping) use the console tokens with
+   data-console="dark" after 7pm.
+
+   Rules every component must follow
+     - Read only semantic tokens (var(--g-*) on guest, var(--*) on console).
+       No hex values in components.
+     - Accent is for the primary action and selection. Never for alarm.
+     - --crit is only for "late" or "critical", and always with a word + icon.
+     - Money: DM Mono with font-variant-numeric: tabular-nums, en-IN grouping
+       (₹1,30,740). Times in the property's timezone.
+     - Radius: controls 4–6px, cards 10px, pills only for chips/badges.
+
+   In this repo (D-100): this file owns every COLOUR. src/styles/theme.css is
+   imported after it and maps the older role names onto these, and keeps its
+   own spacing, radius, duration and font values where the names overlap —
+   so those declarations below are documentation of the design's scale, not
+   the live values. innstant-themes.json mirrors the colours; a unit test
+   keeps the two equal.
+   ========================================================================== */
+
+:root {
+  --font-display: 'Marcellus', Georgia, serif;
+  --font-body: 'Mukta', system-ui, sans-serif;
+  --font-mono: 'DM Mono', ui-monospace, monospace;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
+
+  --dur-fast: 180ms;
+  --dur-base: 240ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  --touch-min: 44px;        /* guest + console */
+  --touch-floor: 56px;      /* runner, housekeeping, kitchen */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+}
+
+/* --------------------------------------------------------------------------
+   1. GUEST THEMES
+   Contrast (WCAG 2.2) for every theme was checked: ink/page ≥ 14:1,
+   ink-2/card ≥ 7.3:1, ink-3/card ≥ 4.6:1, on-accent/accent ≥ 5.6:1,
+   ready/card ≥ 4.6:1, late/card ≥ 5.8:1.
+   -------------------------------------------------------------------------- */
+
+/* Default. Udaipur — indigo night and saffron. */
+:root,
+[data-guest-theme="kesari"] {
+  --g-page: #0A1220;
+  --g-surface: #101E33;
+  --g-card: #1B2B45;
+  --g-line: #2A3B58;
+  --g-ink: #F4ECDD;
+  --g-ink-2: #B9C2D0;
+  --g-ink-3: #8B97AB;
+  --g-accent: #E9A227;
+  --g-on-accent: #1A1206;
+  --g-ready: #6E9C95;
+  --g-late: #F08A6C;
+  --g-scheme: dark;
+}
+
+/* Lakeside — deep water, silver-green. */
+[data-guest-theme="pichola"] {
+  --g-page: #08171B;
+  --g-surface: #0E242A;
+  --g-card: #163640;
+  --g-line: #24505C;
+  --g-ink: #EAF2F0;
+  --g-ink-2: #B3C7C6;
+  --g-ink-3: #86A0A1;
+  --g-accent: #9ED8D0;
+  --g-on-accent: #062320;
+  --g-ready: #9CCB7A;
+  --g-late: #F2967A;
+  --g-scheme: dark;
+}
+
+/* Jaipur — rose plum and pink. */
+[data-guest-theme="gulabi"] {
+  --g-page: #170C14;
+  --g-surface: #22111D;
+  --g-card: #31192A;
+  --g-line: #4A2840;
+  --g-ink: #F7E9EF;
+  --g-ink-2: #D3B8C6;
+  --g-ink-3: #A9899A;
+  --g-accent: #F29BBE;
+  --g-on-accent: #2A0A18;
+  --g-ready: #8FC9A9;
+  --g-late: #F5A25C;
+  --g-scheme: dark;
+}
+
+/* Garden — henna green and lime. */
+[data-guest-theme="mehendi"] {
+  --g-page: #0E130C;
+  --g-surface: #161E13;
+  --g-card: #212C1C;
+  --g-line: #34432C;
+  --g-ink: #EFF0E4;
+  --g-ink-2: #C1C7AE;
+  --g-ink-3: #95A086;
+  --g-accent: #C9D86B;
+  --g-on-accent: #1A2008;
+  --g-ready: #8CC7B4;
+  --g-late: #F0956C;
+  --g-scheme: dark;
+}
+
+/* Desert — the one daylight guest theme (resorts, day-use properties). */
+[data-guest-theme="sandstone"] {
+  --g-page: #F5EEE2;
+  --g-surface: #EDE2D0;
+  --g-card: #FFFAF2;
+  --g-line: #DCCDB4;
+  --g-ink: #2A1E12;
+  --g-ink-2: #5B4A38;
+  --g-ink-3: #7A6853;
+  --g-accent: #A4500F;
+  --g-on-accent: #FFFFFF;
+  --g-ready: #2F6F5E;
+  --g-late: #B3261E;
+  --g-scheme: light;
+}
+
+/* --------------------------------------------------------------------------
+   2. STAFF CONSOLE · base appearance
+   -------------------------------------------------------------------------- */
+
+[data-console="light"] {
+  color-scheme: light;
+  --bg: #F5F6F4;
+  --surface: #FFFFFF;
+  --surface-2: #F0F1EE;
+  --border: #E3E5E1;
+  --border-strong: #CFD3CD;
+  --text: #16191B;
+  --text-2: #4A5054;
+  --text-3: #646A6E;
+  --pos: #166534;      --pos-soft: #DCF3E3;
+  --warn: #92570A;     --warn-soft: #FBEFD5;
+  --crit: #B42318;     --crit-soft: #FBE3E0;
+  --info: #1D4ED8;     --info-soft: #E3EAFC;
+  --accent-fg: #FFFFFF;
+  --shadow: 0 1px 2px rgba(22, 25, 27, .05);
+}
+
+[data-console="dark"] {
+  color-scheme: dark;
+  --bg: #0D1013;
+  --surface: #14181C;
+  --surface-2: #1B2025;
+  --border: #262D33;
+  --border-strong: #363E46;
+  --text: #E9EDF0;
+  --text-2: #AAB3BB;
+  --text-3: #8D969E;
+  --pos: #5CC98A;      --pos-soft: rgba(92, 201, 138, .14);
+  --warn: #E5B04E;     --warn-soft: rgba(229, 176, 78, .14);
+  --crit: #F2786B;     --crit-soft: rgba(242, 120, 107, .15);
+  --info: #86A9F5;     --info-soft: rgba(134, 169, 245, .14);
+  --accent-fg: #0D1013;
+  --shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   3. STAFF CONSOLE · accent per guest theme
+   Light accents are ≥ 5:1 with white text; dark accents ≥ 7:1 on --surface.
+   No red or orange-red accents are allowed: red belongs to --crit.
+   -------------------------------------------------------------------------- */
+
+[data-console="light"][data-accent="kesari"]    { --accent: #0F766E; --accent-text: #0F766E; --accent-soft: #0F766E1A; }
+[data-console="light"][data-accent="pichola"]   { --accent: #0E7490; --accent-text: #0E7490; --accent-soft: #0E74901A; }
+[data-console="light"][data-accent="gulabi"]    { --accent: #A21CAF; --accent-text: #A21CAF; --accent-soft: #A21CAF1A; }
+[data-console="light"][data-accent="mehendi"]   { --accent: #4D7C0F; --accent-text: #4D7C0F; --accent-soft: #4D7C0F1A; }
+[data-console="light"][data-accent="sandstone"] { --accent: #B45309; --accent-text: #B45309; --accent-soft: #B453091A; }
+
+[data-console="dark"][data-accent="kesari"]     { --accent: #3FB6A8; --accent-text: #3FB6A8; --accent-soft: #3FB6A829; }
+[data-console="dark"][data-accent="pichola"]    { --accent: #5BC0D8; --accent-text: #5BC0D8; --accent-soft: #5BC0D829; }
+[data-console="dark"][data-accent="gulabi"]     { --accent: #E08AF0; --accent-text: #E08AF0; --accent-soft: #E08AF029; }
+[data-console="dark"][data-accent="mehendi"]    { --accent: #A8CC62; --accent-text: #A8CC62; --accent-soft: #A8CC6229; }
+[data-console="dark"][data-accent="sandstone"]  { --accent: #E3A458; --accent-text: #E3A458; --accent-soft: #E3A45829; }
+
+/* "Match device" */
+@media (prefers-color-scheme: dark) {
+  [data-console="system"] { /* resolve in JS to data-console="dark" so the accent selectors above apply */ }
+}
+
+/* --------------------------------------------------------------------------
+   4. Shared helpers
+   -------------------------------------------------------------------------- */
+
+.num, .money, .room-no, .order-ref {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent, var(--g-accent));
+  outline-offset: 2px;
+}
