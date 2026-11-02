@@ -27,7 +27,11 @@ import { checkoutFeeTiers } from '@/db/schema/stay';
 import { escalateBreachesFor } from '@/modules/requests';
 import { folios, folioLines } from '@/db/schema/billing';
 import { formatMoney, money } from '@/lib/money';
+import { atLocalHourOnSameDay } from '@/lib/clock';
 import { and, eq } from 'drizzle-orm';
+
+/** The demo property's clock. Every hour the seed writes is in it. */
+const DEMO_TIMEZONE = 'Asia/Kolkata';
 
 /** Fixed so the demo tenant is identifiable in a shared database. All hex —
  *  an earlier value used 'm', which is not a hex digit and is not a uuid. */
@@ -257,7 +261,7 @@ async function main(): Promise<void> {
       tenantId: TENANT_ID,
       name: 'The Kesari',
       slug: PROPERTY_SLUG,
-      timezone: 'Asia/Kolkata',
+      timezone: DEMO_TIMEZONE,
       currency: 'INR',
       city: 'Udaipur',
       roomTypes: KESARI_ROOM_TYPES,
@@ -370,9 +374,12 @@ async function main(): Promise<void> {
         guest screen still reads as a stay rather than a tenancy. The real fix
         is a scheduled reseed; this buys the time to do it properly.
       */
-      const checkout = new Date();
-      checkout.setDate(checkout.getDate() + DEMO_STAY_NIGHTS);
-      checkout.setHours(11, 0, 0, 0);
+      // setHours() would be the SERVER's 11am: 4:30pm in Udaipur on a UTC
+      // machine (CI, Railway), which hid the 2pm and 4pm late-checkout
+      // offers there and only there.
+      const checkout = atLocalHourOnSameDay(
+        new Date(Date.now() + DEMO_STAY_NIGHTS * 86_400_000), 11, DEMO_TIMEZONE,
+      );
 
       // Through createStay(), like the front desk and the PMS import — #4.
       // The seeder used to insert the guest and the stay itself, which meant
