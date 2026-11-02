@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  cleanBranding, readBranding, brandingStyle, accentContrast, BRAND_PRESETS,
+  cleanBranding, readBranding, brandingStyle, accentContrast, NO_BRANDING,
   GUEST_GROUND, GUEST_CARD, GUEST_INK_DARK, GUEST_INK_LIGHT,
 } from '@/modules/identity/branding';
 import { cleanGuestInfo, dialable } from '@/modules/identity/guest-info';
+import { contrastFor, guestThemeSheets } from '@/modules/identity/theme-sheet';
 
 describe('branding', () => {
   it('keeps the guest palette constants in step with the Kesari tokens', () => {
@@ -21,12 +22,6 @@ describe('branding', () => {
     const cleaned = cleanBranding({ accent: '#e9a227' });
     expect(cleaned.accent).toBe('#E9A227');
     expect(accentContrast('#E9A227').ink).toBe('dark');
-  });
-
-  it('offers only presets that pass its own check', () => {
-    for (const preset of BRAND_PRESETS) {
-      expect(() => cleanBranding({ accent: preset.hex }), preset.name).not.toThrow();
-    }
   });
 
   it('refuses an accent too dark to read on the indigo', () => {
@@ -49,27 +44,27 @@ describe('branding', () => {
   it('wants https for pictures and stores blanks as nothing', () => {
     expect(() => cleanBranding({ logoUrl: 'http://example.com/logo.png' })).toThrow(/https/);
     expect(cleanBranding({ accent: ' ', logoUrl: '', coverUrl: null }))
-      .toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
+      .toEqual(NO_BRANDING);
   });
 
   it('reads a malformed column as no branding at all', () => {
-    expect(readBranding(null)).toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
-    expect(readBranding({ accent: 'red', logoUrl: 'javascript:alert(1)' }))
-      .toEqual({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null });
+    expect(readBranding(null)).toEqual(NO_BRANDING);
+    expect(readBranding({ accent: 'red', logoUrl: 'javascript:alert(1)', draftTheme: 'neon' }))
+      .toEqual(NO_BRANDING);
   });
 
   it('redeclares the aliases, not only the primitive', () => {
-    const style = brandingStyle({ theme: 'kesari', accent: '#E9A227', logoUrl: null, coverUrl: null });
+    const style = brandingStyle({ ...NO_BRANDING, accent: '#E9A227' });
     expect(style['--teal-600']).toBe('#E9A227');
     expect(style['--accent']).toBe('#E9A227');
     expect(style['--saffron']).toBe('#E9A227');
     expect(style['--accent-ink']).toBe('var(--paper)');
-    expect(brandingStyle({ theme: 'kesari', accent: null, logoUrl: null, coverUrl: null })).toEqual({});
+    expect(brandingStyle(NO_BRANDING)).toEqual({});
   });
 
   /** D-100: a theme brings its own accent; the old one was checked on Kesari's indigo. */
   it('honours a custom accent on Kesari only', () => {
-    expect(brandingStyle({ theme: 'sandstone', accent: '#E9A227', logoUrl: null, coverUrl: null }))
+    expect(brandingStyle({ ...NO_BRANDING, theme: 'sandstone', accent: '#E9A227' }))
       .toEqual({});
   });
 
@@ -82,6 +77,49 @@ describe('branding', () => {
   it('refuses to store a theme that does not exist', () => {
     expect(() => cleanBranding({ theme: 'neon' })).toThrow(/no guest theme/);
     expect(cleanBranding({ theme: 'pichola' }).theme).toBe('pichola');
+  });
+
+  /** D-102: picking a theme saves a draft; guests read `theme` only. */
+  it('keeps a draft beside the live theme, and never a draft of the live one', () => {
+    expect(readBranding({ theme: 'kesari', draftTheme: 'gulabi' }))
+      .toMatchObject({ theme: 'kesari', draftTheme: 'gulabi' });
+    expect(readBranding({ theme: 'gulabi', draftTheme: 'gulabi' }).draftTheme).toBeNull();
+    expect(cleanBranding({ theme: 'kesari', draftTheme: 'mehendi' }).draftTheme).toBe('mehendi');
+    expect(cleanBranding({ theme: 'mehendi', draftTheme: 'mehendi' }).draftTheme).toBeNull();
+    expect(cleanBranding({ theme: 'kesari', draftTheme: '' }).draftTheme).toBeNull();
+    expect(() => cleanBranding({ draftTheme: 'neon' })).toThrow(/no guest theme/);
+  });
+
+  it('a draft never reaches a guest screen', () => {
+    // brandingStyle is what the guest layouts set; it reads the live theme only.
+    expect(brandingStyle({ ...NO_BRANDING, accent: '#E9A227', draftTheme: 'sandstone' })['--accent'])
+      .toBe('#E9A227');
+  });
+});
+
+describe('theme sheets', () => {
+  it('covers every theme, with the token file\'s values in its CSS', () => {
+    const css = readFileSync('design/tokens/innstant-themes.css', 'utf8');
+    const sheets = guestThemeSheets();
+    expect(sheets.map((s) => s.key)).toEqual(['kesari', 'pichola', 'gulabi', 'mehendi', 'sandstone']);
+    for (const sheet of sheets) {
+      const block = css.slice(css.indexOf(`[data-guest-theme="${sheet.key}"] {`));
+      const page = block.match(/--g-page:\s*(#[0-9A-Fa-f]{6})/)?.[1];
+      expect(sheet.guestCss).toContain(`--g-page: ${page};`);
+      expect(sheet.consoleCss.light).toContain(`[data-console="light"][data-accent="${sheet.key}"]`);
+      expect(sheet.consoleCss.dark).toContain(`--accent: ${sheet.consoleAccent.dark};`);
+    }
+  });
+
+  it('works contrast out with the WCAG formula, and every pair holds', () => {
+    // Kesari's ink on its page, by hand: #F4ECDD on #0A1220.
+    expect(contrastFor('kesari')[0]).toMatchObject({ label: 'Body text on page', fg: 'g-ink', bg: 'g-page' });
+    expect(Number(contrastFor('kesari')[0]!.ratio.replace(':1', ''))).toBeGreaterThan(15);
+    for (const sheet of guestThemeSheets()) {
+      for (const row of sheet.contrast) {
+        expect(row.verdict, `${sheet.key} · ${row.label} ${row.ratio}`).not.toBe('Fails');
+      }
+    }
   });
 });
 

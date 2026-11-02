@@ -49,8 +49,17 @@ export interface PropertyBranding {
   /** One of GUEST_THEMES. Every colour on the guest's screens follows it. */
   theme: GuestThemeKey;
   /**
+   * A theme picked on the Branding screen and not yet published (D-102).
+   * Guests never see it — nothing on a guest screen reads this field — and
+   * it is null whenever it would equal `theme`, so "is there a draft" is one
+   * null check rather than a comparison every caller has to remember.
+   */
+  draftTheme: GuestThemeKey | null;
+  /**
    * `#RRGGBB`, from before themes (D-087). Only honoured on Kesari, the theme
-   * it was checked against; any other theme brings its own accent.
+   * it was checked against; any other theme brings its own accent. Read for
+   * the properties that have one; no screen offers it any more (D-102), and
+   * publishing a theme clears it, so what the preview shows is what goes live.
    */
   accent: string | null;
   /** https only. Shown in place of the wordmark on the guest home. */
@@ -60,24 +69,8 @@ export interface PropertyBranding {
 }
 
 export const NO_BRANDING: PropertyBranding = {
-  theme: DEFAULT_GUEST_THEME, accent: null, logoUrl: null, coverUrl: null,
+  theme: DEFAULT_GUEST_THEME, draftTheme: null, accent: null, logoUrl: null, coverUrl: null,
 };
-
-/**
- * Accents offered as one tap on the Branding screen. Data, not styling: each
- * is a choice a hotel makes, every one passes `cleanBranding` (asserted in
- * branding.test.ts), and the first is the theme's own saffron.
- */
-export const BRAND_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
-  { name: 'Saffron', hex: '#E9A227' },
-  { name: 'Marigold', hex: '#F2C14E' },
-  { name: 'Coral', hex: '#F08A6C' },
-  { name: 'Rose', hex: '#E58BA8' },
-  { name: 'Lagoon', hex: '#5FC4B8' },
-  { name: 'Sky', hex: '#7FB5F0' },
-  { name: 'Lilac', hex: '#B49AF0' },
-  { name: 'Sage', hex: '#A8C686' },
-];
 
 /**
  * The Kesari guest theme's page, card and two inks, as
@@ -104,7 +97,10 @@ export function readBranding(raw: unknown): PropertyBranding {
     : null;
   const url = (v: unknown) => (typeof v === 'string' && isHttpsUrl(v) ? v : null);
   const theme = isGuestTheme(value.theme) ? value.theme : DEFAULT_GUEST_THEME;
-  return { theme, accent, logoUrl: url(value.logoUrl), coverUrl: url(value.coverUrl) };
+  const draftTheme = isGuestTheme(value.draftTheme) && value.draftTheme !== theme
+    ? value.draftTheme
+    : null;
+  return { theme, draftTheme, accent, logoUrl: url(value.logoUrl), coverUrl: url(value.coverUrl) };
 }
 
 /**
@@ -113,11 +109,16 @@ export function readBranding(raw: unknown): PropertyBranding {
  * darkening somebody's brand colour is a decision about their brand.
  */
 export function cleanBranding(input: {
-  theme?: string | null; accent?: string | null; logoUrl?: string | null; coverUrl?: string | null;
+  theme?: string | null; draftTheme?: string | null;
+  accent?: string | null; logoUrl?: string | null; coverUrl?: string | null;
 }): PropertyBranding {
   const theme = input.theme?.trim() || DEFAULT_GUEST_THEME;
   if (!isGuestTheme(theme)) {
     throw new ValidationError(`There is no guest theme called "${theme}".`);
+  }
+  const draft = input.draftTheme?.trim() || null;
+  if (draft !== null && !isGuestTheme(draft)) {
+    throw new ValidationError(`There is no guest theme called "${draft}".`);
   }
   const accent = input.accent?.trim() ? input.accent.trim() : null;
   if (accent) {
@@ -142,6 +143,8 @@ export function cleanBranding(input: {
 
   return {
     theme,
+    // A draft of the theme already live is no draft at all.
+    draftTheme: draft === theme ? null : draft,
     accent: accent ? accent.toUpperCase() : null,
     logoUrl: cleanUrl(input.logoUrl, 'The logo'),
     coverUrl: cleanUrl(input.coverUrl, 'The cover photo'),

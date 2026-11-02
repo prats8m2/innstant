@@ -9,6 +9,7 @@ import {
   createRoom, updateRoom, archiveRoom, restoreRoom,
   createRoomType, updateRoomType, archiveRoomType, restoreRoomType,
   updatePropertySettings, updateGuestInfo, updateBranding,
+  saveThemeDraft, discardThemeDraft, publishTheme, GUEST_THEMES, type GuestThemeKey,
 } from '@/modules/identity';
 import { AppError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
@@ -281,9 +282,13 @@ export async function saveGuestInfo(
   });
 }
 
+/**
+ * The logo and the cover. The pre-theme accent (D-087) is not on the form any
+ * more — the theme picker replaced it (D-102) — and `updateBranding()` keeps
+ * whatever a form does not send, so saving pictures leaves it as it was.
+ */
 const BrandingForm = z.object({
   propertyId: z.uuid(),
-  accent: z.string().max(7),
   logoUrl: z.string().max(500),
   coverUrl: z.string().max(500),
 });
@@ -295,7 +300,6 @@ export async function saveBranding(
 ): Promise<PropertyState> {
   const parsed = BrandingForm.safeParse({
     propertyId: formData.get('propertyId'),
-    accent: String(formData.get('accent') ?? ''),
     logoUrl: String(formData.get('logoUrl') ?? ''),
     coverUrl: String(formData.get('coverUrl') ?? ''),
   });
@@ -318,6 +322,71 @@ export async function saveBranding(
     // Every guest screen reads it, through the brand scope in their layouts.
     revalidatePath('/', 'layout');
     return { done: 'Saved. Every guest screen wears it from the next tap.' };
+  });
+}
+
+/*
+ * The guest theme: a draft, then a publish (D-102). Called with arguments
+ * rather than a form — a theme card is a radio, not a submit — and parsed at
+ * the edge like everything else. `property:branding` for all three.
+ */
+const ThemeInput = z.object({
+  propertyId: z.uuid(),
+  theme: z.enum(GUEST_THEMES.map((theme) => theme.key) as [GuestThemeKey, ...GuestThemeKey[]]),
+});
+const PropertyInput = z.object({ propertyId: z.uuid() });
+
+/** Picking a card. The console's preview changes; no guest's phone does. */
+export async function pickThemeDraft(propertyId: string, theme: string): Promise<PropertyState> {
+  const parsed = ThemeInput.safeParse({ propertyId, theme });
+  if (!parsed.success) return { error: 'There is no such theme.' };
+  return guard('save theme draft', async () => {
+    const session = await requirePermission(parsed.data.propertyId, 'property:branding');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      (tx) => saveThemeDraft(tx, {
+        tenantId: session.tenantId,
+        propertyId: parsed.data.propertyId,
+        staffUserId: session.staffUserId,
+        theme: parsed.data.theme,
+      }),
+    );
+    revalidatePath('/admin/property');
+    return { done: 'Draft saved. Guests still see the live theme.' };
+  });
+}
+
+export async function discardThemeDraftAction(propertyId: string): Promise<PropertyState> {
+  const parsed = PropertyInput.safeParse({ propertyId });
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  return guard('discard theme draft', async () => {
+    const session = await requirePermission(parsed.data.propertyId, 'property:branding');
+    await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      (tx) => discardThemeDraft(tx, {
+        tenantId: session.tenantId, propertyId: parsed.data.propertyId, staffUserId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/admin/property');
+    return { done: 'Draft discarded.' };
+  });
+}
+
+/** The draft goes live, on every guest screen and in the console's accent. */
+export async function publishThemeAction(propertyId: string): Promise<PropertyState> {
+  const parsed = PropertyInput.safeParse({ propertyId });
+  if (!parsed.success) return { error: 'That did not come through. Try again.' };
+  return guard('publish theme', async () => {
+    const session = await requirePermission(parsed.data.propertyId, 'property:branding');
+    const published = await withTenant(
+      { tenantId: session.tenantId, propertyId: parsed.data.propertyId },
+      (tx) => publishTheme(tx, {
+        tenantId: session.tenantId, propertyId: parsed.data.propertyId, staffUserId: session.staffUserId,
+      }),
+    );
+    revalidatePath('/', 'layout');
+    const name = GUEST_THEMES.find((theme) => theme.key === published.theme)?.name ?? published.theme;
+    return { done: `${name} is live. Guests see it from their next tap.` };
   });
 }
 

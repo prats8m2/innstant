@@ -4,9 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { withTenant } from '@/db';
 import { requirePermission } from '@/lib/auth-context';
-import { advanceRequest, type RequestStatus } from '@/modules/requests';
+import { advanceRequest, raiseServiceRequest, type RequestStatus } from '@/modules/requests';
+import { activeStayForRoom } from '@/modules/stay';
 import type { Permission } from '@/modules/identity';
-import { AppError, ValidationError, publicPayloadFor } from '@/lib/errors';
+import { AppError, NotFoundError, ValidationError, publicPayloadFor } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
 /**
@@ -119,6 +120,68 @@ export async function actOnRequest(
   } catch (error) {
     if (error instanceof AppError) return { error: publicPayloadFor(error).message };
     logger.error({ err: (error as Error).message }, 'request action failed');
+    throw error;
+  }
+}
+
+const RaiseForPhonedGuest = z.object({
+  propertyId: z.uuid(),
+  roomId: z.uuid('Choose the room that rang.'),
+  requestTypeId: z.uuid('Choose what they asked for.'),
+  quantity: z.coerce.number().int().min(1).max(20),
+  note: z.string().trim().max(300).optional(),
+  idempotencyKey: z.uuid(),
+});
+
+/**
+ * "Raise for a guest who phoned", from the Requests board (D-096's desk
+ * action, reached from where a manager watches the requests). The same call
+ * the Rooms panel makes: `raiseServiceRequest()` in the guest's stay, tier
+ * FULL on the desk's judgement, the event naming who took the call, and the
+ * note saying it came by phone. `stay:update`, as there.
+ *
+ * The board picks a ROOM; the stay is the one checked in to it now (#10 —
+ * the request binds to the stay, never the room).
+ */
+export async function raiseForPhonedGuest(
+  _previous: LiveRequestState,
+  formData: FormData,
+): Promise<LiveRequestState> {
+  const parsed = RaiseForPhonedGuest.safeParse({
+    propertyId: formData.get('propertyId'),
+    roomId: formData.get('roomId'),
+    requestTypeId: formData.get('requestTypeId'),
+    quantity: formData.get('quantity') || 1,
+    note: formData.get('note') || undefined,
+    idempotencyKey: formData.get('idempotencyKey'),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? 'Check the request.' };
+  const input = parsed.data;
+
+  try {
+    const session = await requirePermission(input.propertyId, 'stay:update');
+    const raised = await withTenant({ tenantId: session.tenantId, propertyId: input.propertyId }, async (tx) => {
+      const stay = await activeStayForRoom(tx, input.roomId);
+      if (!stay) throw new NotFoundError('Nobody is checked in to that room.');
+      return raiseServiceRequest(tx, {
+        tenantId: session.tenantId,
+        propertyId: input.propertyId,
+        stayId: stay.stayId,
+        roomId: input.roomId,
+        lines: [{ requestTypeId: input.requestTypeId, quantity: input.quantity }],
+        guestNote: input.note ? `Taken by phone: ${input.note}` : 'Taken by phone at the desk',
+        idempotencyKey: input.idempotencyKey,
+        accessTier: 'FULL',
+        staffUserId: session.staffUserId,
+      });
+    });
+    revalidatePath('/admin/requests');
+    revalidatePath('/admin/rooms');
+    revalidatePath('/housekeeping');
+    return { done: `${raised.requestNumber} raised. It goes to whoever is on that floor.` };
+  } catch (error) {
+    if (error instanceof AppError) return { error: publicPayloadFor(error).message };
+    logger.error({ err: (error as Error).message }, 'raise for a phoned guest failed');
     throw error;
   }
 }

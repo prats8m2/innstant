@@ -60,15 +60,30 @@ export { updatePropertySettings, currencyIsStillOpen } from './property-settings
 export type { PropertySettingsInput } from './property-settings';
 
 /** D-087 — what a guest reads about the hotel, and how it looks to them. */
-export { getPropertyProfile, updateGuestInfo, updateBranding } from './property-profile';
+export {
+  getPropertyProfile, updateGuestInfo, updateBranding,
+  saveThemeDraft, discardThemeDraft, publishTheme,
+} from './property-profile';
 export type { PropertyProfile } from './property-profile';
 export { cleanGuestInfo, dialable } from './guest-info';
 export type { GuestInfo } from './guest-info';
 export {
-  readBranding, cleanBranding, brandingStyle, accentContrast, NO_BRANDING, BRAND_PRESETS,
+  readBranding, cleanBranding, brandingStyle, accentContrast, NO_BRANDING,
   GUEST_THEMES, DEFAULT_GUEST_THEME, isGuestTheme,
 } from './branding';
 export type { PropertyBranding, AccentContrast, GuestThemeKey } from './branding';
+/** D-102 — each guest theme's contrast pairs and CSS, from the token file. */
+export { guestThemeSheets, contrastFor } from './theme-sheet';
+export type { GuestThemeSheet, ContrastRow } from './theme-sheet';
 export type {
   ProvisionPropertyInput, ProvisionedProperty, RoomSeed, RoomTypeSeed, FloorSeed,
 } from './provision';
+
+/** The console's frame: the property, the person, and their light or dark. */
+export { consoleChrome, setConsoleAppearance, searchRooms } from './console';
+export type { ConsoleChrome, RoomHit } from './console';
+export {
+  CONSOLE_APPEARANCES, DEFAULT_CONSOLE_APPEARANCE, APPEARANCE_LABELS, isConsoleAppearance,
+  renderedConsole,
+} from './console-appearance';
+export type { ConsoleAppearance } from './console-appearance';
