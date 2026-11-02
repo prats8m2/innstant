@@ -179,8 +179,7 @@ export default async function CheckoutsAdmin() {
         </li>
       </ul>
 
-      {/* Only when somebody IS waiting: the line above already says when
-          nobody is, and an empty box above the departures pushes them down. */}
+      {/* The queue's box only when somebody IS waiting. */}
       {open.length ? (
       <CheckoutQueue
         part="waiting"
@@ -190,7 +189,12 @@ export default async function CheckoutsAdmin() {
         mayDecide={can(session, propertyId, 'checkout_request:approve')}
         mayOverride={can(session, propertyId, 'checkout_request:override_fee')}
       />
-      ) : null}
+      ) : (
+        // One quiet line rather than an empty box: the desk still sees the
+        // queue is empty (and that approving one just emptied it), without
+        // an empty panel pushing today's departures down.
+        <p className={l.queueEmpty}>Nobody is waiting on an answer.</p>
+      )}
 
       <DueOut
         rows={due}

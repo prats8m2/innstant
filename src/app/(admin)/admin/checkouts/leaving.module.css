@@ -108,3 +108,9 @@ a.name:hover { text-decoration: underline; }
   .actions { grid-column: 1 / -1; justify-content: stretch; }
   .actions > *, .actions .inline, .actions button { flex: 1; }
 }
+
+.queueEmpty {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
