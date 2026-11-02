@@ -1,17 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { ChevronDown } from 'lucide-react';
 import type { StaffShift } from '@/modules/housekeeping';
+import type { GuestThemeKey } from '@/modules/identity/branding';
 import { startShift, endShift, type BoardState } from './housekeeping/actions';
 import { SignOutButton } from '@/components/sign-out-button';
 import { SessionWatch } from '@/components/session-watch';
+import { isNight } from './night';
 import styles from './floor-header.module.css';
 
 /**
  * Who is holding this phone, whether they are on shift, and the two screens
- * their shift covers.
+ * their shift covers — plus the frame both floor phones are drawn in.
  *
  * ─── Why it is shared, and why it imports housekeeping's actions ───────────
  *
@@ -46,21 +49,81 @@ export interface FloorOption {
   name: string;
 }
 
+/**
+ * The floor phone's frame: console tokens, light by day and dark from 19:00
+ * on the HOTEL's clock (D-100), in the property's accent.
+ *
+ * Seeded from the server so a night corridor does not get a white flash while
+ * the page hydrates, then re-derived every minute so a phone that has been in
+ * an apron pocket since lunch dims by itself. `<html>` is kept in step from an
+ * effect, the way the console's frame does it, so the overscroll and anything
+ * portalled to `<body>` match — and is put back on the way out.
+ */
+export function FloorFrame({
+  initialScheme,
+  timeZone,
+  theme,
+  className,
+  children,
+}: {
+  initialScheme: 'light' | 'dark';
+  timeZone: string;
+  theme: GuestThemeKey;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [scheme, setScheme] = useState(initialScheme);
+
+  useEffect(() => {
+    const derive = () => setScheme(isNight(Date.now(), timeZone) ? 'dark' : 'light');
+    derive();
+    const tick = window.setInterval(derive, 60_000);
+    return () => window.clearInterval(tick);
+  }, [timeZone]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = {
+      console: root.getAttribute('data-console'),
+      accent: root.getAttribute('data-accent'),
+    };
+    root.setAttribute('data-console', scheme);
+    root.setAttribute('data-accent', theme);
+    return () => {
+      if (before.console) root.setAttribute('data-console', before.console);
+      if (before.accent) root.setAttribute('data-accent', before.accent);
+    };
+  }, [scheme, theme]);
+
+  return (
+    <div className={className} data-console={scheme} data-accent={theme}>
+      {children}
+    </div>
+  );
+}
+
 export function FloorHeader({
   propertyId,
   staffUserId,
   fullName,
+  role,
+  stat,
   shift,
   floors,
   tabs,
   current,
   mayClock,
   timeZone,
+  renderedAt,
 }: {
   propertyId: string;
   /** Who this screen was drawn for — so another tab signing out is noticed. */
   staffUserId: string;
   fullName: string;
+  /** The role(s) this person holds here, as the console names them. */
+  role: string;
+  /** "14 handovers today" — the one number this person asks about their day. */
+  stat: { value: number; label: string };
   shift: StaffShift | null;
   floors: FloorOption[];
   tabs: readonly FloorTab[];
@@ -69,28 +132,41 @@ export function FloorHeader({
   /** `shift:clock`. Without it the button is not drawn — it would only refuse. */
   mayClock: boolean;
   timeZone: string;
+  /** The server's clock at render — the first tick, so hydration agrees. */
+  renderedAt: number;
 }) {
   const covering = shift?.zones.map((z) => z.floorName).join(' · ');
 
   return (
     <header className={styles.header}>
-      <div className={styles.who}>
-        <span className={styles.avatar} aria-hidden="true">{initialsOf(fullName)}</span>
+      <div className={styles.top}>
         <div className={styles.whoBody}>
           <p className={styles.name}>{fullName}</p>
+          <p className={styles.role}>
+            {role} · <span className="tabular">{stat.value}</span> {stat.label}
+          </p>
+        </div>
+        <Clock renderedAt={renderedAt} timeZone={timeZone} />
+      </div>
+
+      <div className={styles.shiftRow}>
+        <div className={styles.shiftBody}>
           {shift && mayClock ? (
             /* Tapping the shift line opens the floor picker. "Actually I have
                got three as well" is a normal thing to say mid-shift, and the
                control it needs cannot cost the clock-out button its single
                tap — that one is pressed with a trolley in the other hand. */
             <details className={styles.changeFloors}>
-              <summary className={styles.shiftLine}>
+              <summary className={styles.shiftLine} data-on="true">
                 {shiftLineFor(shift, covering, timeZone)}
+                <ChevronDown size={14} aria-hidden="true" />
               </summary>
               <ChangeFloors propertyId={propertyId} floors={floors} shift={shift} />
             </details>
           ) : (
-            <p className={styles.shiftLine}>{shiftLineFor(shift, covering, timeZone)}</p>
+            <p className={styles.shiftLine} data-on={shift ? 'true' : 'false'}>
+              {shiftLineFor(shift, covering, timeZone)}
+            </p>
           )}
         </div>
         {mayClock ? (
@@ -118,6 +194,21 @@ export function FloorHeader({
         </nav>
       ) : null}
     </header>
+  );
+}
+
+/** The hotel's wall clock, "9:01pm" — the board's top-right corner. */
+function Clock({ renderedAt, timeZone }: { renderedAt: number; timeZone: string }) {
+  const [now, setNow] = useState(renderedAt);
+  useEffect(() => {
+    setNow(Date.now());
+    const tick = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(tick);
+  }, []);
+  return (
+    <time className={`${styles.clock} tabular`} dateTime={new Date(now).toISOString()}>
+      {wallClock(now, timeZone)}
+    </time>
   );
 }
 
@@ -256,18 +347,18 @@ function shiftLineFor(
   return `On shift · ${covering || 'no floors'}${since}`;
 }
 
-/** "Kishan Rathore" → "KR". One or two letters, never three. */
-function initialsOf(fullName: string): string {
-  const parts = fullName.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '·';
-  const first = parts[0]![0]!;
-  const last = parts.length > 1 ? parts[parts.length - 1]![0]! : '';
-  return (first + last).toUpperCase();
-}
-
 /** The HOTEL's clock, never the phone's (CLAUDE.md "Dates"). */
 function clockOf(at: Date | string, timeZone: string): string {
   return new Intl.DateTimeFormat('en-GB', {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
   }).format(new Date(at));
+}
+
+/** "9:01pm", the way the boards write the time — the hotel's, not the phone's. */
+export function wallClock(at: number | Date | string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
+  }).formatToParts(new Date(at));
+  const pick = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${pick('hour')}:${pick('minute')}${pick('dayPeriod').toLowerCase()}`;
 }

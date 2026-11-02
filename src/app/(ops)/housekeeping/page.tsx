@@ -2,13 +2,14 @@ import { withTenant } from '@/db';
 import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
-import { can, findProperty, listFloors, listRoomsAtProperty } from '@/modules/identity';
+import { can, consoleChrome, findProperty, listFloors, listRoomsAtProperty } from '@/modules/identity';
 import { getOpenRequests, housekeeperDay, OPEN_REQUEST_STATUSES } from '@/modules/requests';
 import { getCurrentShift, onDutyCount, roomCleanStates, cleanStateOf } from '@/modules/housekeeping';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets } from '@/modules/ordering';
 import { Alerts } from '@/components/alerts';
-import { FloorHeader, OffShiftNotice } from '../floor-header';
+import { FloorFrame, FloorHeader, OffShiftNotice } from '../floor-header';
+import { isNight } from '../night';
 import { FloorRequests } from './request-board';
 import { RoomsToMakeUp, type RoomToMakeUp } from './rooms-to-make-up';
 import { LiveBoard } from './live-board';
@@ -60,12 +61,14 @@ export default async function HousekeepingBoard() {
 
   const maySeePickups = can(session, propertyId, 'order:read');
 
-  const { property, all, floors, shift, onDuty, pickups, myDay, rooms, cleanStates } = await withTenant(
+  const { property, chrome, all, floors, shift, onDuty, pickups, myDay, rooms, cleanStates } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const property = await findProperty(tx, propertyId);
       return {
         property,
+        // The accent (the property's guest theme) and the role names.
+        chrome: await consoleChrome(tx, { propertyId, staffUserId: session.staffUserId }),
         floors: await listFloors(tx, propertyId),
         // The shift of whoever is holding this phone, and how many people are on
         // the floors at all — the second number is what tells a lone housekeeper
@@ -116,89 +119,98 @@ export default async function HousekeepingBoard() {
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
   const localDay = (at: Date) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(at);
 
+  const renderedAt = Date.now();
+  const makeUp: RoomToMakeUp[] = rooms.flatMap((room): RoomToMakeUp[] => {
+    const state = cleanStateOf(cleanStates, room.id);
+    const base = { id: room.id, number: room.number, floorId: room.floorId, floorName: room.floorName, since: state.updatedAt };
+    // To make up; and, for whoever inspects, what was made up today.
+    const today = state.updatedAt && localDay(state.updatedAt) === localDay(new Date());
+    if (state.status === 'DIRTY') return [{ ...base, status: 'DIRTY' }];
+    if (state.status === 'CLEAN' && today && permissions.verify) return [{ ...base, status: 'CLEAN' }];
+    return [];
+  });
+
   return (
-    <main className={styles.shell}>
-      <FloorHeader
-        propertyId={propertyId}
-        staffUserId={session.staffUserId}
-        fullName={session.fullName}
-        shift={shift}
-        floors={floors}
-        timeZone={timeZone}
-        mayClock={can(session, propertyId, 'shift:clock')}
-        current="/housekeeping"
-        tabs={[
-          ...(maySeePickups
-            ? [{ href: '/runner', label: 'Pickups', count: pickups }]
-            : []),
-          { href: '/housekeeping', label: 'Requests', count: requests.length },
-        ]}
-      />
+    <FloorFrame
+      className={styles.frame}
+      /* Resolved here: a phone opened at 23:00 must not flash white first. */
+      initialScheme={isNight(renderedAt, timeZone) ? 'dark' : 'light'}
+      timeZone={timeZone}
+      theme={chrome.theme}
+    >
+      <main className={styles.shell}>
+        <FloorHeader
+          propertyId={propertyId}
+          staffUserId={session.staffUserId}
+          fullName={session.fullName}
+          role={chrome.roleNames.join(' · ') || 'Housekeeping'}
+          stat={{ value: myDay.done, label: 'done today' }}
+          shift={shift}
+          floors={floors}
+          timeZone={timeZone}
+          renderedAt={renderedAt}
+          mayClock={can(session, propertyId, 'shift:clock')}
+          current="/housekeeping"
+          tabs={[
+            ...(maySeePickups
+              ? [{ href: '/runner', label: 'Pickups', count: pickups }]
+              : []),
+            { href: '/housekeeping', label: 'Requests', count: requests.length },
+          ]}
+        />
 
-      <div className={styles.bar}>
-        <h1 className={styles.title}>{property?.name ?? 'The floors'}</h1>
-        <span className={`${styles.count} tabular`}>
-          {requests.length} open
-        </span>
-        {breached > 0 ? (
-          <span className={`${styles.late} tabular`} role="status">{breached} late</span>
-        ) : null}
-        <span className={`${styles.count} tabular`}>{onDuty} on duty</span>
-        <LiveBoard propertyId={propertyId} breached={breached} unclaimed={unclaimed} />
-        {/* Level 1 of an escalation goes to the ASSIGNEE (D-028), and the
-            assignee is holding this phone, not sitting in the ops console. A
-            bell only on `/admin` would deliver two thirds of what the sweep
-            writes. */}
-        <Alerts session={session} propertyId={propertyId} />
-      </div>
-
-      {/* Routing only reaches somebody who is clocked in and covering the floor
-          (`onDutyCovering`), so an off-shift board is empty for a reason. */}
-      {shift ? null : <OffShiftNotice />}
-
-      {/* Your day. "How many have I done" and "am I quick", which nothing
-          else on this screen says, plus the one number that is a problem by
-          itself — work nobody has picked up. */}
-      <dl className={styles.myDay}>
-        <div>
-          <dt>Done today</dt>
-          <dd className="tabular">{myDay.done}</dd>
+        <div className={styles.bar}>
+          <div className={styles.barText}>
+            <h1 className={styles.title}>Requests</h1>
+            <span className={`${styles.count} tabular`}>
+              <span>{requests.length} open</span>
+              {/* On time (D-090): inside each request's own promise, not an
+                  average — towels at twelve and a plumber at forty do not
+                  average to anything. */}
+              {myDay.done ? <span>{`· ${myDay.onTime} of ${myDay.done} on time`}</span> : null}
+              <span>{`· ${onDuty} on duty`}</span>
+            </span>
+            {breached > 0 ? (
+              <span className={`${styles.late} tabular`} role="status">{breached} late</span>
+            ) : null}
+          </div>
+          <div className={styles.barEnd}>
+            <LiveBoard propertyId={propertyId} breached={breached} unclaimed={unclaimed} />
+            {/* Level 1 of an escalation goes to the ASSIGNEE (D-028), and the
+                assignee is holding this phone, not sitting in the ops console. */}
+            <Alerts session={session} propertyId={propertyId} />
+          </div>
         </div>
-        <div>
-          <dt>On time</dt>
-          <dd className="tabular">{myDay.done ? `${myDay.onTime} of ${myDay.done}` : '—'}</dd>
-        </div>
-        <div data-alert={unclaimed > 0}>
-          <dt>Nobody has</dt>
-          <dd className="tabular">{unclaimed}</dd>
-        </div>
-      </dl>
 
-      <RoomsToMakeUp
-        propertyId={propertyId}
-        rooms={rooms.flatMap((room): RoomToMakeUp[] => {
-          const state = cleanStateOf(cleanStates, room.id);
-          // To make up; and, for whoever inspects, what was made up today.
-          const today = state.updatedAt && localDay(state.updatedAt) === localDay(new Date());
-          if (state.status === 'DIRTY') return [{ id: room.id, number: room.number, floorId: room.floorId, floorName: room.floorName, status: 'DIRTY' }];
-          if (state.status === 'CLEAN' && today && permissions.verify) return [{ id: room.id, number: room.number, floorId: room.floorId, floorName: room.floorName, status: 'CLEAN' }];
-          return [];
-        })}
-        myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
-        mayClean={permissions.advance}
-        mayInspect={permissions.verify}
-      />
+        {/* Routing only reaches somebody who is clocked in and covering the floor
+            (`onDutyCovering`), so an off-shift board is empty for a reason. */}
+        {shift ? null : <OffShiftNotice />}
 
-      <FloorRequests
-        propertyId={propertyId}
-        staffUserId={session.staffUserId}
-        requests={all}
-        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
-        myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
-        permissions={permissions}
-        renderedAt={Date.now()}
-      />
-    </main>
+        <FloorRequests
+          propertyId={propertyId}
+          staffUserId={session.staffUserId}
+          requests={all}
+          floors={floors.map((f) => ({ id: f.id, name: f.name }))}
+          myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
+          permissions={permissions}
+          timeZone={timeZone}
+          renderedAt={renderedAt}
+          makeUp={
+            <RoomsToMakeUp
+              /* Keyed: React's dev check flags a server-made element that a
+                 client component renders among its own children without one. */
+              key="rooms-to-make-up"
+              propertyId={propertyId}
+              rooms={makeUp}
+              myFloorIds={shift?.zones.map((z) => z.floorId) ?? []}
+              mayClean={permissions.advance}
+              mayInspect={permissions.verify}
+              renderedAt={renderedAt}
+            />
+          }
+        />
+      </main>
+    </FloorFrame>
   );
 }
 
