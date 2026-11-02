@@ -3301,3 +3301,24 @@ bill still has money on it, oldest first, with the reason the manager gave
 when they let them go — `listUnpaidDepartures()`, reading the reason off the
 `stay.checked_out` event. Each links to the bill, which still takes payments
 after the guest has gone. Both for `folio:read` only.
+
+### D-098 · A request can only be given to somebody on shift
+The user found the gap: a guest raises a request, a manager assigns it from
+the console to a runner who is not clocked in, and it sits on nobody's phone
+while the board says it is covered. Auto-routing already chose only from
+people on duty; the console's assign list offered everyone.
+
+**The rule is in `advanceRequest()`**, so it holds for every way a request
+is assigned, not only the screen that exposed it: a transition to ASSIGNED
+with an assignee requires a current shift for that person, or it is refused
+with "That person is not clocked in. Give it to somebody on shift." It is
+not tied to the request's floor — a manager may send somebody from the next
+corridor — only to being clocked in. Claiming ("I am going") is unaffected:
+it is IN_PROGRESS by the person holding the phone.
+
+**On the screen**, the assign list is people, not a dropdown: those on shift
+are choosable, with an on-shift icon and the floors they cover; everyone else
+is shown greyed as "Not clocked in", so a manager can see why somebody is not
+an option. When nobody is on, it says so and offers no button. The same icon
+sits beside every assignee on the live list, the request panel and Team today,
+and a request still held by somebody who has since clocked out says so.

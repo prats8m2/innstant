@@ -1,5 +1,6 @@
 import styles from '../admin.module.css';
 import q from './requests.module.css';
+import { ShiftMark } from './live-requests';
 
 /**
  * Who is carrying what, and how today has gone (D-097).
@@ -48,8 +49,11 @@ export function TeamToday({ people, types }: { people: PersonLoad[]; types: Type
               {people.map((p) => (
                 <tr key={p.id} data-person={p.name}>
                   <td>
-                    <span className={q.personName}>{p.name}</span>
-                    <span className={q.personShift}>{p.onShift ?? 'not on shift'}</span>
+                    <span className={q.assignee}>
+                      <ShiftMark onShift={!!p.onShift} />
+                      <span className={q.personName}>{p.name}</span>
+                    </span>
+                    <span className={q.personShift}>{p.onShift ?? 'not clocked in'}</span>
                   </td>
                   <td className={`${q.num} tabular`} data-heavy={p.carrying >= 4 || undefined}>{p.carrying}</td>
                   <td className={`${q.num} tabular`} data-late={p.late > 0 || undefined}>{p.late}</td>

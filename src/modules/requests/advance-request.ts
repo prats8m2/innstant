@@ -8,6 +8,7 @@ import {
   REQUEST_STATUS_TIMESTAMP, OPEN_REQUEST_STATUSES, type RequestStatus,
 } from './transitions';
 import { reverseFolioLinesForSource } from '@/modules/billing';
+import { getCurrentShift } from '@/modules/housekeeping';
 import { notifyRequestChanged } from './raise-request';
 
 /**
@@ -87,6 +88,21 @@ export async function advanceRequest(
         ? 'Say why this cannot be done — the guest is told.'
         : 'Say why this is being cancelled.',
     );
+  }
+
+  /**
+   * Only somebody on shift can be given a request (D-098). A request handed
+   * to a runner who went home an hour ago sits on nobody's phone while the
+   * guest waits, and the board says it is covered. Auto-routing already
+   * picks only from people on duty; this makes it true of every assignment,
+   * the console's included. Not tied to the request's floor — a manager may
+   * send somebody from the next corridor — only to being clocked in.
+   */
+  if (input.to === 'ASSIGNED' && input.assignedStaffId) {
+    const shift = await getCurrentShift(tx, { propertyId: input.propertyId, staffUserId: input.assignedStaffId });
+    if (!shift) {
+      throw new ValidationError('That person is not clocked in. Give it to somebody on shift.');
+    }
   }
 
   const now = new Date();

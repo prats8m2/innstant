@@ -6,6 +6,7 @@ import {
   getRequestsForStay, getRequestForStay, getOpenRequests, CALL_SERVICE_KEY, housekeeperDay,
 } from '@/modules/requests';
 import { getFolioForStay } from '@/modules/billing';
+import { clockIn } from '@/modules/housekeeping';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '@/lib/errors';
 import {
   ownerClient, seedTenant, cleanup, checkInGuest, TENANT_A, TENANT_B, type Fixture,
@@ -94,6 +95,10 @@ describe('service requests', () => {
     const staffRow = await owner.query<{ id: string }>(
       `SELECT id FROM staff_users WHERE tenant_id = $1 LIMIT 1`, [TENANT_A]);
     staff = { kind: 'STAFF', staffUserId: staffRow.rows[0]!.id };
+    // Only somebody on shift can be given a request (D-098).
+    await scoped((tx) => clockIn(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, staffUserId: staff.staffUserId, floorIds: [a.floorId],
+    }));
   });
 
   beforeEach(async () => {

@@ -101,7 +101,9 @@ export default async function RequestsAdmin({
         // Only for somebody who may give a request to a person.
         // For somebody who may give a request to a person, and for the team view.
         staff: mayAssign || tab === 'team' ? await listStaffAtProperty(tx, { propertyId }) : [],
-        onShift: mayAssign || tab === 'team' ? await listOnShift(tx, propertyId) : [],
+        // Always: who is clocked in decides who a request can go to, and is
+        // shown beside every name on the list (D-098).
+        onShift: await listOnShift(tx, propertyId),
         types: [],
         roles: [],
       };
@@ -138,6 +140,7 @@ export default async function RequestsAdmin({
     );
   }
 
+  const onShiftIds = new Set(data.onShift.map((shift) => shift.staffUserId));
   const clock = (at: Date) => formatClock(toClock(localTimeAt(new Date(at), data.timeZone).minutes));
   const view = (r: RequestDetail): LiveRequestView => {
     const minutesToDone = r.completedAt
@@ -155,6 +158,7 @@ export default async function RequestsAdmin({
       status: r.status,
       statusLabel: STATUS_LABEL[r.status],
       assignee: r.assignedStaffName,
+      assigneeOnShift: r.assignedStaffId ? onShiftIds.has(r.assignedStaffId) : null,
       askedAt: clock(r.createdAt),
       sla: running && r.secondsRemaining !== null
         ? r.breached
@@ -191,10 +195,11 @@ export default async function RequestsAdmin({
       return {
         id: person.id,
         name: person.fullName,
-        note: shift ? `on shift · ${shift.zones.map((z) => z.floorName).join(', ') || 'no floors'}` : '',
+        onShift: !!shift,
+        floors: shift ? shift.zones.map((z) => z.floorName).join(', ') || 'no floors' : null,
       };
     })
-    .sort((a, b) => Number(!!b.note) - Number(!!a.note) || a.name.localeCompare(b.name));
+    .sort((a, b) => Number(b.onShift) - Number(a.onShift) || a.name.localeCompare(b.name));
 
   if (tab === 'team') {
     const finished = (r: RequestDetail) => r.status === 'COMPLETED' || r.status === 'VERIFIED';

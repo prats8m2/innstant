@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type pg from 'pg';
 import { withTenant } from '@/db';
 import { listDeparturesToday, checkOutStay } from '@/modules/stay';
+import { clockIn } from '@/modules/housekeeping';
 import {
   getRequestTypeByKey, raiseServiceRequest, advanceRequest, getRequestsClosedToday,
 } from '@/modules/requests';
@@ -113,6 +114,14 @@ describe('the front office, today', () => {
       `INSERT INTO staff_users (tenant_id, email, full_name, status)
        VALUES ($1, 'second@a.example', 'Second', 'ACTIVE') RETURNING id`, [a.tenantId])).rows[0]!.id;
     const actor = { kind: 'STAFF' as const, staffUserId: staff };
+
+    // D-098: a request can only go to somebody on shift. The second person is
+    // not clocked in yet — refused — then clocks in, and can be given it.
+    await scoped((tx) => clockIn(tx, { tenantId: a.tenantId, propertyId: a.propertyId, staffUserId: staff, floorIds: [a.floorId] }));
+    await expect(scoped((tx) => advanceRequest(tx, {
+      tenantId: a.tenantId, propertyId: a.propertyId, requestId: raised.requestId, to: 'ASSIGNED', actor, assignedStaffId: other,
+    }))).rejects.toThrow(/not clocked in/);
+    await scoped((tx) => clockIn(tx, { tenantId: a.tenantId, propertyId: a.propertyId, staffUserId: other, floorIds: [a.floorId] }));
 
     await scoped(async (tx) => {
       await advanceRequest(tx, { tenantId: a.tenantId, propertyId: a.propertyId, requestId: raised.requestId, to: 'ASSIGNED', actor, assignedStaffId: staff });

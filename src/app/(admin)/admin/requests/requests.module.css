@@ -141,3 +141,51 @@
   /* On a phone the averages go; who has what, and how late, stay. */
   .table th:nth-child(6), .table td:nth-child(6) { display: none; }
 }
+
+/* ── D-098: on shift, or not ────────────────────────────────────────────── */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.onShift, .offShift { display: inline-grid; place-items: center; flex: none; }
+.onShift { color: var(--status-positive); }
+.offShift { color: var(--text-muted); }
+
+.assignee { display: inline-flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.gone { color: var(--status-critical); font-weight: 600; }
+
+.warnLine {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-attention-tint);
+  color: var(--status-attention);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.people { display: grid; gap: var(--space-2); margin: 0; padding: 0; border: 0; min-width: 0; }
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+.person:has(input:checked) { border-color: var(--accent); background: var(--accent-tint); }
+.person:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.person[data-on-shift='false'] { opacity: 0.55; cursor: not-allowed; background: var(--bg); }
+.person input { margin: 0; accent-color: var(--accent); }
+
+.personText { display: grid; gap: 2px; min-width: 0; }

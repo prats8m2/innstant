@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Search } from 'lucide-react';
+import { Search, UserCheck, UserX } from 'lucide-react';
 import { actOnRequest, type LiveRequestState } from './live-actions';
 import styles from '../admin.module.css';
 import s from '../staff/staff.module.css';
@@ -34,6 +34,8 @@ export interface LiveRequestView {
   status: RequestPhase;
   statusLabel: string;
   assignee: string | null;
+  /** Null with nobody assigned; false when they have since clocked out. */
+  assigneeOnShift: boolean | null;
   /** "14:02" — when the guest asked. */
   askedAt: string;
   /** "8m left" / "12m over" while the clock runs; null after. */
@@ -53,8 +55,37 @@ export interface LiveRequestView {
 export interface AssignableStaff {
   id: string;
   name: string;
-  /** "on shift · Second, Rooftop", or empty for somebody not clocked in. */
-  note: string;
+  /** Clocked in right now — the only people a request can go to (D-098). */
+  onShift: boolean;
+  /** "Second, Rooftop" while on shift. */
+  floors: string | null;
+}
+
+/**
+ * Beside a person's name: clocked in, or not (D-098). An icon AND words for
+ * a screen reader — colour is never the only signal.
+ */
+export function ShiftMark({ onShift }: { onShift: boolean }) {
+  return onShift ? (
+    <span className={q.onShift} title="On shift">
+      <UserCheck size={14} aria-hidden="true" /><span className={q.srOnly}>on shift</span>
+    </span>
+  ) : (
+    <span className={q.offShift} title="Not clocked in">
+      <UserX size={14} aria-hidden="true" /><span className={q.srOnly}>not clocked in</span>
+    </span>
+  );
+}
+
+function Assignee({ r }: { r: LiveRequestView }) {
+  if (!r.assignee) return <em className={q.nobody}>Nobody yet</em>;
+  return (
+    <span className={q.assignee}>
+      {r.assigneeOnShift !== null ? <ShiftMark onShift={r.assigneeOnShift} /> : null}
+      {r.assignee}
+      {r.assigneeOnShift === false ? <span className={q.gone}> · clocked out</span> : null}
+    </span>
+  );
 }
 
 type Filter = 'open' | 'late' | 'nobody' | 'check' | 'done';
@@ -160,7 +191,7 @@ export function LiveRequests({
                   <span className={q.whatText}>{r.what}</span>
                   <span className={`${q.number} tabular`}>{r.number} · asked {r.askedAt}</span>
                 </span>
-                <span className={q.who}>{r.assignee ?? <em className={q.nobody}>Nobody yet</em>}</span>
+                <span className={q.who}><Assignee r={r} /></span>
                 <span className={q.state}>
                   <span className={s.badge} data-tone={toneOf(r)}>{r.statusLabel}</span>
                 </span>
@@ -219,12 +250,17 @@ export function RequestPanel({
             {request.escalated ? <span className={q.escalated}> · a manager has been told</span> : null}
           </dd>
           {request.sla ? (<><dt>Promise</dt><dd className="tabular" data-late={request.late}>{request.sla}</dd></>) : null}
-          <dt>With</dt><dd>{request.assignee ?? 'Nobody yet'}</dd>
+          <dt>With</dt><dd><Assignee r={request} /></dd>
           {request.closedAt ? (<><dt>Finished</dt><dd className="tabular">{request.closedAt}{request.minutesToDone !== null ? ` · ${request.minutesToDone} min after asking` : ''}</dd></>) : null}
           {request.reason ? (<><dt>Told the guest</dt><dd>&ldquo;{request.reason}&rdquo;</dd></>) : null}
         </dl>
         {request.note ? <p className={q.note}>&ldquo;{request.note}&rdquo;</p> : null}
       </section>
+
+      {/* Held by somebody who has since clocked out: it is on nobody's phone. */}
+      {request.assigneeOnShift === false && request.status === 'ASSIGNED' ? (
+        <p className={q.warnLine}>{request.assignee} has clocked out. Give it to somebody on shift.</p>
+      ) : null}
 
       {live && permissions.assign && request.status !== 'IN_PROGRESS' ? (
         <section className={s.panelSection}>
@@ -274,24 +310,46 @@ function Hidden({ propertyId, request }: { propertyId: string; request: LiveRequ
 
 function Assign({ propertyId, request, staff }: { propertyId: string; request: LiveRequestView; staff: AssignableStaff[] }) {
   const [state, action] = useActionState<LiveRequestState, FormData>(actOnRequest, {});
+  const onShift = staff.filter((p) => p.onShift && p.name !== request.assignee);
+  const off = staff.filter((p) => !p.onShift);
+
+  /**
+   * Only people clocked in can be chosen (D-098) — the request system refuses
+   * anybody else anyway. The rest are shown, greyed, so a manager looking for
+   * somebody can see they are not on rather than wonder where they went.
+   */
   return (
     <form action={action} className={s.panelForm}>
       <Hidden propertyId={propertyId} request={request} />
       <input type="hidden" name="act" value="assign" />
-      <label className={styles.field}>
-        <span className={styles.label}>Who</span>
-        <select name="staffId" className={styles.input} required defaultValue="">
-          <option value="" disabled>Choose a person</option>
-          {staff.map((person) => (
-            <option key={person.id} value={person.id}>
-              {person.name}{person.note ? ` — ${person.note}` : ''}
-            </option>
-          ))}
-        </select>
-        <span className={styles.hint}>People on shift come first. It goes straight to their phone.</span>
-      </label>
+      <fieldset className={q.people}>
+        <legend className={styles.label}>Who</legend>
+        {onShift.length === 0 ? (
+          <p className={q.warnLine}>Nobody is clocked in. Somebody has to clock in on their phone before it can be given to them.</p>
+        ) : null}
+        {onShift.map((person) => (
+          <label key={person.id} className={q.person} data-on-shift="true">
+            <input type="radio" name="staffId" value={person.id} required />
+            <ShiftMark onShift />
+            <span className={q.personText}>
+              <span className={q.personName}>{person.name}</span>
+              <span className={q.personShift}>On shift · {person.floors}</span>
+            </span>
+          </label>
+        ))}
+        {off.map((person) => (
+          <label key={person.id} className={q.person} data-on-shift="false">
+            <input type="radio" name="staffId" value={person.id} disabled />
+            <ShiftMark onShift={false} />
+            <span className={q.personText}>
+              <span className={q.personName}>{person.name}</span>
+              <span className={q.personShift}>Not clocked in</span>
+            </span>
+          </label>
+        ))}
+      </fieldset>
       <Feedback state={state} />
-      <div className={s.formRow}><Submit label="Assign" primary /></div>
+      {onShift.length ? <div className={s.formRow}><Submit label="Assign" primary /></div> : null}
     </form>
   );
 }

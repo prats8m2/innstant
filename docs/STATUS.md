@@ -21,6 +21,11 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**D-098 (same branch):** a request can only be assigned to somebody clocked
+in — enforced in `advanceRequest()`; the console's assign list shows on-shift
+people (with an icon and their floors) and greys out the rest.
+
+
 **2 November, later: phases B and C (D-096, D-097), on the local combined
 branch `feat/front-office-combined`** — the user asked for all work to go on
 one branch with no PRs until they say (memory: combined-branch-workflow). PRs
