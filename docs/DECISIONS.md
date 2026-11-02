@@ -3208,3 +3208,47 @@ than a new edge in the state machine, so the log says it was taken from one
 person and given to another. "Mark done" is offered only on a request
 somebody has, so the work stays attributed to them. `getRequestsClosedToday()`
 reads done, checked, refused and cancelled since midnight.
+
+### D-095 · Checkout is one screen with the whole bill
+The user asked for the front-office tabs to work the way a senior manager of a
+big hotel needs them, starting with a smooth checkout: a complete bill, with
+amounts that are clear. Three decisions were theirs: room charges are lines
+the desk adds (not a rate stored on a room — #11, and the rate tables stay
+reserved, #12); rooms get a cleaning status (phase B); and nobody leaves
+owing without a manager's recorded reason.
+
+**`/admin/checkouts/<stayId>`.** The bill on the left, grouped the way a
+guest reads one — Room, Food and drink (each order with its dishes, from the
+order's own snapshot), Amenities and services, Late checkout, Other charges,
+Taxes on desk charges, Discounts and corrections — then Payments with how
+each arrived. On the right: what still needs doing before they go (an order
+still being cooked, a request still open, a late checkout nobody answered),
+the totals with the GST and service charge inside them, one large balance,
+and the steps — take a payment (prefilled with the balance, and again with
+what is left after a part payment, so a split is two in a row), give money
+back when overpaid, check out. `buildDeskBill()` is pure and is also what the
+printed invoice uses, so screen and paper cannot disagree.
+
+**What the desk can do to a bill**, each a new row and an event, never an
+edit: add a charge (room nights default to the nights actually stayed, GST as
+its own line pointing at the charge — `folio_lines.category`, migration
+0015); a discount on the stay or a correction of one line, never more than is
+on it, reason printed on the bill; a refund of an overpayment, never more
+than was overpaid, idempotent. Permissions are the role definitions': the
+desk adds and takes money; adjusting, refunding and an unpaid departure are
+the property admin's (`folio:adjust`, `payment:refund`).
+
+**No unpaid checkout without a reason.** `checkOutStay()` refuses a non-zero
+balance unless given `unpaidReason`, which goes on `stay.checked_out` next to
+the balance. Four integration tests that checked out owing now give a reason;
+"does not block on an unpaid balance" became the opposite rule.
+
+**Every way into checkout leads here.** Leaving's rows ("Settle and check
+out", and "Collect" for somebody gone owing), the Front desk panel ("Bill and
+check out"), and the Rooms panel for a guest who owes; a square guest can
+still be checked out in one tap from the Rooms panel.
+
+**A printable invoice** at `/print/invoice/<stayId>` — outside the console's
+layout so the paper is only the bill, behind the session and `folio:read`
+(`/print` joined the middleware's staff prefixes). The number is the folio's,
+so it is the same on every reprint; "Print or save as PDF" is the browser's.

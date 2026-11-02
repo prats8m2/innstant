@@ -1,9 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { checkOutGuest, type DeskState } from '../rooms/actions';
 import styles from '../admin.module.css';
 import l from './leaving.module.css';
 
@@ -42,12 +39,10 @@ export interface LeftView {
 }
 
 export function DueOut({
-  propertyId,
   rows,
   mayCheckOut,
   maySeeGuest,
 }: {
-  propertyId: string;
   rows: DueView[];
   mayCheckOut: boolean;
   maySeeGuest: boolean;
@@ -72,10 +67,13 @@ export function DueOut({
               </span>
               <Balance balance={row.balance} owes={row.owes} />
               <span className={l.actions}>
-                {row.owes && maySeeGuest ? (
-                  <Link href={`/admin/guests/${row.guestId}`} className={styles.secondary}>Take payment</Link>
+                {/* Straight to the bill (D-095): checking out is reviewing
+                    it, settling it and closing it, on one screen. */}
+                {mayCheckOut ? (
+                  <Link href={`/admin/checkouts/${row.stayId}`} className={styles.primary} aria-label={`Check out ${row.roomNumber}`}>
+                    {row.owes ? 'Settle and check out' : 'Check out'}
+                  </Link>
                 ) : null}
-                {mayCheckOut ? <CheckOut propertyId={propertyId} stayId={row.stayId} roomNumber={row.roomNumber} /> : null}
               </span>
             </li>
           ))}
@@ -105,9 +103,11 @@ export function LeftToday({ rows, maySeeGuest }: { rows: LeftView[]; maySeeGuest
             </span>
             <Balance balance={row.balance} owes={row.owes} unpaid />
             <span className={l.actions}>
-              {row.owes && maySeeGuest ? (
-                <Link href={`/admin/guests/${row.guestId}`} className={styles.secondary}>Take payment</Link>
-              ) : null}
+              {/* The bill stays open after they leave; it is collected on
+                  the same screen. */}
+              <Link href={`/admin/checkouts/${row.stayId}`} className={styles.secondary}>
+                {row.owes ? 'Collect' : 'Bill'}
+              </Link>
             </span>
           </li>
         ))}
@@ -127,31 +127,5 @@ function Balance({ balance, owes, unpaid = false }: { balance: string | null; ow
     <span className={`${l.balance} tabular`} data-owes={owes}>
       {owes ? (unpaid ? `${balance} unpaid` : balance) : balance === null ? 'nothing charged' : 'settled'}
     </span>
-  );
-}
-
-function CheckOut({ propertyId, stayId, roomNumber }: { propertyId: string; stayId: string; roomNumber: string }) {
-  const [state, action] = useActionState<DeskState, FormData>(checkOutGuest, {});
-  return (
-    <form action={action} className={l.inline}>
-      <input type="hidden" name="propertyId" value={propertyId} />
-      <input type="hidden" name="stayId" value={stayId} />
-      <CheckOutButton roomNumber={roomNumber} />
-      {state.error ? <span className={styles.inlineError} role="alert">{state.error}</span> : null}
-    </form>
-  );
-}
-
-function CheckOutButton({ roomNumber }: { roomNumber: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      className={styles.primary}
-      disabled={pending}
-      aria-label={`Check out ${roomNumber}`}
-    >
-      {pending ? '…' : 'Check out'}
-    </button>
   );
 }

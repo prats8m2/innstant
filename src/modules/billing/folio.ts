@@ -198,9 +198,12 @@ export interface FolioSummary {
     id: string;
     source: string;
     sourceRefId: string | null;
+    /** A desk-added line's kind (0015); null for every other source. */
+    category: string | null;
     description: string;
     amountMinor: number;
     createdAt: Date;
+    postedByStaffId: string | null;
   }>;
 }
 
@@ -294,9 +297,11 @@ export async function getFolioForStay(
     id: folioLines.id,
     source: folioLines.source,
     sourceRefId: folioLines.sourceRefId,
+    category: folioLines.category,
     description: folioLines.description,
     amountMinor: folioLines.amountMinor,
     createdAt: folioLines.createdAt,
+    postedByStaffId: folioLines.postedByStaffId,
   }).from(folioLines)
     .where(and(eq(folioLines.folioId, folio.id)))
     .orderBy(folioLines.createdAt);

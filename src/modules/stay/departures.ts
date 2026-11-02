@@ -1,6 +1,6 @@
 import { and, eq, gte, lt, sql } from 'drizzle-orm';
 import type { Tx } from '@/db';
-import { stays, guests } from '@/db/schema/stay';
+import { stays, guests, guestPropertyProfiles } from '@/db/schema/stay';
 import { listRoomsAtProperty } from '@/modules/identity';
 import { folioBalancesForStays } from '@/modules/billing';
 import type { CurrencyCode } from '@/lib/money';
@@ -94,4 +94,73 @@ export async function listDeparturesToday(
   };
 
   return { due: due.map(shape), left: left.map(shape) };
+}
+
+export interface StayAtDesk {
+  id: string;
+  status: string;
+  guestId: string;
+  guestName: string;
+  guestPhone: string | null;
+  guestEmail: string | null;
+  roomId: string;
+  roomNumber: string;
+  floorName: string;
+  roomTypeName: string | null;
+  adults: number;
+  children: number;
+  checkedInAt: Date | null;
+  scheduledCheckoutAt: Date;
+  checkedOutAt: Date | null;
+  /** From this property's profile of the guest — absent means not set. */
+  isVip: boolean;
+  staffNotes: string | null;
+}
+
+/**
+ * One stay as the checkout screen and the invoice need it (D-095): who, which
+ * room, when they came and are going, and what this property has noted about
+ * them. Scoped to the property, so a stay id from a sister property is not
+ * found rather than shown.
+ */
+export async function getStayAtDesk(
+  tx: Tx,
+  input: { propertyId: string; stayId: string },
+): Promise<StayAtDesk | null> {
+  const [row] = await tx.select({
+    id: stays.id,
+    status: stays.status,
+    roomId: stays.roomId,
+    guestId: stays.guestId,
+    guestName: guests.fullName,
+    guestPhone: guests.phone,
+    guestEmail: guests.email,
+    adults: stays.adults,
+    children: stays.children,
+    checkedInAt: stays.checkedInAt,
+    scheduledCheckoutAt: stays.scheduledCheckoutAt,
+    checkedOutAt: stays.checkedOutAt,
+    isVip: guestPropertyProfiles.isVip,
+    staffNotes: guestPropertyProfiles.staffNotes,
+  }).from(stays)
+    .innerJoin(guests, eq(guests.id, stays.guestId))
+    .leftJoin(guestPropertyProfiles, and(
+      eq(guestPropertyProfiles.guestId, stays.guestId),
+      eq(guestPropertyProfiles.propertyId, stays.propertyId),
+    ))
+    .where(and(eq(stays.id, input.stayId), eq(stays.propertyId, input.propertyId)))
+    .limit(1);
+  if (!row) return null;
+
+  const room = (await listRoomsAtProperty(tx, { propertyId: input.propertyId, includeArchived: true }))
+    .find((r) => r.id === row.roomId);
+
+  return {
+    ...row,
+    roomNumber: room?.number ?? '—',
+    floorName: room?.floorName ?? '',
+    roomTypeName: room?.roomTypeName ?? null,
+    isVip: row.isVip ?? false,
+    staffNotes: row.staffNotes ?? null,
+  };
 }

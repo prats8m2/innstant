@@ -27,3 +27,12 @@ export type {
 /** The folio as a bill the guest reads — pure, and where the wording decisions live. */
 export { buildGuestStatement, EMPTY_STATEMENT_NOTE } from './statement';
 export type { GuestStatement, StatementLine } from './statement';
+
+/** The desk at checkout (D-095): add a charge, take some off, give money back,
+ *  and the bill grouped the way a guest reads it. */
+export {
+  postDeskCharge, adjustBill, recordRefund, formatRate, DESK_CHARGE_KINDS, DESK_CHARGE_LABEL,
+} from './desk-billing';
+export type { DeskChargeKind, DeskChargeInput, AdjustBillInput, RefundInput } from './desk-billing';
+export { buildDeskBill, BILL_SECTION_TITLE } from './desk-bill';
+export type { DeskBill, BillSection, BillLine, BillPayment, BillSectionKey, OrderBreakdown } from './desk-bill';

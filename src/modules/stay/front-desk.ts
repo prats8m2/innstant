@@ -8,7 +8,7 @@ import { folioBalancesForStays, settleFolio } from '@/modules/billing';
 import { revokeSessionsForStay } from '@/modules/access';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { notifyPms } from './pms/sync';
-import type { CurrencyCode } from '@/lib/money';
+import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 
 /**
  * The front desk's view of the property, and the end of a stay.
@@ -158,6 +158,14 @@ export async function checkOutStay(
     propertyId: string;
     stayId: string;
     staffUserId: string;
+    /**
+     * Why they are leaving with money still on the bill — "billed to the
+     * company", "collect on the next visit". Required when the balance is not
+     * zero (D-095): an unpaid departure is a decision somebody made, and the
+     * reason goes on the event next to the balance. The ACTION decides who
+     * may give one; this decides that one is given.
+     */
+    unpaidReason?: string | null;
     now?: Date;
   },
 ): Promise<CheckOutResult> {
@@ -188,6 +196,17 @@ export async function checkOutStay(
     roomNumber: found.room_number,
     sourceRefId: found.source_ref_id,
   };
+
+  // Read before anything moves, so a refusal leaves the stay exactly as it was.
+  const before = (await folioBalancesForStays(tx, { stayIds: [stay.id] })).get(stay.id);
+  const owing = before?.balanceMinor ?? 0;
+  const unpaidReason = input.unpaidReason?.trim() || null;
+  if (owing !== 0 && !unpaidReason && stay.status === 'CHECKED_IN') {
+    const amount = formatMoney(money(Math.abs(owing), (before?.currency ?? 'INR') as CurrencyCode));
+    throw new ConflictError(owing > 0
+      ? `${amount} is still owed on this bill. Take the payment first, or a manager can check them out with a reason.`
+      : `${amount} is owed back to the guest. Refund it first, or a manager can check them out with a reason.`);
+  }
 
   /**
    * Compare-and-set, not a plain UPDATE. Two people at the desk pressing check
@@ -272,6 +291,7 @@ export async function checkOutStay(
       balanceMinor,
       currency,
       folioSettled,
+      ...(balanceMinor !== 0 && unpaidReason ? { unpaidReason } : {}),
       sessionsRevoked,
       completedCheckoutRequests: completed.length,
       cancelledCheckoutRequests: cancelled.length,

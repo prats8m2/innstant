@@ -193,7 +193,6 @@ export default async function CheckoutsAdmin() {
       ) : null}
 
       <DueOut
-        propertyId={propertyId}
         rows={due}
         mayCheckOut={can(session, propertyId, 'stay:check_out')}
         maySeeGuest={can(session, propertyId, 'guest:read')}

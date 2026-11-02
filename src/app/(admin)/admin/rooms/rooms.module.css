@@ -222,3 +222,6 @@
   .tile { min-height: 84px; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3); }
   .tileNumber { font-size: var(--text-md); }
 }
+
+.panelActions > a { justify-self: start; text-decoration: none; }
+.panelLink { font-size: var(--text-sm); }

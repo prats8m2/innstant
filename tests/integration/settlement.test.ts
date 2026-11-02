@@ -338,6 +338,7 @@ describe('settling a bill at the desk', () => {
 
     const result = await scoped((tx) => checkOutStay(tx, {
       tenantId: a.tenantId, propertyId: a.propertyId, stayId, staffUserId: gm,
+      unpaidReason: 'Billed to the company',
     }));
 
     expect(result.balanceMinor).toBe(1_318_000);

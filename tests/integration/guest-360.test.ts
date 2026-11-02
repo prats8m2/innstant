@@ -116,6 +116,7 @@ describe('a guest, and what this property knows', () => {
     }));
     await scoped((tx) => checkOutStay(tx, {
       tenantId: a.tenantId, propertyId: a.propertyId, stayId: first.stayId, staffUserId: gm,
+      unpaidReason: 'Collect later',
     }));
     const second = await checkIn();
 
@@ -142,6 +143,7 @@ describe('a guest, and what this property knows', () => {
     }));
     await scoped((tx) => checkOutStay(tx, {
       tenantId: a.tenantId, propertyId: a.propertyId, stayId: first.stayId, staffUserId: gm,
+      unpaidReason: 'Collect later',
     }));
 
     const second = await checkIn();

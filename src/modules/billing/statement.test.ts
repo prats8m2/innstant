@@ -23,6 +23,8 @@ function folio(
     id: `line-${i}`,
     source: 'ORDER',
     sourceRefId: null,
+    category: null,
+    postedByStaffId: null,
     description: 'Something',
     createdAt: MARCH_12,
     ...line,

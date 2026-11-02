@@ -21,6 +21,18 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**2 November: checkout and the bill (D-095), branch `feat/checkout-billing`**
+(from `feat/admin-front-office`, PR #6). Phase A of the front-office plan
+(memory: front-office-manager-plan). `/admin/checkouts/<stayId>` shows the
+whole bill grouped by kind, with GST and service charge, part payments,
+refunds, discounts and corrections with reasons, warnings before checkout,
+and an invoice at `/print/invoice/<stayId>`. Migration **0015**
+(`folio_lines.category`) is applied locally only. Checking out owing now needs
+a manager's reason. Next: phase B (room cleaning status — migration, VIP and
+notes on tiles, extend a stay, raise a request for a guest who phoned), then
+C (staff workload, today's collections, unpaid departures).
+
+
 **2 November: the front office (D-094), branch `feat/admin-front-office`.**
 Rooms is a grid of room tiles with a panel per room (`?room=<number>`) and a
 search; the Front desk table sizes to its own column (no more cut-off names);

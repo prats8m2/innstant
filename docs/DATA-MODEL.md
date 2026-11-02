@@ -527,6 +527,27 @@ equals the list.
 
 ---
 
+### The desk's lines on a bill: `folio_lines.category`, refunds (D-095, migration 0015)
+
+A charge the desk adds is a MANUAL line, and `category` says what it is:
+ROOM, MINIBAR, LAUNDRY, DAMAGE, OTHER — or TAX, the GST on one of those,
+whose `source_ref_id` points at the charge it is tax on. CHECK-ed to those
+values and to MANUAL lines only; every other source's group follows from the
+source. Room charges are typed in at the desk ("Room · 3 nights × ₹6,500");
+nothing about a price is stored on a room (#11).
+
+A discount or a correction is a negative ADJUSTMENT line with the reason in
+its description; a correction's `source_ref_id` is the line it corrects, and
+it may not take more off that line than is left on it. A refund is a
+`payments` row in `REFUNDED` (its `amount_minor` positive — what changed
+hands) and a NEGATIVE `PAYMENT` line, which is what moves the balance back to
+zero; it may not exceed what was overpaid, and is idempotent by key (#8).
+Each writes an event: `folio.charge_added`, `folio.adjusted`,
+`folio.refunded`.
+
+Checking out with a non-zero balance needs `unpaidReason`, recorded on the
+`stay.checked_out` event; the console only offers it to `folio:adjust`.
+
 ## 6. State machines
 
 ```

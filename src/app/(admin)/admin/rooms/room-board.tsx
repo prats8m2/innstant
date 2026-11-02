@@ -224,7 +224,14 @@ export function RoomPanel({
         <section className={r.panelSection}>
           <h3 className={r.panelTitle}>At the desk</h3>
           <div className={r.panelActions}>
-            {permissions.checkOut ? <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} /> : null}
+            {/* Owing anything, checking out is the bill screen's job: review,
+                settle, close (D-095). Square, it is one tap here. */}
+            {permissions.checkOut && stay.owes ? (
+              <Link href={`/admin/checkouts/${stay.id}`} className={styles.primary}>Settle and check out</Link>
+            ) : permissions.checkOut ? (
+              <CheckOut propertyId={propertyId} stay={stay} roomNumber={room.number} />
+            ) : null}
+            <Link href={`/admin/checkouts/${stay.id}`} className={r.panelLink}>The full bill →</Link>
             {permissions.vouch ? <Vouch propertyId={propertyId} stayId={stay.id} roomNumber={room.number} /> : null}
           </div>
         </section>

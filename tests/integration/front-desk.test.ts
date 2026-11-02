@@ -44,8 +44,8 @@ describe('the front desk', () => {
     ...over,
   }));
 
-  const checkOut = (stayId: string) => scoped((tx) => checkOutStay(tx, {
-    tenantId: a.tenantId, propertyId: a.propertyId, stayId, staffUserId: gm,
+  const checkOut = (stayId: string, unpaidReason?: string) => scoped((tx) => checkOutStay(tx, {
+    tenantId: a.tenantId, propertyId: a.propertyId, stayId, staffUserId: gm, unpaidReason,
   }));
 
   const rooms = () => scoped((tx) => listRoomsWithOccupancy(tx, { propertyId: a.propertyId }));
@@ -263,27 +263,36 @@ describe('the front desk', () => {
       source: 'ORDER', description: 'In-room dining', amountMinor: 247_000, currency: 'INR',
     }));
 
-    const result = await checkOut(stay.stayId);
+    const result = await checkOut(stay.stayId, 'Billed to the company');
     expect(result.balanceMinor).toBe(247_000);
 
     const history = await scoped((tx) => readEventHistory(tx, 'stay', stay.stayId));
     const out = history.find((e) => e.event_type === 'stay.checked_out')!;
     // "They left owing ₹2,470 and the desk checked them out at 11:04" has to be
-    // answerable later. Settlement is a later bullet; the number is not lost.
+    // answerable later, and so does WHY they were let go owing it (D-095).
     expect((out.payload as Record<string, unknown>).balanceMinor).toBe(247_000);
+    expect((out.payload as Record<string, unknown>).unpaidReason).toBe('Billed to the company');
     expect(out.to_status).toBe('CHECKED_OUT');
     expect(out.actor_kind).toBe('STAFF');
   });
 
-  it('does not block on an unpaid balance', async () => {
+  /**
+   * D-095, the user's rule: nobody leaves owing without a reason. The desk
+   * takes the money on the checkout screen first; leaving with it open is a
+   * manager's decision, and the reason is what makes it one.
+   */
+  it('refuses an unpaid balance without a reason, and lets it go with one', async () => {
     const stay = await checkIn();
     await scoped((tx) => postFolioLine(tx, {
       tenantId: a.tenantId, propertyId: a.propertyId, stayId: stay.stayId,
       source: 'ORDER', description: 'Dinner', amountMinor: 500_000, currency: 'INR',
     }));
-    // The desk settles by card machine and records the departure here. Refusing
-    // would make the feature unusable until express checkout exists.
-    await expect(checkOut(stay.stayId)).resolves.toMatchObject({ balanceMinor: 500_000 });
+    await expect(checkOut(stay.stayId)).rejects.toThrow(/still owed/);
+    // Refused means untouched: still in the room.
+    expect((await rooms()).find((r) => r.stay?.id === stay.stayId)).toBeTruthy();
+
+    await expect(checkOut(stay.stayId, 'Collect on the next visit'))
+      .resolves.toMatchObject({ balanceMinor: 500_000 });
   });
 
   it('refuses to check the same guest out twice', async () => {
@@ -323,7 +332,8 @@ describe('the front desk', () => {
       to: 'APPROVED', staffUserId: gm, timeZone: TZ,
     }));
 
-    const result = await checkOut(stay.stayId);
+    // The approved fee is on the bill and nobody took it — a reason, then.
+    const result = await checkOut(stay.stayId, 'Fee charged to the card on file');
     expect(result.completedCheckoutRequests).toBe(1);
 
     const done = await scoped((tx) =>
