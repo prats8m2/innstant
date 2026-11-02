@@ -243,7 +243,7 @@ details.group[open] > .board { margin-top: var(--space-3); }
 }
 
 .room {
-  font-size: 2.5rem;
+  font-size: 1.625rem;
   line-height: 1;
   color: var(--text);
 }
@@ -254,7 +254,7 @@ details.group[open] > .board { margin-top: var(--space-3); }
   align-items: flex-end;
 }
 
-.countBig { font-size: 1.5rem; line-height: 1.1; color: var(--pos); }
+.countBig { font-size: 1.125rem; line-height: 1.2; color: var(--pos); }
 .countBig[data-tone='warn'] { color: var(--warn); }
 .countBig[data-tone='crit'] { color: var(--crit); }
 
@@ -480,7 +480,7 @@ details.group[open] > .board { margin-top: var(--space-3); }
 
 .rowRoom {
   flex: 0 0 auto;
-  font-size: 2rem;
+  font-size: 1.375rem;
   line-height: 1;
   color: var(--text);
 }

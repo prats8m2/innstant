@@ -170,7 +170,7 @@
 }
 
 .room {
-  font-size: 3rem;
+  font-size: 1.75rem;
   line-height: 1;
   color: var(--text);
   min-width: 0;
@@ -192,7 +192,7 @@
 }
 
 .dueBig {
-  font-size: 1.625rem;
+  font-size: 1.125rem;
   line-height: 1.1;
   color: var(--pos);
 }
@@ -325,7 +325,7 @@
 
 .passRoom {
   flex: 0 0 auto;
-  font-size: 2rem;
+  font-size: 1.375rem;
   line-height: 1;
   color: var(--text);
 }

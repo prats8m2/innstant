@@ -453,7 +453,7 @@
 }
 
 .room {
-  font-size: 2.125rem;
+  font-size: 1.5rem;
   font-weight: 500;
   line-height: 1;
   color: var(--text);
@@ -474,7 +474,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  font-size: 1.375rem;
+  font-size: 1rem;
   color: var(--text);
   white-space: nowrap;
 }
@@ -888,7 +888,7 @@ button.lineToggle:focus-visible { outline: 2px solid var(--accent); outline-offs
   .lastCalls { margin: 0; padding: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-3); }
 
   .ticket { padding: var(--space-3); }
-  .room { font-size: 1.875rem; }
+  .room { font-size: 1.375rem; }
   .lineToggle { font-size: 1.1875rem; }
 }
 
