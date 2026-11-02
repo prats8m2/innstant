@@ -22,7 +22,10 @@ blob-report
 tests
 
 docs
-design
+# The design references stay out of the image, but the token file is CSS and
+# JSON the app imports at build time (D-100) — without it `next build` fails.
+design/*
+!design/tokens
 *.md
 !README.md
 
