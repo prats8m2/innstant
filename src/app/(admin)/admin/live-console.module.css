@@ -1,0 +1,39 @@
+/*
+ * The live indicator, Direction A (D-100): a small pill — green while every
+ * feed this account is entitled to is connected, the warning tone while it
+ * reconnects. Used by the overview and the front desk.
+ */
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.live:has([data-connected='true']) {
+  background: var(--pos-soft);
+  color: var(--pos);
+}
+
+/* No permission to any feed: nothing to say, so say nothing. */
+.live[data-connected='off'] { display: none; }
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.liveDot[data-connected='true'] {
+  /* Reduced motion is handled once, globally, in theme.css. */
+  animation: blink 2s ease-in-out infinite;
+}

@@ -60,3 +60,7 @@ export { sweepSlaBreaches, escalateBreachesFor, startSlaSweeper, stopSlaSweeper 
 export type { SweepResult } from './sla-sweep';
 export { escalationFor, audienceFor, ESCALATION_STEPS } from './escalation-policy';
 export type { EscalationDecision, EscalationLevel } from './escalation-policy';
+
+/** Requests finished on time over Today / 7 days / 30 days — the console overview. */
+export { requestsReport } from './period-report';
+export type { RequestsReport, RequestsPeriod } from './period-report';

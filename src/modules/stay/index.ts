@@ -29,6 +29,9 @@ export type { DrainResult } from './pms/sync';
 export {
   getGuestDossier, updateGuestProfile, guestIdForStay, recentGuests, DIETARY_FLAGS,
 } from './guest-profile';
+/** The console's search (⌘K): guests by name. */
+export { searchGuests } from './guest-search';
+export type { GuestHit } from './guest-search';
 export type {
   GuestDossier, GuestStaySummary, UpdateGuestProfileInput, DietaryFlag,
 } from './guest-profile';
@@ -54,3 +57,7 @@ export {
   CHECKOUT_REQUEST_STATUSES,
 } from './checkout-rules';
 export type { CheckoutOffer, CheckoutTier, CheckoutRequestStatus } from './checkout-rules';
+
+/** Rooms in house over Today / 7 days / 30 days, and today's arrivals — the console overview. */
+export { occupancyReport, listArrivalsToday } from './period-report';
+export type { OccupancyReport, Arrival } from './period-report';

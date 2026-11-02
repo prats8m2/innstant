@@ -40,3 +40,10 @@ export type { DeskBill, BillSection, BillLine, BillPayment, BillSectionKey, Orde
 /** Today's money by method — closing the drawer (D-097). */
 export { collectionsToday } from './collections';
 export type { Collection } from './collections';
+
+/** Revenue posted to folios over a period — the console overview's rooms and
+ *  services, and what counts as which (revenue-rules.ts). */
+export { postedRevenueReport } from './revenue';
+export type { PostedRevenueReport, PostedRevenuePeriod } from './revenue';
+export { revenuePartOf, folioRevenueMinor } from './revenue-rules';
+export type { RevenueParts, RevenuePart, RevenueLine } from './revenue-rules';
