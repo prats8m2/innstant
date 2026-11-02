@@ -1,23 +1,26 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveVisitSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getOutletConfig } from '@/modules/catalog';
 import { findProperty } from '@/modules/identity';
 import { getCart, contextForSession } from '@/modules/ordering';
 import { localTimeAt } from '@/lib/clock';
-import { formatMoney, money, type CurrencyCode } from '@/lib/money';
-import { LineControls } from './line-controls';
-import { CheckoutForm } from './checkout-form';
+import { formatMoney, type CurrencyCode } from '@/lib/money';
+// The room flow's cart, imported rather than copied: the same page, with this
+// flow's own actions bound in.
+import {
+  CartShell, CartEmpty, CartLines, CartTotals, CartNotices, shortfallMinor,
+} from '../../../r/[qrCode]/cart/cart-view';
+import { LineControls } from '../../../r/[qrCode]/cart/line-controls';
 import styles from '../../../r/[qrCode]/cart/cart.module.css';
-import { DishImage } from '../../../dish-image';
+import { CheckoutForm } from './checkout-form';
+import { updateLineQuantity } from './actions';
 
 /**
- * The order sheet, for a property link. D-079.
+ * The order, for a property link. D-079.
  *
- * The same sheet as the room flow's — same stylesheet, same lines, same
- * totals — with one difference that matters and is the whole of this feature:
+ * The same page as the room flow's — same view, same lines, same totals — with one difference that matters and is the whole of this feature:
  * the footer asks who this is and where it goes, because there is no room to
  * put it on and no folio to settle later.
  *
@@ -59,6 +62,7 @@ export default async function VisitCartScreen({
 
       return {
         minimumOrderMinor: outlet.minimumOrderMinor,
+        taxRateBps: outlet.taxRateBps,
         currency: outlet.currency as CurrencyCode,
         cart: await getCart(tx, {
           propertyId: session.propertyId,
@@ -77,15 +81,7 @@ export default async function VisitCartScreen({
   );
 
   const cart = loaded?.cart ?? null;
-  const lines = cart?.lines ?? [];
-  const unavailable = lines.filter((l) => !l.isAvailable);
-
-  // `placeOrder()` refuses below the minimum — it is the money path and that is
-  // where the rule belongs. Saying so BEFORE the tap is what stops a customer
-  // learning a rule at the worst moment.
-  const shortfallMinor = loaded
-    ? Math.max(0, loaded.minimumOrderMinor - (cart?.totals.subtotal.amountMinor ?? 0))
-    : 0;
+  const menuHref = `${base}/menu`;
 
   // One key per render. Every tap of the button that is on the page right now
   // carries this same value, which is what makes a double-tap one order (#8).
@@ -105,120 +101,43 @@ export default async function VisitCartScreen({
     : session.fulfilment === 'DELIVERY' ? 'For delivery' : 'For collection';
 
   return (
-    <main className={styles.shell}>
-      {/* Tapping outside closes the sheet — a link, so it works without JS. */}
-      <Link href={`${base}/menu`} className={styles.scrim} aria-label="Back to the menu" />
-
-      <section className={styles.sheet} aria-labelledby="cart-heading">
-        <div className={styles.handle} aria-hidden="true" />
-
-        <header className={styles.head}>
-          <h1 id="cart-heading" className={styles.title}>Your order</h1>
-          <p className={styles.room}>{where}</p>
-        </header>
-
-        {lines.length === 0 ? (
-          <div className={styles.empty}>
-            <p className={styles.emptyLine}>Nothing in the order yet.</p>
-            <Link href={`${base}/menu`} className={styles.emptyLink}>Back to the menu</Link>
-          </div>
-        ) : (
-          <>
-            <ul className={styles.lines}>
-              {lines.map((line) => (
-                <li key={line.id} className={styles.line} data-unavailable={!line.isAvailable}>
-                  <span className={styles.thumb} aria-hidden="true">
-                    <DishImage src={line.imageUrl} />
-                  </span>
-                  <div className={styles.lineBody}>
-                    <p className={styles.lineName}>{line.name}</p>
-                    {line.modifiers.some((m) => !m.isNoOp) ? (
-                      <p className={styles.lineMods}>
-                        {line.modifiers.filter((m) => !m.isNoOp).map((m) => m.name).join(' · ')}
-                      </p>
-                    ) : null}
-                    {line.notes ? <p className={styles.lineNote}>“{line.notes}”</p> : null}
-                    {!line.isAvailable ? (
-                      <p className={styles.lineGone}>
-                        The kitchen has taken this off tonight. It is not charged.
-                      </p>
-                    ) : null}
-
-                    <LineControls
-                      code={code}
-                      cartItemId={line.id}
-                      quantity={line.quantity}
-                      lineTotal={
-                        line.isAvailable
-                          ? formatMoney(money(line.lineTotalMinor, cart!.currency))
-                          : null
-                      }
-                      name={line.name}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <footer className={styles.foot}>
-              <dl className={styles.totals}>
-                <div className={styles.row}>
-                  <dt>Subtotal</dt>
-                  <dd className="tabular">{formatMoney(cart!.totals.subtotal)}</dd>
-                </div>
-                {cart!.totals.serviceCharge.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Service, {(cart!.totals.serviceCharge.amountMinor / cart!.totals.subtotal.amountMinor * 100).toFixed(0)}%</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.serviceCharge)}</dd>
-                  </div>
-                ) : null}
-                {cart!.totals.tax.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Tax</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.tax)}</dd>
-                  </div>
-                ) : null}
-                {cart!.totals.deliveryFee.amountMinor > 0 ? (
-                  <div className={styles.row}>
-                    <dt>Delivery</dt>
-                    <dd className="tabular">{formatMoney(cart!.totals.deliveryFee)}</dd>
-                  </div>
-                ) : null}
-                <div className={`${styles.row} ${styles.grand}`}>
-                  <dt>Total</dt>
-                  <dd className="tabular">{formatMoney(cart!.totals.total)}</dd>
-                </div>
-              </dl>
-
-              {unavailable.length ? (
-                <p className={styles.warning} role="status">
-                  {unavailable.length === 1
-                    ? 'One dish came off the menu while you were choosing. It is not in the total.'
-                    : `${unavailable.length} dishes came off the menu while you were choosing. They are not in the total.`}
-                </p>
-              ) : null}
-
-              {shortfallMinor > 0 ? (
-                <p className={styles.warning} role="status">
-                  Orders start at{' '}
-                  {formatMoney(money(loaded!.minimumOrderMinor, loaded!.currency))}
-                  {' '}— {formatMoney(money(shortfallMinor, loaded!.currency))} to go.
-                </p>
-              ) : null}
-
-              <CheckoutForm
-                code={code}
-                idempotencyKey={idempotencyKey}
-                total={formatMoney(cart!.totals.total)}
-                where={where}
-                canChooseFulfilment={canChooseFulfilment}
-                fulfilment={session.fulfilment}
-                belowMinimum={shortfallMinor > 0}
+    <CartShell menuHref={menuHref} where={where}>
+      {!cart || cart.lines.length === 0 ? (
+        <CartEmpty menuHref={menuHref} />
+      ) : (
+        <>
+          <CartLines
+            cart={cart}
+            controls={(line) => (
+              <LineControls
+                action={updateLineQuantity}
+                scope={{ name: 'code', value: code }}
+                cartItemId={line.id}
+                quantity={line.quantity}
+                name={line.name}
               />
-            </footer>
-          </>
-        )}
-      </section>
-    </main>
+            )}
+          />
+
+          <div className={styles.summary}>
+            <CartTotals cart={cart} taxRateBps={loaded!.taxRateBps} />
+            <CartNotices
+              cart={cart}
+              minimumOrderMinor={loaded!.minimumOrderMinor}
+              currency={loaded!.currency}
+            />
+            <CheckoutForm
+              code={code}
+              idempotencyKey={idempotencyKey}
+              total={formatMoney(cart.totals.total)}
+              where={where}
+              canChooseFulfilment={canChooseFulfilment}
+              fulfilment={session.fulfilment}
+              belowMinimum={shortfallMinor(cart, loaded!.minimumOrderMinor) > 0}
+            />
+          </div>
+        </>
+      )}
+    </CartShell>
   );
 }

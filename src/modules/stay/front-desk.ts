@@ -1,14 +1,15 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { recordEvent, type Tx } from '@/db';
-import { stays, guests, checkoutRequests } from '@/db/schema/stay';
+import { stays, guests, guestPropertyProfiles, checkoutRequests } from '@/db/schema/stay';
 import {
   listRoomsAtProperty, liveQrCodesForProperty, type RoomListing,
 } from '@/modules/identity';
 import { folioBalancesForStays, settleFolio } from '@/modules/billing';
 import { revokeSessionsForStay } from '@/modules/access';
+import { setRoomCleanStatus } from '@/modules/housekeeping';
 import { ConflictError, NotFoundError } from '@/lib/errors';
 import { notifyPms } from './pms/sync';
-import type { CurrencyCode } from '@/lib/money';
+import { formatMoney, money, type CurrencyCode } from '@/lib/money';
 
 /**
  * The front desk's view of the property, and the end of a stay.
@@ -36,6 +37,9 @@ export interface RoomOccupancy extends RoomListing {
     guestId: string;
     guestName: string;
     guestPhone: string | null;
+    /** This property's profile of the guest (D-096) — VIP, and what the desk has noted. */
+    isVip: boolean;
+    staffNotes: string | null;
     checkedInAt: Date | null;
     scheduledCheckoutAt: Date;
     /** Absent when nothing has ever been charged — not the same as zero. */
@@ -71,10 +75,16 @@ export async function listRoomsWithOccupancy(
     guestId: stays.guestId,
     guestName: guests.fullName,
     guestPhone: guests.phone,
+    isVip: guestPropertyProfiles.isVip,
+    staffNotes: guestPropertyProfiles.staffNotes,
     checkedInAt: stays.checkedInAt,
     scheduledCheckoutAt: stays.scheduledCheckoutAt,
   }).from(stays)
     .innerJoin(guests, eq(guests.id, stays.guestId))
+    .leftJoin(guestPropertyProfiles, and(
+      eq(guestPropertyProfiles.guestId, stays.guestId),
+      eq(guestPropertyProfiles.propertyId, stays.propertyId),
+    ))
     .where(and(
       eq(stays.propertyId, input.propertyId),
       eq(stays.status, 'CHECKED_IN'),
@@ -98,6 +108,8 @@ export async function listRoomsWithOccupancy(
         guestId: stay.guestId,
         guestName: stay.guestName,
         guestPhone: stay.guestPhone,
+        isVip: stay.isVip ?? false,
+        staffNotes: stay.staffNotes ?? null,
         checkedInAt: stay.checkedInAt,
         scheduledCheckoutAt: stay.scheduledCheckoutAt,
         balanceMinor: folio ? folio.balanceMinor : null,
@@ -158,6 +170,14 @@ export async function checkOutStay(
     propertyId: string;
     stayId: string;
     staffUserId: string;
+    /**
+     * Why they are leaving with money still on the bill — "billed to the
+     * company", "collect on the next visit". Required when the balance is not
+     * zero (D-095): an unpaid departure is a decision somebody made, and the
+     * reason goes on the event next to the balance. The ACTION decides who
+     * may give one; this decides that one is given.
+     */
+    unpaidReason?: string | null;
     now?: Date;
   },
 ): Promise<CheckOutResult> {
@@ -185,9 +205,21 @@ export async function checkOutStay(
   const stay = {
     id: found.id,
     status: found.status,
+    roomId: found.room_id,
     roomNumber: found.room_number,
     sourceRefId: found.source_ref_id,
   };
+
+  // Read before anything moves, so a refusal leaves the stay exactly as it was.
+  const before = (await folioBalancesForStays(tx, { stayIds: [stay.id] })).get(stay.id);
+  const owing = before?.balanceMinor ?? 0;
+  const unpaidReason = input.unpaidReason?.trim() || null;
+  if (owing !== 0 && !unpaidReason && stay.status === 'CHECKED_IN') {
+    const amount = formatMoney(money(Math.abs(owing), (before?.currency ?? 'INR') as CurrencyCode));
+    throw new ConflictError(owing > 0
+      ? `${amount} is still owed on this bill. Take the payment first, or a manager can check them out with a reason.`
+      : `${amount} is owed back to the guest. Refund it first, or a manager can check them out with a reason.`);
+  }
 
   /**
    * Compare-and-set, not a plain UPDATE. Two people at the desk pressing check
@@ -216,6 +248,16 @@ export async function checkOutStay(
   // #10. The sticker stays on the nightstand and stays public; what stops
   // working is every session that was ever issued against this stay.
   const sessionsRevoked = await revokeSessionsForStay(tx, stay.id);
+
+  // The room the guest just left needs making up before anybody else is put
+  // in it (D-096). Same transaction: a checked-out room never reads clean.
+  await setRoomCleanStatus(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    roomId: stay.roomId,
+    status: 'DIRTY',
+    staffUserId: input.staffUserId,
+  });
 
   const completed = await tx.update(checkoutRequests)
     .set({ status: 'COMPLETED', updatedAt: now })
@@ -272,6 +314,7 @@ export async function checkOutStay(
       balanceMinor,
       currency,
       folioSettled,
+      ...(balanceMinor !== 0 && unpaidReason ? { unpaidReason } : {}),
       sessionsRevoked,
       completedCheckoutRequests: completed.length,
       cancelledCheckoutRequests: cancelled.length,

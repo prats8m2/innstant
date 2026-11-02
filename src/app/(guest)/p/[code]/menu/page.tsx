@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
 import { withTenant } from '@/db';
 import { resolveVisitSession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import {
@@ -9,23 +8,23 @@ import {
 import { findProperty } from '@/modules/identity';
 import { localTimeAt, formatClock } from '@/lib/clock';
 import { getCart, contextForSession } from '@/modules/ordering';
-import { formatMoney, money } from '@/lib/money';
+import { formatMoney } from '@/lib/money';
 import type { CurrencyCode } from '@/lib/money';
-import { CategoryRail } from '../../../r/[qrCode]/menu/category-rail';
-import { DishStepper } from './dish-stepper';
-import styles from '../../../r/[qrCode]/menu/menu.module.css';
-import { DishImage } from '../../../dish-image';
-import { OfferPrice } from '../../../offer-price';
+import { GuestMenu } from '../../../r/[qrCode]/menu/guest-menu';
+import { DishStepper } from '../../../r/[qrCode]/menu/dish-stepper';
+import { quickSteppers, menuWordAt } from '../../../r/[qrCode]/menu/menu-view';
+import { adjustDishInOrder } from './actions';
 
 /**
  * The restaurant's menu — what a property link opens onto. D-079.
  *
  * ─── What this shares with the room menu, and what it cannot ───────────────
  *
- * It shares the STYLESHEET and the rail, imported from `/r/[qrCode]/menu`
- * rather than copied. Two copies of `menu.module.css` is how one of them
- * quietly stops matching the other, and the design is the same design: this is
- * the same restaurant's menu, opened from a table instead of from a bed.
+ * It shares the SCREEN — `GuestMenu`, the stepper and the stylesheet, imported
+ * from `/r/[qrCode]/menu` rather than copied. Two copies of a menu is how one
+ * of them quietly stops matching the other, and the design is the same design:
+ * this is the same restaurant's menu, opened from a table instead of from a
+ * bed. Search comes with it.
  *
  * It cannot share the page, because almost every line that reads the session
  * reads something a visit does not have. The room menu's back button goes to a
@@ -108,136 +107,57 @@ export default async function VisitMenu({
     inCart.set(line.menuItemId, (inCart.get(line.menuItemId) ?? 0) + line.quantity);
   }
 
-  const kitchenLine = outlet.isAcceptingOrders
-    ? describeOpenState(outletOpenState(hours, at), formatClock)
-    : 'The kitchen has closed for tonight';
+  const openState = outletOpenState(hours, at);
+  const status = outlet.isAcceptingOrders
+    ? {
+      line: describeOpenState(openState, formatClock),
+      open: openState.isOpen,
+      eta: `${outlet.prepTimeMinutes}–${outlet.prepTimeMinutes + 10}`,
+    }
+    : { line: 'The kitchen has closed for tonight', open: false, eta: null };
 
   const today = hoursForDay(hours, at.dayOfWeek);
-  const todaysHours = today
+  const footnote = today
     ? `Kitchen ${formatClock(today.opensAt)} – ${formatClock(today.closesAt)}`
     : null;
 
-  const prepWindow = `${outlet.prepTimeMinutes}–${outlet.prepTimeMinutes + 10} min`;
-
   /**
-   * What this link is, said once, quietly.
+   * What this link is, said once, quietly, in the bar.
    *
    * A diner at a table tent needs to know the order is going to THEIR table and
    * not to the counter — it is the single most likely thing to go wrong in a
-   * room full of people holding phones. One line under the title is enough; the
-   * cart says it again where it matters, next to the send button.
+   * room full of people holding phones. One line is enough; the cart says it
+   * again where it matters, next to the send button.
    */
   const where = session.tableLabel
     ? session.tableLabel
     : session.fulfilment === 'DELIVERY' ? 'Delivery' : 'Takeaway';
 
   return (
-    <main className={styles.shell}>
-      <header className={styles.bar}>
-        <div className={styles.barTop}>
-          {/* No back button. There is nowhere behind this screen — a property
-              link opens onto the menu, which is the whole of what it does. The
-              slot is kept so the title stays centred. */}
-          <span className={styles.back} aria-hidden="true" />
-          <h1 className={styles.title}>{propertyName ?? outlet.name}</h1>
-          <span className={`${styles.eta} tabular`}>
-            {outlet.isAcceptingOrders ? prepWindow : 'Closed'}
-          </span>
-        </div>
-
-        <p className={styles.footer} style={{ margin: '0 0 var(--space-2)' }}>
-          {outlet.name} · {where}
-        </p>
-
-        <CategoryRail sections={sections.map((s) => ({ id: s.id, label: s.label }))} />
-      </header>
-
-      <div className={styles.scroll}>
-        {sections.map((section) => (
-          <section key={section.id} id={section.id} data-section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.sectionTitle}>{section.title}</h2>
-              <span className={`${styles.sectionCount} tabular`}>
-                {section.items.length} {section.items.length === 1 ? 'dish' : 'dishes'}
-              </span>
-            </div>
-            {section.blurb ? <p className={styles.blurb}>{section.blurb}</p> : null}
-
-            <ul className={styles.dishes}>
-              {section.items.map((dish) => (
-                <li
-                  key={`${section.id}-${dish.id}`}
-                  className={styles.dishCard}
-                  data-available={dish.isAvailable}
-                >
-                  <Link href={`${base}/menu/${dish.id}`} className={styles.dish}>
-                    <span className={styles.thumb} aria-hidden="true">
-                      <DishImage src={dish.imageUrl} />
-                    </span>
-                    <span className={styles.dishBody}>
-                      <span className={styles.dishName}>{dish.name}</span>
-                      {dish.description ? (
-                        <span className={styles.dishShort}>{dish.description}</span>
-                      ) : null}
-                      <span className={styles.dishMeta}>
-                        <span className={`${styles.price} tabular`}>
-                          {formatMoney(money(dish.priceMinor, dish.currency as CurrencyCode))}
-                        </span>
-                        <OfferPrice
-                          listPriceMinor={dish.listPriceMinor}
-                          offer={dish.offer}
-                          currency={dish.currency}
-                        />
-                        {dish.isAvailable ? (
-                          dish.prepTimeMinutes ? (
-                            <span className={styles.tag}>{dish.prepTimeMinutes} min</span>
-                          ) : null
-                        ) : (
-                          // D-086: when the day's portions are what ran out,
-                          // say so, so the guest knows to try tomorrow.
-                          <span className={styles.soldOut}>
-                            {dish.remainingToday === 0 ? 'Sold out today' : 'Not available now'}
-                          </span>
-                        )}
-                        {dish.isAvailable && dish.remainingToday !== null && dish.remainingToday <= 5 ? (
-                          <span className={styles.soldOut}>Only {dish.remainingToday} left today</span>
-                        ) : null}
-                      </span>
-                    </span>
-                  </Link>
-
-                  {dish.isAvailable && dish.canQuickAdd ? (
-                    <DishStepper
-                      code={code}
-                      menuItemId={dish.id}
-                      dishName={dish.name}
-                      quantity={inCart.get(dish.id) ?? 0}
-                    />
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-
-        {todaysHours ? <p className={styles.footer}>{todaysHours}</p> : null}
-      </div>
-
-      {cart && cart.itemCount > 0 ? (
-        <Link href={`${base}/cart`} className={styles.pill}>
-          <span className={`${styles.pillCount} tabular`}>{cart.itemCount}</span>
-          <span className={styles.pillLabel}>Review order</span>
-          <span className={`${styles.pillTotal} tabular`}>
-            {formatMoney(cart.totals.total)}
-          </span>
-          <span className={styles.pillArrow} aria-hidden="true">→</span>
-        </Link>
-      ) : (
-        <p className={styles.pillIdle}>
-          <span className={styles.pillDot} aria-hidden="true" />
-          {kitchenLine}
-        </p>
-      )}
-    </main>
+    <GuestMenu
+      base={base}
+      /* No back button. There is nowhere behind this screen — a property link
+         opens onto the menu, which is the whole of what it does. */
+      back={null}
+      context={`${outlet.name} · ${where}`}
+      title={propertyName ?? outlet.name}
+      status={status}
+      sections={sections}
+      steppers={quickSteppers(sections, inCart, (dish, quantity) => (
+        <DishStepper
+          key={dish.id}
+          action={adjustDishInOrder}
+          scope={{ name: 'code', value: code }}
+          menuItemId={dish.id}
+          dishName={dish.name}
+          quantity={quantity}
+        />
+      ))}
+      cart={cart && cart.itemCount > 0
+        ? { count: cart.itemCount, total: formatMoney(cart.totals.total), href: `${base}/cart` }
+        : null}
+      footnote={footnote}
+      menuWord={menuWordAt(at)}
+    />
   );
 }

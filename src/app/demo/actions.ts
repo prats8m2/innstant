@@ -8,6 +8,7 @@ import {
   cleanVisitorName, recordDemoVisitor, resolveDemoRoomCode, openDemoSession,
   DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE, DEMO_COOKIE_DAYS,
 } from '@/modules/demo';
+import { secureCookies } from '@/lib/cookie-security';
 
 /**
  * The one thing the demo asks for before it opens.
@@ -104,7 +105,7 @@ export async function enterDemo(
   const base = {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
+    secure: secureCookies(),
     path: '/',
   };
 

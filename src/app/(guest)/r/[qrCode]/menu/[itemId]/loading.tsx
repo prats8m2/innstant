@@ -1,46 +1,35 @@
-import { Skeleton, SkeletonHeading, SkeletonRow, SkeletonScreen } from '@/components/skeleton';
-import styles from '@/components/skeleton.module.css';
+import { Skeleton, SkeletonScreen } from '@/components/skeleton';
+import styles from './dish.module.css';
 
 /**
- * A dish, waiting.
+ * A dish, waiting (D-077).
  *
- * The hero is 220px of the page's own surface, bleeding past the padding and
- * square-topped like the real one. Not the arch itself — the rings are four
- * gradients this would have to keep in step with `dish.module.css` forever,
- * for a shape the eye reads for about 200ms. The height and the corners are
- * what stop the dish's name moving when it lands, and those are here.
- *
- * No bar over it: the real back arrow floats on the hero, and a grey one
- * floating there would be the only thing on screen that moved.
- *
- * Two modifier groups of three options is the common case (spice, and one
- * choice of side); a dish with none loses the stack and nothing shifts above
- * it, because the groups are the last thing on the page.
+ * Drawn to the Direction A layout: the 300px photograph to the edges, a 32px
+ * name, the price and two lines of description, one group of three choices
+ * (the common case: how hot), and the pinned bar with the stepper and the Add
+ * button. A dish with no choices loses the row and nothing above it moves,
+ * because the choices are the last thing in the scroll.
  */
 export default function LoadingDish() {
   return (
-    <SkeletonScreen label="Loading the dish" className={styles.clearsOrderBar}>
-      <div className={styles.heroArch} />
+    <SkeletonScreen label="Loading the dish" className={styles.skScreen}>
+      <Skeleton w="100%" h="300px" radius="0" />
 
-      <div className={styles.lede}>
-        <Skeleton w="86px" h="0.75rem" />
-        <Skeleton w="68%" h="1.7rem" />
-        <Skeleton w="88px" h="1.2rem" />
-        <Skeleton w="100%" h="0.85rem" />
-        <Skeleton w="72%" h="0.85rem" />
+      <div className={styles.skBody}>
+        <Skeleton w="72px" h="0.8rem" />
+        <Skeleton w="64%" h="32px" />
+        <Skeleton w="84px" h="1.1rem" />
+        <Skeleton w="100%" h="0.9rem" />
+        <Skeleton w="76%" h="0.9rem" />
+
+        <div className={styles.skChoices}>
+          {[0, 1, 2].map((n) => <Skeleton key={n} w="100%" h="48px" />)}
+        </div>
       </div>
 
-      {[0, 1].map((group) => (
-        <section key={group} className={styles.stackWide}>
-          <SkeletonHeading />
-          <div>
-            {[0, 1, 2].map((option) => <SkeletonRow key={option} />)}
-          </div>
-        </section>
-      ))}
-
-      <div className={styles.pinned}>
-        <Skeleton w="100%" h="58px" />
+      <div className={styles.skBar}>
+        <Skeleton w="126px" h="56px" />
+        <Skeleton w="100%" h="56px" />
       </div>
     </SkeletonScreen>
   );

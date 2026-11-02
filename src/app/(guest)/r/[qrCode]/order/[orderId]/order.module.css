@@ -1,13 +1,20 @@
 /*
- * Tracking an order — the reference's `track` screen.
- * Values from theme.css only; the step states are driven by [data-state].
+ * Tracking an order — Direction A's GuestTracking board.
+ * Colour from the --g-* tokens only, except the accent: that is read as
+ * --accent, which is --g-accent unless the property set its own (D-087's
+ * brandingStyle overrides the role name, not the token). The step states are
+ * driven by [data-state] on each step and [data-late] on the list.
  */
 .shell {
   min-height: 100dvh;
-  background: var(--bg);
   max-width: 430px;
   margin-inline: auto;
-  padding: 0 var(--space-4) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  background: var(--g-page);
+  color: var(--g-ink);
+  font-family: var(--font-body);
+  padding-bottom: 34px;
 }
 
 /* ── The bar ────────────────────────────────────────────────────────────── */
@@ -15,14 +22,12 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--touch-min) minmax(0, 1fr) var(--touch-min);
   align-items: center;
-  gap: var(--space-2);
   height: 56px;
-  margin-inline: calc(var(--space-4) * -1);
   padding-inline: var(--space-2);
-  /* The reference blurs the page behind this bar rather than hiding it. */
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  background: color-mix(in srgb, var(--g-page) 92%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -32,242 +37,217 @@
   justify-content: center;
   width: var(--touch-min);
   height: var(--touch-min);
-  flex: none;
   border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text);
+  color: var(--g-ink);
 }
-.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+.back:hover { color: var(--g-ink); background: var(--g-surface); }
 
 .barTitle {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 400;
-  color: var(--text);
+  color: var(--g-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.barRef {
-  margin-left: auto;
-  padding-right: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--plaster-faint);
-}
+.barEnd { width: var(--touch-min); }
 
 /* ── The promise ────────────────────────────────────────────────────────── */
 .hero {
-  position: relative;
-  overflow: hidden;
-  margin-top: var(--space-2);
-  padding: var(--space-6) var(--space-5) var(--space-5);
-  /* The arch. Same shape language as the room home's hero. */
-  border-radius: 30% 30% var(--radius-md) var(--radius-md) / 16% 16% 0 0;
-  background-color: var(--ink-700);
-  background-image:
-    radial-gradient(circle at 50% 128%,
-      color-mix(in srgb, var(--saffron) 20%, transparent) 0 22%, transparent 22.5%),
-    radial-gradient(circle at 50% 128%, transparent 0 38%,
-      color-mix(in srgb, var(--plaster) 11%, transparent) 38% 38.7%, transparent 39%);
-  animation: archIn var(--dur-slow) var(--ease-out) both;
-}
-
-.sweep {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 46%;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--saffron) 0%, transparent),
-    color-mix(in srgb, var(--saffron) 10%, transparent),
-    color-mix(in srgb, var(--saffron) 0%, transparent));
-  animation: sweep 9s ease-in-out infinite;
-}
-
-.heroLabel {
-  position: relative;
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-
-.heroTime {
-  position: relative;
-  margin: var(--space-1) 0 0;
-  /* Marcellus, not the mono the .tabular utility sets — the reference's 38px
-     display figure. The utility still gives it tabular-nums. */
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  line-height: 1.1;
-  letter-spacing: 0.01em;
-  color: var(--text);
-}
-
-.heroNote {
-  position: relative;
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-base);
-  line-height: 1.45;
-  color: var(--text-muted);
-  text-wrap: pretty;
-}
-
-/* ── The halt: rejected, cancelled, disputed ────────────────────────────── */
-.halt {
-  margin-top: var(--space-6);
-  padding: var(--space-5);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-2) 20px 0;
   animation: riseIn var(--dur-slow) var(--ease-out) both;
 }
 
-.haltTitle {
+.headline {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: 32px;
   font-weight: 400;
-  line-height: 1.2;
-  color: var(--text);
+  line-height: 38px;
+  color: var(--g-ink);
+  text-wrap: balance;
+}
+.headlineDone { font-size: 36px; line-height: 1.12; }
+
+.behind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--g-late);
+}
+
+.promise {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 12px;
+  margin: 0;
+}
+
+.promiseTime {
+  font-size: 44px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.promiseNote {
+  font-size: 15px;
+  color: var(--g-ink-2);
+}
+
+.heroNote {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
+  text-wrap: pretty;
+}
+.heroNote s { color: var(--g-ink-3); }
+
+/* ── The halt: rejected, cancelled, disputed ────────────────────────────── */
+.halt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-2) 20px 0;
+  animation: riseIn var(--dur-slow) var(--ease-out) both;
 }
 
 .haltReason {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-base);
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  background: var(--g-surface);
+  font-size: 15px;
   font-style: italic;
   line-height: 1.45;
-  color: var(--text);
-  text-wrap: pretty;
+  color: var(--g-ink);
 }
 
 .haltDetail {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--text-muted);
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
   text-wrap: pretty;
 }
 
 /* ── The timeline ───────────────────────────────────────────────────────── */
 .steps {
+  position: relative;
   list-style: none;
-  margin: var(--space-6) 0 0;
+  margin: 28px 20px 0;
   padding: 0;
   display: flex;
   flex-direction: column;
 }
-
 .step {
-  display: flex;
-  gap: var(--space-4);
-  min-height: 62px;
-}
-
-.rail {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 18px;
-  flex: 0 0 18px;
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding-bottom: 20px;
 }
-
-.dotWrap {
-  position: relative;
-  width: 10px;
-  height: 10px;
-  margin-top: 5px;
-  flex: 0 0 10px;
+.step:last-child { padding-bottom: 0; }
+/* The rail, drawn per step from this dot to the next, so it stops at the last. */
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 19px;
+  bottom: -4px;
+  width: 1px;
+  background: var(--g-line);
 }
 
 .dot {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  margin-top: 4px;
   border-radius: 50%;
-  background: transparent;
-  /* Plaster at 22%, as the reference draws an unreached step — not --border,
-     which is an indigo and reads as a UI edge rather than a dimmed dot. */
-  border: 1px solid color-mix(in srgb, var(--plaster) 22%, transparent);
+  border: 1.5px solid var(--g-ink-3);
+  background: var(--g-page);
 }
-
-.halo {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: var(--accent);
-  display: none;
-}
-
-.line {
-  width: 1px;
-  flex: 1;
-  margin: var(--space-1) 0;
-  background: color-mix(in srgb, var(--plaster) 12%, transparent);
-}
-/* The last step's connector goes nowhere. */
-.step:last-child .line { display: none; }
 
 .stepBody {
-  flex: 1;
-  min-width: 0;
-  padding-bottom: 18px;
-}
-
-.stepHead {
   display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
+  flex-direction: column;
+  min-width: 0;
 }
 
 .stepTitle {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  line-height: 1.25;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
   transition: color var(--dur-mid) var(--ease-out);
-  color: var(--plaster-faint);
-}
-
-.stepTime {
-  margin-left: auto;
-  font-size: var(--text-xs);
-  color: var(--plaster-faint);
 }
 
 .stepSub {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--text-sm);
-  line-height: 1.45;
-  color: color-mix(in srgb, var(--plaster) 24%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
   text-wrap: pretty;
 }
 
-/* Done: behind us, still legible, no longer competing for attention. */
-.step[data-state='done'] .dot { background: color-mix(in srgb, var(--saffron) 55%, transparent); border-color: transparent; }
-.step[data-state='done'] .line { background: color-mix(in srgb, var(--saffron) 35%, transparent); }
-.step[data-state='done'] .stepTitle { color: var(--text-muted); }
-.step[data-state='done'] .stepSub { color: var(--plaster-faint); }
+.stepTime {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--g-ink-3);
+}
+
+/* Done: behind us, in the ready tone. */
+.step[data-state='done'] .dot { border-color: var(--g-ready); background: var(--g-ready); }
+.step[data-state='done'] .stepTitle { color: var(--g-ink); }
+.step[data-state='done'] .stepTime { color: var(--g-ink-2); }
 
 /* Active: the one thing on the screen that is happening. */
-.step[data-state='active'] .dot { background: var(--accent); border-color: transparent; }
-.step[data-state='active'] .halo {
-  display: block;
-  animation: breathe 2.6s var(--ease-out) infinite;
+.step[data-state='active'] .dot {
+  border: 2px solid var(--accent);
+  animation: halo calc(var(--dur-shimmer) * 2) ease-in-out infinite;
 }
-.step[data-state='active'] .stepTitle { color: var(--text); }
-.step[data-state='active'] .stepSub { color: var(--text-muted); }
-.step[data-state='active'] .stepBody { animation: riseIn var(--dur-slow) var(--ease-out) both; }
-/* The dashed connector, flowing downward — where it is going next. */
-.step[data-state='active'] .line {
-  background-image: repeating-linear-gradient(180deg,
-    color-mix(in srgb, var(--saffron) 85%, transparent) 0 5px,
-    transparent 5px 9px);
-  background-size: 1px 18px;
-  animation: flow 1.1s linear infinite;
+.step[data-state='active'] .stepTitle { font-weight: 600; color: var(--accent); }
+.step[data-state='active'] .stepTime { color: var(--accent); }
+
+/* The last step reached is not "happening" — it happened. */
+.step[data-state='active']:last-child .dot {
+  border-color: var(--g-ready);
+  background: var(--g-ready);
+  animation: none;
+}
+.step[data-state='active']:last-child .stepTitle,
+.step[data-state='active']:last-child .stepTime { color: var(--g-ink); }
+
+/* Running behind: the soft late tone, with words, never an alarm. */
+.steps[data-late='true'] .step[data-state='active'] .dot {
+  border-color: var(--g-late);
+  animation-name: haloLate;
+}
+.steps[data-late='true'] .step[data-state='active'] .stepTitle,
+.steps[data-late='true'] .step[data-state='active'] .stepTime { color: var(--g-late); }
+
+@keyframes halo {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 6%, transparent); }
+}
+@keyframes haloLate {
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--g-late) 18%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--g-late) 6%, transparent); }
 }
 
 /* ── The live indicator ─────────────────────────────────────────────────── */
@@ -275,174 +255,200 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0;
+  margin: 20px 20px 0;
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  color: var(--plaster-faint);
+  font-size: 12px;
+  color: var(--g-ink-3);
 }
 
 .liveDot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--border);
+  background: var(--g-line);
 }
 .live[data-connected='true'] .liveDot {
-  background: var(--teal);
-  animation: glow 2.8s ease-in-out infinite;
+  background: var(--g-ready);
+  animation: glow calc(var(--dur-shimmer) * 2) ease-in-out infinite;
 }
 
-/* ── The order, folded away ─────────────────────────────────────────────── */
+/* ── The order, and where to go next ────────────────────────────────────── */
+.foot {
+  margin: auto 20px 0;
+  padding-top: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* A halted order has no timeline: the card follows the sentence. */
+.foot[data-pinned='false'] { margin-top: 0; }
+
 .summary {
-  margin-top: var(--space-5);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  background: var(--g-surface);
 }
 
 .summaryHead {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 12px;
   min-height: 56px;
-  padding: 0 var(--space-4);
+  padding: 14px 16px;
   cursor: pointer;
   list-style: none;
 }
 .summaryHead::-webkit-details-marker { display: none; }
-.summaryHead:hover { border-color: var(--border); }
 
-.summaryTitle {
-  font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--text);
+.summaryBody {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.summaryDishes {
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--g-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .summaryMeta {
-  margin-left: auto;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* The chevron the reference draws, rotated by the native open state. */
-.summaryHead::after {
-  content: '›';
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--text-muted);
+
+.summaryTotal {
+  flex: none;
+  font-size: 15px;
+  color: var(--g-ink);
+}
+
+.chevron {
+  flex: none;
+  color: var(--g-ink-3);
   transition: transform var(--dur-fast) var(--ease-out);
 }
-.summary[open] .summaryHead::after { transform: rotate(90deg); }
+.summary[open] .chevron { transform: rotate(180deg); }
 
-.summaryBody {
-  padding: 0 var(--space-4) var(--space-4);
+.receipt {
+  padding: 0 16px 16px;
   animation: riseIn var(--dur-base) var(--ease-out) both;
 }
 
 .lines {
   list-style: none;
   margin: 0;
-  padding: var(--space-4) 0 0;
-  border-top: 1px solid var(--border-soft);
+  padding: 14px 0 0;
+  border-top: 1px solid var(--g-line);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 12px;
 }
 
-.summaryLine {
+.line {
   display: flex;
-  gap: var(--space-3);
+  gap: 12px;
   align-items: flex-start;
 }
 
 .quantity {
   flex: none;
   min-width: 28px;
-  font-size: var(--text-base);
-  color: var(--plaster-faint);
+  font-size: 14px;
+  color: var(--g-ink-3);
 }
 
-.lineBody { flex: 1; min-width: 0; display: block; }
+.lineBody { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .lineName {
-  display: block;
-  font-size: var(--text-base);
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--text);
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--g-ink);
   text-wrap: pretty;
 }
 
 .lineMods {
-  display: block;
-  margin-top: 2px;
-  font-size: var(--text-sm);
-  color: color-mix(in srgb, var(--plaster) 52%, transparent);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-2);
 }
 
 .lineNote {
-  display: block;
-  margin-top: var(--space-1);
-  font-size: var(--text-sm);
+  margin-top: 2px;
+  font-size: 13px;
   font-style: italic;
-  color: var(--plaster-faint);
+  color: var(--g-ink-3);
 }
 
 .lineTotal {
   flex: none;
-  font-size: var(--text-base);
-  color: var(--accent);
+  font-size: 14px;
+  color: var(--g-ink);
 }
 
 .totals {
-  margin: var(--space-5) 0 0;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-soft);
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--g-line);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 8px;
 }
 
 .row {
   display: flex;
   justify-content: space-between;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: color-mix(in srgb, var(--plaster) 60%, transparent);
+  gap: 12px;
+  font-size: 14px;
+  color: var(--g-ink-2);
 }
 .row dt, .row dd { margin: 0; }
 
 .grand {
-  font-size: var(--text-base);
-  color: var(--text);
+  font-size: 15px;
+  color: var(--g-ink);
 }
 .grand dd { color: var(--accent); }
 
-.folioNote {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-sm);
+.payNote {
+  margin: 12px 0 0;
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--plaster-faint);
+  color: var(--g-ink-3);
   text-wrap: pretty;
 }
 
-/* ── Where to go next ───────────────────────────────────────────────────── */
 .actions {
-  margin-top: var(--space-6);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  gap: 10px;
 }
 
-.secondary {
+.action {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: var(--touch-min);
-  padding: 0 var(--space-5);
-  border: 1px solid var(--border);
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 8px;
+  height: 52px;
+  padding: 0 12px;
+  border: 1px solid var(--g-ink-3);
   border-radius: var(--radius-sm);
-  color: var(--text);
-  font-size: var(--text-base);
-  font-weight: 600;
+  font-size: 15px;
+  color: var(--g-ink);
+  text-align: center;
 }
-.secondary:hover { background: var(--surface); color: var(--text); }
+.action:hover { color: var(--g-ink); background: var(--g-surface); }
+
+.actionQuiet {
+  border-color: var(--g-line);
+  color: var(--g-ink-2);
+}

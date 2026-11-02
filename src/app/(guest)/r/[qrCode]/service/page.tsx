@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ConciergeBell } from 'lucide-react';
+import { Bell, ChevronLeft } from 'lucide-react';
 import { withTenant } from '@/db';
 import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { getRequestTypeByKey, CALL_SERVICE_KEY } from '@/modules/requests';
@@ -14,6 +14,11 @@ import styles from './service.module.css';
  * One tap, and the reference's own words for why: "No queue, no call, no reason
  * needed." Free, so #9 applies in full — an anonymous REQUEST-tier session gets
  * a person walking, with nothing in the way.
+ *
+ * There is no Direction A board for this screen. It is drawn in the
+ * amenities board's language (D-100): the back arrow, a Marcellus question at
+ * title-1, one card that says what will happen, the optional note, and the
+ * one accent button pinned under the thumb.
  */
 export const dynamic = 'force-dynamic';
 
@@ -44,58 +49,37 @@ export default async function ServiceScreen({
     <main className={styles.shell}>
       <header className={styles.bar}>
         <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
-          ←
+          <ChevronLeft size={22} strokeWidth={1.5} aria-hidden="true" />
         </Link>
-        <h1 className={styles.barTitle}>Service</h1>
       </header>
 
-      {/*
-        The bell, and the call going out from it.
-
-        This replaced three static arch outlines with the headline sitting on
-        top of them: the shapes read as nothing in particular, the text
-        overlapped their edges, and 300px of the screen was doing no work. The
-        composition is now what the screen is FOR — a bell, rings leaving it,
-        and the promise underneath.
-
-        Everything here is decorative and `aria-hidden`; the words below carry
-        the meaning, and the button below that does the thing.
-      */}
-      <div className={styles.stage}>
-        <span className={styles.aurora} aria-hidden="true" />
-
-        <div className={styles.bellWrap}>
-          {/* Three rings on one keyframe, staggered by a third of it each, so
-              the call looks continuous rather than like three pulses. */}
-          <span className={styles.ring} aria-hidden="true" />
-          <span className={styles.ring} aria-hidden="true" />
-          <span className={styles.ring} aria-hidden="true" />
-
-          <span className={styles.bell} aria-hidden="true">
-            {/* The same mark as this screen's tile on the room home, so the
-                two are recognisably one thing. */}
-            <ConciergeBell size={40} strokeWidth={1.6} absoluteStrokeWidth />
-          </span>
-        </div>
-
-        <div className={styles.pitch}>
-          <p className={styles.headline}>Someone comes up to room {session.roomNumber}</p>
-          <p className={styles.sub}>No queue, no call, no reason needed.</p>
-          {/*
-            The wait, as its own mark rather than a third sentence. It is the
-            one number on the screen and the answer to "should I bother".
-          */}
-          {type ? (
-            <p className={styles.waitChip}>
-              <span className={styles.waitDot} aria-hidden="true" />
-              Usually {type.slaMinutes} minutes
-            </p>
-          ) : null}
-        </div>
+      <div className={styles.intro}>
+        <p className={styles.eyebrow}>Call for service</p>
+        <h1 className={styles.title}>
+          Someone comes up to room <span className="tabular">{session.roomNumber}</span>
+        </h1>
+        <p className={styles.lede}>No queue, no call, no reason needed.</p>
       </div>
 
       {type ? (
-        <CallForService qrCode={qrCode} idempotencyKey={idempotencyKey} />
+        <>
+          {/*
+            What will happen, as one card: the wait — the one number on the
+            screen and the answer to "should I bother" — and that it is free.
+            The bell is the same mark as this screen's tile on the room home.
+          */}
+          <div className={styles.promise}>
+            <Bell className={styles.promiseIcon} size={24} strokeWidth={1.5} aria-hidden="true" />
+            <span className={styles.promiseBody}>
+              <span className={styles.promiseLine}>
+                Usually <span className="tabular">{type.slaMinutes}</span> minutes
+              </span>
+              <span className={styles.promiseSub}>Free. Nothing goes on your bill.</span>
+            </span>
+          </div>
+
+          <CallForService qrCode={qrCode} idempotencyKey={idempotencyKey} />
+        </>
       ) : (
         <p className={styles.unavailable}>
           Calling for service is not set up here. The front desk can help.

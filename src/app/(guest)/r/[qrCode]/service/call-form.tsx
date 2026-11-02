@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { ArrowRight } from 'lucide-react';
 import { callForService, type ServiceCallState } from './actions';
 import styles from './service.module.css';
 
@@ -27,17 +28,22 @@ export function CallForService({
       {/* Minted when the screen rendered, so a double-tap sends one person (#8). */}
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
-      <input
-        name="guestNote"
-        className={styles.note}
-        maxLength={400}
-        placeholder="Add a note, if it helps"
-        aria-label="Note for the person coming up"
-      />
+      <label className={styles.noteField}>
+        <span className={styles.eyebrow} aria-hidden="true">A note, if it helps</span>
+        <input
+          name="guestNote"
+          className={styles.input}
+          maxLength={400}
+          placeholder="Optional"
+          aria-label="Note for the person coming up"
+        />
+      </label>
 
       {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
 
-      <CallButton />
+      <div className={styles.footer}>
+        <CallButton />
+      </div>
     </form>
   );
 }
@@ -46,7 +52,8 @@ function CallButton() {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className={styles.call} disabled={pending}>
-      {pending ? 'Asking…' : 'Ask someone to come up'}
+      <span>{pending ? 'Asking…' : 'Ask someone to come up'}</span>
+      <ArrowRight size={20} strokeWidth={2} aria-hidden="true" />
     </button>
   );
 }

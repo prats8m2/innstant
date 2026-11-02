@@ -7,7 +7,7 @@ import styles from './menu.module.css';
  * The sticky category rail.
  *
  * A client component for one reason: it tracks which section is under the
- * header as the page scrolls, and moves the saffron pill to match. Everything
+ * rail as the page scrolls, and moves the accent pill to match. Everything
  * else on this screen is server-rendered — the menu itself does not need
  * JavaScript to be read, which matters on hotel wifi.
  *
@@ -20,9 +20,10 @@ export interface RailSection {
   label: string;
 }
 
-/** Roughly the header's height — a section counts as active once its top has
- *  passed under the bar rather than when it reaches the top of the viewport. */
-const HEADER_OFFSET = 170;
+/** The sticky rail's height and a little more — a section counts as active
+ *  once its top has passed under the rail rather than when it reaches the top
+ *  of the viewport. */
+const HEADER_OFFSET = 84;
 
 export function CategoryRail({ sections }: { sections: RailSection[] }) {
   const [active, setActive] = useState(sections[0]?.id ?? '');
@@ -70,7 +71,7 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
 
     const left = chip.offsetLeft - rail.scrollLeft;
     if (left < 0 || left + chip.offsetWidth > rail.clientWidth) {
-      rail.scrollTo({ left: chip.offsetLeft - 12, behavior: 'smooth' });
+      rail.scrollTo({ left: chip.offsetLeft - 20, behavior: 'smooth' });
     }
 
     // A chip's width changes when the web font arrives or the text is
@@ -91,22 +92,24 @@ export function CategoryRail({ sections }: { sections: RailSection[] }) {
   };
 
   return (
-    <div ref={railRef} className={styles.rail} role="tablist" aria-label="Menu sections">
-      <span ref={pillRef} className={styles.railPill} aria-hidden="true" />
-      {sections.map((section) => (
-        <button
-          key={section.id}
-          type="button"
-          data-chip={section.id}
-          role="tab"
-          aria-selected={active === section.id}
-          aria-controls={section.id}
-          className={styles.chip}
-          onClick={() => jump(section.id)}
-        >
-          {section.label}
-        </button>
-      ))}
+    <div className={styles.railWrap}>
+      <div ref={railRef} className={styles.rail} role="tablist" aria-label="Menu sections">
+        <span ref={pillRef} className={styles.railPill} aria-hidden="true" />
+        {sections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            data-chip={section.id}
+            role="tab"
+            aria-selected={active === section.id}
+            aria-controls={section.id}
+            className={styles.chip}
+            onClick={() => jump(section.id)}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

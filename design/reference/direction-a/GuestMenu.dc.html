@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>In-room dining menu</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--g-page:#0A1220;--g-surface:#101E33;--g-card:#1B2B45;--g-line:#2A3B58;--g-ink:#F4ECDD;--g-ink-2:#B9C2D0;--g-ink-3:#8B97AB;--g-accent:#E9A227;--g-on-accent:#1A1206;--g-ready:#6E9C95;--g-late:#F08A6C;--f-display:'Marcellus',Georgia,serif;--f-body:'Mukta',system-ui,sans-serif;--f-mono:'DM Mono',ui-monospace,monospace}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.photo{background-color:#22334F;background-image:repeating-linear-gradient(135deg,rgba(244,236,221,.05) 0 1px,transparent 1px 9px)}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--g-accent)}
+button{font-family:inherit}
+a{color:inherit}
+</style>
+</helmet>
+<div style="width:390px;min-height:1480px;background:var(--g-page);color:var(--g-ink);font-family:var(--f-body);position:relative">
+
+  <header style="padding:44px 8px 0;display:flex;align-items:center;justify-content:space-between;height:100px;box-sizing:border-box">
+    <a href="GuestHome.dc.html" aria-label="Back to room home" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F4ECDD" stroke-width="1.5" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+    <span style="font-size:15px;color:var(--g-ink-2)">In-room dining · <span class="mono">214</span></span>
+    <button aria-label="Search the menu" style="width:44px;height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F4ECDD" stroke-width="1.5" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg></button>
+  </header>
+
+  <section style="padding:8px 20px 0;display:flex;flex-direction:column;gap:6px">
+    <h1 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:34px;line-height:1.1">Tonight's kitchen</h1>
+    <span style="font-size:14px;color:var(--g-ink-2);display:flex;align-items:center;gap:8px"><span style="width:6px;height:6px;border-radius:50%;background:var(--g-ready)"></span>Open till 11pm · about 25 min to your door</span>
+  </section>
+
+  <nav aria-label="Menu sections" style="margin-top:18px;padding:0 20px;display:flex;gap:8px;overflow:hidden">
+    <a href="#chef" style="text-decoration:none;flex-shrink:0;height:40px;padding:0 16px;border-radius:999px;background:var(--g-accent);color:var(--g-on-accent);font-size:15px;font-weight:600;display:flex;align-items:center">Chef's table</a>
+    <a href="#roof" style="text-decoration:none;flex-shrink:0;height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--g-line);font-size:15px;display:flex;align-items:center">Rooftop</a>
+    <a href="#mains" style="text-decoration:none;flex-shrink:0;height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--g-line);font-size:15px;display:flex;align-items:center">Mains</a>
+    <a href="#late" style="text-decoration:none;flex-shrink:0;height:40px;padding:0 16px;border-radius:999px;border:1px solid var(--g-line);font-size:15px;display:flex;align-items:center">After 10pm</a>
+  </nav>
+
+  <!-- Chef's table -->
+  <section id="chef" style="padding:28px 20px 0;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:4px"><span class="eyebrow">Chef Bhairav's table</span><span style="font-size:14px;color:var(--g-ink-2);line-height:1.45">"My grandmother's laal maas, unchanged. Ask for it milder and I'll grumble, then do it."</span></div>
+    <a href="GuestDish.dc.html" style="text-decoration:none;background:var(--g-card);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+      <div class="photo" style="height:200px;display:flex;align-items:flex-end;padding:12px"><span class="mono" style="font-size:11px;color:var(--g-ink-3)">PHOTO · laal maas, brass katori, bajra roti</span></div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px"><span role="img" aria-label="Non-vegetarian" style="width:14px;height:14px;border:1.5px solid #E08A5E;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid #E08A5E"></span></span><span style="font-size:13px;color:var(--g-ink-2)">Hot</span><span style="display:flex;gap:2px" aria-hidden="true"><span style="width:4px;height:11px;border-radius:2px;background:var(--g-late)"></span><span style="width:4px;height:11px;border-radius:2px;background:var(--g-late)"></span><span style="width:4px;height:11px;border-radius:2px;background:var(--g-late)"></span></span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><h2 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:24px">Laal maas</h2><span class="mono" style="font-size:17px">₹1,150</span></div>
+        <span style="font-size:14px;color:var(--g-ink-2);line-height:1.45">Mutton, Mathania chillies, smoked ghee. Two bajre ki roti, garlic chutney.</span>
+      </div>
+    </a>
+  </section>
+
+  <!-- Rooftop -->
+  <section id="roof" style="padding:32px 20px 0;display:flex;flex-direction:column;gap:12px">
+    <span class="eyebrow">From the rooftop</span>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+      <article style="background:var(--g-card);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div class="photo" style="height:104px"></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Vegetarian" style="width:12px;height:12px;border:1.5px solid #6FBF8A;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:5px;height:5px;border-radius:50%;background:#6FBF8A"></span></span><span style="font-size:12px;color:var(--g-ink-2)">Medium</span></div>
+          <h3 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1.2">Mirchi vada</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="mono" style="font-size:15px">₹320</span><button aria-label="Add mirchi vada" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button></div>
+        </div>
+      </article>
+      <article style="background:var(--g-card);border-radius:10px;overflow:hidden;display:flex;flex-direction:column">
+        <div class="photo" style="height:104px"></div>
+        <div style="padding:12px;display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Non-vegetarian" style="width:12px;height:12px;border:1.5px solid #E08A5E;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-bottom:6px solid #E08A5E"></span></span><span style="font-size:12px;color:var(--g-ink-2)">Medium</span></div>
+          <h3 style="margin:0;font-family:var(--f-display);font-weight:400;font-size:18px;line-height:1.2">Soola chicken</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="mono" style="font-size:15px">₹890</span><span style="display:flex;align-items:center;gap:0;border:1px solid var(--g-accent);border-radius:4px;height:44px"><span class="mono" style="width:32px;text-align:center;color:var(--g-accent)">1</span></span></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Mains -->
+  <section id="mains" style="padding:32px 20px 0;display:flex;flex-direction:column">
+    <span class="eyebrow" style="margin-bottom:6px">Mains</span>
+    <div style="display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--g-line)">
+      <div class="photo" style="width:72px;height:72px;border-radius:4px"></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Vegetarian" style="width:12px;height:12px;border:1.5px solid #6FBF8A;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:5px;height:5px;border-radius:50%;background:#6FBF8A"></span></span><span style="font-family:var(--f-display);font-size:18px">Dal baati churma</span></span><span style="font-size:13px;color:var(--g-ink-2)">Panchmel dal, ghee-dunked baati</span><span class="mono" style="font-size:14px">₹780</span></div>
+      <button aria-label="Add dal baati churma" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button>
+    </div>
+    <div style="display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--g-line)">
+      <div class="photo" style="width:72px;height:72px;border-radius:4px"></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Vegetarian" style="width:12px;height:12px;border:1.5px solid #6FBF8A;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:5px;height:5px;border-radius:50%;background:#6FBF8A"></span></span><span style="font-family:var(--f-display);font-size:18px">Ker sangri</span></span><span style="font-size:13px;color:var(--g-ink-2)">Desert berries and beans, dried lime</span><span class="mono" style="font-size:14px">₹640</span></div>
+      <button aria-label="Add ker sangri" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button>
+    </div>
+    <div style="display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--g-line)">
+      <div class="photo" style="width:72px;height:72px;border-radius:4px"></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Vegetarian" style="width:12px;height:12px;border:1.5px solid #6FBF8A;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:5px;height:5px;border-radius:50%;background:#6FBF8A"></span></span><span style="font-family:var(--f-display);font-size:18px">Gatte ki sabzi</span></span><span style="font-size:13px;color:var(--g-ink-2)">Gram-flour dumplings, curd gravy</span><span class="mono" style="font-size:14px">₹590</span></div>
+      <button aria-label="Add gatte ki sabzi" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button>
+    </div>
+    <div style="display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:14px;align-items:center;padding:14px 0;border-bottom:1px solid var(--g-line);opacity:.6">
+      <div class="photo" style="width:72px;height:72px;border-radius:4px;filter:grayscale(1)"></div>
+      <div style="display:flex;flex-direction:column;gap:2px"><span style="display:flex;align-items:center;gap:6px"><span role="img" aria-label="Non-vegetarian" style="width:12px;height:12px;border:1.5px solid #E08A5E;border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="width:0;height:0;border-left:3.5px solid transparent;border-right:3.5px solid transparent;border-bottom:6px solid #E08A5E"></span></span><span style="font-family:var(--f-display);font-size:18px">Safed maas</span></span><span style="font-size:13px;color:var(--g-ink-2)">Back tomorrow at noon</span><span class="mono" style="font-size:14px;text-decoration:line-through">₹1,250</span></div>
+      <span style="font-size:13px;color:var(--g-ink-2);border:1px solid var(--g-line);padding:4px 10px;border-radius:999px">Sold out today</span>
+    </div>
+  </section>
+
+  <!-- After 10pm -->
+  <section id="late" style="padding:32px 20px 0;display:flex;flex-direction:column;gap:12px">
+    <div style="background:var(--g-surface);border:1px solid var(--g-line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="eyebrow">After 10pm</span><span style="font-size:13px;color:var(--g-accent)">20% off from 10pm</span></div>
+      <span style="font-size:14px;color:var(--g-ink-2)">A short night menu, till 2am. Lighter, sweeter.</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid var(--g-line);padding-top:10px"><span style="font-size:16px">Makhaniya lassi</span><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="font-size:14px">₹260</span><button aria-label="Add makhaniya lassi" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid var(--g-line);padding-top:10px"><span style="display:flex;flex-direction:column"><span style="font-size:16px">Ghewar, rabri</span><span style="font-size:12px;color:var(--g-late)">4 left today</span></span><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="font-size:14px">₹420</span><button aria-label="Add ghewar" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button></span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;min-height:44px;border-top:1px solid var(--g-line);padding-top:10px"><span style="font-size:16px">Kesar masala chai</span><span style="display:flex;gap:12px;align-items:center"><span class="mono" style="font-size:14px">₹180</span><button aria-label="Add masala chai" style="width:44px;height:44px;border:1px solid var(--g-accent);background:transparent;color:var(--g-accent);border-radius:4px;font-size:20px">+</button></span></div>
+    </div>
+  </section>
+
+  <div style="height:120px"></div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 20px 34px;background:var(--g-page);border-top:1px solid var(--g-line)">
+    <a href="GuestCart.dc.html" style="text-decoration:none;height:56px;border-radius:4px;background:var(--g-accent);color:var(--g-on-accent);display:flex;align-items:center;justify-content:space-between;padding:0 20px;font-weight:600;font-size:16px">
+      <span>2 dishes</span><span>Review order</span><span class="mono">₹2,040</span>
+    </a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1480}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { decideCheckout, type DeskCheckoutState } from '../checkouts/actions';
-import { checkOutGuest, type DeskState } from '../rooms/actions';
 import styles from './desk.module.css';
 
 /**
@@ -104,8 +103,12 @@ export function DeskPanel({
                 Guest profile
               </Link>
             ) : null}
+            {/* Checking out is the bill screen (D-095): the whole bill,
+                settled, then closed — never a button pressed blind. */}
             {permissions.checkOut ? (
-              <CheckOut propertyId={propertyId} stayId={stay.id} room={room.number} />
+              <Link href={`/admin/checkouts/${stay.id}`} className={styles.panelButton}>
+                Bill and check out
+              </Link>
             ) : null}
           </div>
         ) : null}
@@ -338,32 +341,3 @@ function DecideButton({
   );
 }
 
-function CheckOut({
-  propertyId,
-  stayId,
-  room,
-}: {
-  propertyId: string;
-  stayId: string;
-  room: string;
-}) {
-  const [state, action] = useActionState<DeskState, FormData>(checkOutGuest, {});
-
-  return (
-    <form action={action} className={styles.checkOutForm}>
-      <input type="hidden" name="propertyId" value={propertyId} />
-      <input type="hidden" name="stayId" value={stayId} />
-      <CheckOutButton room={room} />
-      {state.error ? <span className={styles.error} role="alert">{state.error}</span> : null}
-    </form>
-  );
-}
-
-function CheckOutButton({ room }: { room: string }) {
-  const { pending } = useFormStatus();
-  return (
-    <button type="submit" className={styles.panelButton} disabled={pending}>
-      {pending ? '…' : `Check out ${room}`}
-    </button>
-  );
-}

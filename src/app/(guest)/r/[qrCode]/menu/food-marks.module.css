@@ -1,0 +1,94 @@
+/*
+ * The FSSAI square and the heat strokes (Direction A, Components board).
+ * Guest tokens only. Veg reads --g-ready and non-veg --g-late: the two tones
+ * the theme file guarantees against a card, in every one of the five themes.
+ */
+.marks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 16px;
+}
+.marks[data-size='sm'] { gap: 6px; }
+
+/* ── The square ─────────────────────────────────────────────────────────── */
+.diet {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: var(--radius-xs);
+  box-sizing: border-box;
+}
+.diet[data-size='md'] { width: 14px; height: 14px; }
+
+.diet[data-diet='veg'] { color: var(--g-ready); }
+.diet[data-diet='nonveg'] { color: var(--g-late); }
+
+/* A dot for vegetarian… */
+.diet[data-diet='veg'] .dietInner {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.diet[data-diet='veg'][data-size='md'] .dietInner { width: 6px; height: 6px; }
+
+/* …a triangle for non-vegetarian. Shape carries the meaning. */
+.diet[data-diet='nonveg'] .dietInner {
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-bottom: 6px solid currentColor;
+}
+.diet[data-diet='nonveg'][data-size='md'] .dietInner {
+  border-left-width: 4px;
+  border-right-width: 4px;
+  border-bottom-width: 7px;
+}
+
+/* ── Heat ───────────────────────────────────────────────────────────────── */
+.heat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.heatWord {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--g-ink-2);
+}
+.marks[data-size='md'] .heatWord { font-size: 13px; }
+
+.strokes {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.stroke {
+  width: 4px;
+  height: 11px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--g-ink-3);
+  box-sizing: border-box;
+}
+.stroke[data-on='true'] {
+  background: var(--g-late);
+  border-color: var(--g-late);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

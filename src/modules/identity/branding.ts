@@ -2,6 +2,7 @@ import { colord, extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import mixPlugin from 'colord/plugins/mix';
 import { ValidationError } from '@/lib/errors';
+import { isMediaPath } from '@/modules/media/paths';
 
 extend([a11yPlugin, mixPlugin]);
 
@@ -23,43 +24,67 @@ extend([a11yPlugin, mixPlugin]);
  * will sit on, is the whole of what can be offered without a designer.
  */
 
+/**
+ * The five guest themes in design/tokens/innstant-themes.css (D-100). A
+ * property picks one; its colours are the token file's, each checked for AA
+ * there and in theme-tokens.test.ts. The key is what `data-guest-theme`
+ * carries, and the console's accent follows it through `data-accent`.
+ */
+export const GUEST_THEMES = [
+  { key: 'kesari', name: 'Kesari Night', origin: 'Udaipur · indigo and saffron' },
+  { key: 'pichola', name: 'Pichola Lake', origin: 'Lakeside · deep water, silver-green' },
+  { key: 'gulabi', name: 'Gulabi', origin: 'Jaipur · rose plum and pink' },
+  { key: 'mehendi', name: 'Mehendi', origin: 'Garden · henna green and lime' },
+  { key: 'sandstone', name: 'Jaisalmer Sandstone', origin: 'Desert · the daylight theme' },
+] as const;
+
+export type GuestThemeKey = (typeof GUEST_THEMES)[number]['key'];
+
+export const DEFAULT_GUEST_THEME: GuestThemeKey = 'kesari';
+
+export function isGuestTheme(value: unknown): value is GuestThemeKey {
+  return GUEST_THEMES.some((theme) => theme.key === value);
+}
+
 export interface PropertyBranding {
-  /** `#RRGGBB`. Null keeps the theme's saffron. */
+  /** One of GUEST_THEMES. Every colour on the guest's screens follows it. */
+  theme: GuestThemeKey;
+  /**
+   * A theme picked on the Branding screen and not yet published (D-102).
+   * Guests never see it — nothing on a guest screen reads this field — and
+   * it is null whenever it would equal `theme`, so "is there a draft" is one
+   * null check rather than a comparison every caller has to remember.
+   */
+  draftTheme: GuestThemeKey | null;
+  /**
+   * `#RRGGBB`, from before themes (D-087). Only honoured on Kesari, the theme
+   * it was checked against; any other theme brings its own accent. Read for
+   * the properties that have one; no screen offers it any more (D-102), and
+   * publishing a theme clears it, so what the preview shows is what goes live.
+   */
   accent: string | null;
-  /** https only. Shown in place of the wordmark on the guest home. */
+  /** An upload's `/media/...` path, or an https URL pasted before uploads.
+   *  Shown in place of the wordmark on the guest home. */
   logoUrl: string | null;
-  /** https only. Behind the arch on the guest home. */
+  /** An upload's path or an https URL. Behind the arch on the guest home. */
   coverUrl: string | null;
 }
 
-export const NO_BRANDING: PropertyBranding = { accent: null, logoUrl: null, coverUrl: null };
+export const NO_BRANDING: PropertyBranding = {
+  theme: DEFAULT_GUEST_THEME, draftTheme: null, accent: null, logoUrl: null, coverUrl: null,
+};
 
 /**
- * Accents offered as one tap on the Branding screen. Data, not styling: each
- * is a choice a hotel makes, every one passes `cleanBranding` (asserted in
- * branding.test.ts), and the first is the theme's own saffron.
+ * The Kesari guest theme's page, card and two inks, as
+ * design/tokens/innstant-themes.css declares them (D-100). Duplicated by
+ * necessity — the check runs on the server, before any stylesheet — and
+ * `branding.test.ts` reads the token file to keep them in step, the same
+ * arrangement the layout's `themeColor` has with theme-discipline.test.ts.
  */
-export const BRAND_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
-  { name: 'Saffron', hex: '#E9A227' },
-  { name: 'Marigold', hex: '#F2C14E' },
-  { name: 'Coral', hex: '#F08A6C' },
-  { name: 'Rose', hex: '#E58BA8' },
-  { name: 'Lagoon', hex: '#5FC4B8' },
-  { name: 'Sky', hex: '#7FB5F0' },
-  { name: 'Lilac', hex: '#B49AF0' },
-  { name: 'Sage', hex: '#A8C686' },
-];
-
-/**
- * The guest app's ground and its two inks, as `[data-theme='kesari']` declares
- * them. Duplicated by necessity — the check runs on the server, before any
- * stylesheet — and `branding.test.ts` reads theme.css to keep them in step, the
- * same arrangement the layout's `themeColor` has with theme-discipline.test.ts.
- */
-export const GUEST_GROUND = '#101E33';
+export const GUEST_GROUND = '#0A1220';
 export const GUEST_CARD = '#1B2B45';
-export const GUEST_INK_DARK = '#101E33';
-export const GUEST_INK_LIGHT = '#E3E5DB';
+export const GUEST_INK_DARK = '#1A1206';
+export const GUEST_INK_LIGHT = '#F4ECDD';
 
 /** WCAG 2.2: 3:1 for a component and its large text, 4.5:1 for body text. */
 const ON_GROUND_MIN = 3;
@@ -72,8 +97,12 @@ export function readBranding(raw: unknown): PropertyBranding {
   const accent = typeof value.accent === 'string' && HEX.test(value.accent)
     ? value.accent.toUpperCase()
     : null;
-  const url = (v: unknown) => (typeof v === 'string' && isHttpsUrl(v) ? v : null);
-  return { accent, logoUrl: url(value.logoUrl), coverUrl: url(value.coverUrl) };
+  const url = (v: unknown) => (typeof v === 'string' && (isMediaPath(v) || isHttpsUrl(v)) ? v : null);
+  const theme = isGuestTheme(value.theme) ? value.theme : DEFAULT_GUEST_THEME;
+  const draftTheme = isGuestTheme(value.draftTheme) && value.draftTheme !== theme
+    ? value.draftTheme
+    : null;
+  return { theme, draftTheme, accent, logoUrl: url(value.logoUrl), coverUrl: url(value.coverUrl) };
 }
 
 /**
@@ -82,8 +111,17 @@ export function readBranding(raw: unknown): PropertyBranding {
  * darkening somebody's brand colour is a decision about their brand.
  */
 export function cleanBranding(input: {
+  theme?: string | null; draftTheme?: string | null;
   accent?: string | null; logoUrl?: string | null; coverUrl?: string | null;
 }): PropertyBranding {
+  const theme = input.theme?.trim() || DEFAULT_GUEST_THEME;
+  if (!isGuestTheme(theme)) {
+    throw new ValidationError(`There is no guest theme called "${theme}".`);
+  }
+  const draft = input.draftTheme?.trim() || null;
+  if (draft !== null && !isGuestTheme(draft)) {
+    throw new ValidationError(`There is no guest theme called "${draft}".`);
+  }
   const accent = input.accent?.trim() ? input.accent.trim() : null;
   if (accent) {
     if (!HEX.test(accent)) {
@@ -106,6 +144,9 @@ export function cleanBranding(input: {
   }
 
   return {
+    theme,
+    // A draft of the theme already live is no draft at all.
+    draftTheme: draft === theme ? null : draft,
     accent: accent ? accent.toUpperCase() : null,
     logoUrl: cleanUrl(input.logoUrl, 'The logo'),
     coverUrl: cleanUrl(input.coverUrl, 'The cover photo'),
@@ -146,7 +187,7 @@ export function accentContrast(accent: string): AccentContrast {
  * Hover goes LIGHTER, as it does everywhere on the dark ground.
  */
 export function brandingStyle(branding: PropertyBranding): Record<string, string> {
-  if (!branding.accent) return {};
+  if (!branding.accent || branding.theme !== DEFAULT_GUEST_THEME) return {};
   const accent = colord(branding.accent);
   const hover = accent.mix('#FFFFFF', 0.18).toHex();
   const tint = accent.mix(GUEST_GROUND, 0.82).toHex();
@@ -178,11 +219,17 @@ function isHttpsUrl(value: string): boolean {
   }
 }
 
+/**
+ * An uploaded picture's path (`/media/<id>/<width>.webp`, D-093), or a full
+ * https URL — the second is what this took before uploads, and a logo pasted
+ * then keeps working. Whether an upload belongs to THIS property is the save
+ * action's check: it needs the database, and this module is pure.
+ */
 function cleanUrl(value: string | null | undefined, label: string): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
-  if (!isHttpsUrl(trimmed)) {
-    throw new ValidationError(`${label} needs a full https:// address.`);
+  if (!isMediaPath(trimmed) && !isHttpsUrl(trimmed)) {
+    throw new ValidationError(`${label} needs to be an uploaded picture or a full https:// address.`);
   }
   return trimmed;
 }

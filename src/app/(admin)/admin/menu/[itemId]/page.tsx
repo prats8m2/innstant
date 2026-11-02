@@ -7,6 +7,7 @@ import {
   MENU_DIETARY_FLAGS,
 } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
+import { mediaUploadsAvailable } from '@/modules/media';
 import { DishForm } from '../dish-form';
 import { DishHistory } from '../dish-history';
 import styles from '../../admin.module.css';
@@ -59,6 +60,7 @@ export default async function EditDish({
       </p>
 
       <DishForm
+        uploads={mediaUploadsAvailable()}
         propertyId={propertyId}
         outletId={menu.outlet.id}
         currency={menu.outlet.currency}

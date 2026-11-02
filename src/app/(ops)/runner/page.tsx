@@ -2,12 +2,13 @@ import { withTenant } from '@/db';
 import { redirect } from 'next/navigation';
 import { getStaffSession } from '@/lib/auth-context';
 import { requestPathname } from '@/lib/request-path';
-import { can, findProperty, listFloors } from '@/modules/identity';
+import { can, consoleChrome, findProperty, listFloors } from '@/modules/identity';
 import { getInRoomDiningOutletConfig } from '@/modules/catalog';
 import { runnerTickets, runnerDay } from '@/modules/ordering';
 import { getOpenRequests } from '@/modules/requests';
 import { getCurrentShift } from '@/modules/housekeeping';
-import { FloorHeader, OffShiftNotice } from '../floor-header';
+import { FloorFrame, FloorHeader, OffShiftNotice } from '../floor-header';
+import { isNight } from '../night';
 import { PickupQueue } from './pickup-queue';
 import { LiveQueue } from './live-queue';
 import styles from './runner.module.css';
@@ -28,8 +29,12 @@ import styles from './runner.module.css';
  * Clocking in used to live only on `/housekeeping`, which meant a runner whose
  * shift had lapsed saw an empty queue with nothing explaining it. The header is
  * shared by both floor screens now, and an off-shift runner is told so rather
- * than shown a blank page — the requests board has always said this and the
- * pickup queue never did.
+ * than shown a blank page.
+ *
+ * ─── Direction A (D-100) ───────────────────────────────────────────────────
+ *
+ * Console tokens, dark from 19:00 on the hotel's clock, in the property's
+ * accent. Live — so no `loading.tsx` beside it (D-099).
  */
 export const dynamic = 'force-dynamic';
 
@@ -68,14 +73,16 @@ export default async function RunnerApp() {
 
   const maySeeRequests = can(session, propertyId, 'request:read');
 
-  const { property, outlet, tickets, floors, shift, myRequests, myDay } = await withTenant(
+  const { property, chrome, outlet, tickets, floors, shift, myRequests, myDay } = await withTenant(
     { tenantId: session.tenantId, propertyId },
     async (tx) => {
       const found = await getInRoomDiningOutletConfig(tx, propertyId);
       const here = await findProperty(tx, propertyId);
       return {
         property: here,
-        // D-089: the strip at the top — what this runner has carried today.
+        // The accent (the property's guest theme) and the role names.
+        chrome: await consoleChrome(tx, { propertyId, staffUserId: session.staffUserId }),
+        // D-089: what this runner has carried today.
         myDay: await runnerDay(tx, {
           propertyId, staffUserId: session.staffUserId, timeZone: here?.timezone ?? 'Asia/Kolkata',
         }),
@@ -107,59 +114,68 @@ export default async function RunnerApp() {
 
   const carrying = tickets.filter((t) => t.status === 'OUT_FOR_DELIVERY').length;
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const renderedAt = Date.now();
 
   return (
-    <main className={styles.shell}>
-      <FloorHeader
-        propertyId={propertyId}
-        staffUserId={session.staffUserId}
-        fullName={session.fullName}
-        shift={shift}
-        floors={floors}
-        timeZone={timeZone}
-        mayClock={can(session, propertyId, 'shift:clock')}
-        current="/runner"
-        tabs={[
-          { href: '/runner', label: 'Pickups', count: tickets.length },
-          ...(maySeeRequests
-            ? [{ href: '/housekeeping', label: 'Requests', count: myRequests }]
-            : []),
-        ]}
-      />
+    <FloorFrame
+      className={styles.frame}
+      /* Resolved here: a phone opened at 23:00 must not flash white first. */
+      initialScheme={isNight(renderedAt, timeZone) ? 'dark' : 'light'}
+      timeZone={timeZone}
+      theme={chrome.theme}
+    >
+      <main className={styles.shell}>
+        <FloorHeader
+          propertyId={propertyId}
+          staffUserId={session.staffUserId}
+          fullName={session.fullName}
+          role={chrome.roleNames.join(' · ') || 'Runner'}
+          stat={{
+            value: myDay.delivered,
+            label: myDay.delivered === 1 ? 'handover today' : 'handovers today',
+          }}
+          shift={shift}
+          floors={floors}
+          timeZone={timeZone}
+          renderedAt={renderedAt}
+          mayClock={can(session, propertyId, 'shift:clock')}
+          current="/runner"
+          tabs={[
+            { href: '/runner', label: 'Pickups', count: tickets.length },
+            ...(maySeeRequests
+              ? [{ href: '/housekeeping', label: 'Requests', count: myRequests }]
+              : []),
+          ]}
+        />
 
-      <div className={styles.bar}>
-        <h1 className={styles.title}>Trays</h1>
-        <span className={`${styles.count} tabular`}>
-          {tickets.length - carrying} waiting
-          {carrying ? ` · ${carrying} out` : ''}
-        </span>
-        <LiveQueue propertyId={propertyId} />
-      </div>
-
-      {/* A tray is handed to whoever is standing at the pass, so the queue is
-          still shown off shift — what changes is that nothing is ROUTED to
-          them, and the notice says so rather than leaving a quiet screen. */}
-      {shift ? null : <OffShiftNotice />}
-
-      {/* Your run today. Two numbers, because a runner asks "how many have I
-          done" and "am I quick", and nothing else on this screen says either. */}
-      <dl className={styles.myDay}>
-        <div>
-          <dt>Handed over today</dt>
-          <dd className="tabular">{myDay.delivered}</dd>
+        <div className={styles.bar}>
+          <div className={styles.barText}>
+            <h1 className={styles.title}>Trays</h1>
+            <span className={`${styles.count} tabular`}>
+              <span>{tickets.length - carrying} waiting</span>
+              {carrying ? <span>{`· ${carrying} out`}</span> : null}
+              {/* Pass to door (D-089): "am I quick" — nothing else here says it. */}
+              {myDay.averageMinutesToDoor != null
+                ? <span>{`· ${myDay.averageMinutesToDoor} min to the door`}</span>
+                : null}
+            </span>
+          </div>
+          <LiveQueue propertyId={propertyId} />
         </div>
-        <div>
-          <dt>Pass to door</dt>
-          <dd className="tabular">{myDay.averageMinutesToDoor == null ? '—' : `${myDay.averageMinutesToDoor} min`}</dd>
-        </div>
-      </dl>
 
-      <PickupQueue
-        propertyId={propertyId}
-        staffUserId={session.staffUserId}
-        tickets={tickets}
-        renderedAt={Date.now()}
-      />
-    </main>
+        {/* A tray is handed to whoever is standing at the pass, so the queue is
+            still shown off shift — what changes is that nothing is ROUTED to
+            them, and the notice says so rather than leaving a quiet screen. */}
+        {shift ? null : <OffShiftNotice />}
+
+        <PickupQueue
+          propertyId={propertyId}
+          staffUserId={session.staffUserId}
+          tickets={tickets}
+          timeZone={timeZone}
+          renderedAt={renderedAt}
+        />
+      </main>
+    </FloorFrame>
   );
 }

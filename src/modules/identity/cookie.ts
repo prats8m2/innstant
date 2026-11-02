@@ -16,7 +16,13 @@ export const SESSION_TTL_HOURS = 12;
 export const SESSION_COOKIE_OPTIONS = {
   httpOnly: true,
   sameSite: 'lax' as const,
-  secure: process.env.NODE_ENV === 'production',
+  // Secure when the app is served over https — the rule in
+  // src/lib/cookie-security.ts, written out here because this file takes no
+  // imports. WebKit drops a Secure cookie on http://localhost, which is where
+  // CI serves its production build.
+  secure: process.env.APP_URL
+    ? process.env.APP_URL.startsWith('https://')
+    : process.env.NODE_ENV === 'production',
   path: '/',
   maxAge: SESSION_TTL_HOURS * 3600,
 };

@@ -16,9 +16,13 @@ import styles from './brand-scope.module.css';
  * redeclares the accent tokens for everything under it — see `brandingStyle()`
  * for why the aliases are redeclared too, not only the primitive.
  *
- * `display: contents`: it must not become a box. Every guest page's own `main`
- * is the layout, and a wrapper that took part in it would shift the fixed
- * order bar and the sticky headers.
+ * It also carries the property's guest theme (D-100): `data-guest-theme`
+ * picks the --g-* colours, and `data-theme="kesari"` is repeated here so
+ * theme.css's role names recompute from them on THIS element — a var()
+ * resolves where it is declared, and the layout's own data-theme sits above
+ * the theme choice. So this is a box now, not `display: contents`: it paints
+ * the theme's page colour over the layout's default one. It adds no padding
+ * or positioning, so the fixed order bar and the sticky headers are unmoved.
  *
  * No session (the scan redirect, an expired cookie) is the theme's own
  * saffron, never an error: branding is cosmetic and must not stand between a
@@ -27,7 +31,12 @@ import styles from './brand-scope.module.css';
 export async function BrandScope({ children }: { children: React.ReactNode }) {
   const branding = await guestBranding();
   return (
-    <div className={styles.scope} style={brandingStyle(branding) as React.CSSProperties}>
+    <div
+      data-theme="kesari"
+      data-guest-theme={branding.theme}
+      className={styles.scope}
+      style={brandingStyle(branding) as React.CSSProperties}
+    >
       {children}
     </div>
   );

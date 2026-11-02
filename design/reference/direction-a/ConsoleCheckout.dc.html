@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console checkout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.btn{height:36px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:500;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent-text)}
+</style>
+</helmet>
+<div style="{{root}}">
+
+  <nav aria-label="Console" style="flex:1 1 248px;max-width:100%;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+    <button style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);text-align:left;margin-bottom:10px">
+      <span style="width:32px;height:32px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="18" viewBox="0 0 200 260" aria-hidden="true"><path d="M10 260 V110 C10 60 55 32 100 10 C145 32 190 60 190 110 V260" fill="none" stroke="var(--accent-fg)" stroke-width="20"></path></svg></span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-family:'Marcellus',serif;font-size:15px">The Kesari</span><span style="font-size:12px;color:var(--text-3)">Udaipur · 34 rooms</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:14px;margin-bottom:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="flex:1">Search rooms, guests, orders</span><span class="mono" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:0 5px">⌘K</span></label>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <span class="lbl" style="padding:14px 10px 6px">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg><span>{{n.label}}</span><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if></a>
+      </sc-for>
+    </sc-for>
+  </nav>
+
+  <div style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column">
+    <header style="min-height:60px;padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--border);background:var(--surface);display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <a href="ConsoleRooms.dc.html" style="font-size:14px;color:var(--text-3);text-decoration:none">Leaving</a><span style="color:var(--text-3)">/</span><span style="font-size:14px;font-weight:600"><span class="mono">214</span> Camille Laurent</span>
+      <span style="flex:1"></span>
+      <button class="btn">Email invoice</button>
+      <button class="btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"></path></svg>Print invoice</button>
+    </header>
+
+    <main style="padding:24px clamp(16px,3vw,32px) 40px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:4px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em">Check out room <span class="mono">214</span></h1><span style="font-size:14px;color:var(--text-2)">Jharokha Suite · Mon 2 – Thu 5 Nov · 3 nights · due out <b>Thu, 1pm</b> · late checkout approved</span></div>
+        <ol aria-label="Checkout steps" style="list-style:none;margin:0;padding:0;display:flex;gap:6px;align-items:center;font-size:13px">
+          <li style="display:flex;align-items:center;gap:6px;color:var(--pos);font-weight:600"><span style="width:22px;height:22px;border-radius:50%;background:var(--pos-soft);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg></span>Review bill</li>
+          <li aria-hidden="true" style="width:24px;height:1px;background:var(--border-strong)"></li>
+          <li aria-current="step" style="display:flex;align-items:center;gap:6px;color:var(--text);font-weight:600"><span class="mono" style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-size:12px">2</span>Take payment</li>
+          <li aria-hidden="true" style="width:24px;height:1px;background:var(--border-strong)"></li>
+          <li style="display:flex;align-items:center;gap:6px;color:var(--text-3)"><span class="mono" style="width:22px;height:22px;border-radius:50%;border:1px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:12px">3</span>Check out</li>
+        </ol>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+        <section aria-label="Bill" class="card" style="flex:999 1 480px;min-width:0;overflow:hidden">
+          <sc-for list="{{groupsBill}}" as="b" hint-placeholder-count="7">
+            <div style="border-bottom:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;background:var(--surface-2)"><span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>{{b.name}} <span style="font-weight:400;color:var(--text-3)">{{b.count}}</span></span><span class="mono" style="font-size:14px;font-weight:500;color:{{b.color}}">{{b.total}}</span></div>
+              <sc-for list="{{b.lines}}" as="l" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;padding:10px 20px 10px 42px;border-top:1px solid var(--border);font-size:14px"><span style="display:flex;flex-direction:column"><span>{{l.t}}</span><span style="font-size:12.5px;color:var(--text-3)">{{l.sub}}</span></span><span class="mono" style="color:{{l.color}}">{{l.amt}}</span></div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:16px 20px"><span style="font-size:15px;font-weight:600">Total for the stay</span><span class="mono" style="font-size:20px;font-weight:500">₹80,917</span></div>
+        </section>
+
+        <aside style="flex:1 1 340px;max-width:100%;display:flex;flex-direction:column;gap:16px">
+          <section class="card" style="padding:20px;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:14px">
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Total</span><span class="mono">₹80,917</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">Card ••4417 · at booking</span><span class="mono" style="color:var(--pos)">−₹40,000</span></div>
+              <div style="display:flex;justify-content:space-between"><span style="color:var(--text-2)">UPI · Tue</span><span class="mono" style="color:var(--pos)">−₹10,000</span></div>
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;color:var(--text-2);font-weight:500">Balance due</span><span class="mono" style="font-size:40px;font-weight:500;letter-spacing:-.03em;line-height:1.1">₹30,917</span></div>
+            <fieldset style="border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
+              <legend class="lbl" style="margin-bottom:8px">Take payment by</legend>
+              <sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+                <label style="{{m.style}}"><input type="radio" name="method" checked="{{m.on}}" style="accent-color:var(--accent);width:16px;height:16px"><span style="display:flex;flex-direction:column;flex:1"><span style="font-size:14px;font-weight:600">{{m.label}}</span><span style="font-size:12.5px;color:var(--text-3)">{{m.sub}}</span></span></label>
+              </sc-for>
+            </fieldset>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text-2);font-weight:500">Amount<span style="display:flex;align-items:center;gap:6px;height:42px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface)"><span class="mono" style="color:var(--text-3)">₹</span><input class="mono" value="30,917" style="border:0;outline:0;background:transparent;color:var(--text);font-size:16px;flex:1;min-width:0"></span></label>
+            <button style="height:44px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:15px;font-weight:600">Send UPI request · <span class="mono">₹30,917</span></button>
+          </section>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+            <button class="btn">Add a charge</button>
+            <button class="btn" style="color:var(--crit);border-color:var(--crit)">Refund…</button>
+          </div>
+          <button disabled title="Settle the balance first" style="height:44px;border:1px dashed var(--border-strong);border-radius:6px;background:transparent;color:var(--text-3);font-size:14px">Check out · unlocks at ₹0 due</button>
+          <p style="margin:0;font-size:13px;color:var(--text-3);line-height:1.5">Need to let a guest leave owing? Use "Check out anyway" in the ⋯ menu. It lands in Left owing with your name on it.</p>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["light","dark"],"default":"light"},"theme":{"editor":"enum","options":["kesari","pichola","gulabi","mehendi","sandstone"],"default":"kesari"},"$preview":{"width":1440,"height":1200}}'>
+class Component extends DCLogic {
+  vars() {
+    const app = this.props.appearance ?? 'light';
+    const acc = { kesari:['#0F766E','#3FB6A8'], pichola:['#0E7490','#5BC0D8'], gulabi:['#A21CAF','#E08AF0'], mehendi:['#4D7C0F','#A8CC62'], sandstone:['#B45309','#E3A458'] }[this.props.theme ?? 'kesari'];
+    const L = { bg:'#F5F6F4', surface:'#FFFFFF', 'surface-2':'#F0F1EE', border:'#E3E5E1', 'border-strong':'#CFD3CD', text:'#16191B', 'text-2':'#4A5054', 'text-3':'#646A6E', pos:'#166534', 'pos-soft':'#DCF3E3', warn:'#92570A', 'warn-soft':'#FBEFD5', crit:'#B42318', 'crit-soft':'#FBE3E0', info:'#1D4ED8', 'info-soft':'#E3EAFC', accent:acc[0], 'accent-soft':acc[0]+'1A', 'accent-fg':'#FFFFFF', 'accent-text':acc[0], shadow:'0 1px 2px rgba(22,25,27,.05)' };
+    const D = { bg:'#0D1013', surface:'#14181C', 'surface-2':'#1B2025', border:'#262D33', 'border-strong':'#363E46', text:'#E9EDF0', 'text-2':'#AAB3BB', 'text-3':'#8D969E', pos:'#5CC98A', 'pos-soft':'rgba(92,201,138,.14)', warn:'#E5B04E', 'warn-soft':'rgba(229,176,78,.14)', crit:'#F2786B', 'crit-soft':'rgba(242,120,107,.15)', info:'#86A9F5', 'info-soft':'rgba(134,169,245,.14)', accent:acc[1], 'accent-soft':acc[1]+'29', 'accent-fg':'#0D1013', 'accent-text':acc[1], shadow:'none' };
+    const t = app === 'dark' ? D : L;
+    return Object.keys(t).map(k => '--' + k + ':' + t[k]).join(';') + ';color-scheme:' + app + ';min-height:100vh;background:var(--bg);color:var(--text);font-family:Mukta,system-ui,sans-serif;display:flex;flex-wrap:wrap';
+  }
+  nav(active) {
+    const I = { grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', desk:'M3 18h18M5 18a7 7 0 0 1 14 0M12 9V7M10 7h4', bed:'M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', out:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', menu:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20M19 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v7', req:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', brand:'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-2a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22ZM7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', mon:'M2 4h20v12H2zM8 20h8M12 16v4', chef:'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 9.18 0A4 4 0 0 1 18 13.87V21H6ZM6 17h12', run:'M5 12h14M13 6l6 6-6 6', hk:'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z' };
+    const G = [['Today',[['Overview','grid','ConsoleOverview.dc.html'],['Front desk','desk','ConsolePhone.dc.html'],['Rooms','bed','ConsoleRooms.dc.html'],['Leaving','out','ConsoleCheckout.dc.html','2','warn']]],
+      ['Service',[['Menu','menu','#'],['Requests','req','ConsoleRequests.dc.html','1 late','crit'],['Links','link','#']]],
+      ['Setup',[['Property & branding','brand','ConsoleBranding.dc.html'],['Staff','users','#']]],
+      ['Floor screens',[['Live floor','mon','#'],['Kitchen display','chef','Kitchen.dc.html'],['Runner','run','Runner.dc.html'],['Housekeeping','hk','Housekeeping.dc.html']]]];
+    return G.map(([label, items]) => ({ label, items: items.map(([l, ic, href, b, bt]) => { const on = l === active; return { label:l, d:I[ic], href, current: on ? 'page' : 'false', hasBadge: !!b, badge: b || '',
+      style: 'display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;font-size:14px;' + (on ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'color:var(--text-2)'),
+      badgeStyle: 'margin-left:auto;font-family:DM Mono,monospace;font-size:11px;padding:1px 7px;border-radius:999px;' + (bt === 'crit' ? 'background:var(--crit-soft);color:var(--crit)' : 'background:var(--warn-soft);color:var(--warn)') }; }) }));
+  }
+  renderVals() {
+    const ln = (t, sub, amt, neg) => ({ t, sub, amt, color: neg ? 'var(--pos)' : 'var(--text)' });
+    const grp = (name, total, lines, neg) => ({ name, total, count: lines.length + (lines.length === 1 ? ' item' : ' items'), lines, color: neg ? 'var(--pos)' : 'var(--text)' });
+    const groupsBill = [
+      grp('Room', '₹55,500', [ln('Jharokha Suite · 3 nights × ₹18,500', 'Mon, Tue, Wed', '₹55,500')]),
+      grp('Food and drink', '₹11,740', [ln('Dinner in room · #K-4821', 'Mon 8:42pm · laal maas, soola chicken', '₹2,160'), ln('Breakfast in room', 'Tue 8:10am', '₹1,480'), ln('Rooftop bar', 'Tue 7:30pm · signed by guest', '₹3,240'), ln("Chef Bhairav's table, for two", 'Wed 8:15pm', '₹4,860')]),
+      grp('Amenities', '₹1,200', [ln('Laundry · 6 pieces', 'Tue pickup', '₹1,200')]),
+      grp('Late checkout', '₹0', [ln('To 1pm, Thu', 'Approved by Rohan · on the house', '₹0')]),
+      grp('Other charges', '₹2,800', [ln('Airport transfer', 'Thu 2pm · Maharana Pratap Airport', '₹2,800')]),
+      grp('Taxes', '₹11,297', [ln('GST 18% on room', '', '₹9,990'), ln('GST 5% on food and drink', '', '₹587'), ln('GST 18% on laundry and transfer', '', '₹720')]),
+      grp('Discounts and corrections', '−₹1,620', [ln('Anniversary cake, on the house', 'Aditi · incl. GST', '−₹1,200', 1), ln('Ghewar charged twice, Tue', 'Farhan · correction', '−₹420', 1)], 1)
+    ];
+    const methods = [['UPI', 'Request to camille.l@okicici, or show the QR', 1], ['Card', 'Tap or insert on terminal 1', 0], ['Cash', 'Count it into the drawer', 0]].map(([label, sub, on]) => ({ label, sub, on: !!on,
+      style: 'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;' + (on ? 'border:2px solid var(--accent);background:var(--accent-soft)' : 'border:1px solid var(--border)') }));
+    return { root: this.vars(), groups: this.nav('Leaving'), groupsBill, methods };
+  }
+}
+</script>
+</body>
+</html>

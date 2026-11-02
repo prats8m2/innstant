@@ -3,41 +3,26 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * The mobile palette has not drifted from `theme.css`. D-080.
+ * The mobile palette has not drifted from the Kesari guest theme. D-080, D-100.
  *
  * `mobile/lib/theme.ts` is a HAND-KEPT copy — React Native has no CSS custom
- * properties and no `color-mix()`, so the web file cannot be consumed there,
- * and D-023 deliberately removed the token generator rather than keeping a
- * build step for one consumer.
- *
- * A copy with no test is a copy that drifts. This reads both files and asserts
- * that every colour the app names still equals the `[data-theme='kesari']`
- * primitive it was taken from. Change one without the other and this fails,
- * naming the value.
+ * properties and no `color-mix()`, so the token file cannot be consumed there.
+ * A copy with no test is a copy that drifts. This reads the token file's JSON
+ * mirror and asserts that every colour the app takes straight from a token
+ * still equals it.
  *
  * It lives in the WEB app's unit suite rather than the mobile package's
  * because this is where `pnpm test` runs on every change, and the failure that
- * matters is somebody editing theme.css — not somebody editing the app.
+ * matters is somebody editing the tokens — not somebody editing the app.
  */
+const TOKENS_JSON = join(process.cwd(), 'design/tokens/innstant-themes.json');
 const THEME_CSS = join(process.cwd(), 'src/styles/theme.css');
 const MOBILE_THEME = join(process.cwd(), 'mobile/lib/theme.ts');
 
-/** The primitives declared inside `[data-theme='kesari'] { … }`. */
-function kesariPrimitives(): Map<string, string> {
-  const css = readFileSync(THEME_CSS, 'utf8');
-  const start = css.indexOf("[data-theme='kesari']");
-  expect(start, 'theme.css must declare a [data-theme=\'kesari\'] block').toBeGreaterThan(-1);
-
-  // The first block only — `[data-theme='kesari'],` also appears later in the
-  // "Derived" grouping, and those are aliases rather than primitives.
-  const block = css.slice(start, css.indexOf('}', start));
-
-  const found = new Map<string, string>();
-  for (const line of block.split('\n')) {
-    const match = line.match(/^\s*(--[\w-]+):\s*([^;]+);/);
-    if (match) found.set(match[1]!, match[2]!.trim());
-  }
-  return found;
+function kesariTokens(): Record<string, string> {
+  return (JSON.parse(readFileSync(TOKENS_JSON, 'utf8')) as {
+    guest: Record<string, Record<string, string>>;
+  }).guest.kesari!;
 }
 
 /**
@@ -72,65 +57,38 @@ function mobileColors(): Map<string, string> {
   return found;
 }
 
-/** Which mobile name came from which CSS custom property. */
+/**
+ * Which mobile name is which Kesari token. The names left out (raised,
+ * lineSoft, lineFaint, accentHover, accentTint, the tints, the note pair) are
+ * color-mix() steps on the web and resolved literals here.
+ */
 const MAPPING: Record<string, string> = {
-  paperDeep: '--paper-deep',
-  paper: '--paper',
-  card: '--white',
-  raised: '--paper-raised',
-  line: '--line',
-  lineSoft: '--line-soft',
-  lineFaint: '--line-faint',
-  accent: '--teal-600',
-  accentHover: '--teal-700',
-  accentTint: '--teal-tint',
-  accentInk: '--accent-ink',
-  ink: '--ink',
-  inkSecondary: '--ink-secondary',
-  positive: '--status-positive',
-  attention: '--status-attention',
-  critical: '--status-critical',
-  attentionTint: '--status-attention-tint',
-  criticalTint: '--status-critical-tint',
-  noteBg: '--note-bg',
-  noteInk: '--note-ink',
+  paperDeep: 'g-page',
+  paper: 'g-page',
+  card: 'g-card',
+  line: 'g-line',
+  accent: 'g-accent',
+  accentInk: 'g-on-accent',
+  ink: 'g-ink',
+  inkSecondary: 'g-ink-2',
+  inkDim: 'g-ink-3',
+  inkFaint: 'g-ink-3',
+  positive: 'g-ready',
+  attention: 'g-accent',
+  critical: 'g-late',
 };
 
-describe('the mobile palette tracks theme.css', () => {
-  const css = kesariPrimitives();
+describe('the mobile palette tracks the Kesari guest theme', () => {
+  const tokens = kesariTokens();
   const app = mobileColors();
 
-  it.each(Object.entries(MAPPING))('%s matches %s', (mobileName, cssName) => {
-    const expected = css.get(cssName);
-    expect(expected, `${cssName} is missing from theme.css`).toBeDefined();
+  it.each(Object.entries(MAPPING))('%s matches --%s', (mobileName, token) => {
+    const expected = tokens[token];
+    expect(expected, `--${token} is missing from the Kesari theme`).toBeDefined();
     expect(
       app.get(mobileName)?.toUpperCase(),
-      `mobile/lib/theme.ts ${mobileName} has drifted from ${cssName}`,
+      `mobile/lib/theme.ts ${mobileName} has drifted from --${token}`,
     ).toBe(expected!.toUpperCase());
-  });
-
-  /**
-   * The two that are computed on the web and literal here.
-   *
-   * `--ink-dim` and `--ink-faint` are `color-mix(in srgb, var(--ink) N%,
-   * transparent)`, which RN cannot evaluate. The app stores the resolved rgba.
-   * This checks the PERCENTAGES still match — if somebody retunes the web's
-   * alpha, the app's literal is wrong and this says so.
-   */
-  it.each([
-    ['inkDim', '--ink-dim', 0.62],
-    ['inkFaint', '--ink-faint', 0.45],
-  ])('%s resolves theme.css %s', (mobileName, cssName, alpha) => {
-    const declared = css.get(cssName);
-    expect(declared, `${cssName} is missing`).toBeDefined();
-    expect(
-      declared,
-      `${cssName} is no longer a color-mix of --ink at ${alpha * 100}%`,
-    ).toMatch(new RegExp(`var\\(--ink\\)\\s+${alpha * 100}%`));
-
-    const ink = css.get('--ink')!;
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16));
-    expect(app.get(mobileName)).toBe(`rgba(${r}, ${g}, ${b}, ${alpha})`);
   });
 });
 

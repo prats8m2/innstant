@@ -3,7 +3,8 @@
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { decideCheckout, type DeskCheckoutState } from './actions';
-import styles from '../admin.module.css';
+import ui from '../rooms/controls.module.css';
+import l from './leaving.module.css';
 
 /**
  * The queue, and the two buttons that empty it.
@@ -32,22 +33,27 @@ export function CheckoutQueue({
   decided,
   mayDecide,
   mayOverride,
+  part = 'both',
 }: {
   propertyId: string;
   open: DeskRequestView[];
   decided: DeskRequestView[];
   mayDecide: boolean;
   mayOverride: boolean;
+  /** The Leaving page puts today's departures between the two (D-094). */
+  part?: 'waiting' | 'answered' | 'both';
 }) {
   return (
     <>
-      <section className={styles.section}>
-        <header className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Waiting</h2>
+      {part === 'answered' ? null : (
+      <section className={`${ui.card} ${l.section}`} aria-labelledby="late-waiting">
+        <header className={l.sectionHead}>
+          <h2 id="late-waiting" className={l.sectionTitle}>Late checkout · waiting <span className={`${l.sectionCount} tabular`}>{open.length}</span></h2>
+          <p className={l.sectionBlurb}>Oldest first. Approving moves their checkout and puts the fee on the bill.</p>
         </header>
 
         {open.length ? (
-          <ul className={styles.dishes}>
+          <ul className={l.rows}>
             {open.map((request) => (
               <Waiting
                 key={request.id}
@@ -59,36 +65,42 @@ export function CheckoutQueue({
             ))}
           </ul>
         ) : (
-          <p className={styles.sectionEmpty}>
+          <p className={l.sectionEmpty}>
             Nobody is waiting on an answer.
           </p>
         )}
       </section>
+      )}
 
-      {decided.length ? (
-        <section className={styles.section}>
-          <header className={styles.sectionHead}>
-            <h2 className={styles.sectionTitle}>Already answered</h2>
-            <p className={styles.sectionBlurb}>
+      {part !== 'waiting' && decided.length ? (
+        <section className={`${ui.card} ${l.section}`} aria-labelledby="late-answered">
+          <header className={l.sectionHead}>
+            <h2 id="late-answered" className={l.sectionTitle}>Already answered</h2>
+            <p className={l.sectionBlurb}>
               So a guest ringing down about one can be answered from this screen.
             </p>
           </header>
-          <ul className={styles.dishes}>
+          <ul className={l.rows}>
             {decided.map((request) => (
-              <li key={request.id} className={styles.dish}>
-                <span className={styles.dishBody}>
-                  <span className={styles.dishName}>
-                    Room {request.roomNumber} · {request.guestName}
+              <li key={request.id} className={l.ask}>
+                <span className={l.askWho}>
+                  <span className={l.askName}>
+                    Room <span className="tabular">{request.roomNumber}</span> · {request.guestName}
                   </span>
-                  <span className={styles.dishFlags}>
+                  <span className={l.meta}>
                     {request.status === 'APPROVED'
-                      ? `out at ${request.wants}`
-                      : `stayed at ${request.dueOut}`}
-                    {request.declineReason ? ` · “${request.declineReason}”` : null}
+                      ? <span className={ui.pill} data-tone="pos">Approved</span>
+                      : <span className={ui.pill} data-tone="neutral">Declined</span>}
+                    <span>
+                      {request.status === 'APPROVED'
+                        ? `out at ${request.wants}`
+                        : `stayed at ${request.dueOut}`}
+                    </span>
+                    {request.declineReason ? <span className={l.reason}>“{request.declineReason}”</span> : null}
                   </span>
                 </span>
-                <span className={`${styles.dishPrice} tabular`}>
-                  {request.status === 'APPROVED' ? request.charged ?? request.agreed : '—'}
+                <span className={`${l.askFee} tabular`}>
+                  {request.status === 'APPROVED' ? request.charged ?? request.agreed : <span className={l.askMuted}>—</span>}
                 </span>
               </li>
             ))}
@@ -113,52 +125,52 @@ function Waiting({
   const [state, action] = useActionState<DeskCheckoutState, FormData>(decideCheckout, {});
 
   return (
-    <li className={`${styles.dish} ${styles.typeRow}`}>
-      <span className={styles.dishBody}>
-        <span className={styles.dishName}>
-          Room {request.roomNumber} · {request.guestName}
+    <li className={l.ask}>
+      <span className={l.askWho}>
+        <span className={l.askName}>
+          Room <span className="tabular">{request.roomNumber}</span> · {request.guestName}
         </span>
-        <span className={styles.dishFlags}>
+        <span className={l.meta}>
           {request.isFree
             ? `leaving now · due out ${request.dueOut}`
             : `wants ${request.wants} · due out ${request.dueOut}`}
         </span>
       </span>
 
-      <span className={`${styles.dishPrice} tabular`}>{request.agreed}</span>
+      <span className={`${l.askFee} tabular`}>{request.agreed}</span>
 
       {mayDecide ? (
-        <form action={action} className={styles.checkoutDecide}>
+        <form action={action} className={l.decide} data-fee={mayOverride && !request.isFree ? undefined : 'none'}>
           <input type="hidden" name="propertyId" value={propertyId} />
           <input type="hidden" name="checkoutRequestId" value={request.id} />
 
           {mayOverride && !request.isFree ? (
-            <label className={styles.checkoutFee}>
-              <span className={styles.label}>Charge instead</span>
+            <label className={ui.field}>
+              <span className={ui.label}>Charge instead, ₹</span>
               <input
                 name="fee"
-                className={styles.input}
+                className={`${ui.input} tabular`}
                 inputMode="decimal"
                 placeholder={request.agreed.replace(/[^\d.]/g, '')}
                 aria-label={`Charge something other than ${request.agreed}`}
               />
               {/* 0 is a waiver, and the action treats it as one. */}
-              <span className={styles.hint}>Blank charges what they agreed. 0 waives it.</span>
+              <span className={ui.hint}>Blank charges what they agreed. 0 waives it.</span>
             </label>
           ) : null}
 
-          <label className={styles.checkoutReason}>
-            <span className={styles.label}>If you are saying no, why</span>
+          <label className={ui.field}>
+            <span className={ui.label}>If you are saying no, why</span>
             <input
               name="declineReason"
-              className={styles.input}
+              className={ui.input}
               maxLength={200}
               placeholder="The room is turning over for a 2pm arrival."
               aria-label="Reason, shown to the guest"
             />
           </label>
 
-          <span className={styles.checkoutButtons}>
+          <span className={l.decideButtons}>
             <Decide to="APPROVED" label="Approve" primary />
             <Decide to="DECLINED" label="Decline" />
           </span>
@@ -172,7 +184,7 @@ function Waiting({
             * desk looks back an hour later.
             */}
           {state.error ? (
-            <p className={styles.inlineError} role="alert">{state.error}</p>
+            <p className={`${ui.error} ${l.decideError}`} role="alert">{state.error}</p>
           ) : null}
         </form>
       ) : null}
@@ -202,7 +214,7 @@ function Decide({
       type="submit"
       name="to"
       value={to}
-      className={primary ? styles.primary : styles.secondary}
+      className={`${ui.btn} ${primary ? ui.primary : ''}`}
       disabled={pending}
     >
       {pending ? '…' : label}

@@ -1,31 +1,34 @@
 /*
- * The room home.
+ * The room home, Direction A (D-100) — design/reference/direction-a/GuestHome.dc.html.
  *
  * 390×844 is the design viewport. Mobile only — it centres rather than
- * stretching on a larger screen, because a guest app stretched to a desktop is
- * a guest app nobody designed.
+ * stretching on a larger screen.
  *
- * The ground, the type and the radii all come from `[data-theme='kesari']` in
- * theme.css, applied by `(guest)/layout.tsx`. Nothing here is a hex.
+ * Colour is the guest theme's --g-* tokens, read directly. The one exception
+ * is the accent: `--accent` / `--accent-ink`, which ARE --g-accent /
+ * --g-on-accent unless a Kesari property has set its own accent (D-087) —
+ * `brandingStyle()` redeclares the role names, not the token, so reading the
+ * token here would silently drop a hotel's chosen colour.
  */
 .shell {
   position: relative;
   min-height: 100dvh;
   max-width: 430px;
   margin-inline: auto;
-  /* The bottom padding clears the pinned button. */
-  padding: 0 var(--space-4) 148px;
+  /* 20px gutter; the bottom clears the pinned button and its line. */
+  padding: 0 var(--space-5) 152px;
+  background: var(--g-page);
+  color: var(--g-ink);
 }
 
-/* ── The masthead ─────────────────────────────────────────────────────── */
+/* ── Masthead ─────────────────────────────────────────────────────────── */
 
 .masthead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  height: 60px;
-  animation: riseIn var(--dur-slow) var(--ease-out) both;
+  height: 56px;
 }
 
 /* D-087: a hotel's logo, in the wordmark's place and at its height. */
@@ -38,227 +41,187 @@
 
 .logo {
   display: block;
-  max-height: 36px;
+  max-height: 32px;
   max-width: 180px;
   object-fit: contain;
 }
 
 .wordmark {
   margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text);
-  /* A long hotel name must not push the room chip off the screen — the chip is
-     the half that tells a guest the sticker they scanned was theirs. */
   min-width: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--g-ink);
+  /* A long hotel name must not push the room number off the screen — that is
+     the half that tells a guest the sticker they scanned was theirs. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.roomChip {
+.roomLink {
   flex: none;
-  margin: 0;
-  padding: 5px var(--space-3);
-  border-radius: var(--radius-xs);
-  background: var(--text);
-  color: var(--bg);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-1);
+  font-size: var(--text-md);
+  color: var(--g-ink-2);
+  text-decoration: none;
 }
 
-/* ── The arch ─────────────────────────────────────────────────────────────
-   A haveli doorway. The same curve returns on every dish thumbnail and on the
-   tracking screen; it is the product's one ornament and the strongest signal
-   that this is not a template.
+.roomLink:hover { color: var(--g-ink); }
 
-   The CARD carries the dome — a tall ellipse on the top corners, square at the
-   foot. What is inside it is an SVG (see the page), not the four stacked
-   radial-gradients this used to be: those were struck from below the box, so
-   at 398×180 they came out as huge flat circles that read as a record sleeve,
-   and a 45° hatch on top of them made it worse. */
-.arch {
+.roomNumber { color: var(--g-ink); }
+
+/* ── The arch and the greeting ────────────────────────────────────────── */
+
+.hero {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  padding-top: var(--space-1);
+}
+
+.archFrame {
   position: relative;
-  height: 180px;
-  overflow: hidden;
-  border-radius: 44% 44% var(--radius-md) var(--radius-md) / 30% 30% 0 0;
-  /* A half-step above the page, not a full one. At --surface-raised the card
-     was lighter than everything around it and the domed top read as a lid
-     sitting on the screen rather than as a recess cut into it. */
-  background: color-mix(in srgb, var(--surface) 55%, var(--bg));
-  animation: archIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 60ms;
+  flex: none;
+  width: 132px;
+  height: 172px;
 }
 
-/* D-087: a hotel's photograph behind the arch. Dimmed, because the kitchen's
-   state is written on top of it and the wash alone cannot rescue a bright
-   picture. */
-.archCover {
+/* The window inside the arch: the hotel's photograph, or lamplight. */
+.archPhoto {
   position: absolute;
-  inset: 0;
+  inset: 12px 9px 0;
+  overflow: hidden;
+  border-radius: 57px 57px 0 0;
+  background:
+    radial-gradient(
+      ellipse 90% 60% at 50% 100%,
+      color-mix(in srgb, var(--accent) 22%, transparent),
+      transparent 70%
+    ),
+    color-mix(in srgb, var(--g-card) 70%, var(--g-line));
+}
+
+.archCover {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.55;
 }
 
-.archArt {
+.archLine {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
+  overflow: visible;
 }
 
-/* Three weights, so the eye reads depth rather than three identical rings.
-   The innermost is the only one that carries the accent — it is the doorway
-   you are looking through. */
-.archOuter {
-  stroke: var(--text);
-  stroke-opacity: 0.1;
-  stroke-width: 1;
-}
-
-.archMid {
-  stroke: var(--text);
-  stroke-opacity: 0.16;
-  stroke-width: 1;
-}
-
-.archInner {
+/* 1.5 units in a 200-wide box drawn at 132px: a 1px line, as the board has
+   it. `pathLength="1"` on the path makes the draw-on one dash of length 1. */
+.archLine path {
+  fill: none;
   stroke: var(--accent);
-  stroke-opacity: 0.55;
-  stroke-width: 1.25;
+  stroke-width: 1.5;
+  stroke-dasharray: 1;
+  animation: draw var(--dur-slower) var(--ease) both;
 }
 
-/* Darkens the foot of the arch so the two lines sitting on it stay legible
-   whatever is drawn behind them. */
-.archWash {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    var(--paper-deep) 0%,
-    color-mix(in srgb, var(--paper-deep) 62%, transparent) 34%,
-    transparent 72%
-  );
+@keyframes draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
 }
 
-.archBody {
-  position: absolute;
-  left: var(--space-5);
-  right: var(--space-5);
-  bottom: var(--space-4);
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-bottom: 6px;
+  animation: rise var(--dur-mid) var(--ease) both;
 }
 
-.archEyebrow {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--status-positive);
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
-
-.archTitle {
-  margin: 4px 0 0;
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  line-height: 1.25;
-  color: var(--text);
-  text-wrap: pretty;
-}
-
-/* ── The greeting ─────────────────────────────────────────────────────── */
 
 .greeting {
-  margin-top: var(--space-6);
-  animation: riseIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 120ms;
-}
-
-.greetingText {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: 1.9375rem;
   font-weight: 400;
-  line-height: 1.15;
-  color: var(--text);
+  line-height: 1.08;
+  color: var(--g-ink);
+  overflow-wrap: anywhere;
 }
 
 .stayLine {
-  margin: 6px 0 0;
-  font-size: var(--text-base);
-  line-height: 1.5;
-  color: var(--text-muted);
-  text-wrap: pretty;
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  color: var(--g-ink-2);
 }
 
-/* ── The way back to an order ─────────────────────────────────────────────
-   Between the greeting and the tiles. The tiles are four doors; this is news,
-   and it only exists when there is some. */
+.checkout { white-space: nowrap; }
+
+/* ── The live strip ───────────────────────────────────────────────────── */
 
 .trail {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  color: var(--text);
-  animation: riseIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 150ms;
-  transition:
-    background var(--dur-base) var(--ease-out),
-    border-color var(--dur-base) var(--ease-out);
+  gap: 14px;
+  min-height: 64px;
+  margin-top: 22px;
+  padding: 14px var(--space-4);
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-lg);
+  color: var(--g-ink);
+  text-decoration: none;
+  animation: rise var(--dur-mid) var(--ease) both;
+  transition: border-color var(--dur-fast) var(--ease);
 }
 
 .trail:hover {
-  background: var(--surface-raised);
-  color: var(--text);
+  color: var(--g-ink);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--g-line));
 }
 
-/* Something is actually moving. The same saffron left edge a chosen amenity
-   and a live order row carry, so "this is in progress" reads the same in all
-   three places. */
-.trail[data-live='true'] {
-  box-shadow: inset 2px 0 0 var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-}
-
-.trailBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-
-.trailLabel {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--text);
-}
-
-.trailPulse {
-  width: 7px;
-  height: 7px;
+/* Something is moving: the accent dot with a soft halo of itself. */
+.trailDot {
   flex: none;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--accent);
-  animation: glow 2.4s ease-in-out infinite;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.trailBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.trailLabel {
+  font-size: var(--text-base);
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .trailDetail {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-  /* One line. A three-dish order must not make this strip taller than the
-     tiles under it. */
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  color: var(--g-ink-2);
+  /* One line. A three-dish order must not make the strip taller than a tile. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -266,146 +229,60 @@
 
 .trailChevron {
   flex: none;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  color: var(--accent);
+  color: var(--g-ink-3);
 }
 
 /* ── The tiles ────────────────────────────────────────────────────────── */
 
 .tiles {
-  margin-top: var(--space-5);
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
-  animation: riseIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 180ms;
+  margin-top: var(--space-3);
 }
 
+/* With no strip above them, the board's alternate spacing. */
+.hero + .tiles { margin-top: 28px; }
+
 .tile {
-  /*
-    Icon on the LEFT, words to its right. It was a column — icon above, title
-    and subtitle below — which spent the tile's height on a gap and pushed the
-    subtitle into three lines.
-  */
   display: flex;
-  flex-direction: row;
-  /* Top, not centre. The icon labels the TITLE, and centring it against the
-     whole block floated it beside the subtitle instead — closer to the words
-     it has nothing to do with than the ones it does. */
-  align-items: flex-start;
-  gap: var(--space-3);
-  /* Taller than --touch-min by a long way: these are the four things a guest
-     reaches for and they are tapped one-handed, in the dark. */
-  min-height: 92px;
-  padding: var(--space-3);
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  color: var(--text);
-  transition:
-    background var(--dur-base) var(--ease-out),
-    border-color var(--dur-base) var(--ease-out);
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+  padding: var(--space-4);
+  background: var(--g-card);
+  border-radius: var(--radius-sm);
+  color: var(--g-ink);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease);
 }
 
 .tile:hover,
 .tile:active {
-  background: var(--surface-raised);
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  color: var(--g-ink);
+  background: color-mix(in srgb, var(--g-card) 82%, var(--g-line));
 }
 
-/*
- * One icon per tile, from Lucide — see `tile-icon.tsx`.
- *
- * `--tone` is set per tile by the `data-tone` attribute and both the stroke
- * and the fill derive from it, so a tile's colour is one line to change and
- * the two can never disagree.
- *
- * No badge behind it. A tinted rounded square per icon was tried and it put a
- * fifth box inside four boxes — the tiles are already cards, and nesting a
- * chip in each one added weight without adding meaning. The colour does the
- * separating on its own.
- */
 .tileIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Fixed, so four icons of different widths still line their labels up. */
-  flex: none;
-  width: 26px;
-  /* Optically centred on the title's line box rather than its top edge. */
-  margin-top: -2px;
-  color: var(--tone);
-  transition: color var(--dur-fast) var(--ease-out);
-}
-
-.tileIcon[data-tone='amenity'] { --tone: var(--icon-amenity); }
-.tileIcon[data-tone='service'] { --tone: var(--icon-service); }
-.tileIcon[data-tone='stay']    { --tone: var(--icon-stay); }
-.tileIcon[data-tone='nearby']  { --tone: var(--icon-nearby); }
-
-/*
- * Lucide draws with `fill="none"`. Filling the closed shapes with a tint of
- * the same tone makes the marks read as objects rather than as wireframes,
- * while the stroke stays solid so they keep their definition at 20px.
- */
-.tileIcon svg {
-  fill: color-mix(in srgb, var(--tone) 26%, transparent);
-}
-
-.tile:active .tileIcon {
-  color: color-mix(in srgb, var(--tone) 80%, var(--text));
+  color: var(--accent);
 }
 
 .tileBody {
   display: flex;
   flex-direction: column;
-  /* min-width:0 or a long unbroken subtitle pushes the icon off the tile. */
   min-width: 0;
-  flex: 1;
 }
 
 .tileTitle {
-  font-size: var(--text-base);
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  line-height: 1.35;
 }
 
 .tileSub {
-  margin-top: 5px;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
+  font-size: var(--text-sm);
   line-height: 1.4;
-}
-
-/* Not built yet. Visibly quieter, and not a link. */
-.tile[data-soon='true'] {
-  background: transparent;
-  border-style: dashed;
-}
-.tile[data-soon='true']:hover {
-  background: transparent;
-  border-color: var(--border-soft);
-}
-/* Not built yet: the tone is replaced wholesale, so the badge, the stroke and
-   the fill all go grey together. */
-.tile[data-soon='true'] .tileIcon {
-  --tone: color-mix(in srgb, var(--text) 40%, transparent);
-}
-
-.charged {
-  margin: var(--space-4) 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-  animation: riseIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 240ms;
+  color: var(--g-ink-2);
 }
 
 /* ── The one button ───────────────────────────────────────────────────── */
@@ -415,81 +292,78 @@
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 2;
   max-width: 430px;
   margin-inline: auto;
-  padding: var(--space-6) var(--space-4);
-  /* Fades the scrolling content out underneath rather than cutting it off. */
-  background: linear-gradient(to top, var(--bg) 58%, transparent);
-  animation: riseIn var(--dur-slower) var(--ease-out) both;
-  animation-delay: 300ms;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: var(--space-4) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  background: var(--g-page);
+  border-top: 1px solid var(--g-line);
 }
 
 .ctaButton {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1px;
-  width: 100%;
+  justify-content: space-between;
+  gap: var(--space-3);
   min-height: 58px;
+  padding: 0 var(--space-5);
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--accent-ink);
   font-size: var(--text-lg);
-  font-weight: 700;
-  transition: background var(--dur-base) var(--ease-out);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease);
 }
 
-.ctaButton:hover { background: var(--accent-hover); color: var(--accent-ink); }
+.ctaButton:hover {
+  background: var(--accent-hover);
+  color: var(--accent-ink);
+}
 
 /*
  * Shut kitchen. Still a link — the menu, the prices and the hours are all
- * readable with the kitchen closed (#9), and the sub-line says so. Quieter,
- * because promising dinner at 2am is the lie this is avoiding.
+ * readable with the kitchen closed (#9), and the line under it says so.
+ * Quieter, because promising dinner at 2am is the lie this is avoiding.
  */
 .ctaButton[data-open='false'] {
   background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text);
-}
-.ctaButton[data-open='false']:hover {
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--g-ink-3);
+  color: var(--g-ink);
 }
 
-.ctaTitle { line-height: 1.2; }
+.ctaButton[data-open='false']:hover {
+  background: var(--g-surface);
+  color: var(--g-ink);
+}
 
 .ctaSub {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 400;
-  letter-spacing: 0.06em;
-  opacity: 0.72;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  text-align: center;
+  color: var(--g-ink-3);
 }
 
 /*
  * The demo ribbon. Only rendered for a session that came from the marketing
- * site, so a real guest's screen is untouched by it.
- *
- * Quiet on purpose: it is an orientation aid, not a banner. The saffron is
- * reserved for the one thing on this screen a guest is meant to press, and a
- * ribbon competing with it would be the most prominent element on a page whose
- * whole job is the room.
+ * site. Quiet on purpose: the accent is reserved for the one thing on this
+ * screen a guest is meant to press.
  */
 .demoRibbon {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin: 0 0 var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--paper-raised);
-  border: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
+  margin: 0 calc(var(--space-5) * -1);
+  padding: var(--space-2) var(--space-5);
+  background: var(--g-surface);
+  border-bottom: 1px solid var(--g-line);
+  font-size: var(--text-sm);
+  color: var(--g-ink-2);
 }
 
 .demoRibbon a {
@@ -497,14 +371,48 @@
   text-decoration: none;
   font-weight: 500;
   white-space: nowrap;
-  /* 44px of tappable height without 44px of ribbon — the padding grows the
-     hit area, the line stays thin. */
+  /* 44px of tappable height without 44px of ribbon. */
   padding: var(--space-3) 0;
   margin: calc(var(--space-3) * -1) 0;
 }
 
-.demoRibbon a:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: var(--radius-xs);
+/* ── The skeleton (loading.tsx) — the same boxes, waiting ─────────────── */
+
+/* SkeletonScreen pads 16px; the inner box makes it the guest's 20px gutter. */
+.skeleton {
+  margin-inline: var(--space-1);
+  padding-bottom: 152px;
+}
+
+.skeletonMast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+}
+
+.skeletonText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  padding-bottom: 6px;
+}
+
+.skeletonTile {
+  min-height: 120px;
+  border-radius: var(--radius-sm);
+  background: var(--g-card);
+}
+
+.skeletonCta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 430px;
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  background: var(--g-page);
+  border-top: 1px solid var(--g-line);
 }

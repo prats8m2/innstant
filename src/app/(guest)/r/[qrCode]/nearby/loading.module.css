@@ -1,0 +1,20 @@
+/* Plan my day, waiting — the board's shape: a title, chips, a card, rows. */
+.ground { background: var(--g-page); padding-inline: var(--space-1); }
+.intro { display: flex; flex-direction: column; gap: 8px; padding: var(--space-2) 0 16px; }
+.chips { display: flex; gap: 8px; margin-bottom: 18px; }
+.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--g-card);
+}
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--g-line);
+}

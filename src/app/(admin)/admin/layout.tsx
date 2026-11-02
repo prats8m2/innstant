@@ -1,5 +1,5 @@
 import { withTenant } from '@/db';
-import { findProperty } from '@/modules/identity';
+import { consoleChrome } from '@/modules/identity';
 import { adminAccess, AdminDenied } from './guard';
 import { AdminShell } from './admin-shell';
 
@@ -32,17 +32,14 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
   if (!access.ok) return <AdminDenied reason={access.reason} framed />;
   const { session, propertyId } = access;
 
-  const property = await withTenant(
+  // The property, the person and their light or dark, in one transaction.
+  const chrome = await withTenant(
     { tenantId: session.tenantId, propertyId },
-    (tx) => findProperty(tx, propertyId),
+    (tx) => consoleChrome(tx, { propertyId, staffUserId: session.staffUserId }),
   );
 
   return (
-    <AdminShell
-      session={session}
-      propertyId={propertyId}
-      propertyName={property?.name ?? 'This property'}
-    >
+    <AdminShell session={session} propertyId={propertyId} chrome={chrome}>
       {children}
     </AdminShell>
   );

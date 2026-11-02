@@ -9,3 +9,7 @@ export {
   clockIn, clockOut, getCurrentShift, onDutyCovering, onDutyCount, listOnShift, endShiftFor,
 } from './shifts';
 export type { StaffShift, ShiftZone, OnDutyStaff, OnShift } from './shifts';
+
+/** Is an empty room ready for the next guest (D-096). */
+export { roomCleanStates, cleanStateOf, setRoomCleanStatus, ROOM_CLEAN_STATUSES } from './room-status';
+export type { RoomCleanStatus, RoomCleanState } from './room-status';

@@ -33,7 +33,8 @@ import { PATHNAME_HEADER } from '@/lib/request-path';
  *
  * Treat a redirect from here as a UX affordance, never as a security boundary.
  */
-const STAFF_PREFIXES = ['/admin', '/kds', '/runner', '/housekeeping'];
+// `/print` is a staff surface too: an invoice is somebody's bill (D-095).
+const STAFF_PREFIXES = ['/admin', '/kds', '/runner', '/housekeeping', '/print'];
 
 /**
  * The two staff pages that exist for people who are NOT signed in: the sign-in

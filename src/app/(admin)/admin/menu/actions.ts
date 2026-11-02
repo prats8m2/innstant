@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { withTenant } from '@/db';
+import { checkOwnMedia } from '@/modules/media';
 import { requirePermission } from '@/lib/auth-context';
 import { findProperty } from '@/modules/identity';
 import { localTimeAt } from '@/lib/clock';
@@ -287,6 +288,12 @@ export async function saveItem(
     const itemId = await withTenant(
       { tenantId: session.tenantId, propertyId: input.propertyId },
       async (tx) => {
+        // An uploaded photo must be one uploaded HERE, and brings its
+        // blurhash with it (D-093). A pasted URL keeps whatever blurhash the
+        // dish had; no photo clears it.
+        const photo = await checkOwnMedia(tx, {
+          propertyId: input.propertyId, value: input.imageUrl, label: 'The photo',
+        });
         const shared = {
           tenantId: session.tenantId,
           propertyId: input.propertyId,
@@ -300,6 +307,7 @@ export async function saveItem(
           spiceLevel: input.spiceLevel ?? null,
           prepTimeMinutes: input.prepTimeMinutes ?? null,
           imageUrl: input.imageUrl,
+          blurhash: photo.isUpload ? photo.blurhash : input.imageUrl ? undefined : null,
           isAvailable: input.isAvailable,
           actorStaffId: session.staffUserId,
         };

@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { Lock } from 'lucide-react';
 import { verifyForFolio, type FolioVerifyState } from './actions';
 import styles from './stay.module.css';
 
@@ -75,6 +76,7 @@ function SubmitButton({ roomNumber }: { roomNumber: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className={styles.verifyButton} disabled={pending}>
+      <Lock size={16} strokeWidth={1.5} aria-hidden="true" />
       {pending ? 'Checking…' : `Show me room ${roomNumber}’s bill`}
     </button>
   );

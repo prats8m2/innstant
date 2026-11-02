@@ -33,6 +33,29 @@ const seed: DemoSeed | null = existsSync(seedPath)
  * locator that matches both. Matching only /^Remove/ leaves the cart full and
  * every exact-total assertion downstream fails somewhere unrelated.
  */
+/**
+ * After "Sign in": off the login page AND settled.
+ *
+ * The login action redirects, and the browser then moves to the console in
+ * two client-side steps a few hundred milliseconds apart. Chromium lets a
+ * test's next `goto` overtake the second; WebKit aborts it ("navigation is
+ * interrupted by another navigation"), which failed a dozen staff tests in
+ * the iPhone project only. So wait for the URL, then for half a second with no
+ * further navigation of the main frame.
+ */
+async function signedIn(page: Page): Promise<void> {
+  await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+  let last = Date.now();
+  const mark = (frame: { parentFrame(): unknown }) => { if (!frame.parentFrame()) last = Date.now(); };
+  page.on('framenavigated', mark);
+  try {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() - last < 500 && Date.now() < deadline) await page.waitForTimeout(100);
+  } finally {
+    page.off('framenavigated', mark);
+  }
+}
+
 async function emptyCart(page: Page, code: string): Promise<void> {
   await page.goto(`/r/${code}/cart`);
   for (let i = 0; i < 30; i += 1) {
@@ -62,13 +85,24 @@ test('every response carries the request id it was given', async ({ request }) =
   expect(res.headers()['x-request-id']).toBe('e2e-trace-1');
 });
 
-test('an unusable code is a bare 404 that reveals nothing', async ({ request }) => {
+test('an unusable code is a 404 that reveals nothing', async ({ request }) => {
   // Unknown sticker, revoked sticker, wrong version, nobody checked in — all
-  // the same 404. Someone scanning from a corridor must not learn which, and
-  // in particular must not learn whether the room is occupied.
-  const res = await request.get('/r/not-a-real-code', { maxRedirects: 0 });
-  expect(res.status()).toBe(404);
-  expect(await res.text()).toBe('');
+  // the same 404 and the same words. Someone scanning from a corridor must not
+  // learn which, and in particular must not learn whether the room is
+  // occupied. (It is a readable page now rather than a blank one — see the
+  // route's `linkNotActive()` — so what is asserted is that every case gets
+  // the SAME page.)
+  const unknown = await request.get('/r/not-a-real-code', { maxRedirects: 0 });
+  expect(unknown.status()).toBe(404);
+  const body = await unknown.text();
+  expect(body).toContain('This link isn’t active');
+
+  // A real sticker on a room nobody is in: indistinguishable from the above.
+  if (seed?.qrCodes['001']) {
+    const empty = await request.get(`/r/${seed.qrCodes['001']}`, { maxRedirects: 0 });
+    expect(empty.status()).toBe(404);
+    expect(await empty.text()).toBe(body);
+  }
 });
 
 test.describe('a scanned sticker', () => {
@@ -91,7 +125,8 @@ test.describe('a scanned sticker', () => {
   test('browses the whole menu with no verification in the way', async ({ page }) => {
     const code = seed!.qrCodes['214'];
     await page.goto(`/r/${code}`);
-    await page.getByRole('link', { name: /order to the room/i }).click();
+    // "Order lunch to room 214" — the meal changes with the hour.
+    await page.getByRole('link', { name: /^Order .+ to room 214/i }).click();
 
     // Generous, and deliberately so: this render is several round trips to
     // Postgres, and against a database in another region it is seconds rather
@@ -172,7 +207,10 @@ test.describe('a scanned sticker', () => {
     await expect(page.getByText('Added to your order.')).toBeVisible({ timeout: 20_000 });
     // Next renders its own always-present, always-empty route announcer with
     // role="alert" — so this asks for an alert with any content in it.
-    await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0);
+    // Not Next's route announcer, which is role="alert" too and reads out the
+    // page title after a client navigation — that is not an error.
+    await expect(page.locator('[role="alert"]:not(#__next-route-announcer__)').filter({ hasText: /\S/ }))
+      .toHaveCount(0);
   });
 
   test('a dish id that is not on this menu is a 404', async ({ page }) => {
@@ -181,8 +219,13 @@ test.describe('a scanned sticker', () => {
     // the link instead, and this would assert nothing.
     await page.goto(`/r/${code}`);
 
-    const res = await page.goto(`/r/${code}/menu/00000000-0000-4000-8000-000000000000`);
-    expect(res!.status()).toBe(404);
+    await page.goto(`/r/${code}/menu/00000000-0000-4000-8000-000000000000`);
+    // The not-found page, not a dish. The status cannot be asserted: the dish
+    // route has a loading skeleton, so the response has begun streaming (200)
+    // before the page learns the id is unknown — Next renders not-found into
+    // the same response and marks it noindex.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/404|not found/i, { timeout: 20_000 });
+    await expect(page.getByRole('button', { name: /Add to order/ })).toHaveCount(0);
   });
 
   test('carries the order to the cart, edits it, and empties it', async ({ page }) => {
@@ -347,7 +390,7 @@ test.describe('the kitchen display', () => {
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   async function signInToKitchen(page: Page): Promise<void> {
@@ -622,7 +665,7 @@ test.describe('the menu editor', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('In-room dining', {
@@ -773,7 +816,7 @@ test.describe('the menu editor', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu');
     await expect(page.getByRole('switch').first())
@@ -806,6 +849,13 @@ test.describe('the kitchen settings', () => {
     'the outlet hours are property-wide — one project owns them',
   );
 
+  /**
+   * And one test at a time, for the same reason one level down: the closing
+   * time and the past-midnight tests both rewrite those hours and put them
+   * back, and run side by side each reads the other's kitchen.
+   */
+  test.describe.configure({ mode: 'serial' });
+
   // Its own room, because the suite runs fully parallel against one database.
   const ROOM = '214';
 
@@ -821,7 +871,7 @@ test.describe('the kitchen settings', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/outlet');
     await expect(page).toHaveURL(/\/admin\/property\?tab=service/, { timeout: 25_000 });
@@ -923,7 +973,7 @@ test.describe('the kitchen settings', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/outlet');
     // A staff page says so in words rather than returning a bare status: a
@@ -976,7 +1026,7 @@ test.describe('collections', () => {
     await admin.locator('input[name="email"]').fill('fnb@thekesari.example');
     await admin.locator('input[name="password"]').fill('kesari-demo-2026');
     await admin.getByRole('button', { name: 'Sign in' }).click();
-    await admin.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(admin);
 
     await admin.goto('/admin/menu/collections');
     await expect(admin.getByRole('heading', { level: 1 })).toHaveText('Collections', {
@@ -1041,7 +1091,7 @@ test.describe('collections', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/menu/collections');
     const section = page.locator('section').filter({
@@ -1067,7 +1117,7 @@ test.describe('collections', () => {
       await page.locator('input[name="email"]').fill('fnb@thekesari.example');
       await page.locator('input[name="password"]').fill('kesari-demo-2026');
       await page.getByRole('button', { name: 'Sign in' }).click();
-      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(page);
 
       // D-085: 20% off the Sweets section, today only.
       await page.goto('/admin/menu/offers');
@@ -1110,7 +1160,7 @@ test.describe('collections', () => {
       await page.locator('input[name="email"]').fill('fnb@thekesari.example');
       await page.locator('input[name="password"]').fill('kesari-demo-2026');
       await page.getByRole('button', { name: 'Sign in' }).click();
-      await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(page);
 
       // One tap on the board (D-084). It is dated today and empty.
       await page.goto('/admin/menu');
@@ -1166,8 +1216,14 @@ test.describe('option groups', () => {
 
   test.skip(!seed, 'run `pnpm demo:reset` first — it writes .demo-seed.json');
 
+  /**
+   * Per project AND per attempt: a retry runs against the data the failed
+   * attempt left, and a second "Sides guest-ios" with a second "Rice" in it
+   * made the retry fail on two matches rather than on whatever went wrong.
+   */
   function ownGroup(): string {
-    return `Sides ${test.info().project.name}`;
+    const { project, retry } = test.info();
+    return `Sides ${project.name}${retry ? ` r${retry}` : ''}`;
   }
 
   /**
@@ -1196,7 +1252,7 @@ test.describe('option groups', () => {
     await page.locator('input[name="email"]').fill('fnb@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('shows the seeded groups with how many dishes carry them', async ({ page }) => {
@@ -1216,6 +1272,9 @@ test.describe('option groups', () => {
   });
 
   test('a new group prices a dish on the guest screen', async ({ browser }) => {
+    // Builds a group, two options and a dish as a manager, then orders it as a
+    // guest — past 30s on WebKit in CI.
+    test.slow();
     const desk = await browser.newContext({ viewport: { width: 1280, height: 1400 } });
     const admin = await desk.newPage();
     await signInAsFnb(admin);
@@ -1240,9 +1299,10 @@ test.describe('option groups', () => {
      * own suffix — the seeded "Add" group already has a "Steamed rice", and the
      * dish carries it, so a bare name matches twice on the guest screen.
      */
-    const paidOption = `Rice ${test.info().project.name}`;
+    const suffix = group.replace(/^Sides /, '');
+    const paidOption = `Rice ${suffix}`;
     for (const [name, delta, isDefault] of [
-      [`None ${test.info().project.name}`, '0', true],
+      [`None ${suffix}`, '0', true],
       [paidOption, '120', false],
     ] as const) {
       const form = section.locator('details').filter({ hasText: 'Add an option' }).first();
@@ -1375,7 +1435,7 @@ test.describe('the kitchen board', () => {
     await kds.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await kds.locator('input[name="password"]').fill('kesari-demo-2026');
     await kds.getByRole('button', { name: 'Sign in' }).click();
-    await kds.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(kds);
     await kds.goto('/kds');
     await expect(kds.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
 
@@ -1444,12 +1504,13 @@ test.describe('asking for things', () => {
     await expect(page).toHaveURL(new RegExp(`/r/${code}/amenities$`), { timeout: 20_000 });
 
     // #9 — the whole list is readable at REQUEST tier, prices and all.
-    await expect(page.getByText('Extra towels')).toBeVisible();
-    await expect(page.getByText('Laundry service')).toBeVisible();
+    // .first(): "Most asked for" repeats the popular ones as chips above the list.
+    await expect(page.getByText('Extra towels').first()).toBeVisible();
+    await expect(page.getByText('Laundry service').first()).toBeVisible();
     await expect(page.locator('input[name="answer"]')).toHaveCount(0);
 
     // Two towels, sent.
-    const towels = page.locator('li').filter({ hasText: 'Extra towels' }).first();
+    const towels = page.locator('li').filter({ has: page.getByRole('button', { name: 'One more Extra towels' }) });
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await page.locator('input[name="guestNote"]').fill('Leave them by the door.');
@@ -1475,7 +1536,7 @@ test.describe('asking for things', () => {
     await page.goto(`/r/${code}/amenities`);
 
     // Laundry costs ₹450 — the price is stated before anything is committed.
-    const laundry = page.locator('li').filter({ hasText: 'Laundry service' }).first();
+    const laundry = page.locator('li').filter({ has: page.getByRole('button', { name: 'One more Laundry service' }) });
     await expect(laundry).toContainText('₹450');
     await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
     await page.getByRole('button', { name: /Send 1 to room/ }).click();
@@ -1524,9 +1585,12 @@ test.describe('asking for things', () => {
     await page.goto(`/r/${code}`);
 
     // P4. A row that looks tappable and does nothing is worse than one that says
-    // it is coming. "Your stay" stopped being one of these when P3 landed.
-    await expect(page.getByText(/Places we vouch for · soon/)).toBeVisible();
+    // it is coming. All four are built now — "Plan my day" was the last
+    // ("Places we vouch for · soon" until D-069) — so none may be a dead tile.
+    await page.waitForURL(/\/home$/, { timeout: 20_000 });
+    await expect(page.locator('[data-soon="true"]')).toHaveCount(0);
     await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(1);
+    await expect(page.getByRole('link', { name: /Plan my day/ })).toHaveCount(1);
   });
 });
 
@@ -1556,7 +1620,7 @@ test.describe('the floor board', () => {
     await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await board.locator('input[name="password"]').fill('kesari-demo-2026');
     await board.getByRole('button', { name: 'Sign in' }).click();
-    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(board);
     await board.goto('/housekeeping');
     await expect(board.getByText('Live', { exact: true })).toBeVisible({ timeout: 25_000 });
 
@@ -1566,7 +1630,7 @@ test.describe('the floor board', () => {
     const guest = await phone.newPage();
     await guest.goto(`/r/${seed!.qrCodes[room]}`);
     await guest.goto(`/r/${seed!.qrCodes[room]}/amenities`);
-    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    const towels = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Extra towels' }) });
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await guest.locator('input[name="guestNote"]').fill('By the door is fine.');
@@ -1608,7 +1672,7 @@ test.describe('the floor board', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/housekeeping');
     await expect(page.getByText(/cannot see service requests/i)).toBeVisible({ timeout: 20_000 });
@@ -1672,16 +1736,17 @@ test.describe('routing a request to whoever is on duty', () => {
     await board.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await board.locator('input[name="password"]').fill('kesari-demo-2026');
     await board.getByRole('button', { name: 'Sign in' }).click();
-    await board.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(board);
     await board.goto('/housekeeping');
 
     // Clock in, covering every floor — a small hotel's housekeeper does.
-    await expect(board.getByText(/not clocked in/)).toBeVisible({ timeout: 25_000 });
+    await expect(board.getByText('You are off shift')).toBeVisible({ timeout: 25_000 });
+    await board.locator('summary', { hasText: 'Clock in' }).click();
     for (const box of await board.locator('input[name="floorIds"]').all()) {
       await box.check();
     }
-    await board.getByRole('button', { name: 'Clock in' }).click();
-    await expect(board.getByText(/On duty/)).toBeVisible({ timeout: 25_000 });
+    await board.getByRole('button', { name: 'Start the shift' }).click();
+    await expect(board.getByText(/On shift ·/)).toBeVisible({ timeout: 25_000 });
 
     // A guest asks for towels.
     const room = ownRoom();
@@ -1689,7 +1754,7 @@ test.describe('routing a request to whoever is on duty', () => {
     const guest = await phone.newPage();
     await guest.goto(`/r/${seed!.qrCodes[room]}`);
     await guest.goto(`/r/${seed!.qrCodes[room]}/amenities`);
-    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    const towels = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Extra towels' }) });
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await guest.getByRole('button', { name: /Send 1 to room/ }).click();
     await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
@@ -1710,7 +1775,7 @@ test.describe('routing a request to whoever is on duty', () => {
     await expect(guest.getByText('Done')).toBeVisible({ timeout: 20_000 });
 
     await board.getByRole('button', { name: 'Clock out' }).click();
-    await expect(board.getByText(/not clocked in/)).toBeVisible({ timeout: 20_000 });
+    await expect(board.getByText('You are off shift')).toBeVisible({ timeout: 20_000 });
 
     await pocket.close();
     await phone.close();
@@ -1740,7 +1805,7 @@ test.describe('a breach on the board', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
     await page.goto('/housekeeping');
 
     // The seeded request, SR-4471, is 12 minutes out when the demo is reset. Ask
@@ -1780,7 +1845,7 @@ test.describe('the alert bell', () => {
     await page.locator('input[name="email"]').fill(email);
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('tells the duty manager a request breached, and stops when told it was seen',
@@ -1879,7 +1944,7 @@ test.describe('the request catalog', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   /**
@@ -1900,7 +1965,7 @@ test.describe('the request catalog', () => {
     const desk = await browser.newContext();
     const console_ = await desk.newPage();
     await signInAsGm(console_);
-    await console_.goto('/admin/requests');
+    await console_.goto('/admin/requests?tab=catalog');
 
     const row = console_.locator('li').filter({ hasText: TYPE }).first();
     await expect(row).toBeVisible({ timeout: 25_000 });
@@ -1920,8 +1985,10 @@ test.describe('the request catalog', () => {
     const code = seed!.qrCodes['214']!;
     await guest.goto(`/r/${code}`);
     await guest.goto(`/r/${code}/amenities`);
-    const card = guest.locator('li').filter({ hasText: TYPE }).first();
-    await expect(card).toContainText('Usually 9 minutes', { timeout: 25_000 });
+    // The list row, not the "Most asked for" chip above it: the row is the
+    // one with the stepper, and the wait sits beside its name as "9 min".
+    const card = guest.locator('li').filter({ has: guest.getByRole('button', { name: `One more ${TYPE}` }) });
+    await expect(card).toContainText('9 min', { timeout: 25_000 });
 
     // Put it back, so a re-run without a reseed starts where this one did.
     await openEdit(row);
@@ -1942,7 +2009,7 @@ test.describe('the request catalog', () => {
    */
   test('will not let the one tap be given a price', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
 
     const row = page.locator('li').filter({ hasText: 'Call for service' }).first();
     await expect(row).toBeVisible({ timeout: 25_000 });
@@ -1959,7 +2026,7 @@ test.describe('the request catalog', () => {
    */
   test('names the roles nobody holds, before one is picked', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
 
     const row = page.locator('li').filter({ hasText: TYPE }).first();
     await openEdit(row);
@@ -1977,9 +2044,9 @@ test.describe('the request catalog', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
-    await page.goto('/admin/requests');
+    await page.goto('/admin/requests?tab=catalog');
     const row = page.locator('li').filter({ hasText: TYPE }).first();
     await expect(row).toContainText('12 min', { timeout: 25_000 });
     // Everything readable, nothing to press: no edit disclosure, no switch, no
@@ -2112,7 +2179,7 @@ test.describe('your stay', () => {
     await page.goto(`/r/${code}`);
     await page.goto(`/r/${code}/amenities`);
 
-    const laundry = page.locator('li').filter({ hasText: 'Laundry service' }).first();
+    const laundry = page.locator('li').filter({ has: page.getByRole('button', { name: 'One more Laundry service' }) });
     await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
     await page.getByRole('button', { name: /Send 1 to room/ }).click();
 
@@ -2185,7 +2252,7 @@ test.describe('leaving later', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('a guest asks, the desk says yes, and both ends move', async ({ browser }) => {
@@ -2343,32 +2410,32 @@ test.describe('the front desk', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
-  // By the data attribute, not by text: the row's name changes the moment
-  // somebody checks in, which is the thing these tests are about.
+  // By the data attribute, not by text: the tile's name changes the moment
+  // somebody checks in, which is the thing these tests are about. What can be
+  // done to a room is in its panel, `?room=` (D-094).
   const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+  const panel = (page: Page) => page.locator(`[data-room-panel="${ROOM}"]`);
 
   test('checks a walk-in in, and their sticker starts working', async ({ browser }) => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
 
-    const row = room(deskPage);
-    await expect(row).toContainText('empty', { timeout: 25_000 });
+    await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
 
-    await row.getByRole('group').filter({ hasText: 'Check someone in' })
-      .locator('summary').click();
-    await row.locator('input[name="fullName"]').fill('Meera Iyer');
-    await row.locator('input[name="phone"]').fill('+919820077777');
-    await row.locator('input[name="nights"]').fill('2');
-    await row.getByRole('button', { name: `Check in to ${ROOM}` }).click();
+    const form = panel(deskPage);
+    await form.locator('input[name="fullName"]').fill('Meera Iyer');
+    await form.locator('input[name="phone"]').fill('+919820077777');
+    await form.locator('input[name="nights"]').fill('2');
+    await form.getByRole('button', { name: `Check in to ${ROOM}` }).click();
 
-    // The row is no longer empty, and the desk can see who and until when.
+    // The tile is no longer empty, and the panel says who and what is owed.
     await expect(room(deskPage)).toContainText('Meera Iyer', { timeout: 25_000 });
-    await expect(room(deskPage)).toContainText('nothing yet');
+    await expect(panel(deskPage)).toContainText('nothing yet');
 
     // And the sticker on that nightstand now resolves to her stay.
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2396,8 +2463,8 @@ test.describe('the front desk', () => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
-    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
+    await panel(deskPage).getByRole('button', { name: 'Check out' }).click();
 
     // The room is free again, immediately — D-007's index only counts CHECKED_IN.
     await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
@@ -2422,7 +2489,7 @@ test.describe('the front desk', () => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto('/admin/rooms?room=214');
 
     /**
      * 214, not this suite's 108: by now 108 has been checked out, and an empty
@@ -2430,7 +2497,7 @@ test.describe('the front desk', () => {
      * must not learn occupancy. 214 is the seeder's stay and nothing checks it
      * out.
      */
-    const occupied = deskPage.locator('li[data-room="214"]');
+    const occupied = deskPage.locator('[data-room-panel="214"]');
     await expect(occupied).toBeVisible({ timeout: 25_000 });
 
     // The public code is on the row, so a desk can match it to a printed
@@ -2458,7 +2525,7 @@ test.describe('the front desk', () => {
     await page.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/rooms');
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
@@ -2494,11 +2561,11 @@ test.describe('a guest and what we know', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
-    await page.goto('/admin/rooms');
-    // By name: the row also carries the sticker's "Open" link now.
-    await page.locator(`li[data-room="${ROOM}"]`).getByRole('link', { name: 'Rhea Kapoor' })
+    await page.goto(`/admin/rooms?room=${ROOM}`);
+    // By name: the panel also carries the sticker's "Open" link.
+    await page.locator(`[data-room-panel="${ROOM}"]`).getByRole('link', { name: 'Rhea Kapoor' })
       .click();
     await expect(page).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
   }
@@ -2540,7 +2607,7 @@ test.describe('a guest and what we know', () => {
     await guest.goto(`/r/${code}/amenities`);
 
     // Free: still works, no prompt, nothing in the way.
-    const towels = guest.locator('li').filter({ hasText: 'Extra towels' }).first();
+    const towels = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Extra towels' }) });
     await towels.getByRole('button', { name: /One more Extra towels/ }).click();
     await guest.getByRole('button', { name: /Send 1 to room/ }).click();
     await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
@@ -2550,7 +2617,7 @@ test.describe('a guest and what we know', () => {
     // Chargeable: refused, and told why. This is the half that did not work
     // until the hold was honoured on the requests path too.
     await guest.goto(`/r/${code}/amenities`);
-    const laundry = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    const laundry = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Laundry service' }) });
     await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
     await guest.getByRole('button', { name: /Send 1 to room/ }).click();
     await expect(guest.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
@@ -2566,7 +2633,7 @@ test.describe('a guest and what we know', () => {
       .toHaveCount(0, { timeout: 25_000 });
 
     await guest.goto(`/r/${code}/amenities`);
-    const again = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    const again = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Laundry service' }) });
     await again.getByRole('button', { name: /One more Laundry service/ }).click();
     await guest.getByRole('button', { name: /Send 1 to room/ }).click();
     await guest.waitForURL(/\/service\/[0-9a-f-]{36}$/, { timeout: 25_000 });
@@ -2601,7 +2668,7 @@ test.describe('a guest and what we know', () => {
     await page.locator('input[name="email"]').fill('housekeeping@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/rooms');
     await expect(page.getByText(/cannot change this/i)).toBeVisible({ timeout: 20_000 });
@@ -2635,26 +2702,25 @@ test.describe('settling up', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   const room = (page: Page) => page.locator(`li[data-room="${ROOM}"]`);
+  const panel = (page: Page) => page.locator(`[data-room-panel="${ROOM}"]`);
 
   test('a guest runs up a bill, pays it, and leaves with it closed', async ({ browser }) => {
     const desk = await browser.newContext();
     const deskPage = await desk.newPage();
     await signInAsDesk(deskPage);
-    await deskPage.goto('/admin/rooms');
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
 
     // In.
-    await room(deskPage).getByRole('group').filter({ hasText: 'Check someone in' })
-      .locator('summary').click();
-    await room(deskPage).locator('input[name="fullName"]').fill('Nadia Rahman');
-    await room(deskPage).locator('input[name="phone"]').fill('+919820088888');
-    await room(deskPage).getByRole('button', { name: `Check in to ${ROOM}` }).click();
+    await panel(deskPage).locator('input[name="fullName"]').fill('Nadia Rahman');
+    await panel(deskPage).locator('input[name="phone"]').fill('+919820088888');
+    await panel(deskPage).getByRole('button', { name: `Check in to ${ROOM}` }).click();
     await expect(room(deskPage)).toContainText('Nadia Rahman', { timeout: 25_000 });
     // Nothing charged yet, which reads differently from ₹0.
-    await expect(room(deskPage)).toContainText('nothing yet');
+    await expect(panel(deskPage)).toContainText('nothing yet');
 
     // The guest orders laundry — a real charge through a real path.
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
@@ -2662,7 +2728,7 @@ test.describe('settling up', () => {
     const code = seed!.qrCodes[ROOM]!;
     await guest.goto(`/r/${code}`);
     await guest.goto(`/r/${code}/amenities`);
-    const laundry = guest.locator('li').filter({ hasText: 'Laundry service' }).first();
+    const laundry = guest.locator('li').filter({ has: guest.getByRole('button', { name: 'One more Laundry service' }) });
     await laundry.getByRole('button', { name: /One more Laundry service/ }).click();
     await guest.getByRole('button', { name: /Send 1 to room/ }).click();
     await expect(guest.locator('input[name="answer"]')).toBeVisible({ timeout: 25_000 });
@@ -2672,11 +2738,11 @@ test.describe('settling up', () => {
 
     // The desk sees the balance on the room.
     await deskPage.reload();
-    await expect(room(deskPage)).toContainText('₹450', { timeout: 25_000 });
+    await expect(panel(deskPage)).toContainText('₹450', { timeout: 25_000 });
 
     // Take the money.
-    // By name: the row also carries the sticker's "Open" link now.
-    await room(deskPage).getByRole('link', { name: 'Nadia Rahman' }).click();
+    // By name: the panel also carries the sticker's "Open" link.
+    await panel(deskPage).getByRole('link', { name: 'Nadia Rahman' }).click();
     await expect(deskPage).toHaveURL(/\/admin\/guests\/[0-9a-f-]{36}$/, { timeout: 25_000 });
     await deskPage.getByRole('group').filter({ hasText: 'Take a payment' })
       .locator('summary').click();
@@ -2710,8 +2776,8 @@ test.describe('settling up', () => {
 
     // And checking out closes the account rather than leaving it open with a
     // balance (D-035, now that there is a way to have paid).
-    await deskPage.goto('/admin/rooms');
-    await room(deskPage).getByRole('button', { name: 'Check out' }).click();
+    await deskPage.goto(`/admin/rooms?room=${ROOM}`);
+    await panel(deskPage).getByRole('button', { name: 'Check out' }).click();
     await expect(room(deskPage)).toContainText('empty', { timeout: 25_000 });
 
     await desk.close();
@@ -2724,11 +2790,11 @@ test.describe('settling up', () => {
    */
   test('offers no payment form once a bill is settled', async ({ page }) => {
     await signInAsDesk(page);
-    await page.goto('/admin/rooms');
+    await page.goto('/admin/rooms?room=210');
 
     // 210's bill still has money on it, so it DOES offer one — the contrast is
     // the assertion.
-    await page.locator('li[data-room="210"]').getByRole('link', { name: 'Iqbal Qureshi' })
+    await page.locator('[data-room-panel="210"]').getByRole('link', { name: 'Iqbal Qureshi' })
       .click();
     await expect(page.getByRole('group').filter({ hasText: 'Take a payment' }))
       .toHaveCount(1, { timeout: 25_000 });
@@ -2768,7 +2834,7 @@ test.describe('staff and roles', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('invites somebody, who sets a password from the link and signs in',
@@ -2847,7 +2913,7 @@ test.describe('staff and roles', () => {
       await joiner.locator('input[name="email"]').fill(NEW_STAFF);
       await joiner.locator('input[name="password"]').fill(NEW_PASSWORD);
       await joiner.getByRole('button', { name: 'Sign in' }).click();
-      await joiner.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+      await signedIn(joiner);
 
       const desk = await browser.newContext();
       const admin = await desk.newPage();
@@ -2909,7 +2975,7 @@ test.describe('staff and roles', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
     await page.goto('/admin/staff');
     await expect(page.getByText(/cannot change this|no property assigned/))
@@ -2931,7 +2997,7 @@ test.describe('the building', () => {
     await page.locator('input[name="email"]').fill('gm@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
   }
 
   test('opens a floor, puts a room on it, and the room can be scanned into',
@@ -2939,7 +3005,7 @@ test.describe('the building', () => {
       const desk = await browser.newContext();
       const admin = await desk.newPage();
       await signInAsGm(admin);
-      await admin.goto('/admin/property');
+      await admin.goto('/admin/property?tab=rooms');
 
       // A floor.
       await admin.getByRole('group').filter({ hasText: 'Add a floor' })
@@ -2963,16 +3029,14 @@ test.describe('the building', () => {
        * entire guest surface and no screen would tell you, because every screen
        * assumes it exists.
        */
-      await admin.goto('/admin/rooms');
-      const row = admin.locator('li[data-room="401"]');
-      await expect(row).toBeVisible({ timeout: 25_000 });
+      await admin.goto('/admin/rooms?room=401');
+      await expect(admin.locator('li[data-room="401"]')).toBeVisible({ timeout: 25_000 });
+      const row = admin.locator('[data-room-panel="401"]');
       const code = (await row.locator('code').first().textContent())!.trim();
       expect(code).toBeTruthy();
 
       // Check somebody in, because a sticker with no stay behind it correctly
       // resolves to nothing.
-      await row.getByRole('group').filter({ hasText: 'Check someone in' })
-        .locator('summary').click();
       await row.locator('input[name="fullName"]').fill('Garden Guest');
       await row.locator('input[name="phone"]').fill('+919820015151');
       await row.getByRole('button', { name: 'Check in to 401' }).click();
@@ -3006,9 +3070,9 @@ test.describe('the building', () => {
     const desk = await browser.newContext();
     const admin = await desk.newPage();
     await signInAsGm(admin);
-    await admin.goto('/admin/rooms');
+    await admin.goto('/admin/rooms?room=401');
 
-    const row = admin.locator('li[data-room="401"]');
+    const row = admin.locator('[data-room-panel="401"]');
     const old = (await row.locator('code').first().textContent())!.trim();
 
     await row.getByRole('group').filter({ hasText: 'Reprint' }).locator('summary').click();
@@ -3043,17 +3107,17 @@ test.describe('the building', () => {
     const admin = await desk.newPage();
     await signInAsGm(admin);
 
-    await admin.goto('/admin/rooms');
-    const code = (await admin.locator('li[data-room="401"]').locator('code').first()
+    await admin.goto('/admin/rooms?room=401');
+    const code = (await admin.locator('[data-room-panel="401"]').locator('code').first()
       .textContent())!.trim();
 
     // Check the guest out first — a room with somebody in it is refused.
-    await admin.locator('li[data-room="401"]').getByRole('button', { name: 'Check out' }).click();
+    await admin.locator('[data-room-panel="401"]').getByRole('button', { name: 'Check out' }).click();
     await expect(admin.locator('li[data-room="401"]')).toContainText('empty', {
       timeout: 25_000,
     });
 
-    await admin.goto('/admin/property');
+    await admin.goto('/admin/property?tab=rooms');
     const room = admin.locator('li[data-room="401"]');
     await room.getByRole('button', { name: 'Take out' }).click();
     await expect(admin.locator('li[data-room="401"]')).toContainText('out of service', {
@@ -3075,7 +3139,7 @@ test.describe('the building', () => {
 
   test('refuses to delete a floor that still holds a room', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/property');
+    await page.goto('/admin/property?tab=rooms');
 
     const floor = page.locator('li').filter({ hasText: 'Garden wing' }).first();
     await floor.getByRole('button', { name: 'Delete' }).click();
@@ -3092,9 +3156,9 @@ test.describe('the building', () => {
     await page.locator('input[name="email"]').fill('frontdesk@thekesari.example');
     await page.locator('input[name="password"]').fill('kesari-demo-2026');
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(page);
 
-    await page.goto('/admin/property');
+    await page.goto('/admin/property?tab=rooms');
     await expect(page.getByRole('heading', { name: 'Floors' })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByRole('group').filter({ hasText: 'Add a floor' })).toHaveCount(0);
     await expect(page.getByRole('group').filter({ hasText: 'Add a room type' })).toHaveCount(0);
@@ -3102,8 +3166,9 @@ test.describe('the building', () => {
     await expect(page.getByRole('button', { name: 'Retire' })).toHaveCount(0);
 
     // `property:read` and not `property:update` — the hotel's own settings are
-    // a sentence rather than a form.
-    await expect(page.getByRole('heading', { name: 'This hotel' })).toBeVisible();
+    // a sentence rather than a form. They are the General tab (D-087).
+    await page.goto('/admin/property');
+    await expect(page.getByRole('heading', { name: 'This hotel' })).toBeVisible({ timeout: 25_000 });
     await expect(page.locator('input[name="timezone"], select[name="timezone"]')).toHaveCount(0);
   });
 
@@ -3115,7 +3180,7 @@ test.describe('the building', () => {
    */
   test('adds a room type, and a new room can be it', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/property');
+    await page.goto('/admin/property?tab=types');
 
     await page.getByRole('group').filter({ hasText: 'Add a room type' })
       .locator('summary').click();
@@ -3130,7 +3195,8 @@ test.describe('the building', () => {
     await expect(row).toBeVisible({ timeout: 25_000 });
     await expect(row).toContainText('no rooms');
 
-    // And it is offered to a room.
+    // And it is offered to a room, on the rooms tab where rooms are made.
+    await page.goto('/admin/property?tab=rooms');
     await expect(
       page.locator('select[name="roomTypeId"]').first().locator('option', { hasText: 'Courtyard' }),
     ).toHaveCount(1);
@@ -3181,7 +3247,8 @@ test.describe('the building', () => {
 
     await hotel.locator('input[name="name"]').fill('The Kesari');
     await hotel.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByRole('link', { name: 'The Kesari', exact: true }))
+    // The sidebar's property card names the city and size after it (D-102).
+    await expect(page.getByRole('link', { name: /^The Kesari(?! Haveli)/ }))
       .toBeVisible({ timeout: 25_000 });
 
     // Still where the hotel is.
@@ -3190,7 +3257,7 @@ test.describe('the building', () => {
 
   test('retires a room type nothing is, and refuses one in use', async ({ page }) => {
     await signInAsGm(page);
-    await page.goto('/admin/property');
+    await page.goto('/admin/property?tab=types');
 
     // The demo property's own types have rooms on them, and `room_type_id` is
     // NOT NULL — so retiring one would leave rooms pointing at something the
@@ -3235,7 +3302,7 @@ test.describe('signing out', () => {
     await console_.locator('input[name="email"]').fill('kitchen@thekesari.example');
     await console_.locator('input[name="password"]').fill('kesari-demo-2026');
     await console_.getByRole('button', { name: 'Sign in' }).click();
-    await console_.waitForURL((u) => !u.pathname.includes('/login'), { timeout: 25_000 });
+    await signedIn(console_);
 
     const kds = await ctx.newPage();
     await kds.goto('/kds');

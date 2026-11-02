@@ -562,3 +562,79 @@ export async function listCheckoutRequests(
     createdAt: new Date(row.created_at),
   }));
 }
+
+/**
+ * The desk moves a guest's checkout itself (D-096): staying two more nights,
+ * or leaving a day early. No request, no fee — the desk is the one deciding,
+ * and a room-night charge for the extra nights is added on the bill like any
+ * other room charge.
+ *
+ * Same consequences as an approved late checkout, in the same order: the
+ * stay moves, the guest's phone keeps working until the new time (sessions
+ * expire at checkout + grace, fixed when minted), the system of record hears
+ * about it, and the event says from when to when.
+ */
+export async function changeCheckoutAt(
+  tx: Tx,
+  input: {
+    tenantId: string;
+    propertyId: string;
+    stayId: string;
+    checkoutAt: Date;
+    staffUserId: string;
+    now?: Date;
+  },
+): Promise<{ from: Date; to: Date; sessionsExtended: number }> {
+  const now = input.now ?? new Date();
+  if (Number.isNaN(input.checkoutAt.getTime())) throw new ValidationError('Choose a date and time.');
+  if (input.checkoutAt.getTime() <= now.getTime()) {
+    throw new ValidationError('The new checkout has to be later than now.');
+  }
+  if (input.checkoutAt.getTime() > now.getTime() + 180 * 86_400_000) {
+    throw new ValidationError('That is more than six months away.');
+  }
+
+  const rows = await tx.execute<{ id: string; status: string; scheduled_checkout_at: Date; source_ref_id: string | null; room_number: string }>(sql`
+    SELECT s.id, s.status, s.scheduled_checkout_at, s.source_ref_id, rm.number AS room_number
+    FROM stays s JOIN rooms rm ON rm.id = s.room_id
+    WHERE s.id = ${input.stayId} AND s.property_id = ${input.propertyId}
+    LIMIT 1
+  `);
+  const stay = rows.rows[0];
+  if (!stay) throw new NotFoundError('No such stay at this property.');
+  if (stay.status !== 'CHECKED_IN') throw new ConflictError('Only a guest who is in the room can have their checkout moved.');
+
+  const from = new Date(stay.scheduled_checkout_at);
+  await tx.update(stays)
+    .set({ scheduledCheckoutAt: input.checkoutAt, updatedAt: now })
+    .where(and(eq(stays.id, input.stayId), eq(stays.status, 'CHECKED_IN')));
+
+  const sessionsExtended = await refreshSessionExpiryForStay(tx, {
+    propertyId: input.propertyId,
+    stayId: input.stayId,
+    scheduledCheckoutAt: input.checkoutAt,
+  });
+
+  await notifyPms(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    event: {
+      kind: 'STAY_EXTENDED',
+      stay: { stayId: input.stayId, sourceRefId: stay.source_ref_id, roomNumber: stay.room_number },
+      scheduledCheckoutAt: input.checkoutAt.toISOString(),
+      reason: 'DESK_CHANGE',
+    },
+  });
+
+  await recordEvent(tx, {
+    tenantId: input.tenantId,
+    propertyId: input.propertyId,
+    entityType: 'stay',
+    entityId: input.stayId,
+    eventType: 'stay.checkout_changed',
+    actor: { kind: 'STAFF', staffUserId: input.staffUserId },
+    payload: { from: from.toISOString(), to: input.checkoutAt.toISOString(), roomNumber: stay.room_number },
+  });
+
+  return { from, to: input.checkoutAt, sessionsExtended };
+}

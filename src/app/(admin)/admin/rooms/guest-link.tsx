@@ -3,7 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { reprintQrCode, type DeskState } from './actions';
-import styles from '../admin.module.css';
+import r from './rooms.module.css';
+import ui from './controls.module.css';
 
 /**
  * The link on the sticker, copyable from the desk — and reprintable.
@@ -79,12 +80,12 @@ export function GuestLink({
   }
 
   return (
-    <span className={styles.guestLink}>
-      <code className={styles.guestCode}>{publicCode}</code>
+    <span className={r.sticker}>
+      <code className={`${r.stickerCode} tabular`}>{publicCode}</code>
 
       <button
         type="button"
-        className={styles.secondary}
+        className={ui.btn}
         onClick={copy}
         disabled={!resolved}
         aria-label={`Copy the guest link for room ${roomNumber}`}
@@ -97,7 +98,7 @@ export function GuestLink({
           href={resolved}
           target="_blank"
           rel="noreferrer noopener"
-          className={styles.secondary}
+          className={ui.btn}
           // Opening it here mints a guest session for that room, exactly as a
           // scan would. That is the point: it is how a desk checks a sticker
           // works before printing forty of them.
@@ -126,7 +127,7 @@ export function GuestLink({
           ref={field}
           readOnly
           value={resolved}
-          className={styles.guestLinkField}
+          className={`${ui.input} ${r.stickerField} tabular`}
           onFocus={(event) => event.currentTarget.select()}
           aria-label={`Guest link for room ${roomNumber}`}
         />
@@ -157,13 +158,13 @@ function Reprint({
   const [state, action] = useActionState<DeskState, FormData>(reprintQrCode, {});
 
   return (
-    <details className={styles.roomForm}>
-      <summary className={styles.disclosureHead}>Reprint</summary>
-      <form action={action} className={styles.stackedForm}>
+    <details className={r.disclosure}>
+      <summary className={r.disclosureHead}>Reprint</summary>
+      <form action={action} className={`${ui.form} ${r.disclosureBody}`}>
         <input type="hidden" name="propertyId" value={propertyId} />
         <input type="hidden" name="roomId" value={roomId} />
 
-        <p className={styles.hint}>
+        <p className={ui.hint}>
           The sticker in {roomNumber} stops working straight away.{' '}
           {occupied
             /* Sessions bind to stay_id, never to the room or the code (#10), so
@@ -174,8 +175,8 @@ function Reprint({
             : 'Print the new one before the next guest arrives.'}
         </p>
 
-        {state.error ? <p className={styles.inlineError} role="alert">{state.error}</p> : null}
-        {state.done ? <p className={styles.inlineDone}>{state.done}</p> : null}
+        {state.error ? <p className={ui.error} role="alert">{state.error}</p> : null}
+        {state.done ? <p className={ui.done} role="status">{state.done}</p> : null}
 
         <ReprintButton roomNumber={roomNumber} />
       </form>
@@ -188,7 +189,7 @@ function ReprintButton({ roomNumber }: { roomNumber: string }) {
   return (
     <button
       type="submit"
-      className={styles.secondary}
+      className={`${ui.btn} ${ui.danger}`}
       disabled={pending}
       title={`Issue a new code for room ${roomNumber} and kill the old sticker`}
     >

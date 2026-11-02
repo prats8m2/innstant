@@ -35,12 +35,12 @@ const FILES = walk('src').filter((f) => !f.endsWith('theme.css'));
  * There are three because there are three themes (D-050, and the marketing
  * site after it): the root layout carries the staff console's ground, the guest
  * route group overrides it with the Kesari's, and the site group with its own.
- * Each must stay in step with `--paper` in ITS OWN palette block, by hand — the
+ * Each must stay in step with its own palette's ground, by hand — the
  * assertions below enforce that, and they are the reason a palette swap cannot
  * silently leave one browser chrome behind.
  */
 const ALLOWED = new Map([
-  ['src/app/layout.tsx', '#F3F4F2'],
+  ['src/app/layout.tsx', '#F5F6F4'],
   ['src/app/(guest)/layout.tsx', '#0A1220'],
   ['src/app/(site)/layout.tsx', '#F3F4F1'],
 ]);
@@ -93,12 +93,21 @@ describe('theme discipline', () => {
       return theme.slice(at, theme.indexOf('\n}', at));
     };
 
-    const consoleGround = /--paper:\s*(#[0-9A-Fa-f]{6})/.exec(blockFor(':root'));
+    // The console's and the guest's grounds live in the token file (D-100):
+    // the console's light --bg, and Kesari's --g-page — the default theme,
+    // which is what a phone shows before the property's own has loaded.
+    const tokens = readFileSync('design/tokens/innstant-themes.css', 'utf8');
+    const tokenBlock = (selector: string) => {
+      const at = tokens.indexOf(`${selector} {`);
+      expect(at, `innstant-themes.css has no ${selector} block`).toBeGreaterThan(-1);
+      return tokens.slice(at, tokens.indexOf('}', at));
+    };
+    const consoleGround = /--bg:\s*(#[0-9A-Fa-f]{6})/.exec(tokenBlock('[data-console="light"]'));
     expect(consoleGround?.[1]?.toUpperCase())
       .toBe(ALLOWED.get('src/app/layout.tsx')?.toUpperCase());
 
-    const guestGround = /--paper-deep:\s*(#[0-9A-Fa-f]{6})/
-      .exec(blockFor("[data-theme='kesari']"));
+    const guestGround = /--g-page:\s*(#[0-9A-Fa-f]{6})/
+      .exec(tokenBlock('[data-guest-theme="kesari"]'));
     expect(guestGround?.[1]?.toUpperCase())
       .toBe(ALLOWED.get('src/app/(guest)/layout.tsx')?.toUpperCase());
 

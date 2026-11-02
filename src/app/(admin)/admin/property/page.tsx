@@ -6,7 +6,7 @@ import { withTenant } from '@/db';
 import { adminAccess, AdminDenied } from '../guard';
 import {
   can, findProperty, listFloors, listRoomsAtProperty, listRoomTypesWithUse,
-  currencyIsStillOpen, getPropertyProfile, type Permission, type StaffSession,
+  currencyIsStillOpen, getPropertyProfile, guestThemeSheets, type Permission, type StaffSession,
 } from '@/modules/identity';
 import {
   getInRoomDiningOutlet, getOutletSettings, outletOpenState, describeOpenState,
@@ -17,6 +17,7 @@ import {
   PropertyEditor,
   type FloorView, type RoomSetupView, type RoomTypeSetupView, type SettingsView,
 } from './property-editor';
+import { mediaUploadsAvailable } from '@/modules/media';
 import { BrandingEditor } from './branding-editor';
 import { GuestInfoForm } from './guest-info-form';
 import { OutletSettingsForm } from './service-forms';
@@ -65,7 +66,7 @@ interface SectionDef {
 /** In the order a hotel sets itself up. */
 const SECTIONS: readonly SectionDef[] = [
   { key: 'hotel', label: 'General', blurb: 'Name, clock and currency', icon: Building2, needs: 'property:read' },
-  { key: 'branding', label: 'Branding', blurb: 'Accent, logo and cover', icon: Palette, needs: 'property:read' },
+  { key: 'branding', label: 'Branding & themes', blurb: 'Guest theme, logo and cover', icon: Palette, needs: 'property:read' },
   { key: 'guest', label: 'Guest info', blurb: 'Contact, times and Wi-Fi', icon: Info, needs: 'property:read' },
   { key: 'service', label: 'Hours & service', blurb: 'Kitchen hours and charges', icon: Clock, needs: 'catalog:manage' },
   { key: 'types', label: 'Room types', blurb: 'What a room can be', icon: BedDouble, needs: 'room:read' },
@@ -174,7 +175,11 @@ async function BrandingSection({ session, propertyId }: { session: StaffSession;
       propertyId={propertyId}
       propertyName={profile.name}
       branding={profile.branding}
+      // Contrast pairs and CSS for all five themes, from the token file's JSON
+      // mirror — worked out here so the browser gets numbers, not a library.
+      sheets={guestThemeSheets()}
       mayEdit={can(session, propertyId, 'property:branding')}
+      uploads={mediaUploadsAvailable()}
     />
   );
 }

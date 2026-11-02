@@ -27,7 +27,11 @@ import { checkoutFeeTiers } from '@/db/schema/stay';
 import { escalateBreachesFor } from '@/modules/requests';
 import { folios, folioLines } from '@/db/schema/billing';
 import { formatMoney, money } from '@/lib/money';
+import { atLocalHourOnSameDay } from '@/lib/clock';
 import { and, eq } from 'drizzle-orm';
+
+/** The demo property's clock. Every hour the seed writes is in it. */
+const DEMO_TIMEZONE = 'Asia/Kolkata';
 
 /** Fixed so the demo tenant is identifiable in a shared database. All hex —
  *  an earlier value used 'm', which is not a hex digit and is not a uuid. */
@@ -257,7 +261,7 @@ async function main(): Promise<void> {
       tenantId: TENANT_ID,
       name: 'The Kesari',
       slug: PROPERTY_SLUG,
-      timezone: 'Asia/Kolkata',
+      timezone: DEMO_TIMEZONE,
       currency: 'INR',
       city: 'Udaipur',
       roomTypes: KESARI_ROOM_TYPES,
@@ -370,9 +374,12 @@ async function main(): Promise<void> {
         guest screen still reads as a stay rather than a tenancy. The real fix
         is a scheduled reseed; this buys the time to do it properly.
       */
-      const checkout = new Date();
-      checkout.setDate(checkout.getDate() + DEMO_STAY_NIGHTS);
-      checkout.setHours(11, 0, 0, 0);
+      // setHours() would be the SERVER's 11am: 4:30pm in Udaipur on a UTC
+      // machine (CI, Railway), which hid the 2pm and 4pm late-checkout
+      // offers there and only there.
+      const checkout = atLocalHourOnSameDay(
+        new Date(Date.now() + DEMO_STAY_NIGHTS * 86_400_000), 11, DEMO_TIMEZONE,
+      );
 
       // Through createStay(), like the front desk and the PMS import — #4.
       // The seeder used to insert the guest and the stay itself, which meant
@@ -529,15 +536,18 @@ async function main(): Promise<void> {
     }).returning({ id: folios.id });
 
     const folioSeed = [
-      { description: 'Room charge · Lake view', amountMinor: 1_800_000, source: 'MANUAL' as const },
-      { description: 'In-room dining · KE-1180', amountMinor: 247_000, source: 'ORDER' as const },
-      { description: 'Laundry service', amountMinor: 45_000, source: 'SERVICE_REQUEST' as const },
-      { description: 'Minibar', amountMinor: 62_000, source: 'MANUAL' as const },
+      // Desk lines say what they are (0015), so the checkout screen groups
+      // them as Room and Other charges. The wording is unchanged: the guest's
+      // stay screen and its e2e read these exact descriptions.
+      { description: 'Room charge · Lake view', amountMinor: 1_800_000, source: 'MANUAL' as const, category: 'ROOM' },
+      { description: 'In-room dining · KE-1180', amountMinor: 247_000, source: 'ORDER' as const, category: null },
+      { description: 'Laundry service', amountMinor: 45_000, source: 'SERVICE_REQUEST' as const, category: null },
+      { description: 'Minibar', amountMinor: 62_000, source: 'MANUAL' as const, category: 'MINIBAR' },
     ];
     for (const line of folioSeed) {
       await tx.insert(folioLines).values({
         tenantId: TENANT_ID, propertyId: provisioned.propertyId,
-        folioId: folio!.id, source: line.source,
+        folioId: folio!.id, source: line.source, category: line.category,
         description: line.description, amountMinor: line.amountMinor,
       });
     }
@@ -558,12 +568,12 @@ async function main(): Promise<void> {
     }).returning({ id: folios.id });
 
     for (const line of [
-      { description: 'Room charge · Lake view', amountMinor: 1_200_000, source: 'MANUAL' as const },
-      { description: 'In-room dining · KE-1179', amountMinor: 118_000, source: 'ORDER' as const },
+      { description: 'Room charge · Lake view', amountMinor: 1_200_000, source: 'MANUAL' as const, category: 'ROOM' },
+      { description: 'In-room dining · KE-1179', amountMinor: 118_000, source: 'ORDER' as const, category: null },
     ]) {
       await tx.insert(folioLines).values({
         tenantId: TENANT_ID, propertyId: provisioned.propertyId,
-        folioId: folio210!.id, source: line.source,
+        folioId: folio210!.id, source: line.source, category: line.category,
         description: line.description, amountMinor: line.amountMinor,
       });
     }

@@ -3162,3 +3162,404 @@ second button, and the user read the result ("not signed in", the old password
 refused) as broken. `setStaffActive` now calls `reissueInvite()` when the
 manager also holds `staff:invite`, and the panel shows the link once, with what
 it is for.
+
+### D-093 · Pictures are uploaded, into a Railway bucket, through the app
+The user asked for uploads in place of pasted image links, for the console
+only — menu photos, the logo, the cover and the like; no guest photos — and
+chose Railway's storage over Cloudflare R2 for now.
+
+**Through the app, not straight into the bucket.** `/api/admin/media` takes
+the file (a Route Handler: a Server Action caps a body at 1MB and cannot
+report upload progress), reads the FORMAT from the bytes, refuses anything
+but JPEG, PNG, WebP and AVIF (so SVG, which can carry script, never gets in),
+rotates it upright, drops all metadata — a phone photo carries the GPS
+position it was taken at, and these go on a public menu — and stores three
+WebP widths per purpose plus a blurhash. Nothing unchecked is ever in storage.
+8MB is the ceiling, under the middleware's 10MB body buffer.
+
+**Served by the app, because Railway buckets are private.** `/media/<id>/<w>.webp`
+reads the object and returns it with `immutable` and a year's max-age: a
+path is never reused, so a browser downloads each picture once. Presigned
+URLs were rejected because they expire, which would defeat that cache. The
+cost is the app's egress on pictures, which at 30–80KB a thumbnail is small.
+
+**A path, not a foreign key.** Uploads write `/media/<id>/<largest>.webp`
+into the `image_url` / `logoUrl` / `coverUrl` that already existed, and
+`media_assets` is the record behind it (DATA-MODEL §4). Every existing reader,
+the order line's snapshot included, keeps working, and moving to R2 later is
+copying objects and changing where `/media` reads from. Because the widths
+are fixed per purpose and always all written, a `srcset` is built from the
+path alone. Saves check the upload is this property's.
+
+**Storage picks itself.** `MEDIA_BUCKET` (+ endpoint and keys) → the bucket;
+otherwise a folder (`MEDIA_DIR`, default `.media`) outside production; and
+in production with neither, uploads answer 503 "not set up" rather than
+writing to a container disk the next deploy wipes.
+
+`sharp`, `@aws-sdk/client-s3` and `blurhash` are server-only; the browser
+bundle did not change. One reusable `ImageField` replaces every URL field
+in the console. Collections, outlets and nearby places store an image but
+have no console field for one yet; when they get one it is this component.
+
+### D-094 · The front office: Rooms as a grid, Leaving as today's departures, Requests live
+The user asked for the console's front-office screens next: Rooms, the Front
+desk, Leaving and Requests had not been reworked since the layout refactor.
+
+**Rooms is a grid of tiles, with a panel per room.** It was a table of 34
+rows, each carrying Copy link, Open, Reprint and Check someone in at the same
+weight — 3,100px on a desk and 5,000 on a phone, eight buttons under the
+touch minimum. Now a tile per room in key-rack order, its left edge the state
+(empty, in house, out today) and its text the same, with a small mark for a
+folio with money on it rather than a colour flood (saffron still means "act").
+Everything you can do to a room — check in (open, not behind a disclosure:
+opening an empty room's panel IS that step), check out with the balance said
+before the button, vouch, copy and open the sticker's link, reprint — is in
+the console's `SidePanel` at `?room=<number>`, by number because that is what
+a desk says aloud. A search narrows by room or guest as you type. 1,315px on a
+desk, 1,822 on a phone.
+
+**The Front desk's table sizes to its own column.** Beside the panel on a
+laptop it is ~520px, which gave a guest's name 70px and ran two headings into
+one ("GUESTSTATUS"). A container query on the list drops Checkout and Folio —
+both shown in the panel beside it — when the list is narrow, whatever the
+window is.
+
+**Leaving is today's departures.** It was only the late-checkout queue, which
+on most mornings is empty while rooms are leaving. `listDeparturesToday()`
+returns who is due out today (overdue included — still checked in after their
+time, the row a desk most needs) and who left since midnight, property-local,
+with the folio balance. The screen shows due, overdue, left and what today's
+departures still owe; each due row says what is still on its way to the room
+and offers Take payment and Check out. The queue keeps its place at the top
+when somebody is waiting, and "Already answered" goes to the bottom. Room
+numbers are bare there, never "Room 210", which the queue's rows are named by.
+
+**Requests opens on a live view; the catalog is a tab.** The console had only
+"What guests can ask for", so the request that was late lived on a
+housekeeper's phone. The live view lists every open request with filters
+(open, late, nobody has it, done not checked, finished today), floor and
+search, and stats with the average time from asking to done. A request's
+panel offers what the floor board offers, through the same `advanceRequest()`,
+plus the one thing the board cannot do: choosing WHO, with people on shift
+first. Reassigning is ASSIGNED → OPEN → ASSIGNED in one transaction rather
+than a new edge in the state machine, so the log says it was taken from one
+person and given to another. "Mark done" is offered only on a request
+somebody has, so the work stays attributed to them. `getRequestsClosedToday()`
+reads done, checked, refused and cancelled since midnight.
+
+### D-095 · Checkout is one screen with the whole bill
+The user asked for the front-office tabs to work the way a senior manager of a
+big hotel needs them, starting with a smooth checkout: a complete bill, with
+amounts that are clear. Three decisions were theirs: room charges are lines
+the desk adds (not a rate stored on a room — #11, and the rate tables stay
+reserved, #12); rooms get a cleaning status (phase B); and nobody leaves
+owing without a manager's recorded reason.
+
+**`/admin/checkouts/<stayId>`.** The bill on the left, grouped the way a
+guest reads one — Room, Food and drink (each order with its dishes, from the
+order's own snapshot), Amenities and services, Late checkout, Other charges,
+Taxes on desk charges, Discounts and corrections — then Payments with how
+each arrived. On the right: what still needs doing before they go (an order
+still being cooked, a request still open, a late checkout nobody answered),
+the totals with the GST and service charge inside them, one large balance,
+and the steps — take a payment (prefilled with the balance, and again with
+what is left after a part payment, so a split is two in a row), give money
+back when overpaid, check out. `buildDeskBill()` is pure and is also what the
+printed invoice uses, so screen and paper cannot disagree.
+
+**What the desk can do to a bill**, each a new row and an event, never an
+edit: add a charge (room nights default to the nights actually stayed, GST as
+its own line pointing at the charge — `folio_lines.category`, migration
+0015); a discount on the stay or a correction of one line, never more than is
+on it, reason printed on the bill; a refund of an overpayment, never more
+than was overpaid, idempotent. Permissions are the role definitions': the
+desk adds and takes money; adjusting, refunding and an unpaid departure are
+the property admin's (`folio:adjust`, `payment:refund`).
+
+**No unpaid checkout without a reason.** `checkOutStay()` refuses a non-zero
+balance unless given `unpaidReason`, which goes on `stay.checked_out` next to
+the balance. Four integration tests that checked out owing now give a reason;
+"does not block on an unpaid balance" became the opposite rule.
+
+**Every way into checkout leads here.** Leaving's rows ("Settle and check
+out", and "Collect" for somebody gone owing), the Front desk panel ("Bill and
+check out"), and the Rooms panel for a guest who owes; a square guest can
+still be checked out in one tap from the Rooms panel.
+
+**A printable invoice** at `/print/invoice/<stayId>` — outside the console's
+layout so the paper is only the bill, behind the session and `folio:read`
+(`/print` joined the middleware's staff prefixes). The number is the folio's,
+so it is the same on every reprint; "Print or save as PDF" is the browser's.
+
+### D-096 · Rooms and the desk: whether a room is ready, who is in it, what they need
+Phase B of the front-office plan (memory: front-office-manager-plan).
+
+**A room's housekeeping state** (`room_status`, migration 0016): clean,
+to make up, inspected, out of order. Checkout marks the room DIRTY in its own
+transaction; housekeeping taps "Made up" on their board (a new "Rooms to make
+up" list, their floors first); whoever holds `request:verify` sees what was
+made up today and taps "Inspected" — the second signature, as on a request.
+Out of order needs a reason and `room:manage`. Permissions follow the work
+(`request:advance` to make up, `request:verify` to inspect) rather than new
+ones, so no role had to be re-seeded. Rooms shows the state on every empty
+tile and filters by Ready to sell, To make up and Out of order; checking a
+guest into a room not yet made up is warned about, not refused (a desk at
+2am with one room left will use it), and an out-of-order room offers no
+check-in at all.
+
+**The guest, at a glance:** the VIP flag and the desk's notes from the guest's
+profile ride on `listRoomsWithOccupancy()` — a crown on the tile, the notes in
+the panel, where they are used.
+
+**Moving a checkout** (`changeCheckoutAt()`, `stay:update`): staying on or
+leaving early, decided by the desk — no request, no fee. Same consequences as
+an approved late checkout: the stay moves, the guest's sessions are extended
+to the new time, the PMS hears `STAY_EXTENDED` with reason `DESK_CHANGE`, and
+`stay.checkout_changed` records from and to. Extra nights are added on the
+bill like any room charge.
+
+**A request for a guest who rang:** the panel raises it through
+`raiseServiceRequest()` with the desk's `staffUserId` (so the event names the
+person, not SYSTEM) at tier FULL — the desk's judgement, not a guest session.
+It routes, escalates and reaches the guest's phone like any other, noted
+"Taken by phone at the desk".
+
+### D-097 · The day's numbers: who has what, and the money
+Phase C.
+
+**Requests → Team today:** per person on shift (or holding work) — what they
+have now, how much is late, what they finished today, how much of it inside
+the promise, average minutes; and per kind of request, slowest first. Built
+from the same reads as the live view; no new query.
+
+**Leaving → Taken today:** money in today by method, refunds counted apart
+rather than netted (a drawer that paid ₹500 out in change has to show it) —
+`collectionsToday()`. **Left owing:** departures in the last 90 days whose
+bill still has money on it, oldest first, with the reason the manager gave
+when they let them go — `listUnpaidDepartures()`, reading the reason off the
+`stay.checked_out` event. Each links to the bill, which still takes payments
+after the guest has gone. Both for `folio:read` only.
+
+### D-098 · A request can only be given to somebody on shift
+The user found the gap: a guest raises a request, a manager assigns it from
+the console to a runner who is not clocked in, and it sits on nobody's phone
+while the board says it is covered. Auto-routing already chose only from
+people on duty; the console's assign list offered everyone.
+
+**The rule is in `advanceRequest()`**, so it holds for every way a request
+is assigned, not only the screen that exposed it: a transition to ASSIGNED
+with an assignee requires a current shift for that person, or it is refused
+with "That person is not clocked in. Give it to somebody on shift." It is
+not tied to the request's floor — a manager may send somebody from the next
+corridor — only to being clocked in. Claiming ("I am going") is unaffected:
+it is IN_PROGRESS by the person holding the phone.
+
+**On the screen**, the assign list is people, not a dropdown: those on shift
+are choosable, with an on-shift icon and the floors they cover; everyone else
+is shown greyed as "Not clocked in", so a manager can see why somebody is not
+an option. When nobody is on, it says so and offers no button. The same icon
+sits beside every assignee on the live list, the request panel and Team today,
+and a request still held by somebody who has since clocked out says so.
+
+### D-099 · A live screen has no loading screen
+Found while making CI's e2e job pass: "the kitchen display shows an order the
+moment it is placed" failed most runs on a production build. The kitchen
+pressed Accept, the guest's phone heard it over SSE, `router.refresh()`
+fetched a payload with the right step lit — and the timeline stayed on
+"Order received". A manual `router.refresh()` from the console did nothing
+either. On `next dev` it usually worked, which is why it looked like timing.
+
+**The cause was the order screen's `loading.tsx`** (D-077). With it, Next
+15.5 fetched each refresh and, about six runs in seven, never committed it;
+with the file removed and nothing else changed, four runs in four moved
+through every step within a second of the kitchen's tap. So the three guest
+screens that refresh themselves from a stream — the order, the request and
+"Your requests" — no longer have one. Eight of D-077's eleven stay.
+
+What they lose is small: a tap that lands on them is still answered at once
+by the top bar (D-092), and the order and request
+screens are mostly reached from a form whose button is already pending.
+`useLiveRefresh` says so in its header, so the next live screen does not
+grow a skeleton and the same silent freeze.
+
+### D-100 · Direction A: one token file for colour, one type set for every surface
+The user redesigned the guest app, the console and the floor screens in Claude
+Design and chose Direction A. The boards are in
+`design/reference/direction-a/`; the pre-redesign tree is tagged
+`pre-redesign`, so any screen can be put back with
+`git checkout pre-redesign -- <path>`.
+
+**Colour lives in `design/tokens/innstant-themes.css`, the user's file.** It
+has two axes: five guest themes (`kesari`, `pichola`, `gulabi`, `mehendi`,
+`sandstone`) as `--g-*`, picked per property with `data-guest-theme`; and the
+console's `light` and `dark` with an accent per guest theme, picked with
+`data-console` and `data-accent`. `<html>` carries `data-console="light"
+data-accent="kesari"` as the default. This reverses half of D-023 — there is a
+token FILE again, and a JSON mirror of it — but not the other half: there is
+still no generator, both are hand-kept, and `theme-tokens.test.ts` asserts they
+match and that every theme meets the floors its header claims. It found one
+miss: the light console's mehendi accent carries white at 4.99:1 against a
+claimed 5:1. It passes AA and the test holds AA; the value is the user's.
+
+**`theme.css` stays, as the map.** About 250 module stylesheets read
+`--paper`, `--teal-600`, `--ink`, `--saffron`. Rewriting them before each
+screen is rebuilt would be churn, so the console and Kesari blocks now point
+those names at the tokens (`--paper: var(--bg)`, `--teal-600:
+var(--g-accent)`) and hold no hex. Two traps, both written down where they
+bite: a var() resolves on the element that declares it, so the console's map
+is declared on `[data-console]` as well as `:root`; and the five names the
+token file owns for the console (`--bg`, `--surface`, `--border`, `--text`,
+`--accent`) are no longer aliased on `:root`, because `--paper: var(--bg)` next
+to `--bg: var(--paper)` is a cycle and a cycle is silently transparent.
+
+**The scales do not move.** The token file's spacing, radius and duration
+names overlap `theme.css`'s with different numbers (`--space-6` is 32px there,
+24px here; `--radius-sm` 4px against 6px). `theme.css` is imported after the
+tokens and its values win, because flipping them would double gaps on console
+pages that have no board to be rebuilt against. Rebuilt screens use the
+boards' px values through the existing scale. The guest's radii did change to
+the design's (4px controls, 10px cards, pills for chips only).
+
+**One type set.** Marcellus speaks, Mukta explains, DM Mono counts — on the
+console too. Public Sans and Red Hat Mono are deleted: Mukta was drawn for
+Devanagari and Latin together, and Public Sans has no Devanagari, so a guest's
+Hindi name now sets properly on the desk's screen. The console's headings are
+Mukta at weight; Marcellus stays on the guest's screens.
+
+The Expo app's palette moved with the Kesari theme, as the token file's
+header says it should; `mobile-theme.test.ts` now reads the JSON.
+
+### D-101 · The guest app, rebuilt to Direction A
+Every guest screen now follows its board in `design/reference/direction-a/`:
+room home, amenities, call for service, the menu (with search), the dish, the
+cart and its room-charge sheet, order and request tracking, "Your requests",
+your stay and plan my day — and the property-link menu, dish, cart and order,
+which now share the room screens' components instead of keeping copies.
+
+**Real data, not the boards' sample data.** Where a board shows something the
+product does not hold, it was left out rather than invented: a local-language
+greeting, the room type ("Jharokha Suite"), a named housekeeper "on your
+floor", runner and chef names on the timeline, a revised time when an order
+runs late (the original promise is struck through instead), place photos and
+a map, breakfast and pool hours. "Pay now · UPI" and "WhatsApp us" are not
+built (the user's call: not yet). "Call the desk" appears only when the
+property has a desk phone.
+
+**Menu search** (approved as a small addition) filters the menu already on the
+page with the catalog's own `searchMenu` rule, imported from its pure file so
+no database code reaches the browser. No server round trip.
+
+**The room-charge prompt is four boxes over one input.** A single real
+`<input name="answer">` sits transparent over the boxes: it is labelled,
+brings up the number pad, steps back on backspace, and a pasted full phone
+number keeps its last four digits. The flow, the tiers and the wording the
+guest reads are unchanged.
+
+**Late is honest, and it arrives on its own.** Nothing on the order stream says
+"late", so the tracking screen schedules one refresh for the moment its
+promise passes; an open phone then turns to "About N minutes behind" in the
+late colour without anybody touching it. The request timeline names its last
+step "Finished" rather than "Done", because "Done" already labels a button on
+the floor's screens that an end-to-end test finds by text.
+
+**The accent is read as `--accent`, not `--g-accent`.** A Kesari property's
+custom accent (D-087) still overrides the role names; reading the token
+directly would silently drop it. Every other colour reads `--g-*`.
+
+### D-102 · The console, rebuilt to Direction A
+The staff console now follows its boards: a new shell, the Overview, Rooms,
+Checkout and Leaving, Requests, and Branding & themes. Pages without a board
+(Front desk, Menu, Links, Staff, Guests, the other Property tabs) wear the new
+shell and tokens and keep their layouts.
+
+**The shell.** Sidebar in four groups (Today, Service, Setup, Floor screens)
+with the same permission-based items as before; the property card; the person
+at the foot; a top bar with the section breadcrumb, the light/dark menu and the
+bell. At phone width the sidebar is a drawer behind a menu button. The board's
+count badges are not built: nothing computes them today, and the shell does
+not refresh with the pages, so they would go stale.
+
+**Light and dark belong to the person** (migration 0017,
+`staff_users.console_appearance`: light, dark or system, default system). The
+console wrapper carries `data-console` from it and `data-accent` from the
+property's guest theme. "Match device" renders light and a small inline script
+switches to dark before paint when the device prefers it, as the token file
+asks. Floor screens are unchanged here; they are step 4.
+
+**⌘K search** across rooms (by number), guests (by name) and orders (by number),
+each from its own module's new read-only search, inside one `withTenant`, and
+only for kinds the person may open. There is no page per order, so an order
+opens its room at the front desk, or the Live floor for table and takeaway
+orders.
+
+**The Overview's numbers are defined in code, not on the board.** Revenue is
+order sales (every outlet, room and property-link alike) plus folio lines the
+desk posted for rooms and services, with corrections and discounts netted; it
+counts room revenue when the desk posts it, because nothing posts a night
+automatically. Requests on time compare `completed_at` with the SLA target,
+the same comparison the SLA sweep breaches on. Occupancy divides in-house
+stays by today's room count, because past room counts are not kept. Periods
+are the property's local day; Today compares with the same weekday last week
+up to the same time. Export is a CSV of the same rows. Accounts without
+pricing see counts, not money.
+
+**Branding picks a theme, as a draft first.** The five guest themes replace
+the single custom accent of D-087 (still read for back-compat, cleared on
+publish). Choosing a card saves `draftTheme` inside `properties.branding` —
+no migration — and moves the live preview, the contrast table and the token
+block; guests see nothing until Publish, which writes `theme`, logs
+`property.branding_updated` and revalidates every layout so the console's
+accent follows. Discard drops the draft.
+
+**Rooms and Checkout keep every rule.** The checkout screen is the board's
+three steps — review, take payment, check out — over the same actions;
+"Check out anyway" lives in the ⋯ menu for managers and still requires the
+reason (D-095). Not built: "Email invoice", "Send UPI request" (the user's
+call), "Print QR stickers" (no sticker sheet and no QR library), an
+"Arriving" filter (there are no reservations), and staff names on a room's
+activity (the event log does not resolve them).
+
+### D-103 · The floor screens, rebuilt to Direction A
+The kitchen display, the runner and housekeeping follow their boards, on the
+console's tokens: `data-console` is dark from 19:00 to 07:00 on the
+property's clock (`src/app/(ops)/night.ts`, now shared) and light otherwise,
+re-derived on each screen's own tick so a tablet dims by itself, and
+`data-accent` follows the property's guest theme. The kitchen's private night
+palette (`[data-scheme='dark']` in theme.css) is gone; nothing reads it.
+
+**The kitchen** keeps its three steps (Accept, Start cooking, Ready) over the
+board's single "Start", because the state machine has three and the tests
+drive them. The allergy strip stays ABOVE the dishes rather than below as
+drawn: a cook reads top-down, and an allergy read after the dish is cooked is
+read too late. Striking a dish through stays as D-089 built it — the
+tablet's own memory, no stored state — and the board's "tap the room number
+to bump" is not built (there is no bump). Red means late and nothing else, so
+an unseen ticket, the waiting banner and an 86 are amber.
+
+**The runner and housekeeping** show only what their data holds: no guest
+name or VIP on a tray (an order carries only its destination), no other
+runner's whereabouts, no "plating, ready in 2 min" (the runner's queue starts
+at READY), no arrival time on a room to make up (there are no reservations),
+and no claiming a room to make up (rooms have no assignee). "Charged to room.
+Nothing to collect." appears on room orders only. "No answer at the door" is
+not built (the user's call). Work buttons are 56px or more.
+
+### D-104 · Picture uploads join the redesign, and work with no bucket yet
+D-093 (PR #5) is merged into the combined branch instead of shipping on its
+own: its picker now sits in the redesigned Branding & themes card and the
+dish form. The Railway bucket does not exist yet, so the case that matters
+first is production with no `MEDIA_BUCKET`. There, storage is `none`, and the
+console now asks `mediaUploadsAvailable()` before drawing the picker: with no
+storage it is a plain link box that says uploads are not switched on yet,
+rather than an upload button that fails after somebody has chosen a file.
+Turning uploads on is configuration only — the bucket's `MEDIA_*` variables
+on Railway and a restart. A half-configured bucket counts as off on the
+settings screens; the upload route still names the missing variable.
+
+**Your stay lost its loading screen too (D-099).** Under the suite's two
+workers the bill's four digits were accepted by the server and the screen
+stayed on "Checking…" about one run in four; with `stay/loading.tsx` gone it
+passed six runs in six, and faster. It is the same freeze D-099 found on the
+live screens, here on a server action's result, so the rule is wider than
+"live screens": a screen whose form result the guest is waiting on should
+not carry a loading boundary either.

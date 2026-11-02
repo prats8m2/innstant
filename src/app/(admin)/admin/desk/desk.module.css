@@ -79,7 +79,15 @@
   align-items: start;
 }
 
-.list { min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.list {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* The table sizes itself to THIS column, not to the window: beside the
+     panel on a laptop it is ~520px wide, which the window cannot know. */
+  container: desk-list / inline-size;
+}
 
 .filters { display: flex; gap: var(--space-2); flex-wrap: wrap; }
 
@@ -487,6 +495,24 @@ a.row[aria-current='true'] {
   .row > :nth-child(6) { display: none; }
   .requestRow, .orderRow { grid-template-columns: 64px minmax(0, 1.4fr) 1fr 110px; }
   .requestRow > :nth-child(4), .orderRow > :nth-child(4) { display: revert; }
+}
+
+/*
+ * The list beside the panel on a laptop (D-094). Six columns in ~520px gave a
+ * guest's name about 70px ("Thom…") and ran two headings together
+ * ("GUESTSTATUS"). Checkout and the folio balance drop out first — the panel
+ * right beside the list shows both for the selected room — and the name gets
+ * the width. Keyed to the list's own width, so a wide monitor keeps all six.
+ */
+@container desk-list (max-width: 760px) {
+  .row { grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr); }
+  .row > :nth-child(4),
+  .row > :nth-child(6) { display: none; }
+  .requestRow { grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 1fr) 110px; }
+  .requestRow > :nth-child(4) { display: none; }
+  .requestRow > :nth-child(5) { display: revert; }
+  .orderRow { grid-template-columns: 96px 64px minmax(0, 1.6fr) minmax(0, 1fr); }
+  .orderRow > :nth-child(4) { display: revert; }
 }
 
 /* An unclaimed request is the one row in these tables that wants a person. */

@@ -243,6 +243,15 @@ Three rules the schema does not carry:
 | Deactivating revokes every `staff_sessions` row in the same transaction | A session lives for its TTL, so flipping the status alone leaves the screen they are logged into working until the cookie ages out |
 | Reactivating clears `password_hash` and goes to INVITED | Handing an old password back to somebody who was walked out of the building is not a "Switch on" button's decision to make silently |
 
+`staff_users.console_appearance` (migration 0017) is the console's light or
+dark for that person — `light`, `dark` or `system` (CHECK-constrained; the
+default), set from the moon in the console's top bar. It lives on the account,
+not the property, because the night manager in a dim back office and the day
+desk by a window read the same screen; and on the account rather than in a
+cookie, so it follows somebody to whichever machine they sign in on. `system`
+is resolved in the browser from `prefers-color-scheme`. Only the signed-in
+person can change their own; it is a preference, so no `event_log` row.
+
 ### Reprinting a sticker (D-041)
 
 `room_qr_codes.version` counts stickers PRINTED, not stickers live. It is
@@ -289,13 +298,20 @@ shown to a room session only, never on a property link, and the event the save
 writes (`property.guest_info_updated`) names the fields that changed, never
 their values. Edited under `property:update`.
 
-`properties.branding` (jsonb since 0000) now has a shape: `{ accent, logoUrl,
-coverUrl }`. The accent is `#RRGGBB` and refused unless it clears 3:1 on the
+`properties.branding` (jsonb since 0000) now has a shape: `{ theme,
+draftTheme, accent, logoUrl, coverUrl }`. `theme` is one of the five guest
+themes in `design/tokens/innstant-themes.css` (D-100) and is the only one a
+guest sees; `draftTheme` is the one picked on the Branding screen and not yet
+published (null when there is none, or when it would equal `theme`) — saving
+it writes no event, and publishing moves it into `theme` and clears it. The
+accent (D-087, pre-themes) is `#RRGGBB`, refused unless it clears 3:1 on the
 guest app's indigo ground AND some ink clears 4.5:1 on it (`cleanBranding()`,
-identity module); the pictures are https URLs. Edited under
-`property:branding`, logged as `property.branding_updated` with both values.
-The guest layouts under `/r/[qrCode]` and `/p/[code]` redeclare the accent
-tokens from it.
+identity module), honoured on Kesari only, no longer offered by any screen,
+and cleared by a publish; the pictures are https URLs. Edited under
+`property:branding`, logged as `property.branding_updated` with the from and
+to of each field a guest sees. The guest layouts under `/r/[qrCode]` and
+`/p/[code]` set `data-guest-theme` and redeclare the accent tokens from it.
+No migration: it is the same jsonb column.
 
 ---
 
@@ -484,6 +500,43 @@ date the portions were taken. The menu read, `getDish()` and
 
 ---
 
+### Is the room ready: `room_status` (D-096, migration 0016)
+
+Occupancy says whether somebody is in a room; this says whether an empty
+room can be sold. One row per room, owned by the housekeeping module, written
+on change: CLEAN, DIRTY, INSPECTED, OUT_OF_ORDER (`room_clean_status`); no
+row means CLEAN. `checkOutStay()` sets DIRTY in the same transaction, so a
+checked-out room never reads clean. OUT_OF_ORDER carries a `note` (CHECK) and
+is temporary maintenance — not the same as a room taken out of service at
+setup (`rooms.archived_at`). Every change writes `room.status_changed` with
+from and to. The app role may SELECT, INSERT and UPDATE; nothing is deleted.
+
+### Uploaded pictures: `media_assets` (D-093, migration 0014)
+
+A dish photo, the logo and the cover were pasted URLs. They are uploaded now,
+through `/api/admin/media`, which decodes the file, refuses anything that is
+not JPEG, PNG, WebP or AVIF (SVG included), drops every bit of metadata (a
+phone photo's GPS position among it), and cuts it to three widths of WebP.
+The bytes are in object storage at `media/<id>/<width>.webp` — a Railway
+bucket in production, `.media/` on disk in development — and served by the
+app at `/media/<id>/<width>.webp`, cacheable for a year because a path is
+never reused.
+
+`media_assets` is the record behind a path: tenant, property, `purpose`
+(`dish`, `logo`, `cover`, CHECK-ed), the largest width's `width`/`height`,
+the `widths` stored, `blurhash`, `bytes`, and `uploaded_by_staff_id`. Written
+once, after every width is stored, with a `media.uploaded` event; the app
+role has no UPDATE on it.
+
+**Nothing points at it by foreign key, deliberately.** What a dish or the
+branding stores is the upload's PATH, in the same `image_url` / `logoUrl` /
+`coverUrl` it always had: relative, so it survives a change of domain or of
+storage, and an order line's `image_url_snapshot` copies it like any other
+value (#6). A save checks the path is an upload of THIS property
+(`checkOwnMedia`), and a dish takes the upload's blurhash. Pasted URLs from
+before keep working untouched. The API hands the mobile app absolute URLs
+(`APP_URL` + path), since an app has no page to resolve a path against.
+
 ## 5. Money
 
 Integer minor units (`*_minor`), plus a `currency` column on every row that
@@ -526,6 +579,27 @@ the total is recomputed from the lines drawn so the number under a list always
 equals the list.
 
 ---
+
+### The desk's lines on a bill: `folio_lines.category`, refunds (D-095, migration 0015)
+
+A charge the desk adds is a MANUAL line, and `category` says what it is:
+ROOM, MINIBAR, LAUNDRY, DAMAGE, OTHER — or TAX, the GST on one of those,
+whose `source_ref_id` points at the charge it is tax on. CHECK-ed to those
+values and to MANUAL lines only; every other source's group follows from the
+source. Room charges are typed in at the desk ("Room · 3 nights × ₹6,500");
+nothing about a price is stored on a room (#11).
+
+A discount or a correction is a negative ADJUSTMENT line with the reason in
+its description; a correction's `source_ref_id` is the line it corrects, and
+it may not take more off that line than is left on it. A refund is a
+`payments` row in `REFUNDED` (its `amount_minor` positive — what changed
+hands) and a NEGATIVE `PAYMENT` line, which is what moves the balance back to
+zero; it may not exceed what was overpaid, and is idempotent by key (#8).
+Each writes an event: `folio.charge_added`, `folio.adjusted`,
+`folio.refunded`.
+
+Checking out with a non-zero balance needs `unpaidReason`, recorded on the
+`stay.checked_out` event; the console only offers it to `folio:adjust`.
 
 ## 6. State machines
 

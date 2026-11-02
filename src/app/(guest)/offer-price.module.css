@@ -1,20 +1,22 @@
-/* A dish's offer, beside its price (D-085). Guest theme tokens only. */
+/* A dish's offer, beside its price (D-085). Direction A: guest tokens only
+   (--g-*, D-100), the struck price in DM Mono, the offer as a 2px tag. */
 .was {
-  font-size: var(--text-sm);
-  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--g-ink-3);
   text-decoration-thickness: 1px;
 }
 
 .offer {
   display: inline-flex;
   align-items: center;
-  padding: 1px var(--space-2);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--g-accent) 14%, transparent);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--g-accent);
   white-space: nowrap;
 }

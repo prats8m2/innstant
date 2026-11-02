@@ -1,0 +1,162 @@
+/*
+ * The front office's controls in Direction A (D-100): buttons, fields,
+ * pills and labels, shared by Rooms and the checkout screens. Read only the
+ * console's semantic tokens, so light and dark both come from the token file.
+ *
+ * Controls take a 4–6px radius and cards 10px; pills are for chips only.
+ * 36px buttons on a desk, the 44px touch minimum on a finger.
+ */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out);
+}
+.btn:hover:not(:disabled) { background: var(--surface-2); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { cursor: not-allowed; opacity: 0.6; }
+.btn[aria-expanded='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+
+.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 86%, var(--text)); }
+
+.danger { border-color: var(--crit); color: var(--crit); }
+.danger:hover:not(:disabled) { background: var(--crit-soft); }
+
+.large { min-height: 44px; font-size: var(--text-base); }
+
+@media (pointer: coarse) {
+  .btn { min-height: var(--touch-min); }
+}
+
+/* ── Fields ─────────────────────────────────────────────────────────────── */
+
+.form { display: grid; gap: var(--space-3); min-width: 0; }
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.wide { grid-column: 1 / -1; }
+
+.field { display: grid; gap: 6px; min-width: 0; }
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+}
+.input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.input::placeholder { color: var(--text-3); }
+
+.hint { margin: 0; font-size: var(--text-sm); line-height: 1.45; color: var(--text-3); }
+
+.error {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--crit);
+}
+.done {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--pos);
+}
+
+/* ── Pills: a status is a colour AND a word, often an icon too ─────────── */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+.pill[data-tone='accent'] { background: var(--accent-soft); color: var(--accent-text); }
+.pill[data-tone='pos'] { background: var(--pos-soft); color: var(--pos); }
+.pill[data-tone='warn'] { background: var(--warn-soft); color: var(--warn); }
+.pill[data-tone='warn-line'] { background: transparent; color: var(--warn); box-shadow: inset 0 0 0 1px var(--warn); }
+.pill[data-tone='crit'] { background: var(--crit-soft); color: var(--crit); }
+.pill[data-tone='info'] { background: var(--info-soft); color: var(--info); }
+.pill[data-tone='solid'] { background: var(--text); color: var(--bg); }
+
+/* The small uppercase label over a group. */
+.lbl {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+@media (max-width: 640px) {
+  .grid3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

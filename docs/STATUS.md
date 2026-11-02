@@ -21,6 +21,92 @@ notes. A stale status file is worse than none.
 
 ## Now
 
+**The Direction A redesign has started (D-100), on the same combined branch.**
+Source: the Claude Design canvas (memory: redesign-direction-a), copied to
+`design/reference/direction-a/`. Backup: git tag `pre-redesign`. The user's
+answers: tokens from their file; build the "small additions" (console dark
+mode per person, five guest themes, publish/discard for branding, revenue and
+trends on Overview, ⌘K search, menu search); leave the bigger ones (guest UPI,
+UPI request and email invoice, striking dishes on the KDS, "no answer at the
+door", WhatsApp) until they decide. Order: 1 tokens, fonts, shared pieces ✅ →
+2 guest app ✅ (D-101; per-property theme in branding, every guest screen
+rebuilt, menu search; e2e 111/111) → 3 console ✅ (D-102; shell, ⌘K search,
+per-person light/dark — migration **0017**, applied locally only; Overview
+with revenue; Rooms; Checkout; Requests; Branding with draft/publish) → 4 floor screens ✅ (D-103; kitchen,
+runner, housekeeping; dark after 7pm on the property's clock). The redesign
+plan is complete; e2e 111/111 on a production build.
+
+**Picture uploads folded in (D-093, from PR #5).** The uploads branch is
+merged into this one; its picker sits in the redesigned Branding and Menu
+screens. With no `MEDIA_BUCKET` in production the picker is a link box that
+says uploads are not switched on yet; setting the Railway bucket's `MEDIA_*`
+variables and restarting turns uploads on with no code change. Migration
+**0014** (`media_assets`) joins 0015–0017 for production (D-104). Your
+stay's loading screen was removed for the D-099 freeze.
+
+**CI made green (same branch), D-099.** The e2e suite was 24 red against
+this branch; it is now 111 passed / 0 failed on a production build run the
+way CI runs it (2 workers, 2 retries). Mostly stale assertions after the
+admin redesign (tabs, panels, wording). Three real fixes: (1) the order,
+request and "Your requests" screens lost their `loading.tsx` — with one,
+`router.refresh()` fetched the new state and Next 15.5 never committed it,
+so a guest's timeline froze on "Order received" (D-099); (2) CI's e2e job
+sets `DATABASE_POOL_MAX=40`, because the default of 10 starved under parallel
+workers; (3) `formatRate` moved into the pure `desk-bill.ts`, so the unit
+job (no `DATABASE_URL`) no longer loads the db client. The kitchen-settings
+tests now run serially. CI only runs on a PR or main, so the WebKit
+(`guest-ios`) project has not been seen yet — it runs when the PR is raised.
+
+**D-098 (same branch):** a request can only be assigned to somebody clocked
+in — enforced in `advanceRequest()`; the console's assign list shows on-shift
+people (with an icon and their floors) and greys out the rest.
+
+
+**2 November, later: phases B and C (D-096, D-097), on the local combined
+branch `feat/front-office-combined`** — the user asked for all work to go on
+one branch with no PRs until they say (memory: combined-branch-workflow). PRs
+#6 and #7 were closed unmerged; their work is on this branch. B: room cleaning
+status (migration **0016**, `room_status`), checkout marks rooms to be made
+up, housekeeping's "Rooms to make up", VIP and notes on room tiles, moving a
+checkout, raising a request for a guest who rang. C: Requests → Team today;
+Leaving → Taken today and Left owing. Migrations 0015 and 0016 are applied
+locally only and must run on production before this branch deploys.
+
+
+**2 November: checkout and the bill (D-095), branch `feat/checkout-billing`**
+(from `feat/admin-front-office`, PR #6). Phase A of the front-office plan
+(memory: front-office-manager-plan). `/admin/checkouts/<stayId>` shows the
+whole bill grouped by kind, with GST and service charge, part payments,
+refunds, discounts and corrections with reasons, warnings before checkout,
+and an invoice at `/print/invoice/<stayId>`. Migration **0015**
+(`folio_lines.category`) is applied locally only. Checking out owing now needs
+a manager's reason. Next: phase B (room cleaning status — migration, VIP and
+notes on tiles, extend a stay, raise a request for a guest who phoned), then
+C (staff workload, today's collections, unpaid departures).
+
+
+**2 November: the front office (D-094), branch `feat/admin-front-office`.**
+Rooms is a grid of room tiles with a panel per room (`?room=<number>`) and a
+search; the Front desk table sizes to its own column (no more cut-off names);
+Leaving shows today's departures (due, overdue, left, still owed) as well as
+the late-checkout queue; Requests opens on a live view with assign, mark done,
+check, refuse and cancel, and the catalog moved to `?tab=catalog`. No
+migration. The e2e tests for rooms moved to the panel; the catalog tests to
+the tab. Picture uploads (`feat/media-uploads`, PR #5) are separate and wait
+on the Railway bucket.
+
+**2 November: picture uploads (D-093), branch `feat/media-uploads`.** The
+console's dish photo, logo and cover fields are one `ImageField` picker
+instead of a pasted URL; uploads are checked, stripped of metadata and cut to
+three WebP widths, stored in object storage and served at `/media/...`.
+Migration **0014** (`media_assets`) is applied locally only. Before deploying:
+create a Railway bucket in production (the project token cannot — "Bad
+Access"), give `kesari` the variables `MEDIA_BUCKET`, `MEDIA_ENDPOINT`,
+`MEDIA_ACCESS_KEY_ID`, `MEDIA_SECRET_ACCESS_KEY` (and `MEDIA_REGION=auto`)
+referencing the bucket's own, and run the migration. Without the bucket,
+production uploads answer "not set up"; nothing else breaks.
+
+
 **29 October: Setup and the floor screens, redesigned — local only, not
 pushed.** The user will test the whole flow locally, in one go, before
 anything is pushed. Branch `feat/admin-setup-floor` (from `main` at
@@ -379,6 +465,15 @@ The things that still belong in a status file:
 
 ## Environment notes
 
+- **2 November: running e2e like CI, locally.** Start a production server on
+  3200 with `DATABASE_POOL_MAX=40` (`PORT=3200 APP_URL=http://localhost:3200
+  NEXT_DIST_DIR=.next-e2e NODE_ENV=production pnpm build && … pnpm start`), then
+  `npx playwright test --workers=2 --retries=2` with the same PORT/APP_URL —
+  it reuses the server. Load `.env_old` first: the global setup runs
+  `demo:reset`, which fails silently-ish without `DATABASE_URL`. At 4 workers
+  a room-210 test can stall on "Checking…" under load; at CI's 2 it does not.
+  Afterwards `git checkout next-env.d.ts tsconfig.json` — the build rewrites
+  them for the custom dist dir.
 - **29 October: the user replaced `.env`.** The old one is `.env_old` (the
   local Homebrew PG14 on 5432, the roles in "Local database" below). The new
   `.env` points both database URLs at `localhost:55432`, which nothing was

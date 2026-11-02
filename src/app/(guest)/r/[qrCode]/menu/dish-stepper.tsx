@@ -2,7 +2,7 @@
 
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { adjustDishInOrder, type QuickAdjustState } from './actions';
+import { Minus, Plus } from 'lucide-react';
 import styles from './menu.module.css';
 
 /**
@@ -16,36 +16,59 @@ import styles from './menu.module.css';
  * "Conventions"). It also means the control keeps working with no JavaScript:
  * two buttons in a form, each posting its own direction.
  *
+ * ─── One component, two flows ──────────────────────────────────────────────
+ *
+ * A room and a property link (D-079) resolve different sessions and scope to
+ * different contexts, so each has its own action — `adjustDishInOrder` here,
+ * the visit's in `/p/[code]/menu/actions.ts`. The page that renders the
+ * stepper passes its own action in, together with the one hidden field that
+ * action reads (`qrCode` or `code`). There used to be two copies of this file
+ * that differed in exactly those two lines.
+ *
  * ─── Why the whole card is not the button ──────────────────────────────────
  *
  * The card is a link into the dish, and it stays one. A guest who wants the
  * chilli mild, a note on the order, or simply to read the description taps
  * the card; a guest who wants one more of what the kitchen makes taps the
- * plus. Collapsing those into one gesture would take the long way round away
- * to save a tap on the short one.
+ * plus.
  */
+export interface QuickAdjustResult {
+  /** Shown on the card. Says what happened and what to do (CLAUDE.md). */
+  error?: string;
+}
+
+export type QuickAdjustAction = (
+  previous: QuickAdjustResult,
+  formData: FormData,
+) => Promise<QuickAdjustResult>;
+
 export function DishStepper({
-  qrCode,
+  action: adjust,
+  scope,
   menuItemId,
   quantity,
   dishName,
 }: {
-  qrCode: string;
+  action: QuickAdjustAction;
+  /** The hidden field the action reads its link from: `qrCode` or `code`. */
+  scope: { name: 'qrCode' | 'code'; value: string };
   menuItemId: string;
   /** How many of this dish are in the cart, across every variant of it. */
   quantity: number;
   dishName: string;
 }) {
-  const [state, action] = useActionState<QuickAdjustState, FormData>(adjustDishInOrder, {});
+  const [state, action] = useActionState<QuickAdjustResult, FormData>(adjust, {});
 
   return (
     <form action={action} className={styles.stepper} data-on={quantity > 0}>
-      <input type="hidden" name="qrCode" value={qrCode} />
+      <input type="hidden" name={scope.name} value={scope.value} />
       <input type="hidden" name="menuItemId" value={menuItemId} />
 
       {quantity > 0 ? (
         <>
-          <StepButton direction="remove" label={`One fewer ${dishName}`}>−</StepButton>
+          <StepButton direction="remove" label={`One fewer ${dishName}`}>
+            <Minus size={20} strokeWidth={1.5} aria-hidden="true" />
+          </StepButton>
           <span className={`${styles.stepCount} tabular`} aria-live="polite">
             {quantity}
           </span>
@@ -55,9 +78,8 @@ export function DishStepper({
       <StepButton
         direction="add"
         label={quantity > 0 ? `One more ${dishName}` : `Add ${dishName} to your order`}
-        primary={quantity === 0}
       >
-        {quantity > 0 ? '+' : 'Add'}
+        <Plus size={20} strokeWidth={1.5} aria-hidden="true" />
       </StepButton>
 
       {/*
@@ -75,12 +97,10 @@ export function DishStepper({
 function StepButton({
   direction,
   label,
-  primary = false,
   children,
 }: {
   direction: 'add' | 'remove';
   label: string;
-  primary?: boolean;
   children: React.ReactNode;
 }) {
   const { pending } = useFormStatus();
@@ -89,7 +109,7 @@ function StepButton({
       type="submit"
       name="direction"
       value={direction}
-      className={primary ? styles.stepAdd : styles.step}
+      className={styles.step}
       aria-label={label}
       /*
         Disabled while the form is in flight, both buttons. A guest double

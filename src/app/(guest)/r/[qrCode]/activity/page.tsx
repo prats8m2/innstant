@@ -1,12 +1,16 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { withTenant } from '@/db';
 import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { findProperty } from '@/modules/identity';
-import { listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession } from '@/modules/ordering';
 import {
-  getRequestsForStay, requestStateFor, REQUEST_OPEN_TO_A_GUEST,
+  listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession,
+  trackProgress, trackEta,
+} from '@/modules/ordering';
+import {
+  getRequestsForStay, requestStateFor, REQUEST_OPEN_TO_A_GUEST, type RequestStatus,
 } from '@/modules/requests';
 import { formatMoney, money } from '@/lib/money';
 import { formatFolioDate } from '@/lib/clock';
@@ -32,6 +36,16 @@ import styles from './activity.module.css';
  * Each row still links to the screen that already tracks it: the order timeline
  * or the request's own page. This is the way back in, not a replacement.
  *
+ * ─── Direction A ───────────────────────────────────────────────────────────
+ *
+ * No board of its own; it speaks the tracking board's language. A live row is
+ * a card carrying the same dots as the timeline it opens onto — ready for a
+ * step behind it, the accent for the one happening, an outline for what is to
+ * come — and its promise in mono, or how far behind it is in the soft late
+ * tone, in words. Finished rows are hairline rows below.
+ *
+ * No `loading.tsx` beside this file, on purpose (D-099).
+ *
  * ─── What is NOT gated ─────────────────────────────────────────────────────
  *
  * CLAUDE.md #9: browsing is never behind verification. The one prompt is at the
@@ -56,10 +70,17 @@ interface Entry {
   live: boolean;
   /** The kitchen's or the desk's own words, when something was refused. */
   haltReason: string | null;
-  /** "12 min left", "over by 4 min" — requests only; orders have a timeline. */
+  /** "by 9:17pm", "about 4 min behind" — only while the promise is in play. */
   promise: string | null;
   promiseLate: boolean;
+  /** Where it is on its own timeline, 1-based; null when it is not on one. */
+  progress: { index: number; of: number } | null;
 }
+
+/** A request's four steps, as its tracking screen draws them. */
+const REQUEST_STEP: Record<RequestStatus, number> = {
+  OPEN: 1, ASSIGNED: 2, IN_PROGRESS: 3, COMPLETED: 4, VERIFIED: 4, REJECTED: 0, CANCELLED: 0,
+};
 
 export default async function ActivityScreen({
   params,
@@ -83,11 +104,26 @@ export default async function ActivityScreen({
     }),
   );
 
+  // The PROPERTY's timezone, never the server's (CLAUDE.md "Dates").
   const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const clock = new Intl.DateTimeFormat('en-IN', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
+  });
+  const at = (value: Date) =>
+    clock.format(value).replace(/\s?([ap])\.?m\.?/i, (_, p: string) => `${p.toLowerCase()}m`);
+  const now = Date.now();
 
   const entries: Entry[] = [
     ...orders.map((order): Entry => {
       const state = orderStateFor(order.status);
+      const live = OPEN_TO_A_GUEST.includes(order.status);
+      const progress = trackProgress(order.status);
+      // The same promise the tracking screen keeps: the window's far end.
+      const eta = live ? trackEta(order.status, order.promisedByAt) : null;
+      const deadline = eta ? (eta.to ?? eta.from) : null;
+      const behind = deadline && now > deadline.getTime()
+        ? Math.max(1, Math.round((now - deadline.getTime()) / 60_000))
+        : null;
       return {
         id: order.id,
         href: `${base}/order/${order.id}`,
@@ -98,15 +134,19 @@ export default async function ActivityScreen({
         amount: formatMoney(money(order.totalMinor, order.currency)),
         at: order.placedAt,
         reference: order.orderNumber,
-        live: OPEN_TO_A_GUEST.includes(order.status),
+        live,
         haltReason: order.haltReason,
-        promise: null,
-        promiseLate: false,
+        promise: deadline
+          ? (behind !== null ? `about ${behind} min behind` : `by ${at(deadline)}`)
+          : null,
+        promiseLate: behind !== null,
+        progress: progress.index > 0 ? progress : null,
       };
     }),
     ...requests.map((request): Entry => {
       const state = requestStateFor(request.status);
       const live = REQUEST_OPEN_TO_A_GUEST.includes(request.status);
+      const step = REQUEST_STEP[request.status];
       return {
         id: request.id,
         href: `${base}/service/${request.id}`,
@@ -129,8 +169,11 @@ export default async function ActivityScreen({
         live,
         haltReason: request.rejectionReason ?? request.cancellationReason ?? null,
         // The promise only means something while it is still being kept.
-        promise: live ? describeSla(request.breached, request.secondsRemaining) : null,
-        promiseLate: request.breached,
+        promise: live
+          ? describeSla(request.breached, request.secondsRemaining, request.slaTargetAt, at)
+          : null,
+        promiseLate: live && request.breached,
+        progress: step > 0 ? { index: step, of: 4 } : null,
       };
     }),
   ].sort(byNewest);
@@ -142,10 +185,17 @@ export default async function ActivityScreen({
     <main className={styles.shell}>
       <header className={styles.bar}>
         <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
-          ←
+          <ChevronLeft size={22} strokeWidth={1.5} aria-hidden="true" />
         </Link>
-        <h1 className={styles.barTitle}>Your requests</h1>
       </header>
+
+      <div className={styles.intro}>
+        <h1 className={styles.title}>Your requests</h1>
+        <p className={styles.lede}>
+          Everything room <span className="tabular">{session.roomNumber}</span> has asked
+          for, newest first.
+        </p>
+      </div>
 
       {/* Only while something is moving. A history page that holds a stream
           open all night for things that finished on Tuesday is a battery cost
@@ -154,6 +204,7 @@ export default async function ActivityScreen({
 
       {entries.length === 0 ? (
         <div className={styles.empty}>
+          <span className={styles.emptyArch} aria-hidden="true" />
           <p className={styles.emptyTitle}>Nothing asked for yet</p>
           <p className={styles.emptyBody}>
             Anything you order from the kitchen or ask housekeeping for shows up
@@ -164,22 +215,22 @@ export default async function ActivityScreen({
       ) : null}
 
       {live.length ? (
-        <section className={styles.group}>
-          <h2 className={styles.groupHeading}>Happening now</h2>
-          <ul className={styles.list}>
+        <section className={styles.group} aria-labelledby="activity-now">
+          <h2 id="activity-now" className={styles.eyebrow}>Happening now</h2>
+          <ul className={styles.cards}>
             {live.map((entry) => (
-              <Row key={entry.id} entry={entry} timeZone={timeZone} />
+              <LiveRow key={entry.id} entry={entry} />
             ))}
           </ul>
         </section>
       ) : null}
 
       {past.length ? (
-        <section className={styles.group}>
-          <h2 className={styles.groupHeading}>Earlier in this stay</h2>
-          <ul className={styles.list}>
+        <section className={styles.group} aria-labelledby="activity-past">
+          <h2 id="activity-past" className={styles.eyebrow}>Earlier in this stay</h2>
+          <ul className={styles.rows}>
             {past.map((entry) => (
-              <Row key={entry.id} entry={entry} timeZone={timeZone} />
+              <PastRow key={entry.id} entry={entry} timeZone={timeZone} />
             ))}
           </ul>
         </section>
@@ -189,48 +240,89 @@ export default async function ActivityScreen({
 }
 
 /**
- * One row.
+ * Something still moving: a card, its timeline in miniature, and its promise.
+ */
+function LiveRow({ entry }: { entry: Entry }) {
+  return (
+    <li>
+      <Link href={entry.href} className={styles.card} data-late={entry.promiseLate}>
+        <span className={styles.cardHead}>
+          <span className={styles.state}>{entry.label}</span>
+          {entry.promise ? (
+            <span className={styles.promise} data-late={entry.promiseLate}>
+              {entry.promiseLate ? <Clock size={14} strokeWidth={1.5} aria-hidden="true" /> : null}
+              <span className="tabular">{entry.promise}</span>
+            </span>
+          ) : null}
+        </span>
+
+        {entry.progress ? <Progress progress={entry.progress} /> : null}
+
+        <span className={styles.cardBody}>
+          <span className={styles.summary}>{entry.summary}</span>
+          {entry.amount ? (
+            <span className={`${styles.amount} tabular`}>{entry.amount}</span>
+          ) : null}
+        </span>
+
+        <span className={styles.meta}>
+          {/* The kind, said on the row. A guest scanning a mixed list should
+              not have to work out which of these was dinner. */}
+          <span>{entry.kind}</span>
+          <span aria-hidden="true">·</span>
+          <span className="tabular">{entry.reference}</span>
+          <ChevronRight className={styles.chevron} size={18} strokeWidth={1.5} aria-hidden="true" />
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * Finished with: a hairline row.
  *
  * A link, always — even a refused one. The screen behind it carries the words
  * the kitchen or the desk actually used, and somebody whose request was refused
  * is the person most likely to want to read them again.
  */
-function Row({ entry, timeZone }: { entry: Entry; timeZone: string }) {
+function PastRow({ entry, timeZone }: { entry: Entry; timeZone: string }) {
   return (
     <li>
-      <Link href={entry.href} className={styles.row} data-live={entry.live}>
-        <span className={styles.rowHead}>
-          <span className={styles.state} data-tone={entry.tone}>
-            {entry.live ? <span className={styles.pulse} aria-hidden="true" /> : null}
-            {entry.label}
+      <Link href={entry.href} className={styles.row}>
+        <span className={styles.rowMain}>
+          <span className={styles.summary}>{entry.summary}</span>
+          <span className={styles.meta}>
+            <span className={styles.pastState} data-tone={entry.tone}>{entry.label}</span>
+            <span aria-hidden="true">·</span>
+            <span>{entry.kind}</span>
+            <span aria-hidden="true">·</span>
+            <span className="tabular">{entry.at ? formatFolioDate(entry.at, timeZone) : '—'}</span>
           </span>
-          {entry.amount ? (
-            <span className={`${styles.total} tabular`}>{entry.amount}</span>
+          {entry.haltReason ? (
+            <span className={styles.reason}>“{entry.haltReason}”</span>
           ) : null}
         </span>
-
-        <span className={styles.summary}>{entry.summary}</span>
-
-        <span className={styles.meta}>
-          <span className={`${styles.when} tabular`}>
-            {/* The kind, said on the row. A guest scanning a mixed list should
-                not have to work out which of these was dinner. */}
-            {entry.kind} · {entry.at ? formatFolioDate(entry.at, timeZone) : '—'}
-          </span>
-          {entry.promise ? (
-            <span className={`${styles.promise} tabular`} data-late={entry.promiseLate}>
-              {entry.promise}
-            </span>
-          ) : (
-            <span className={`${styles.number} tabular`}>{entry.reference}</span>
-          )}
-        </span>
-
-        {entry.haltReason ? (
-          <span className={styles.reason}>“{entry.haltReason}”</span>
+        {entry.amount ? (
+          <span className={`${styles.amount} tabular`} data-tone={entry.tone}>{entry.amount}</span>
         ) : null}
       </Link>
     </li>
+  );
+}
+
+/** The timeline in miniature: the same three kinds of dot, on a rail. */
+function Progress({ progress }: { progress: { index: number; of: number } }) {
+  return (
+    <span
+      className={styles.progress}
+      role="img"
+      aria-label={`Step ${progress.index} of ${progress.of}`}
+    >
+      {Array.from({ length: progress.of }, (_, i) => {
+        const state = i + 1 < progress.index ? 'done' : i + 1 === progress.index ? 'active' : 'pending';
+        return <span key={i} className={styles.progressDot} data-state={state} />;
+      })}
+    </span>
   );
 }
 
@@ -254,8 +346,14 @@ function byNewest(a: Entry, b: Entry): number {
  * `secondsRemaining` is computed against the clock by the read, never stored —
  * a breach is a function of time, not a column.
  */
-function describeSla(breached: boolean, secondsRemaining: number | null): string | null {
+function describeSla(
+  breached: boolean,
+  secondsRemaining: number | null,
+  target: Date | null,
+  at: (value: Date) => string,
+): string | null {
   if (secondsRemaining === null) return null;
-  const minutes = Math.max(0, Math.round(Math.abs(secondsRemaining) / 60));
-  return breached ? `over by ${minutes} min` : `${minutes} min left`;
+  const minutes = Math.max(1, Math.round(Math.abs(secondsRemaining) / 60));
+  if (breached) return `about ${minutes} min behind`;
+  return target ? `by ${at(target)}` : `${minutes} min left`;
 }

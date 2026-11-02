@@ -9,6 +9,7 @@ import {
 } from '@/modules/catalog';
 import { formatMoney, money } from '@/lib/money';
 import { SidePanel } from '../side-panel';
+import { mediaUploadsAvailable } from '@/modules/media';
 import { DishForm } from './dish-form';
 import { DishHistory } from './dish-history';
 import { localTimeAt } from '@/lib/clock';
@@ -191,6 +192,7 @@ export default async function MenuAdmin({
             : `On ${menu.outlet.name}.`}
         >
           <DishForm
+            uploads={mediaUploadsAvailable()}
             propertyId={propertyId}
             outletId={menu.outlet.id}
             currency={menu.outlet.currency}

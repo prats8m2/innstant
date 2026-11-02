@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveRefresh } from '@/components/live-refresh';
-import styles from './admin.module.css';
+import styles from './live-console.module.css';
 
 /**
  * The console's live half.

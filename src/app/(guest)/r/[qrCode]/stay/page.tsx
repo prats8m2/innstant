@@ -1,27 +1,26 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronLeft, Phone } from 'lucide-react';
 import { withTenant } from '@/db';
 import {
   resolveStaySession, GUEST_SESSION_COOKIE, tierAtLeast, tierForAction,
 } from '@/modules/access';
-import { findProperty, describeRoom, getPropertyProfile } from '@/modules/identity';
-import { HotelInfo } from '../../../_brand/hotel-info';
+import {
+  findProperty, describeRoom, getPropertyProfile, dialable, type GuestInfo,
+} from '@/modules/identity';
 import { getFolioForStay, buildGuestStatement } from '@/modules/billing';
 import { getCheckoutOptions, checkoutCtaFor } from '@/modules/stay';
 import { formatMoney, money, type CurrencyCode } from '@/lib/money';
-import { formatCheckoutDay, nightsUntil, spellCount } from '@/lib/clock';
+import { formatCheckoutDay, formatClock, nightsUntil, spellCount } from '@/lib/clock';
 import { VerifyForFolio } from './verify-form';
 import { CheckoutOptions, PendingCheckout, CheckOutNow, type OfferView } from './checkout-options';
+import { CopyValue } from './copy-value';
 import styles from './stay.module.css';
 
 /**
- * "Your stay" — when the guest is out, and what is on the room.
- *
- * P3's first screen, and the biggest hole in the product until now:
- * `getFolioForStay()` has been written and tested since P0 while every charge
- * path posted into a folio no guest could see. A hotel whose guests cannot check
- * their own bill has not replaced the printout under the door.
+ * "Your stay" — when the guest is out, and what is on the room. Direction A's
+ * `GuestStay` board, rebuilt with the real data.
  *
  * ─── The one prompt lives here ─────────────────────────────────────────────
  *
@@ -32,23 +31,28 @@ import styles from './stay.module.css';
  * the guest surface where the content is personal, and a QR sticker is
  * photographable from a corridor.
  *
+ * The board draws the locked bill as "₹ ••,•••" and a Show button. Here the
+ * masked figure is the same, and the button IS the four-digit form's submit —
+ * the field sits in the card rather than behind a second tap, because a
+ * button that only reveals another form is one more screen in the way.
+ *
  * The tier is only READ here. Nothing is written while rendering, because the
  * room home links to this page and Next prefetches links in the viewport — see
  * the note in `actions.ts`, where the challenge is minted on submit instead.
  *
  * ─── Layout ────────────────────────────────────────────────────────────────
  *
- * The reference's `stay` screen, rebuilt with real components: the eyebrow, the
- * Marcellus date, the folio rule and the saffron total are all its measurements.
- * Its checkout options and "Check out now" are here too, below the folio rather
- * than above it: the reference draws them first, and a guest who has just been
- * asked to verify should meet the thing they came for before an upsell.
+ * The board's order: when they leave, with the late-checkout offers in the
+ * same card; the bill; the hotel's own facts; a way to ring the desk. The
+ * offers only appear to a guest through the prompt — `request_checkout` sits
+ * on the same FULL tier as the folio (D-031), and drawing controls that would
+ * refuse is worse than not drawing them.
  *
- * One option the reference has and this does not: "Stay Thursday night". Pricing
- * a NIGHT needs a nightly rate — a rate plan for a room type on a date — which
- * CLAUDE.md #11 forbids putting on a room and #12 reserves the names for. Late
- * checkout is a service fee the property sets; another night is a booking
- * (D-033), and the line under the options says where to go for one.
+ * Left out of the board, on purpose: "WhatsApp us" (not approved), and the
+ * breakfast and pool hours (no such data — the rows shown are the hotel's
+ * own guest info). "Stay Thursday night" is not offered either: pricing a
+ * NIGHT needs a rate plan for a room type on a date, which CLAUDE.md #11
+ * forbids putting on a room and #12 reserves the names for (D-033).
  */
 export const dynamic = 'force-dynamic';
 
@@ -104,112 +108,191 @@ export default async function StayScreen({
   const offerViews: OfferView[] = (leaving?.offers ?? []).map((offer) => ({
     id: offer.id,
     title: offer.title,
+    time: clockOf(offer.checkoutAt, timeZone),
     sub: offer.sub,
     price: offer.feeMinor === 0
       ? 'No charge'
       : formatMoney(money(offer.feeMinor, offer.currency as CurrencyCode)),
+    free: offer.feeMinor === 0,
     cta: checkoutCtaFor(offer),
   }));
 
   const pendingView = describePending(leaving, timeZone);
 
-  const checkout = formatCheckoutDay(session.scheduledCheckoutAt, timeZone);
   const nights = nightsUntil(new Date(), session.scheduledCheckoutAt, timeZone);
+  const info = profile?.guestInfo ?? null;
+  const phone = info?.contactPhone ? dialable(info.contactPhone).tel : null;
 
   return (
     <main className={styles.shell}>
       <header className={styles.bar}>
         <Link href={`${base}/home`} className={styles.back} aria-label="Back to room home">
-          ←
+          <ChevronLeft size={22} strokeWidth={1.5} aria-hidden="true" />
         </Link>
-        <h1 className={styles.barTitle}>Your stay</h1>
       </header>
 
       <div className={styles.body}>
-        <p className={styles.eyebrow}>Checking out</p>
-        <p className={styles.when}>{checkout}</p>
-        <p className={styles.where}>
-          {nights === 0
-            ? 'Today.'
-            : `${spellCount(nights)} ${nights === 1 ? 'night' : 'nights'} left.`}
-          {' '}
-          Room {session.roomNumber}
-          {room?.roomTypeName ? `, ${room.roomTypeName.toLowerCase()}` : ''}.
-        </p>
+        <h1 className={styles.title}>Your stay</h1>
 
-        <section className={styles.folio} aria-labelledby="folio-heading">
-          <header className={styles.folioHead}>
-            <h2 id="folio-heading" className={styles.folioTitle}>Room folio</h2>
-            <p className={styles.folioMeta}>
-              Room {session.roomNumber}
+        <section className={styles.card} aria-labelledby="checkout-heading">
+          <div className={styles.checkoutHead}>
+            <span className={styles.checkoutWhen}>
+              <span id="checkout-heading" className={styles.eyebrow}>Checking out</span>
+              <span className={styles.date}>
+                {dayOf(session.scheduledCheckoutAt, timeZone)},{' '}
+                <span className={`${styles.dateTime} tabular`}>
+                  {clockOf(session.scheduledCheckoutAt, timeZone)}
+                </span>
+              </span>
+            </span>
+            <span className={styles.nights}>
+              {nights === 0
+                ? 'Today'
+                : `${spellCount(nights)} ${nights === 1 ? 'night' : 'nights'} left`}
+            </span>
+          </div>
+
+          <p className={styles.where}>
+            Room {session.roomNumber}
+            {room?.roomTypeName ? `, ${room.roomTypeName.toLowerCase()}` : ''}.
+          </p>
+
+          {verified && leaving ? (
+            <div className={styles.leaving}>
+              <h2 className={styles.eyebrow}>Leaving</h2>
+
+              {pendingView ? (
+                <PendingCheckout
+                  qrCode={qrCode}
+                  requestId={pendingView.id}
+                  status={pendingView.status}
+                  headline={pendingView.headline}
+                  detail={pendingView.detail}
+                  canWithdraw={pendingView.canWithdraw}
+                />
+              ) : null}
+
+              {/*
+                * While a request is OPEN the options are gone: a guest who asked
+                * for 2pm and can still see a 6pm button will press it, and the
+                * one-open-request index would refuse in a way that reads as a bug.
+                *
+                * Once it is decided the slot is free again, so the options come
+                * back — recomputed against the checkout time they now have.
+                */}
+              {pendingView?.status === 'REQUESTED' ? null : offerViews.length ? (
+                <CheckoutOptions qrCode={qrCode} offers={offerViews} />
+              ) : (
+                <p className={styles.quiet}>
+                  Nothing more to add to today. The front desk can help if you need
+                  longer.
+                </p>
+              )}
+
+              <p className={styles.quiet}>
+                Staying another night? The front desk arranges that one — the rate
+                depends on the date.
+              </p>
+
+              {/* Not while something is waiting on the desk: "leave now" beside
+                  "I have asked to stay until 6pm" is two answers to one question. */}
+              {pendingView?.status === 'REQUESTED' ? null : <CheckOutNow qrCode={qrCode} />}
+            </div>
+          ) : null}
+        </section>
+
+        <section className={styles.card} aria-labelledby="folio-heading">
+          <header className={styles.billHead}>
+            <h2 id="folio-heading" className={styles.eyebrow}>Room folio</h2>
+            <p className={styles.billMeta}>
+              Room <span className="tabular">{session.roomNumber}</span>
               {verified ? ` · ${folio?.status === 'SETTLED' ? 'settled' : 'unsettled'}` : ''}
             </p>
           </header>
 
           {verified ? (
-            <Statement
-              folio={folio}
-              timeZone={timeZone}
-              currency={currency}
-            />
+            <Statement folio={folio} timeZone={timeZone} currency={currency} />
           ) : (
-            <VerifyForFolio qrCode={qrCode} roomNumber={session.roomNumber} />
+            <>
+              <p className={`${styles.masked} tabular`}>
+                <span aria-hidden="true">₹ ••,•••</span>
+                <span className="sr-only">Hidden until you answer below</span>
+              </p>
+              <VerifyForFolio qrCode={qrCode} roomNumber={session.roomNumber} />
+            </>
           )}
         </section>
 
-        {/* Only for a guest who is through the prompt: `request_checkout` sits
-            on the same FULL tier as the folio (D-031), and drawing controls
-            that would refuse is worse than not drawing them. */}
-        {verified && leaving ? (
-          <section className={styles.leaving} aria-labelledby="leaving-heading">
-            <h2 id="leaving-heading" className={styles.leavingTitle}>Leaving</h2>
-
-            {pendingView ? (
-              <PendingCheckout
-                qrCode={qrCode}
-                requestId={pendingView.id}
-                status={pendingView.status}
-                headline={pendingView.headline}
-                detail={pendingView.detail}
-                canWithdraw={pendingView.canWithdraw}
-              />
-            ) : null}
-
-            {/*
-              * While a request is OPEN the options are gone: a guest who asked
-              * for 2pm and can still see a 6pm button will press it, and the
-              * one-open-request index would refuse in a way that reads as a bug.
-              *
-              * Once it is decided the slot is free again, so the options come
-              * back — recomputed against the checkout time they now have. A
-              * guest who moved to 2pm can go on to ask for 6pm, and one whose
-              * request was declined can ask for something else.
-              */}
-            {pendingView?.status === 'REQUESTED' ? null : offerViews.length ? (
-              <CheckoutOptions qrCode={qrCode} offers={offerViews} />
-            ) : (
-              <p className={styles.noOffers}>
-                Nothing more to add to today. The front desk can help if you need
-                longer.
-              </p>
-            )}
-
-            <p className={styles.anotherNight}>
-              Staying another night? The front desk arranges that one — the rate
-              depends on the date.
-            </p>
-
-            {/* Not while something is waiting on the desk: "leave now" beside
-                "I have asked to stay until 6pm" is two answers to one question. */}
-            {pendingView?.status === 'REQUESTED' ? null : <CheckOutNow qrCode={qrCode} />}
-          </section>
-        ) : null}
-
         {/* A room session holds the room, so it is shown the wifi password
             too — this is the card on the nightstand, on the phone. */}
-        {profile ? <HotelInfo info={profile.guestInfo} showWifiPassword /> : null}
+        {info ? <TheHotel info={info} /> : null}
       </div>
+
+      {/* Only when the hotel has given a number. Never an invented one. */}
+      {phone ? (
+        <div className={styles.foot}>
+          <a href={`tel:${phone}`} className={styles.call}>
+            <Phone size={18} strokeWidth={1.5} aria-hidden="true" />
+            Call the desk
+          </a>
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+/**
+ * The board's "The hotel" rows, from the property's own guest info (D-087).
+ * A row exists only when the hotel filled it in; with nothing filled in the
+ * section is absent rather than a list of "not set".
+ */
+function TheHotel({ info }: { info: GuestInfo }) {
+  const address = [info.addressLine, info.city].filter(Boolean).join(', ');
+  const rows: { label: string; value: string; mono: boolean }[] = [
+    ...(info.checkInTime ? [{ label: 'Check-in from', value: formatClock(info.checkInTime), mono: true }] : []),
+    ...(info.checkOutTime ? [{ label: 'Check-out by', value: formatClock(info.checkOutTime), mono: true }] : []),
+  ];
+  if (!info.wifiNetwork && !rows.length && !info.contactEmail && !address) return null;
+
+  return (
+    <section className={styles.hotel} aria-labelledby="hotel-heading">
+      <h2 id="hotel-heading" className={styles.eyebrow}>The hotel</h2>
+
+      {info.wifiNetwork ? (
+        <div className={styles.hotelRow} data-tall="true">
+          <span className={styles.hotelStack}>
+            <span className={styles.hotelLabel}>Wi-Fi · {info.wifiNetwork}</span>
+            {info.wifiPassword ? (
+              <span className={`${styles.wifiPassword} tabular`}>{info.wifiPassword}</span>
+            ) : null}
+          </span>
+          {info.wifiPassword ? (
+            <CopyValue value={info.wifiPassword} label="Copy the Wi-Fi password" />
+          ) : null}
+        </div>
+      ) : null}
+
+      {rows.map((row) => (
+        <div key={row.label} className={styles.hotelRow}>
+          <span>{row.label}</span>
+          <span className={`${styles.hotelValue} tabular`}>{row.value}</span>
+        </div>
+      ))}
+
+      {info.contactEmail ? (
+        <div className={styles.hotelRow}>
+          <span>Email</span>
+          <a className={styles.hotelValue} href={`mailto:${info.contactEmail}`}>{info.contactEmail}</a>
+        </div>
+      ) : null}
+
+      {address ? (
+        <div className={styles.hotelRow}>
+          <span>Address</span>
+          <span className={styles.hotelValue}>{address}</span>
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -227,11 +310,20 @@ function Statement({
 
   return (
     <div className={styles.ledger}>
+      <p className={styles.total} data-settled={statement.settled}>
+        <span className={styles.totalLabel}>{statement.totalLabel}</span>
+        {statement.lines.length || statement.paidMinor ? (
+          <span className={`${styles.totalAmount} tabular`}>
+            {formatMoney(money(Math.abs(statement.balanceMinor), lineCurrency))}
+          </span>
+        ) : null}
+      </p>
+
       {statement.lines.length ? (
         <ul className={styles.lines}>
           {statement.lines.map((line) => (
             <li key={line.id} className={styles.line} data-credit={line.isCredit}>
-              <span className={styles.lineDate}>{line.date}</span>
+              <span className={`${styles.lineDate} tabular`}>{line.date}</span>
               <span className={styles.lineWhat}>{line.description}</span>
               <span className={`${styles.lineAmount} tabular`}>
                 {formatMoney(money(line.amountMinor, lineCurrency))}
@@ -249,7 +341,7 @@ function Statement({
         <ul className={styles.lines}>
           {statement.payments.map((payment) => (
             <li key={payment.id} className={styles.line} data-payment="true">
-              <span className={styles.lineDate}>{payment.date}</span>
+              <span className={`${styles.lineDate} tabular`}>{payment.date}</span>
               <span className={styles.lineWhat}>{payment.description}</span>
               <span className={`${styles.lineAmount} tabular`}>
                 {formatMoney(money(payment.amountMinor, lineCurrency))}
@@ -261,25 +353,35 @@ function Statement({
 
       {statement.paidMinor !== 0 ? (
         <p className={styles.paid}>
-          <span className={styles.paidLabel}>Paid</span>
-          <span className={`${styles.paidAmount} tabular`}>
+          <span>Paid</span>
+          <span className="tabular">
             {formatMoney(money(statement.paidMinor, lineCurrency))}
           </span>
         </p>
       ) : null}
 
-      <p className={styles.total} data-settled={statement.settled}>
-        <span className={styles.totalLabel}>{statement.totalLabel}</span>
-        {statement.lines.length || statement.paidMinor ? (
-          <span className={`${styles.totalAmount} tabular`}>
-            {formatMoney(money(Math.abs(statement.balanceMinor), lineCurrency))}
-          </span>
-        ) : null}
-      </p>
-
       <p className={styles.note}>{statement.note}</p>
     </div>
   );
+}
+
+/** "Thu 5 Nov" — the board's date, on the property's calendar. */
+function dayOf(instant: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', timeZone,
+  }).formatToParts(instant);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${part('weekday')} ${part('day')} ${part('month')}`;
+}
+
+/** "11am", "2:30pm" — on the property's clock, the board's way. */
+function clockOf(instant: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-IN', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
+  })
+    .format(instant)
+    .replace(/\s?([ap])\.?m\.?/i, (_, meridiem: string) => `${meridiem.toLowerCase()}m`)
+    .replace(/:00(?=[ap]m)/i, '');
 }
 
 /**

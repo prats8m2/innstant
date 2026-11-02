@@ -2,9 +2,10 @@
 
 import { useActionState, useEffect, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Camera } from 'lucide-react';
+import { Camera, CircleAlert } from 'lucide-react';
 import type { RequestDetail, RequestStatus } from '@/modules/requests';
 import { formatMoney, money } from '@/lib/money';
+import { wallClock } from '../floor-header';
 import { moveRequest, type BoardState } from './actions';
 import styles from './housekeeping.module.css';
 
@@ -22,12 +23,15 @@ export interface BoardFloor {
 type FloorFilter = 'mine' | 'all' | string;
 
 /**
- * The board, in the order a housekeeper's hands need it (D-090):
+ * The board, in the order a housekeeper's hands need it (D-090), drawn to
+ * Direction A's board (design/reference/direction-a/Housekeeping.dc.html):
  *
- *   Yours              what you said you would do — always shown, every floor
+ *   Yours              what you said you would do — always shown, every
+ *                      floor; big cards, one tap from the next step
  *   Waiting            nobody has it yet; the floors you cover, unless you ask
- *   With others        somebody has it — folded, so nobody walks to a room
- *                      that is already being seen to, but it is there to check
+ *   Rooms to make up   (D-096) passed in by the page, between the two halves
+ *   With others        somebody has it — one line each, so nobody walks to a
+ *                      room already being seen to; tap a line for its actions
  *   Done, not checked  the second signature; open for whoever can give it
  *
  * The order inside each group is the server's (SLA target, soonest first) and
@@ -35,6 +39,10 @@ type FloorFilter = 'mine' | 'all' | string;
  * board they stop trusting — the same rule the kitchen rail follows. Moving
  * between groups is the one exception, and it only ever happens to the card
  * that was just tapped.
+ *
+ * The board's wording is kept where an end-to-end test or a guest depends on
+ * it: "I am going" (the board says "Take it"), "On my way", "Done", and the
+ * countdown as "9m left" (the board writes "9:40 left").
  */
 export function FloorRequests({
   propertyId,
@@ -43,7 +51,9 @@ export function FloorRequests({
   floors,
   myFloorIds,
   permissions,
+  timeZone,
   renderedAt,
+  makeUp,
 }: {
   propertyId: string;
   staffUserId: string;
@@ -53,8 +63,12 @@ export function FloorRequests({
   /** The floors this person's shift covers; empty when off shift. */
   myFloorIds: string[];
   permissions: BoardPermissions;
+  /** The PROPERTY's zone — "due 9:05pm" is the hotel's clock. */
+  timeZone: string;
   /** The server's clock at render — the first tick, so hydration agrees. */
   renderedAt: number;
+  /** Rooms to make up (D-096), drawn between the live work and the rest. */
+  makeUp?: React.ReactNode;
 }) {
   const now = useNow(renderedAt);
   // "My floors" only means something when it is fewer than all of them.
@@ -83,29 +97,24 @@ export function FloorRequests({
   const toCheck = toCheckAll.filter(shows);
   const hidden = waitingAll.length - waiting.length;
 
-  if (!requests.length) {
-    return (
-      <p className={styles.empty}>
-        Nothing waiting. A request appears here the moment a guest asks.
-      </p>
-    );
-  }
-
-  const countOn = (floorId: string) => live.filter((r) => r.floorId === floorId).length;
-  const card = (request: RequestDetail) => (
+  const card = (variant: Variant) => (request: RequestDetail) => (
     <Card
       key={request.id}
+      variant={variant}
       propertyId={propertyId}
       staffUserId={staffUserId}
       request={request}
       permissions={permissions}
       now={now}
+      timeZone={timeZone}
     />
   );
 
+  const countOn = (floorId: string) => live.filter((r) => r.floorId === floorId).length;
+
   return (
     <div className={styles.groups}>
-      {floors.length > 1 ? (
+      {floors.length > 1 && requests.length ? (
         <div className={styles.floors} role="group" aria-label="Floors">
           {hasZone ? (
             <FloorChip
@@ -115,7 +124,6 @@ export function FloorRequests({
               onPress={() => setFilter('mine')}
             />
           ) : null}
-          <FloorChip label="All" count={live.length} pressed={effective === 'all'} onPress={() => setFilter('all')} />
           {floors.map((floor) => (
             <FloorChip
               key={floor.id}
@@ -125,33 +133,46 @@ export function FloorRequests({
               onPress={() => setFilter(floor.id)}
             />
           ))}
+          <FloorChip label="All" count={live.length} pressed={effective === 'all'} onPress={() => setFilter('all')} />
         </div>
       ) : null}
 
-      {mine.length ? (
-        <Group title="Yours" count={mine.length}>{mine.map(card)}</Group>
+      {!requests.length ? (
+        <p className={styles.empty}>
+          Nothing waiting. A request appears here the moment a guest asks.
+        </p>
       ) : null}
 
-      <Group title="Waiting for someone" count={waiting.length}>
-        {waiting.length ? waiting.map(card) : (
-          <li className={styles.groupEmpty}>
-            {hidden ? 'Nothing waiting on these floors.' : 'Nobody is waiting. Every request has someone.'}
-          </li>
-        )}
-      </Group>
+      {mine.length ? (
+        <Group title="Yours" count={mine.length}>{mine.map(card('full'))}</Group>
+      ) : null}
+
+      {requests.length ? (
+        <Group title="Waiting" count={waiting.length}>
+          {waiting.length ? waiting.map(card('row')) : (
+            <li className={styles.groupEmpty}>
+              {hidden ? 'Nothing waiting on these floors.' : 'Nobody is waiting. Every request has someone.'}
+            </li>
+          )}
+        </Group>
+      ) : null}
       {hidden ? (
         <button type="button" className={styles.elsewhere} onClick={() => setFilter('all')}>
-          {hidden} more waiting on other floors · Show all
+          <span className="tabular">{hidden}</span> more waiting on other floors · Show all
         </button>
       ) : null}
 
+      {makeUp}
+
       {others.length ? (
-        <Group title="With others" count={others.length} folded>{others.map(card)}</Group>
+        <Group title="With others" count={others.length} folded={false} quiet>
+          {others.map(card('quiet'))}
+        </Group>
       ) : null}
 
       {toCheck.length ? (
-        <Group title="Done, not checked" count={toCheck.length} folded={!permissions.verify}>
-          {toCheck.map(card)}
+        <Group title="Done, not checked" count={toCheck.length} folded={!permissions.verify} quiet>
+          {toCheck.map(card('quiet'))}
         </Group>
       ) : null}
     </div>
@@ -177,25 +198,25 @@ function FloorChip({
  * to a screen reader.
  */
 function Group({
-  title, count, folded, children,
+  title, count, folded, quiet = false, children,
 }: {
-  title: string; count: number; folded?: boolean; children: React.ReactNode;
+  title: string; count: number; folded?: boolean; quiet?: boolean; children: React.ReactNode;
 }) {
   const heading = (
     <>
-      {title} <span className={`${styles.groupCount} tabular`}>{count}</span>
+      <span>{title}</span> <span className="tabular">{count}</span>
     </>
   );
   if (folded !== undefined) {
     return (
-      <details className={styles.group} data-quiet="true" open={!folded}>
+      <details className={styles.group} data-quiet={quiet} open={!folded}>
         <summary className={styles.groupTitle}>{heading}</summary>
         <ul className={styles.board}>{children}</ul>
       </details>
     );
   }
   return (
-    <section className={styles.group}>
+    <section className={styles.group} data-quiet={quiet}>
       <h2 className={styles.groupTitle}>{heading}</h2>
       <ul className={styles.board}>{children}</ul>
     </section>
@@ -210,18 +231,24 @@ const NEXT: Partial<Record<RequestStatus, { to: RequestStatus; label: string; cl
   COMPLETED: { to: 'VERIFIED', label: 'Checked', claim: false },
 };
 
+type Variant = 'full' | 'row' | 'quiet';
+
 function Card({
+  variant,
   propertyId,
   staffUserId,
   request,
   permissions,
   now,
+  timeZone,
 }: {
+  variant: Variant;
   propertyId: string;
   staffUserId: string;
   request: RequestDetail;
   permissions: BoardPermissions;
   now: number;
+  timeZone: string;
 }) {
   const [state, action] = useActionState<BoardState, FormData>(moveRequest, {});
 
@@ -240,11 +267,156 @@ function Card({
   const running = request.secondsRemaining !== null;
   const sla = running ? slaReading(request, now) : null;
   const askedMinutes = Math.max(0, Math.round((now - new Date(request.createdAt).getTime()) / 60_000));
+  const what = whatLine(request);
+
+  const nextForm = next && mayMove ? (
+    <form action={action} className={styles.actionForm} data-grow={variant === 'full'}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <input type="hidden" name="requestId" value={request.id} />
+      <input type="hidden" name="to" value={next.to} />
+      <input type="hidden" name="claim" value={String(next.claim)} />
+      <MoveButton label={next.label} kind={variant === 'full' ? 'primary' : 'secondary'} />
+    </form>
+  ) : null;
+
+  const meta = (
+    <p className={styles.meta}>
+      <span>{request.floorName}</span>
+      <span className="tabular">{request.requestNumber}</span>
+      <span className="tabular">
+        {askedMinutes < 1 ? 'Asked just now' : `Asked ${askedMinutes} min ago`}
+      </span>
+      {/* A photo of the leak saves a trip. A link, not an inline image: this
+          board is read on a phone on hotel wifi. */}
+      {request.photoUrl ? (
+        <a className={styles.photo} href={request.photoUrl} target="_blank" rel="noreferrer">
+          <Camera size={14} strokeWidth={2} aria-hidden="true" />
+          Photo
+        </a>
+      ) : null}
+      {withSomeoneElse ? (
+        <span className={styles.assignee}>{request.assignedStaffName ?? 'Someone'} has this one</span>
+      ) : mine ? (
+        <span className={styles.assignee} data-mine="true">Yours</span>
+      ) : null}
+    </p>
+  );
+
+  /*
+    Escalation is not a status (DATA-MODEL §6) — it sits alongside whatever the
+    request is actually doing. Level 2 means the duty manager has been told, and
+    saying so on the card is what stops two people chasing the same thing.
+  */
+  const escalation = request.escalationLevel > 0 ? (
+    <span className={styles.escalated} data-level={request.escalationLevel}>
+      <CircleAlert size={12} aria-hidden="true" />
+      {request.escalationLevel >= 2 ? 'Manager told' : 'Late'}
+    </span>
+  ) : null;
+
+  const secondary = (
+    <SecondaryActions
+      request={request}
+      propertyId={propertyId}
+      permissions={permissions}
+      action={action}
+    />
+  );
+
+  const error = state.error ? <p className={styles.error} role="alert">{state.error}</p> : null;
+
+  if (variant === 'quiet') {
+    // A COMPLETED request has nothing left but the second signature, so its
+    // line carries the button; anything still running opens on a tap.
+    const side = sla ? (
+      <span className={`${styles.quietSide} tabular`} data-late={sla.late}>
+        {sla.late ? `${sla.minutes}m over` : `${sla.minutes}m left`}
+      </span>
+    ) : request.status === 'COMPLETED' ? (
+      <span className={styles.quietSide}>needs a check</span>
+    ) : null;
+    const line = (
+      <>
+        <span className={styles.quietMain}>
+          <span className={`${styles.quietRoom} tabular`}>{request.roomNumber}</span>
+          <span className={styles.quietWhat}>
+            {request.assignedStaffName ? `${firstName(request.assignedStaffName)} · ` : ''}{what}
+          </span>
+        </span>
+        <span className={styles.quietEnd}>
+          {side}
+          <span className={`${styles.quietRef} tabular`}>{request.requestNumber}</span>
+        </span>
+      </>
+    );
+    return (
+      <li
+        className={styles.quietRow}
+        data-status={request.status}
+        data-late={sla?.late === true}
+        data-escalation={request.escalationLevel}
+      >
+        {request.status === 'COMPLETED' ? (
+          <div className={styles.quietLine}>
+            {line}
+            {nextForm}
+          </div>
+        ) : (
+          <details className={styles.quietMore}>
+            <summary className={styles.quietLine}>{line}</summary>
+            <div className={styles.quietBody}>
+              {request.guestNote ? <p className={styles.note}>“{request.guestNote}”</p> : null}
+              {meta}
+              {escalation}
+              {error}
+              {nextForm || secondary ? (
+                <div className={styles.actions}>
+                  {nextForm}
+                  {secondary}
+                </div>
+              ) : null}
+            </div>
+          </details>
+        )}
+        {request.status === 'COMPLETED' ? error : null}
+      </li>
+    );
+  }
+
+  if (variant === 'row') {
+    return (
+      <li
+        className={styles.rowCard}
+        data-status={request.status}
+        data-late={sla?.late === true}
+        data-escalation={request.escalationLevel}
+      >
+        <div className={styles.rowMain}>
+          <span className={`${styles.rowRoom} tabular`}>{request.roomNumber}</span>
+          <span className={styles.rowBody}>
+            <span className={styles.rowLabel}>{what}</span>
+            {sla ? (
+              <span className={`${styles.rowSub} tabular`} data-tone={sla.late ? 'crit' : sla.heat === 'soon' ? 'warn' : 'pos'}>
+                {sla.late ? `${sla.minutes}m over` : `${sla.minutes}m left`}
+              </span>
+            ) : null}
+          </span>
+          {nextForm}
+        </div>
+        {request.guestNote ? <p className={styles.note}>“{request.guestNote}”</p> : null}
+        {meta}
+        {escalation}
+        {error}
+        {secondary}
+      </li>
+    );
+  }
 
   return (
     <li
       className={styles.card}
       data-status={request.status}
+      data-heat={sla?.heat ?? 'ok'}
       // Late only while the clock runs: a finished request that ran over is
       // history for the report, not an alarm on the board.
       data-late={sla?.late === true}
@@ -252,41 +424,25 @@ function Card({
     >
       <header className={styles.cardHead}>
         <span className={`${styles.room} tabular`}>{request.roomNumber}</span>
-        <span className={styles.where}>
-          <span className={styles.floor}>{request.floorName}</span>
-          <span className={`${styles.ref} tabular`}>{request.requestNumber}</span>
-        </span>
-        {/*
-          Escalation is not a status (DATA-MODEL §6) — it sits alongside whatever
-          the request is actually doing, which is usually IN_PROGRESS. Level 2
-          means the duty manager has been told, and saying so on the card is what
-          stops two people chasing the same thing.
-        */}
-        {request.escalationLevel > 0 ? (
-          <span className={styles.escalated} data-level={request.escalationLevel}>
-            {request.escalationLevel >= 2 ? 'Manager told' : 'Late'}
-          </span>
-        ) : null}
-
         {sla ? (
-          <span className={`${styles.countdown} tabular`} data-late={sla.late}>
-            {sla.late ? `${sla.minutes}m over` : `${sla.minutes}m left`}
+          <span className={styles.countdown}>
+            <span className={`${styles.countBig} tabular`} data-tone={sla.late ? 'crit' : sla.heat === 'soon' ? 'warn' : 'pos'}>
+              {sla.late ? `+${sla.minutes}m` : `${sla.minutes}m`}
+            </span>
+            {' '}
+            <span className={styles.countSmall} data-late={sla.late}>
+              {sla.late ? 'over · late' : (
+                <>left{request.slaTargetAt ? <> · due <span className="tabular">{wallClock(request.slaTargetAt, timeZone)}</span></> : null}</>
+              )}
+            </span>
           </span>
         ) : null}
       </header>
 
-      {/* How much of the promise is gone — the countdown says the number, the
-          bar says it from across a corridor. */}
-      {sla ? (
-        <span className={styles.sla} data-heat={sla.heat} aria-hidden="true">
-          <span style={{ width: `${Math.round(sla.used * 100)}%` }} />
-        </span>
-      ) : null}
-
       <ul className={styles.lines}>
         {request.lines.map((line, i) => (
           <li key={`${request.id}-${i}`} className={styles.line}>
-            <span className={`${styles.qty} tabular`}>{line.quantity}</span>
+            {line.quantity > 1 ? <span className={`${styles.qty} tabular`}>{line.quantity} ×</span> : null}
             <span className={styles.label}>{line.label}</span>
             {line.lineTotalMinor > 0 ? (
               <span className={`${styles.charge} tabular`}>
@@ -299,93 +455,93 @@ function Card({
 
       {request.guestNote ? <p className={styles.note}>“{request.guestNote}”</p> : null}
 
-      <p className={styles.meta}>
-        <span className="tabular">
-          {askedMinutes < 1 ? 'Asked just now' : `Asked ${askedMinutes} min ago`}
-        </span>
-        {/* A photo of the leak saves a trip. It is a link, not an inline image:
-            this board is read on a phone on hotel wifi, and a full-size photo
-            per card is a slow board. */}
-        {request.photoUrl ? (
-          <a className={styles.photo} href={request.photoUrl} target="_blank" rel="noreferrer">
-            <Camera size={14} strokeWidth={2} aria-hidden="true" />
-            Photo
-          </a>
-        ) : null}
-        {withSomeoneElse ? (
-          <span className={styles.assignee}>{request.assignedStaffName ?? 'Someone'} has this one</span>
-        ) : mine ? (
-          <span className={styles.assignee} data-mine="true">Yours</span>
-        ) : null}
-      </p>
-
-      {state.error ? <p className={styles.error} role="alert">{state.error}</p> : null}
+      {meta}
+      {escalation}
+      {error}
 
       <footer className={styles.actions}>
-        <div className={styles.actionRow}>
-          {next && mayMove ? (
-            <form action={action} className={styles.actionForm} data-grow="true">
-              <input type="hidden" name="propertyId" value={propertyId} />
-              <input type="hidden" name="requestId" value={request.id} />
-              <input type="hidden" name="to" value={next.to} />
-              <input type="hidden" name="claim" value={String(next.claim)} />
-              <MoveButton label={next.label} primary />
-            </form>
-          ) : null}
-
-          {/*
-            Handing it back. Offered only on a request that IS assigned — called
-            away, wrong floor, already dealt with by someone else — and never
-            once the work has started, because that is a completion or a
-            rejection.
-          */}
-          {request.status === 'ASSIGNED' && permissions.assign ? (
-            <form action={action} className={styles.actionForm}>
-              <input type="hidden" name="propertyId" value={propertyId} />
-              <input type="hidden" name="requestId" value={request.id} />
-              <input type="hidden" name="to" value="OPEN" />
-              <MoveButton label="Put it back" />
-            </form>
-          ) : null}
-        </div>
-
-        {/* Refusing is rare and the guest reads the reason, so it sits behind
-            a tap instead of a text box on every card. */}
-        {permissions.advance && request.status !== 'COMPLETED' ? (
-          <details className={styles.cannot}>
-            <summary>Cannot do it</summary>
-            <form action={action} className={styles.actionForm}>
-              <input type="hidden" name="propertyId" value={propertyId} />
-              <input type="hidden" name="requestId" value={request.id} />
-              <input type="hidden" name="to" value="REJECTED" />
-              <input
-                name="reason"
-                className={styles.reason}
-                placeholder="Why? The guest is told."
-                aria-label="Why it cannot be done"
-                maxLength={200}
-                required
-              />
-              <MoveButton label="Tell them" />
-            </form>
-          </details>
-        ) : null}
+        {nextForm}
+        {secondary}
       </footer>
     </li>
   );
 }
 
-function MoveButton({ label, primary = false }: { label: string; primary?: boolean }) {
+/**
+ * Handing it back, and refusing it. Both are rare, so they sit under the main
+ * button rather than beside it.
+ */
+function SecondaryActions({
+  request,
+  propertyId,
+  permissions,
+  action,
+}: {
+  request: RequestDetail;
+  propertyId: string;
+  permissions: BoardPermissions;
+  action: (formData: FormData) => void;
+}) {
+  // Handing it back: only on a request that IS assigned and not yet started —
+  // after that it is a completion or a rejection.
+  const putBack = request.status === 'ASSIGNED' && permissions.assign;
+  // Refusing: the guest reads the reason, so it sits behind a tap instead of a
+  // text box on every card.
+  const refuse = permissions.advance && request.status !== 'COMPLETED';
+  if (!putBack && !refuse) return null;
+
+  return (
+    <div className={styles.secondaryRow}>
+      {putBack ? (
+        <form action={action} className={styles.actionForm}>
+          <input type="hidden" name="propertyId" value={propertyId} />
+          <input type="hidden" name="requestId" value={request.id} />
+          <input type="hidden" name="to" value="OPEN" />
+          <MoveButton label="Put it back" kind="quiet" />
+        </form>
+      ) : null}
+      {refuse ? (
+        <details className={styles.cannot}>
+          <summary>Cannot do it</summary>
+          <form action={action} className={styles.cannotForm}>
+            <input type="hidden" name="propertyId" value={propertyId} />
+            <input type="hidden" name="requestId" value={request.id} />
+            <input type="hidden" name="to" value="REJECTED" />
+            <input
+              name="reason"
+              className={styles.reason}
+              placeholder="Why? The guest is told."
+              aria-label="Why it cannot be done"
+              maxLength={200}
+              required
+            />
+            <MoveButton label="Tell them" kind="secondary" />
+          </form>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function MoveButton({ label, kind }: { label: string; kind: 'primary' | 'secondary' | 'quiet' }) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      className={primary ? styles.primary : styles.secondary}
-      disabled={pending}
-    >
+    <button type="submit" className={styles[kind]} disabled={pending}>
       {pending ? '…' : label}
     </button>
   );
+}
+
+/** "2 × Extra towels, Iron and board" — the request as one line. */
+function whatLine(request: RequestDetail): string {
+  return request.lines
+    .map((line) => (line.quantity > 1 ? `${line.quantity} × ${line.label}` : line.label))
+    .join(', ');
+}
+
+/** "Sunita Devi" → "Sunita": the board's one-line rows name people as a floor does. */
+function firstName(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? fullName;
 }
 
 /**
@@ -406,7 +562,6 @@ function slaReading(request: RequestDetail, now: number) {
   const used = target > start ? Math.min(1, Math.max(0, (now - start) / (target - start))) : 1;
   return {
     late,
-    used: late ? 1 : used,
     heat: late ? 'late' : used >= 0.75 ? 'soon' : 'ok',
     minutes: Math.max(0, Math.round(Math.abs(seconds) / 60)),
   } as const;
@@ -415,8 +570,7 @@ function slaReading(request: RequestDetail, now: number) {
 /**
  * One clock for the whole board, on a 20-second tick: a request nobody touches
  * still gets closer to breaching, and this board's job is to show that before
- * it happens. The same interval the kitchen's ticket age uses — coarse enough
- * to cost nothing, fine enough to be true.
+ * it happens.
  */
 function useNow(renderedAt: number): number {
   const [now, setNow] = useState(renderedAt);

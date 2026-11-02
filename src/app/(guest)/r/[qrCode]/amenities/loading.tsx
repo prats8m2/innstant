@@ -1,46 +1,55 @@
-import { Skeleton, SkeletonRow, SkeletonBar, SkeletonScreen } from '@/components/skeleton';
-import styles from '@/components/skeleton.module.css';
+import { ChevronLeft } from 'lucide-react';
+import { Skeleton, SkeletonScreen } from '@/components/skeleton';
+import styles from './amenities.module.css';
 
 /**
- * Amenities, waiting.
+ * Amenities, waiting (D-077: a skeleton shaped like its own page).
  *
- * Two queries: the property's request catalog, and the counts behind the
- * "most asked for" strip (D-071). The strip is what the screen leads with,
- * so it is what this leads with.
- *
- * The title is real. "Amenities" is a literal in the page, decided by the
- * route before anything is read.
+ * The back arrow and the question are real — both are literals in the page,
+ * decided by the route before anything is read. What waits is the "most asked
+ * for" line (D-071) and the hairline rows under their eyebrow, each with the
+ * outline of its + button.
  */
 export default function LoadingAmenities() {
   return (
-    <SkeletonScreen label="Loading amenities" className={styles.clearsPill}>
-      <SkeletonBar title="Amenities" divider />
-
-      <div className={styles.lede}>
-        <Skeleton w="100%" h="0.95rem" />
-        <Skeleton w="46%" h="0.95rem" />
-      </div>
-
-      <section className={styles.stackWide}>
-        <Skeleton w="38%" h="0.75rem" />
-        <div className={styles.chips}>
-          {['104px', '86px', '128px', '92px', '112px'].map((w) => (
-            <Skeleton key={w} w={w} h="44px" radius="var(--radius-pill)" />
-          ))}
+    <SkeletonScreen label="Loading amenities">
+      <div className={styles.skeleton}>
+        <div className={styles.bar}>
+          <span className={styles.back}>
+            <ChevronLeft size={22} strokeWidth={1.5} aria-hidden="true" />
+          </span>
         </div>
-      </section>
 
-      {[0, 1].map((group) => (
-        <section key={group} className={styles.stackWide}>
-          <Skeleton w="34%" h="0.75rem" />
-          <div>
-            {[0, 1, 2].map((card) => <SkeletonRow key={card} />)}
+        <div className={styles.intro}>
+          <p className={styles.title}>What can we bring?</p>
+          <p className={styles.lede}>Free, unless it shows a price.</p>
+        </div>
+
+        <section className={styles.quick}>
+          <Skeleton w="110px" h="0.75rem" />
+          <div className={styles.skeletonChips}>
+            {['118px', '96px', '108px', '124px'].map((w) => (
+              <Skeleton key={w} w={w} h="44px" radius="var(--radius-pill)" />
+            ))}
           </div>
         </section>
-      ))}
 
-      <div className={styles.pinned}>
-        <Skeleton w="100%" h="46px" radius="var(--radius-pill)" />
+        {[4, 3].map((rows, group) => (
+          <section key={group} className={styles.group}>
+            <Skeleton w="88px" h="0.75rem" />
+            <div>
+              {Array.from({ length: rows }, (_, i) => (
+                <div key={i} className={styles.skeletonRow}>
+                  <div className={styles.skeletonRowText}>
+                    <Skeleton w={i % 2 ? '44%' : '56%'} h="1rem" />
+                    <Skeleton w="30%" h="0.75rem" />
+                  </div>
+                  <span className={styles.skeletonStep} />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     </SkeletonScreen>
   );

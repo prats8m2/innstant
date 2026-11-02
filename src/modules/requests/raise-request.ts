@@ -58,6 +58,12 @@ export interface RaiseRequestInput {
   /** The tier of the session doing this, checked against the total. */
   accessTier: AccessTier;
   guestSessionId?: string;
+  /**
+   * The desk raising it for a guest who rang down (D-096). The event names
+   * the person; the desk passes FULL as the tier, because it is the desk's
+   * own judgement that the room may be charged, not a guest's session.
+   */
+  staffUserId?: string;
 }
 
 export interface RaisedRequest {
@@ -244,7 +250,9 @@ export async function raiseServiceRequest(
     toStatus: 'OPEN',
     actor: input.guestSessionId
       ? { kind: 'GUEST', guestSessionId: input.guestSessionId }
-      : { kind: 'SYSTEM' },
+      : input.staffUserId
+        ? { kind: 'STAFF', staffUserId: input.staffUserId }
+        : { kind: 'SYSTEM' },
     payload: {
       requestNumber,
       roomNumber: room.number,

@@ -1,2 +1,8 @@
-/* Inherits the hotel's tokens down the tree without becoming a box. */
-.scope { display: contents; }
+/* The property's theme, painted (D-100). No padding, no positioning: the
+   pages inside are the layout. */
+.scope {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  color-scheme: var(--g-scheme);
+}

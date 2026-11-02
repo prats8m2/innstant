@@ -1,20 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ListOrdered, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  ListOrdered, Maximize2, Minimize2, Moon, Sun, TriangleAlert,
+} from 'lucide-react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import type { KitchenTicket, OrderStatus } from '@/modules/ordering';
+import type { GuestThemeKey } from '@/modules/identity/branding';
 import { setDishAvailability, type BumpState } from './actions';
 import { LiveTickets } from './live-tickets';
-import { TicketCard, type TicketPermissions } from './ticket-card';
-import { isNight } from './night';
+import { TicketCard, isLate, type TicketPermissions } from './ticket-card';
+import { clock12 } from './clock12';
+import { isNight } from '../night';
 import { SignOutButton } from '@/components/sign-out-button';
 import { SessionWatch } from '@/components/session-watch';
 import styles from './kds.module.css';
 
 /**
- * The board: a header a cook reads across, and three columns they work down.
+ * The board: a header a cook reads across, three columns they work down, and
+ * the All day panel beside them (Direction A, `Kitchen.dc.html`).
  *
  * Client-side because three things on this screen are genuinely local to the
  * tablet and have no business in the database:
@@ -23,29 +28,35 @@ import styles from './kds.module.css';
  *   - whether the 86 tray is open,
  *   - what time it is, and therefore whether the room is dark.
  *
- * Everything that is a fact about the hotel — the tickets, what is 86'd —
- * arrives as a prop from the server and goes back through a Server Action.
+ * Everything that is a fact about the hotel — the tickets, what is 86'd, how
+ * many portions are left — arrives as a prop from the server and goes back
+ * through a Server Action.
+ *
+ * ─── Day and night ────────────────────────────────────────────────────────
+ *
+ * The board wears the CONSOLE's tokens (D-100): `data-console` light by day
+ * and dark from 19:00 on the property's clock, `data-accent` from the
+ * property's guest theme. theme.css re-declares every role name on
+ * `[data-console]`, so the attribute on this element recomputes everything
+ * below it.
  */
 
 /** The three columns, and the statuses each one owns. Together: KITCHEN_OPEN_STATUSES. */
 const COLUMNS: ReadonlyArray<{
   key: string;
   title: string;
-  hint: string;
   empty: string;
   statuses: readonly OrderStatus[];
 }> = [
   {
     key: 'new',
     title: 'New',
-    hint: 'oldest first',
     empty: 'No new orders.',
     statuses: ['PLACED'],
   },
   {
     key: 'cooking',
     title: 'Cooking',
-    hint: 'timer from accept',
     empty: 'Nothing on the fire.',
     // Two statuses, one column, because the difference between "we said yes"
     // and "a pan is on" matters to the machine and to the guest's tracking
@@ -55,18 +66,21 @@ const COLUMNS: ReadonlyArray<{
   {
     key: 'pass',
     title: 'At the pass',
-    hint: 'waiting for a runner',
     empty: 'Pass is clear.',
     statuses: ['READY'],
   },
 ];
 
+type Mode = 'light' | 'dark';
+
 export function KitchenBoard({
   propertyId,
-  outletName,
   subtitle,
   timeZone,
-  initialScheme,
+  initialMode,
+  accent,
+  promiseMinutes,
+  portions,
   tickets,
   unavailable,
   permissions,
@@ -74,12 +88,17 @@ export function KitchenBoard({
   staffUserId,
 }: {
   propertyId: string;
-  outletName: string;
   subtitle: string;
   /** The PROPERTY's zone. The clock on a kitchen wall is the hotel's, never the server's. */
   timeZone: string;
   /** Resolved server-side so a night kitchen does not flash white on load. */
-  initialScheme: 'light' | 'dark';
+  initialMode: Mode;
+  /** The property's guest theme — the console's accent follows it. */
+  accent: GuestThemeKey;
+  /** The outlet's promise, in minutes — what every ticket is timed against. */
+  promiseMinutes: number;
+  /** Portions left today, for limited dishes on the board only (D-086). */
+  portions: ReadonlyArray<{ menuItemId: string; left: number }>;
   tickets: KitchenTicket[];
   unavailable: ReadonlyArray<{ id: string; name: string }>;
   permissions: TicketPermissions;
@@ -89,7 +108,8 @@ export function KitchenBoard({
   staffUserId: string;
 }) {
   const now = useClock(renderedAt);
-  const scheme = useScheme(initialScheme, timeZone, now);
+  const mode = useMode(initialMode, timeZone, now);
+  useDocumentConsole(mode, accent);
   const [trayOpen, setTrayOpen] = useState(false);
   const [allDayOpen, setAllDayOpen] = useState(true);
   const fullscreen = useFullscreen();
@@ -118,7 +138,7 @@ export function KitchenBoard({
    * at this moment, not of the order — a second screen in the pass should not
    * go quiet because the line cook glanced at the first, and nothing about the
    * guest's order changed when somebody looked at it. It buys exactly one
-   * thing: a way to stop the red ring and the alert without accepting a ticket
+   * thing: a way to stop the ring and the alert without accepting a ticket
    * the kitchen has not decided on yet, which is what a cook does when four
    * land at once and they need to read before they commit.
    *
@@ -142,8 +162,6 @@ export function KitchenBoard({
     tickets: tickets.filter((t) => column.statuses.includes(t.status)),
   }));
 
-  const summary = byColumn.map((c) => `${c.tickets.length} ${c.key === 'pass' ? 'at pass' : c.title.toLowerCase()}`).join(' · ');
-
   const late = tickets.filter((t) => isLate(t, now)).length;
   const oldest = tickets
     .filter((t) => t.placedAt && t.status !== 'READY')
@@ -154,28 +172,86 @@ export function KitchenBoard({
    * "All day": every dish still to make, totalled across the tickets in New
    * and Cooking — the number a cook batches by ("four laal maas"), which no
    * single ticket shows. Struck lines are left out: they are made.
+   *
+   * Keyed by the dish where there is one, so the portions-left note below can
+   * find it; by name for a line whose dish has since been archived.
    */
   const allDay = useMemo(() => {
-    const totals = new Map<string, { name: string; quantity: number; tickets: number }>();
+    const totals = new Map<string, {
+      key: string; menuItemId: string | null; name: string; quantity: number; tickets: number;
+    }>();
     for (const ticket of tickets) {
       if (ticket.status === 'READY') continue;
       ticket.lines.forEach((line, i) => {
         if (struck.has(`${ticket.id}:${i}`)) return;
-        const entry = totals.get(line.name) ?? { name: line.name, quantity: 0, tickets: 0 };
+        const key = line.menuItemId ?? `name:${line.name}`;
+        const entry = totals.get(key)
+          ?? { key, menuItemId: line.menuItemId, name: line.name, quantity: 0, tickets: 0 };
         entry.quantity += line.quantity;
         entry.tickets += 1;
-        totals.set(line.name, entry);
+        totals.set(key, entry);
       });
     }
     return [...totals.values()].sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name));
   }, [tickets, struck]);
 
+  /**
+   * "Safed maas: last one tonight." From the dish's daily limit (D-086), for
+   * a limited dish with two or fewer portions left after what is on the
+   * board — a dish with no limit has no entry and says nothing.
+   */
+  const lastCalls = useMemo(() => {
+    const left = new Map(portions.map((p) => [p.menuItemId, p.left]));
+    return allDay.flatMap((dish) => {
+      const remaining = dish.menuItemId ? left.get(dish.menuItemId) : undefined;
+      if (remaining === undefined || remaining > 2) return [];
+      if (remaining > 0) return [`${dish.name}: ${remaining} left tonight`];
+      return [dish.quantity === 1
+        ? `${dish.name}: last one tonight`
+        : `${dish.name}: last ${dish.quantity} tonight`];
+    });
+  }, [allDay, portions]);
+
   return (
-    <main className={styles.shell} data-scheme={scheme}>
+    <main
+      className={styles.shell}
+      data-console={mode}
+      data-accent={accent}
+    >
       <header className={styles.bar}>
         <div className={styles.identity}>
-          <h1 className={styles.title}>{outletName}</h1>
+          <h1 className={styles.title}>Kitchen</h1>
           <p className={styles.subtitle}>{subtitle}</p>
+        </div>
+
+        <div className={styles.clockStack}>
+          <span className={`${styles.clock} tabular`}>{clock12(now, timeZone)}</span>
+          <span className={styles.mode}>
+            {mode === 'dark'
+              ? <Moon size={14} aria-hidden="true" />
+              : <Sun size={14} aria-hidden="true" />}
+            {mode === 'dark' ? 'Night mode · auto after 7pm' : 'Day mode'}
+          </span>
+        </div>
+
+        <div className={styles.load}>
+          <p className={styles.loadLine}>
+            <span className="tabular">{tickets.length}</span> open · promise{' '}
+            <span className="tabular">{promiseMinutes}</span> min
+          </p>
+          <p className={styles.loadSub}>
+            {late ? (
+              // Late is a colour, a word and a mark — never the colour alone.
+              <span className={styles.lateCount}>
+                <TriangleAlert size={14} strokeWidth={2.4} aria-hidden="true" />
+                <span className="tabular">{late}</span> late
+              </span>
+            ) : null}
+            {oldest >= 0 ? (
+              <span>oldest <span className="tabular">{oldest}m</span></span>
+            ) : null}
+            <LiveTickets propertyId={propertyId} unacknowledged={placed.length} />
+          </p>
         </div>
 
         {unacked.length ? (
@@ -197,24 +273,13 @@ export function KitchenBoard({
         )}
 
         <div className={styles.barRight}>
-          {late ? (
-            <span className={styles.statPill} data-tone="critical">
-              <span className="tabular">{late}</span> late
-            </span>
-          ) : null}
-          {oldest >= 0 ? (
-            <span className={styles.statPill}>
-              oldest <span className="tabular">{oldest}m</span>
-            </span>
-          ) : null}
-
           <button
             type="button"
             className={styles.trayToggle}
             aria-pressed={allDayOpen}
             onClick={() => setAllDayOpen((open) => !open)}
           >
-            <ListOrdered size={16} aria-hidden="true" />
+            <ListOrdered size={18} aria-hidden="true" />
             All day
           </button>
 
@@ -230,13 +295,6 @@ export function KitchenBoard({
             </button>
           ) : null}
 
-          <div className={styles.clockStack}>
-            <span className={`${styles.clock} tabular`}>{formatTime(now, timeZone)}</span>
-            <span className={styles.summary}>{summary}</span>
-          </div>
-
-          <LiveTickets propertyId={propertyId} unacknowledged={placed.length} />
-
           {fullscreen.supported ? (
             <button
               type="button"
@@ -245,7 +303,7 @@ export function KitchenBoard({
               aria-label={fullscreen.on ? 'Leave full screen' : 'Full screen'}
               title={fullscreen.on ? 'Leave full screen' : 'Full screen — hides the browser bars'}
             >
-              {fullscreen.on ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}
+              {fullscreen.on ? <Minimize2 size={20} aria-hidden="true" /> : <Maximize2 size={20} aria-hidden="true" />}
             </button>
           ) : null}
 
@@ -262,13 +320,16 @@ export function KitchenBoard({
       ) : null}
 
       <div className={styles.board} data-all-day={allDayOpen}>
-      <div className={styles.columns}>
         {byColumn.map((column) => (
-          <section key={column.key} className={styles.column} aria-labelledby={`col-${column.key}`}>
+          <section
+            key={column.key}
+            className={styles.column}
+            data-column={column.key}
+            aria-labelledby={`col-${column.key}`}
+          >
             <header className={styles.columnHead}>
               <h2 id={`col-${column.key}`} className={styles.columnTitle}>{column.title}</h2>
               <span className={`${styles.columnCount} tabular`}>{column.tickets.length}</span>
-              <span className={styles.columnHint}>{column.hint}</span>
             </header>
 
             {column.tickets.length ? (
@@ -293,31 +354,36 @@ export function KitchenBoard({
             )}
           </section>
         ))}
-      </div>
 
-      {allDayOpen ? (
-        <aside className={styles.allDay} aria-labelledby="all-day-title">
-          <header className={styles.columnHead}>
+        {allDayOpen ? (
+          <aside className={styles.allDay} aria-labelledby="all-day-title">
             <h2 id="all-day-title" className={styles.columnTitle}>All day</h2>
-            <span className={styles.columnHint}>still to make</span>
-          </header>
-          {allDay.length ? (
-            <ul className={styles.allDayList}>
-              {allDay.map((dish) => (
-                <li key={dish.name} className={styles.allDayRow}>
-                  <span className={`${styles.allDayQty} tabular`}>{dish.quantity}</span>
-                  <span className={styles.allDayName}>{dish.name}</span>
-                  {dish.tickets > 1 ? (
-                    <span className={styles.allDayTickets}>{dish.tickets} tickets</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className={styles.columnEmpty}>Nothing to make.</p>
-          )}
-        </aside>
-      ) : null}
+            {allDay.length ? (
+              <ul className={styles.allDayList}>
+                {allDay.map((dish) => (
+                  <li key={dish.key} className={styles.allDayRow}>
+                    <span className={styles.allDayName}>
+                      {dish.name}
+                      {dish.tickets > 1 ? (
+                        <span className={styles.allDayTickets}>
+                          {' '}· <span className="tabular">{dish.tickets}</span> tickets
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className={`${styles.allDayQty} tabular`}>{dish.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.allDayEmpty}>Nothing to make.</p>
+            )}
+            {lastCalls.length ? (
+              <div className={styles.lastCalls}>
+                {lastCalls.map((note) => <p key={note}>{note}</p>)}
+              </div>
+            ) : null}
+          </aside>
+        ) : null}
       </div>
     </main>
   );
@@ -327,8 +393,8 @@ export function KitchenBoard({
  * The 86 tray: everything the kitchen has pulled tonight, and a way back.
  *
  * Open on demand rather than always on: on a normal night it is empty, and a
- * permanently empty strip across the top of a 1194px screen costs a row of
- * tickets to say nothing.
+ * permanently empty strip across the top of the board costs a row of tickets
+ * to say nothing.
  */
 function EightySixTray({
   propertyId,
@@ -391,7 +457,8 @@ function PutBackButton({ name }: { name: string }) {
  * first version of this file rejected exactly that. The board refreshes on
  * every order event anyway; this tick exists for the case a busy board is
  * showing nothing new and a ticket is quietly getting older, and 20s is fine
- * enough that a badge changes colour when it should.
+ * enough that a badge changes colour when it should. It is also why the
+ * timers read in whole minutes rather than the board's m:ss.
  */
 function useClock(renderedAt: number): number {
   const [now, setNow] = useState(renderedAt);
@@ -416,26 +483,36 @@ function useClock(renderedAt: number): number {
  * lunch dims by itself at 19:00. The band itself lives in `night.ts` because
  * the server page needs it too.
  */
-function useScheme(initial: 'light' | 'dark', timeZone: string, now: number): 'light' | 'dark' {
-  const [scheme, setScheme] = useState(initial);
+function useMode(initial: Mode, timeZone: string, now: number): Mode {
+  const [mode, setMode] = useState(initial);
   useEffect(() => {
-    setScheme(isNight(now, timeZone) ? 'dark' : 'light');
+    setMode(isNight(now, timeZone) ? 'dark' : 'light');
   }, [now, timeZone]);
-  return scheme;
+  return mode;
 }
 
-function formatTime(at: number, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit', minute: '2-digit', hour12: false, timeZone,
-  }).format(new Date(at));
-}
-
-/** Past its promise — or, at the pass, ten minutes since it was plated. */
-function isLate(ticket: KitchenTicket, now: number): boolean {
-  if (ticket.status === 'READY') {
-    return ticket.readyAt ? now - new Date(ticket.readyAt).getTime() > 10 * 60_000 : false;
-  }
-  return ticket.promisedByAt ? now > new Date(ticket.promisedByAt).getTime() : false;
+/**
+ * `<html>` kept in step with the board while it is open, and put back on the
+ * way out — so the page's overscroll and the full-screen backdrop are the
+ * board's ground, not the default light console's. The same thing the
+ * console's frame does for a person's light or dark.
+ */
+function useDocumentConsole(mode: Mode, accent: GuestThemeKey): void {
+  useEffect(() => {
+    const root = document.documentElement;
+    const before = {
+      console: root.getAttribute('data-console'),
+      accent: root.getAttribute('data-accent'),
+    };
+    root.setAttribute('data-console', mode);
+    root.setAttribute('data-accent', accent);
+    return () => {
+      if (before.console) root.setAttribute('data-console', before.console);
+      else root.removeAttribute('data-console');
+      if (before.accent) root.setAttribute('data-accent', before.accent);
+      else root.removeAttribute('data-accent');
+    };
+  }, [mode, accent]);
 }
 
 /**

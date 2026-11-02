@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Console overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Marcellus&amp;family=Mukta:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow)}
+.h2{margin:0;font-size:15px;font-weight:600}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.btn{height:36px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:14px;font-weight:500;display:inline-flex;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--accent-text)}
+@keyframes live{0%,100%{opacity:1}50%{opacity:.35}}
+.live{animation:live 2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.live{animation:none}}
+</style>
+</helmet>
+<div style="{{root}}">
+
+  <nav aria-label="Console" style="flex:1 1 248px;max-width:100%;background:var(--surface);border-right:1px solid var(--border);padding:14px 12px;box-sizing:border-box;display:flex;flex-direction:column;gap:2px">
+    <button style="display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);text-align:left;margin-bottom:10px">
+      <span style="width:32px;height:32px;border-radius:6px;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="14" height="18" viewBox="0 0 200 260" aria-hidden="true"><path d="M10 260 V110 C10 60 55 32 100 10 C145 32 190 60 190 110 V260" fill="none" stroke="var(--accent-fg)" stroke-width="20"></path></svg></span>
+      <span style="display:flex;flex-direction:column;flex:1;min-width:0"><span style="font-family:'Marcellus',serif;font-size:15px">The Kesari</span><span style="font-size:12px;color:var(--text-3)">Udaipur · 34 rooms</span></span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M7 15l5 5 5-5M7 9l5-5 5 5"></path></svg>
+    </button>
+    <label style="display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:6px;color:var(--text-3);font-size:14px;margin-bottom:6px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg><span style="flex:1">Search rooms, guests, orders</span><span class="mono" style="font-size:11px;border:1px solid var(--border);border-radius:4px;padding:0 5px">⌘K</span></label>
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+      <span class="lbl" style="padding:14px 10px 6px">{{g.label}}</span>
+      <sc-for list="{{g.items}}" as="n" hint-placeholder-count="4">
+        <a href="{{n.href}}" aria-current="{{n.current}}" style="{{n.style}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.d}}"></path></svg><span>{{n.label}}</span><sc-if value="{{n.hasBadge}}" hint-placeholder-val="{{ false }}"><span style="{{n.badgeStyle}}">{{n.badge}}</span></sc-if></a>
+      </sc-for>
+    </sc-for>
+    <div style="margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px 0;border-top:1px solid var(--border)"><span style="width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600">AR</span><span style="display:flex;flex-direction:column"><span style="font-size:14px;font-weight:600">Aditi Rathore</span><span style="font-size:12px;color:var(--text-3)">General manager</span></span></div>
+  </nav>
+
+  <div style="flex:999 1 640px;min-width:0;display:flex;flex-direction:column">
+    <header style="min-height:60px;padding:0 clamp(16px,3vw,32px);border-bottom:1px solid var(--border);background:var(--surface);display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <span style="font-size:14px;color:var(--text-3)">Today</span><span style="color:var(--text-3)">/</span><span style="font-size:14px;font-weight:600">Overview</span>
+      <span class="pill" style="background:var(--pos-soft);color:var(--pos)"><span class="live" style="width:6px;height:6px;border-radius:50%;background:var(--pos)"></span>Live</span>
+      <span style="flex:1"></span>
+      <button aria-label="Notifications, 3 new" style="position:relative;width:40px;height:40px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text-2);display:flex;align-items:center;justify-content:center"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg><span style="position:absolute;top:7px;right:8px;width:7px;height:7px;border-radius:50%;background:var(--crit)"></span></button>
+      <button style="height:40px;padding:0 14px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>New</button>
+    </header>
+
+    <main style="padding:24px clamp(16px,3vw,32px) 40px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:2px"><h1 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em">Good evening, Aditi</h1><span style="font-size:14px;color:var(--text-2)">Monday, 2 November · <span class="mono">8:52pm</span> · 29 rooms in house, kitchen open till 11pm</span></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div role="group" aria-label="Range" style="display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:3px"><button style="height:30px;padding:0 12px;border:0;border-radius:4px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;box-shadow:var(--shadow)">Today</button><button style="height:30px;padding:0 12px;border:0;border-radius:4px;background:transparent;color:var(--text-2);font-size:13px">7 days</button><button style="height:30px;padding:0 12px;border:0;border-radius:4px;background:transparent;color:var(--text-2);font-size:13px">30 days</button></div>
+          <button class="btn">Export</button>
+        </div>
+      </div>
+
+      <section aria-label="Today's numbers" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:16px">
+        <sc-for list="{{kpis}}" as="k" hint-placeholder-count="4">
+          <div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:8px">
+            <span style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;color:var(--text-2);font-weight:500">{{k.label}}</span><span class="pill" style="{{k.deltaStyle}}">{{k.delta}}</span></span>
+            <span style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px"><span class="mono" style="font-size:28px;font-weight:500;letter-spacing:-.02em">{{k.value}}</span><svg width="96" height="32" viewBox="0 0 96 32" aria-hidden="true"><polyline points="{{k.points}}" fill="none" stroke="var(--accent)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></polyline></svg></span>
+            <span style="font-size:12px;color:var(--text-3)">{{k.note}}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+        <section class="card" style="flex:999 1 480px;min-width:0;padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px"><div style="display:flex;flex-direction:column"><h2 class="h2">Food &amp; drink by hour</h2><span style="font-size:13px;color:var(--text-3)">In-room dining and rooftop, today</span></div><span class="mono" style="font-size:20px">₹38,420</span></div>
+          <div role="img" aria-label="Food and drink revenue by hour, peaking at 8pm with ₹6,420 so far" style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:8px;height:200px">
+            <div style="display:flex;flex-direction:column;justify-content:space-between;font-size:11px;color:var(--text-3);padding-bottom:20px" class="mono"><span>6k</span><span>4k</span><span>2k</span><span>0</span></div>
+            <div style="display:flex;flex-direction:column">
+              <div style="flex:1;display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:6px;align-items:end;border-bottom:1px solid var(--border);background-image:linear-gradient(var(--border) 1px,transparent 1px);background-size:100% 33.33%">
+                <sc-for list="{{bars}}" as="b" hint-placeholder-count="14"><span style="{{b.style}}" title="{{b.title}}"></span></sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:6px;padding-top:6px" class="mono">
+                <sc-for list="{{bars}}" as="b" hint-placeholder-count="14"><span style="font-size:10.5px;color:var(--text-3);text-align:center">{{b.h}}</span></sc-for>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" style="flex:1 1 320px;min-width:0;display:flex;flex-direction:column">
+          <div style="padding:16px 18px 10px;display:flex;justify-content:space-between;align-items:baseline"><h2 class="h2">Needs you</h2><span class="pill" style="background:var(--crit-soft);color:var(--crit)">1 late</span></div>
+          <sc-for list="{{needs}}" as="x" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 18px;border-top:1px solid var(--border)">
+              <span style="{{x.iconBox}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="{{x.icon}}"></path></svg></span>
+              <span style="display:flex;flex-direction:column;min-width:0"><span style="font-size:14px;font-weight:500">{{x.title}}</span><span style="font-size:12.5px;color:{{x.subColor}}">{{x.sub}}</span></span>
+              <button style="{{x.btnStyle}}">{{x.action}}</button>
+            </div>
+          </sc-for>
+        </section>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:stretch">
+        <section class="card" style="flex:1 1 300px;min-width:0;padding:18px;display:flex;flex-direction:column;gap:14px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 class="h2">Live floor</h2><a href="#" style="font-size:13px;text-decoration:none;font-weight:500">Open board →</a></div>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+            <div style="background:var(--surface-2);border-radius:8px;padding:12px;display:flex;flex-direction:column"><span class="mono" style="font-size:24px">3</span><span style="font-size:12px;color:var(--text-2)">New</span></div>
+            <div style="background:var(--surface-2);border-radius:8px;padding:12px;display:flex;flex-direction:column"><span class="mono" style="font-size:24px">5</span><span style="font-size:12px;color:var(--text-2)">Cooking</span></div>
+            <div style="background:var(--surface-2);border-radius:8px;padding:12px;display:flex;flex-direction:column"><span class="mono" style="font-size:24px">1</span><span style="font-size:12px;color:var(--text-2)">At the pass</span></div>
+            <div style="background:var(--surface-2);border-radius:8px;padding:12px;display:flex;flex-direction:column"><span class="mono" style="font-size:24px">2</span><span style="font-size:12px;color:var(--text-2)">On the way</span></div>
+          </div>
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--pos);font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>Every order inside its promised time</span>
+        </section>
+
+        <section class="card" style="flex:999 1 420px;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:16px 18px 12px;display:flex;justify-content:space-between;align-items:baseline"><h2 class="h2">Arriving &amp; leaving</h2><span style="font-size:13px;color:var(--text-3)">6 in · 5 out</span></div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:440px;border-collapse:collapse;font-size:14px">
+              <thead><tr style="background:var(--surface-2);text-align:left"><th class="lbl" style="padding:8px 18px;font-weight:600">Room</th><th class="lbl" style="padding:8px">Guest</th><th class="lbl" style="padding:8px">When</th><th class="lbl" style="padding:8px 18px;text-align:right">Status</th></tr></thead>
+              <tbody>
+                <tr style="border-top:1px solid var(--border)"><td class="mono" style="padding:10px 18px">206</td><td style="padding:10px 8px">Vikram &amp; Isha Kapoor</td><td class="mono" style="padding:10px 8px;color:var(--text-2)">9:30pm in</td><td style="padding:10px 18px;text-align:right"><span class="pill" style="background:var(--pos-soft);color:var(--pos)">Room ready</span></td></tr>
+                <tr style="border-top:1px solid var(--border)"><td class="mono" style="padding:10px 18px">305</td><td style="padding:10px 8px">Neha Shah</td><td class="mono" style="padding:10px 8px;color:var(--text-2)">10:15pm in</td><td style="padding:10px 18px;text-align:right"><span class="pill" style="background:var(--warn-soft);color:var(--warn)">Making up</span></td></tr>
+                <tr style="border-top:1px solid var(--border)"><td class="mono" style="padding:10px 18px">108</td><td style="padding:10px 8px">Tobias Brenner</td><td class="mono" style="padding:10px 8px;color:var(--text-2)">11:40am out</td><td style="padding:10px 18px;text-align:right"><span class="pill" style="background:var(--crit-soft);color:var(--crit)">Left owing <span class="mono">₹2,410</span></span></td></tr>
+                <tr style="border-top:1px solid var(--border)"><td class="mono" style="padding:10px 18px">103</td><td style="padding:10px 8px">Chidi Okafor</td><td class="mono" style="padding:10px 8px;color:var(--text-2)">10:05am out</td><td style="padding:10px 18px;text-align:right"><span class="pill" style="background:var(--surface-2);color:var(--text-2)">Settled</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"appearance":{"editor":"enum","options":["light","dark"],"default":"light"},"theme":{"editor":"enum","options":["kesari","pichola","gulabi","mehendi","sandstone"],"default":"kesari"},"$preview":{"width":1440,"height":1120}}'>
+class Component extends DCLogic {
+  vars() {
+    const app = this.props.appearance ?? 'light';
+    const acc = { kesari:['#0F766E','#3FB6A8'], pichola:['#0E7490','#5BC0D8'], gulabi:['#A21CAF','#E08AF0'], mehendi:['#4D7C0F','#A8CC62'], sandstone:['#B45309','#E3A458'] }[this.props.theme ?? 'kesari'];
+    const L = { bg:'#F5F6F4', surface:'#FFFFFF', 'surface-2':'#F0F1EE', border:'#E3E5E1', 'border-strong':'#CFD3CD', text:'#16191B', 'text-2':'#4A5054', 'text-3':'#646A6E', pos:'#166534', 'pos-soft':'#DCF3E3', warn:'#92570A', 'warn-soft':'#FBEFD5', crit:'#B42318', 'crit-soft':'#FBE3E0', info:'#1D4ED8', 'info-soft':'#E3EAFC', accent:acc[0], 'accent-soft':acc[0]+'1A', 'accent-fg':'#FFFFFF', 'accent-text':acc[0], shadow:'0 1px 2px rgba(22,25,27,.05)' };
+    const D = { bg:'#0D1013', surface:'#14181C', 'surface-2':'#1B2025', border:'#262D33', 'border-strong':'#363E46', text:'#E9EDF0', 'text-2':'#AAB3BB', 'text-3':'#8D969E', pos:'#5CC98A', 'pos-soft':'rgba(92,201,138,.14)', warn:'#E5B04E', 'warn-soft':'rgba(229,176,78,.14)', crit:'#F2786B', 'crit-soft':'rgba(242,120,107,.15)', info:'#86A9F5', 'info-soft':'rgba(134,169,245,.14)', accent:acc[1], 'accent-soft':acc[1]+'29', 'accent-fg':'#0D1013', 'accent-text':acc[1], shadow:'none' };
+    const t = app === 'dark' ? D : L;
+    return Object.keys(t).map(k => '--' + k + ':' + t[k]).join(';') + ';color-scheme:' + app + ';min-height:100vh;background:var(--bg);color:var(--text);font-family:Mukta,system-ui,sans-serif;display:flex;flex-wrap:wrap';
+  }
+  nav(active) {
+    const I = { grid:'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z', desk:'M3 18h18M5 18a7 7 0 0 1 14 0M12 9V7M10 7h4', bed:'M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8M2 16h20M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3', out:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', menu:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20M19 15V2a5 5 0 0 0-5 5v6a2 2 0 0 0 2 2h3v7', req:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0', link:'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71', brand:'M12 22a10 10 0 1 1 10-10c0 2.2-1.8 4-4 4h-2a2 2 0 0 0-1 3.7A2 2 0 0 1 12 22ZM7.5 10.5h.01M12 7.5h.01M16.5 10.5h.01', users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', mon:'M2 4h20v12H2zM8 20h8M12 16v4', chef:'M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 9.18 0A4 4 0 0 1 18 13.87V21H6ZM6 17h12', run:'M5 12h14M13 6l6 6-6 6', hk:'M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2Z' };
+    const G = [['Today',[['Overview','grid','ConsoleOverview.dc.html'],['Front desk','desk','ConsolePhone.dc.html'],['Rooms','bed','ConsoleRooms.dc.html'],['Leaving','out','ConsoleCheckout.dc.html','2','warn']]],
+      ['Service',[['Menu','menu','#'],['Requests','req','ConsoleRequests.dc.html','1 late','crit'],['Links','link','#']]],
+      ['Setup',[['Property & branding','brand','ConsoleBranding.dc.html'],['Staff','users','#']]],
+      ['Floor screens',[['Live floor','mon','#'],['Kitchen display','chef','Kitchen.dc.html'],['Runner','run','Runner.dc.html'],['Housekeeping','hk','Housekeeping.dc.html']]]];
+    return G.map(([label, items]) => ({ label, items: items.map(([l, ic, href, b, bt]) => { const on = l === active; return { label:l, d:I[ic], href, current: on ? 'page' : 'false', hasBadge: !!b, badge: b || '',
+      style: 'display:flex;align-items:center;gap:10px;height:36px;padding:0 10px;border-radius:6px;text-decoration:none;font-size:14px;' + (on ? 'background:var(--accent-soft);color:var(--accent-text);font-weight:600' : 'color:var(--text-2)'),
+      badgeStyle: 'margin-left:auto;font-family:DM Mono,monospace;font-size:11px;padding:1px 7px;border-radius:999px;' + (bt === 'crit' ? 'background:var(--crit-soft);color:var(--crit)' : 'background:var(--warn-soft);color:var(--warn)') }; }) }));
+  }
+  spark(arr) { const mx = Math.max(...arr), mn = Math.min(...arr); return arr.map((v, i) => (i * 96 / (arr.length - 1)).toFixed(1) + ',' + (28 - (v - mn) / ((mx - mn) || 1) * 24).toFixed(1)).join(' '); }
+  renderVals() {
+    const up = 'background:var(--pos-soft);color:var(--pos)', dn = 'background:var(--warn-soft);color:var(--warn)';
+    const kpis = [
+      { label:'Revenue today', value:'₹1,30,740', delta:'▲ 12.2%', deltaStyle:up, note:'vs last Monday · rooms ₹88,800 · F&B ₹38,420', points:this.spark([62,70,68,81,77,90,96,104,112,131]) },
+      { label:'Orders', value:'46', delta:'▲ 6', deltaStyle:up, note:'11 open · 24 min avg to the door', points:this.spark([3,8,14,17,18,22,27,31,38,46]) },
+      { label:'Requests on time', value:'92%', delta:'▼ 3 pts', deltaStyle:dn, note:'37 of 40 · 1 running late now', points:this.spark([96,97,95,96,94,95,93,94,92,92]) },
+      { label:'Occupancy', value:'85%', delta:'29/34', deltaStyle:'background:var(--surface-2);color:var(--text-2)', note:'6 arriving · 5 leaving today', points:this.spark([74,76,79,79,82,82,85,85,85,85]) }
+    ];
+    const hrs = [['7a',2100],['8a',4800],['9a',5600],['10a',2400],['11a',900],['12p',1800],['1p',3900],['2p',2700],['3p',600],['4p',800],['5p',1100],['6p',1900],['7p',3400],['8p',6420]];
+    const bars = hrs.map(([h, v], i) => ({ h, title: h + ' · ₹' + v.toLocaleString('en-IN'),
+      style: 'height:' + (v / 6600 * 100).toFixed(1) + '%;border-radius:3px 3px 0 0;background:' + (i === hrs.length - 1 ? 'var(--accent)' : 'color-mix(in srgb, var(--accent) 38%, var(--surface-2))') }));
+    const box = (bg, fg) => 'width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:' + bg + ';color:' + fg;
+    const pri = 'height:32px;padding:0 12px;border:0;border-radius:6px;background:var(--accent);color:var(--accent-fg);font-size:13px;font-weight:600;white-space:nowrap';
+    const sec = 'height:32px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--surface);color:var(--text);font-size:13px;font-weight:500;white-space:nowrap';
+    const needs = [
+      { title:'302 · Ice bucket + 2 glasses', sub:'Late 6 min · nobody has it', subColor:'var(--crit)', icon:'M12 8v4l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z', iconBox:box('var(--crit-soft)','var(--crit)'), action:'Assign', btnStyle:pri },
+      { title:'401 · Late checkout to 4pm Wed', sub:'Meera Shekhawat · VIP · ₹6,500', subColor:'var(--text-3)', icon:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9', iconBox:box('var(--warn-soft)','var(--warn)'), action:'Review', btnStyle:sec },
+      { title:'108 · Left owing ₹2,410', sub:'Minibar after settling · 11:40am', subColor:'var(--text-3)', icon:'M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', iconBox:box('var(--warn-soft)','var(--warn)'), action:'Send link', btnStyle:sec },
+      { title:'Ghewar · 4 left of 18', sub:'Guests see "4 left today"', subColor:'var(--text-3)', icon:'M3 2v7a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V2M6 2v20', iconBox:box('var(--surface-2)','var(--text-2)'), action:'Raise limit', btnStyle:sec }
+    ];
+    return { root: this.vars(), groups: this.nav('Overview'), kpis, bars, needs };
+  }
+}
+</script>
+</body>
+</html>

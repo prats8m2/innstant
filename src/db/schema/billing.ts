@@ -41,6 +41,12 @@ export const folioLines = pgTable('folio_lines', {
   sourceRefId: uuid('source_ref_id'),
 
   description: text('description').notNull(),
+  /**
+   * What a desk-added (MANUAL) line is — ROOM, MINIBAR, LAUNDRY, DAMAGE,
+   * OTHER, or TAX on one of those (pointing at it via `sourceRefId`). Null for
+   * every other source, whose group follows from the source (0015, D-095).
+   */
+  category: text('category'),
   amountMinor: integer('amount_minor').notNull(),
   currency: currency(),
 

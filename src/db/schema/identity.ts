@@ -158,6 +158,14 @@ export const staffUsers = pgTable('staff_users', {
   status: text('status').notNull().default('INVITED'),
   lastLoginAt: ts('last_login_at'),
 
+  /**
+   * The console's look for THIS person (migration 0017): 'light', 'dark' or
+   * 'system' (follow the device, resolved in the browser). CHECK-constrained
+   * to those three. Set from the moon in the console's top bar; a preference,
+   * so no event is written for it.
+   */
+  consoleAppearance: text('console_appearance').notNull().default('system'),
+
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 }, (t) => [uniqueIndex('staff_users_tenant_email_uq').on(t.tenantId, t.email)]);

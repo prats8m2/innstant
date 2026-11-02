@@ -81,3 +81,15 @@ export type {
 /** How the day is going, for the console's overview. */
 export { daySummary, stageTimesToday, runnerDay } from './day-summary';
 export type { DaySummary, StageTimes, RunnerDay } from './day-summary';
+
+/** What each order on a bill was made of — the checkout screen and invoice (D-095). */
+export { ordersOnBill } from './bill-orders';
+export type { OrderOnBill } from './bill-orders';
+
+/** The console's search (⌘K): orders by number. */
+export { searchOrders } from './order-search';
+export type { OrderHit } from './order-search';
+
+/** Orders over Today / 7 days / 30 days — the console overview (period-report.ts). */
+export { ordersReport } from './period-report';
+export type { OrdersReport, OrdersPeriod } from './period-report';

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Runner</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Mukta:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--k-bg:#07090C;--k-card:#12161C;--k-line:#2A3038;--k-ink:#F2F4F5;--k-ink-2:#A9B1BA;--k-attn:#F2B544;--k-crit:#FF7A66;--k-ok:#5FC59A}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.h{font-size:14px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-ink-2);display:flex;justify-content:space-between}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:var(--k-bg);color:var(--k-ink);font-family:'Mukta',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden">
+  <header style="padding:48px 16px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--k-line)">
+    <span style="display:flex;flex-direction:column"><span style="font-size:22px;font-weight:700">Arjun</span><span style="font-size:14px;color:var(--k-ink-2)">Runner · <span class="mono">14</span> handovers today</span></span>
+    <span class="mono" style="font-size:20px">9:01pm</span>
+  </header>
+
+  <div style="padding:16px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
+    <span class="h">With you <span class="mono">1</span></span>
+    <article style="background:var(--k-card);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px;border-top:4px solid var(--k-ok)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:48px;line-height:1">214</span><span style="display:flex;flex-direction:column;align-items:flex-end"><span class="mono" style="font-size:26px;color:var(--k-ok)">4:00</span><span style="font-size:13px;color:var(--k-ink-2)">left · due <span class="mono">9:05</span></span></span></div>
+      <span style="font-size:17px">First floor · Camille Laurent · <b>VIP</b></span>
+      <span style="font-size:16px;color:var(--k-ink-2)">Laal maas + 2 roti, Soola chicken · cutlery for 2</span>
+      <span style="font-size:15px;color:var(--k-attn)">Charged to room. Nothing to collect.</span>
+      <button style="height:64px;border:0;border-radius:6px;background:var(--k-ok);color:#04140C;font-size:20px;font-weight:700">Handed over</button>
+      <button style="height:48px;border:1px solid var(--k-line);border-radius:6px;background:transparent;color:var(--k-ink);font-size:16px">No answer at the door</button>
+    </article>
+
+    <span class="h" style="margin-top:4px">At the pass <span class="mono">1</span></span>
+    <article style="background:var(--k-card);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px">
+      <span class="mono" style="font-size:32px">105</span>
+      <span style="display:flex;flex-direction:column;flex:1"><span style="font-size:16px">Gatte, Safed maas</span><span style="font-size:14px;color:var(--k-attn)">Plating · ready in ~2 min</span></span>
+      <button style="height:56px;padding:0 18px;border:1px solid var(--k-ink);border-radius:6px;background:transparent;color:var(--k-ink);font-size:17px;font-weight:600">Take it</button>
+    </article>
+
+    <span class="h" style="margin-top:4px">With other runners <span class="mono">1</span></span>
+    <div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--k-line);font-size:16px"><span><span class="mono" style="font-size:20px">401</span> · Devraj</span><span style="color:var(--k-ink-2)">on the stairs</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

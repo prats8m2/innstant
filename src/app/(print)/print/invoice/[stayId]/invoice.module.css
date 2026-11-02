@@ -1,0 +1,102 @@
+/*
+ * The printed invoice (D-095). Paper first: black on white whatever the
+ * screen's theme, a readable size, and nothing but the bill on the page.
+ */
+.page {
+  min-height: 100vh;
+  padding: var(--space-8) var(--space-4);
+  background: var(--bg);
+}
+
+.toolbar { max-width: 800px; margin: 0 auto var(--space-4); display: flex; justify-content: flex-end; }
+
+.print {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.invoice {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  background: var(--white);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.head { display: flex; justify-content: space-between; gap: var(--space-6); flex-wrap: wrap; }
+.hotel { margin: 0; font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 500; }
+.contact { margin: var(--space-1) 0 0; color: var(--ink-secondary); }
+
+.meta { text-align: right; }
+.docTitle { margin: 0; font-size: var(--text-lg); font-weight: 700; letter-spacing: 0.02em; }
+.meta dl { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-3); margin: var(--space-2) 0 0; justify-content: end; }
+.meta dt { color: var(--ink-secondary); }
+.meta dd { margin: 0; }
+
+.parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin: var(--space-6) 0;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.parties p { margin: var(--space-1) 0 0; }
+
+.label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+.table { width: 100%; border-collapse: collapse; }
+.table th, .table td { padding: var(--space-2) var(--space-2); text-align: left; vertical-align: top; }
+.table thead th {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+  border-bottom: 1px solid var(--ink);
+}
+.table td { border-bottom: 1px solid var(--line-soft); }
+.table td:first-child { width: 72px; white-space: nowrap; color: var(--ink-secondary); }
+.group th { padding-top: var(--space-4); font-weight: 700; border-bottom: 1px solid var(--line); }
+.num { text-align: right !important; white-space: nowrap; }
+.detail { color: var(--ink-secondary); }
+
+.summary { display: flex; justify-content: flex-end; margin-top: var(--space-5); }
+.summary dl { display: grid; grid-template-columns: auto auto; gap: var(--space-1) var(--space-6); margin: 0; min-width: 320px; }
+.summary dd { margin: 0; text-align: right; }
+.payRow { display: contents; }
+.inner { color: var(--ink-secondary); font-size: var(--text-xs); }
+.balance { padding-top: var(--space-2); border-top: 2px solid var(--ink); font-size: var(--text-lg); font-weight: 700; }
+
+.foot { margin-top: var(--space-8); text-align: center; color: var(--ink-secondary); }
+
+@media print {
+  .page { padding: 0; background: var(--white); }
+  .toolbar { display: none; }
+  .invoice { border: 0; border-radius: 0; padding: 0; max-width: none; }
+}

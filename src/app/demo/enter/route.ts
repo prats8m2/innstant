@@ -4,6 +4,7 @@ import {
   resolveDemoRoomCode, openDemoSession,
   DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE, DEMO_COOKIE_DAYS,
 } from '@/modules/demo';
+import { secureCookies } from '@/lib/cookie-security';
 
 /**
  * The door between the website and the product.
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     response.cookies.set(GUEST_SESSION_COOKIE, demo.cookieValue, {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies(),
       path: '/',
       expires: demo.session.expiresAt,
     });
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     response.cookies.set(DEMO_FLAG_COOKIE, '1', {
       httpOnly: true,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: secureCookies(),
       path: '/',
       maxAge: DEMO_COOKIE_DAYS * 24 * 60 * 60,
     });

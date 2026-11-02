@@ -72,7 +72,11 @@ describe('property profile', () => {
       tenantId: a.tenantId, propertyId: a.propertyId, staffUserId: staff,
       branding: { accent: '#5fc4b8', logoUrl: 'https://cdn.example.com/logo.png' },
     }));
-    expect(saved).toEqual({ accent: '#5FC4B8', logoUrl: 'https://cdn.example.com/logo.png', coverUrl: null });
+    // The theme is untouched by a form that does not send one (D-100, D-102).
+    expect(saved).toEqual({
+      theme: 'kesari', draftTheme: null,
+      accent: '#5FC4B8', logoUrl: 'https://cdn.example.com/logo.png', coverUrl: null,
+    });
 
     const event = await owner.query<{ payload: { changed: Record<string, unknown> } }>(
       `SELECT payload FROM event_log WHERE entity_id = $1 AND event_type = 'property.branding_updated'`,

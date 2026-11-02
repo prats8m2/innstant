@@ -1,72 +1,131 @@
 /*
- * In-room dining menu. Rebuilt from design/reference/ — matched, not pasted.
- * Every value is a custom property from theme.css. No hex, no raw duration.
+ * The menu — rebuilt from design/reference/direction-a/GuestMenu.dc.html,
+ * matched rather than pasted. Shared by the room menu and the property-link
+ * menu (D-079), and by the console's preview of the room menu.
+ *
+ * Colours are guest tokens only (--g-*, D-100). Radii from the guest scope:
+ * 2px inputs and tags, 4px buttons and thumbnails, 10px cards, a pill only on
+ * chips. No hex, no raw duration (theme-discipline.test.ts).
  */
 .shell {
   min-height: 100dvh;
-  background: var(--bg);
-  /* 390×844 is the design viewport; mobile only, so it centres rather than
-     stretching on a larger screen. */
   max-width: 430px;
   margin-inline: auto;
+  padding-bottom: 40px;
+  background: var(--g-page);
+  color: var(--g-ink);
+  font-family: var(--font-body);
 }
 
-/* ── The bar: title row + category rail, over the scrolling menu ─────────── */
-.bar {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  max-width: 430px;
-  margin-inline: auto;
-  background: color-mix(in srgb, var(--surface) 94%, transparent);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border-soft);
+/* Clearance for the order bar, so the last dish is not under it. */
+.shell[data-cart] { padding-bottom: 128px; }
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.barTop {
+/* ── The bar: back, where, search ───────────────────────────────────────── */
+.head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  height: 56px;
-  padding: 0 var(--space-2);
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 56px;
+  padding: env(safe-area-inset-top, 0px) 8px 0;
 }
 
-.back {
+.iconButton,
+.iconSlot {
+  flex: none;
   width: var(--touch-min);
   height: var(--touch-min);
+}
+
+.iconButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--g-ink);
+  cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.back:hover { background: color-mix(in srgb, var(--plaster) 8%, transparent); }
+.iconButton:hover {
+  color: var(--g-ink);
+  background: color-mix(in srgb, var(--g-ink) 8%, transparent);
+}
+
+.context {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  color: var(--g-ink-2);
+}
+
+/* ── Title and the kitchen's line ───────────────────────────────────────── */
+.intro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 20px 0;
+}
 
 .title {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  color: var(--text);
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 38px;
+  color: var(--g-ink);
+  text-wrap: balance;
 }
 
-.eta {
-  margin-left: auto;
-  padding-right: var(--space-3);
-  font-size: var(--text-xs);
-  color: var(--teal);
+.status {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
 }
 
-/* ── The rail ───────────────────────────────────────────────────────────── */
+.statusDot {
+  display: inline-block;
+  vertical-align: middle;
+  width: 6px;
+  height: 6px;
+  margin: 0 8px 2px 0;
+  border-radius: 50%;
+  background: var(--g-ready);
+}
+.statusDot[data-open='false'] { background: var(--g-ink-3); }
+
+/* ── The rail ───────────────────────────────────────────────────────────────
+   Sticky on its own: the title scrolls away, the sections stay one tap off. */
+.railWrap {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-top: 8px;
+  padding: 10px 0;
+  background: var(--g-page);
+}
+
 .rail {
   position: relative;
   display: flex;
-  gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-3);
+  gap: 8px;
+  padding: 0 20px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -76,254 +135,359 @@
  * One translating element rather than a background per chip: a single
  * transform animates and the chips only change colour.
  *
- * Named `railPill`, NOT `pill`. This file already has a `.pill` — the floating
- * cart button 200 lines down — and for as long as both were called that, the
- * cart's rule won every property they shared: the category indicator inherited
- * `position: fixed`, `height: 58px`, a 29px radius and a plaster background,
- * and painted a large pale blob across the top of the menu. Two components in
- * one stylesheet cannot share a name, and a CSS module gives no warning when
- * they do.
+ * Named `railPill`, never `pill`: two components in one CSS module cannot
+ * share a name, and the module gives no warning when they do.
  */
 .railPill {
   position: absolute;
   top: 0;
   left: 0;
-  height: 34px;
   width: 0;
-  border-radius: var(--radius-pill-sm);
-  background: var(--accent);
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--g-accent);
   transition:
     transform var(--dur-mid) var(--ease-out),
     width var(--dur-mid) var(--ease-out);
 }
 
 .chip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 34px;
-  /* 34px is the design's chip height; the 44px touch minimum is met by the
-     padding block below, which extends the hit area past the painted pill. */
-  padding: 0 15px;
-  border-radius: var(--radius-pill-sm);
-  border: 1px solid color-mix(in srgb, var(--plaster) 18%, transparent);
-  background: transparent;
   position: relative;
   z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--g-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
   white-space: nowrap;
   cursor: pointer;
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-  transition: color var(--dur-base) var(--ease-out);
+  transition: color var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+
+/* 40px painted, 44px to the thumb. */
+.chip::after {
+  content: '';
+  position: absolute;
+  inset: -2px 0;
 }
 
 .chip[aria-selected='true'] {
-  color: var(--surface);
   border-color: transparent;
+  color: var(--g-on-accent);
+  font-weight: 600;
 }
 
-/* ── The scrolling menu ─────────────────────────────────────────────────── */
-/* Bottom padding clears the pinned pill — without it the last dish sits
-   under it and cannot be tapped. */
-.scroll { padding: var(--space-6) var(--space-4) 110px; }
+/* ── Sections ───────────────────────────────────────────────────────────── */
+.sections { padding: 0 20px; }
 
 .section {
-  padding-bottom: var(--space-8);
-  /* Clears the sticky bar when a rail chip jumps to this section. */
-  scroll-margin-top: 118px;
+  padding-top: 28px;
+  /* Clears the sticky rail when a chip jumps here. */
+  scroll-margin-top: 60px;
 }
+.section:first-child { padding-top: 14px; }
 
 .sectionHead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: var(--space-1);
+  gap: 12px;
 }
 
+/* The board's eyebrow. Still an <h2>: a screen reader moves by sections. */
 .sectionTitle {
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 400;
-  color: var(--text);
   margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g-accent);
 }
 
-.sectionCount {
-  font-size: var(--text-xs);
-  color: var(--plaster-faint);
+.sectionOffer {
+  flex: none;
+  font-size: 13px;
+  color: var(--g-accent);
 }
 
 .blurb {
-  margin: 0 0 var(--space-5);
-  max-width: 300px;
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--text-muted);
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
   text-wrap: pretty;
 }
 
-.dishes {
+.feature,
+.grid,
+.rows {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  /* Tighter than the 24px it was: the cards now separate the dishes, so the
-     gap only has to stop them touching. */
-  gap: var(--space-3);
 }
 
-/*
- * One card per dish, and the card is the <li> rather than the link.
- *
- * They were flat rows on the page ground, separated by nothing but space —
- * which on a list of ten reads as one long column of text, and gives the eye
- * no edge to stop at. A card per dish draws a boundary around what is one
- * tappable thing, lifts the dish off the ground so the thumbnail stops
- * floating, and gives the press state somewhere to happen.
- *
- * The card is the list item and not the anchor because the stepper lives
- * inside it: a button nested in an <a> is invalid, and browsers resolve it by
- * breaking one or the other. So the link covers the content, the stepper sits
- * beside it, and `position: relative` is what lets the stepper be placed over
- * the corner the link would otherwise own.
- */
+.feature { margin-top: 14px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.rows { margin-top: 6px; }
+
+.footnote {
+  margin: 32px 0 0;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+/* ── A dish ─────────────────────────────────────────────────────────────── */
 .dishCard {
   position: relative;
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  border: 1px solid var(--border-soft);
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    border-color var(--dur-fast) var(--ease-out);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
+
+.dishCard[data-variant='feature'],
+.dishCard[data-variant='grid'] {
+  border-radius: var(--radius-lg);
+  background: var(--g-card);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.dishCard[data-variant='feature']:active,
+.dishCard[data-variant='grid']:active {
+  background: color-mix(in srgb, var(--g-line) 45%, var(--g-card));
+}
+
+.dishCard[data-variant='row'] {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--g-line);
+}
+
+/* Off the menu: the whole thing recedes before a word of it is read. */
+.dishCard[data-available='false'] { opacity: 0.6; }
+.dishCard[data-available='false'] .photo { filter: grayscale(1); }
 
 /*
- * Pressed. No lift and no shadow — this is a list a thumb runs down at
- * 9:40pm, and ten cards that each rise under the finger is a trampoline.
+ * The photograph's frame, and the fallback when there is no photograph: the
+ * board's hatch, drawn from the theme so it follows Sandstone too. DishImage
+ * fills it and is clipped by it.
  */
-.dishCard:active {
-  background: var(--surface-raised);
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+.photo {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  flex: none;
+  background-color: color-mix(in srgb, var(--g-line) 55%, var(--g-card));
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--g-ink) 5%, transparent) 0 1px,
+    transparent 1px 9px
+  );
 }
 
-/* Sold out: the card recedes rather than the text greying, so the whole thing
-   reads as unavailable before a word of it is read. */
-.dishCard[data-available='false'] {
-  background: transparent;
-  border-style: dashed;
+.dishCard[data-variant='feature'] .photo {
+  height: 200px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
 }
 
-.dish {
+.dishCard[data-variant='grid'] .photo {
+  height: 104px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.dishCard[data-variant='row'] .photo {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-sm);
+}
+
+.dishBody {
   display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
-  width: 100%;
-  padding: var(--space-3);
-  color: var(--text);
-  animation: archIn var(--dur-slow) var(--ease-out) both;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.dish:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-  border-radius: var(--radius-lg);
-}
+.dishCard[data-variant='feature'] .dishBody { gap: 6px; padding: 16px; }
+.dishCard[data-variant='grid'] .dishBody { flex: 1; gap: 4px; padding: 12px; }
+.dishCard[data-variant='row'] .dishBody { gap: 2px; }
 
-/* ── Add and remove, without opening the dish ───────────────────────────── */
-
-/*
- * Bottom-right of the card, over the link.
- *
- * Absolute rather than in the flow so the link keeps the whole card: a guest
- * reaching for the description, the price or the picture gets the dish, and
- * only the two small controls do something else.
- */
-.stepper {
-  position: absolute;
-  right: var(--space-3);
-  bottom: var(--space-3);
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-}
-
-/* Nothing chosen yet: one button saying what it does, rather than a stepper
-   sitting at zero, which asks the guest to read a control to learn it is
-   empty. */
-.stepper[data-on='false'] {
-  background: transparent;
-  border-color: transparent;
-  padding: 0;
-}
-
-.step,
-.stepAdd {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  height: 34px;
-  border-radius: var(--radius-pill);
-  font-family: inherit;
-  font-size: var(--text-base);
-  cursor: pointer;
-  transition:
-    background var(--dur-fast) var(--ease-out),
-    opacity var(--dur-fast) var(--ease-out);
-}
-
-/* − and + once something is in the order. */
-.step {
-  padding: 0;
-  background: transparent;
-  border: 0;
-  color: var(--text);
-}
-
-.step:active { background: color-mix(in srgb, var(--plaster) 10%, transparent); }
-
-/* The first tap. Wider, filled, and labelled "Add" — the only control on the
-   card, so it can afford to say what it is. */
-.stepAdd {
-  padding: 0 var(--space-4);
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: var(--accent-ink);
+.dishEyebrow {
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
 }
 
-/* Once the stepper is open, + is a sibling of − and stops being the loud one. */
-.stepper[data-on='true'] .stepAdd {
-  padding: 0;
-  background: transparent;
-  border-color: transparent;
-  color: var(--accent);
+.featureHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dishName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
   font-weight: 400;
+  line-height: 1.2;
+  color: var(--g-ink);
+  text-wrap: pretty;
 }
+.dishCard[data-variant='feature'] .dishName { font-size: 24px; line-height: 1.15; }
 
-.step:disabled,
-.stepAdd:disabled { opacity: 0.55; cursor: default; }
-
-.step:focus-visible,
-.stepAdd:focus-visible {
-  outline: 2px solid var(--accent);
+/*
+ * The name is the link, and its hit area is the whole card: everything but
+ * the stepper opens the dish. The stepper sits above this layer.
+ */
+.dishLink {
+  color: inherit;
+  text-decoration: none;
+}
+.dishLink:hover { color: inherit; }
+.dishLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.dishCard[data-variant='feature'] .dishLink::after,
+.dishCard[data-variant='grid'] .dishLink::after { border-radius: var(--radius-lg); }
+.dishLink:focus-visible { outline: none; }
+.dishLink:focus-visible::after {
+  outline: 2px solid var(--g-accent);
   outline-offset: 2px;
 }
 
+.dishShort {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--g-ink-2);
+  text-wrap: pretty;
+}
+
+.dishCard[data-variant='row'] .dishShort {
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.priceLine {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.price {
+  font-size: 15px;
+  color: var(--g-ink);
+  white-space: nowrap;
+}
+.dishCard[data-variant='feature'] .price { font-size: 17px; }
+.dishCard[data-variant='row'] .price { font-size: 14px; }
+.price[data-struck] { text-decoration: line-through; }
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+/* "4 left today" — said in the late tone, because it is a reason to decide. */
+.fewLeft {
+  font-size: 12px;
+  color: var(--g-late);
+}
+
+.cardFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.dishCard[data-variant='feature'] .cardFoot { justify-content: flex-end; margin-top: 4px; }
+
+.rowAction { align-self: center; }
+
+.soldOutTag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: var(--g-ink-2);
+  white-space: nowrap;
+}
+
+/* ── Add and remove, without opening the dish ───────────────────────────── */
+.stepper {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  height: var(--touch-min);
+  margin-left: auto;
+  border: 1px solid var(--g-accent);
+  border-radius: var(--radius-sm);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--g-accent);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.step:active { background: color-mix(in srgb, var(--g-accent) 14%, transparent); }
+.step:disabled { opacity: 0.55; cursor: default; }
+.step:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+
+/* Once the stepper is open the minus is a quiet sibling of the plus. */
+.stepper[data-on='true'] .step:first-of-type { color: var(--g-ink); }
+
 .stepCount {
-  min-width: 18px;
+  min-width: 24px;
+  font-size: 16px;
   text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-base);
-  color: var(--text);
+  color: var(--g-accent);
 }
 
 /* The dish that failed, said next to the dish that failed. */
@@ -331,196 +495,207 @@
   position: absolute;
   right: 0;
   bottom: calc(100% + 6px);
+  z-index: 3;
   width: max-content;
-  max-width: 60vw;
-  padding: var(--space-2) var(--space-3);
+  max-width: 220px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: var(--status-critical-tint);
-  color: var(--status-critical);
-  font-size: var(--text-xs);
+  background: color-mix(in srgb, var(--g-late) 16%, var(--g-page));
+  color: var(--g-ink);
+  font-size: 13px;
   line-height: 1.4;
 }
 
-/* The arch. The single strongest shape signal in the design — a jharokha
-   window, not a rounded rectangle. */
-.thumb {
-  /* Smaller inside a card than it was on the open page — the card's own
-     padding now does the work the thumbnail's size used to. */
-  /* Positioned and clipped: a dish's photograph (DishImage) fills the arch
-     and takes its shape, and the drawing below shows when there is none. */
-  position: relative;
-  overflow: hidden;
-  width: 84px;
-  height: 84px;
-  flex: 0 0 84px;
-  border-radius: 40% 40% var(--radius-sm) var(--radius-sm) / 26% 26% 0 0;
-  background-color: var(--ink-700);
-  background-image:
-    radial-gradient(circle at 50% 108%, color-mix(in srgb, var(--saffron) 20%, transparent) 0 22%, transparent 22.5%),
-    radial-gradient(circle at 50% 108%, transparent 0 36%, color-mix(in srgb, var(--plaster) 13%, transparent) 36% 37%, transparent 37.5%),
-    radial-gradient(circle at 50% 108%, transparent 0 54%, color-mix(in srgb, var(--plaster) 9%, transparent) 54% 55%, transparent 55.5%),
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--plaster) 3.5%, transparent) 0 1px, transparent 1px 5px);
+/* ── Search ─────────────────────────────────────────────────────────────── */
+.searchBar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 20px;
+  background: var(--g-page);
 }
 
-.dishBody {
-  flex: 1;
-  min-width: 0;
-  display: block;
-}
-
-.dishName {
-  display: block;
-  font-size: var(--text-md);
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--text);
-  text-wrap: pretty;
-}
-
-.dishShort {
-  display: block;
-  margin-top: 3px;
-  font-size: var(--text-sm);
-  line-height: 1.45;
-  color: var(--text-muted);
-  text-wrap: pretty;
-}
-
-.dishMeta {
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  left: 32px;
   display: flex;
-  /* Wraps rather than overflows when an offer adds a struck price and a chip
-     beside the price on a narrow phone (D-085). */
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-  margin-top: 7px;
-  /* Clear of the stepper in the corner — 34px of control plus its padding. */
-  padding-right: 96px;
-  min-height: 34px;
+  transform: translateY(-50%);
+  color: var(--g-ink-3);
+  pointer-events: none;
 }
 
-.price {
-  font-size: var(--text-base);
-  color: var(--accent);
+.searchInput {
+  width: 100%;
+  height: 48px;
+  padding: 0 48px 0 44px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-xs);
+  background: var(--g-card);
+  color: var(--g-ink);
+  font-family: var(--font-body);
+  /* 16px: anything smaller and iOS zooms the page on focus. */
+  font-size: 16px;
+  appearance: none;
+}
+.searchInput::placeholder { color: var(--g-ink-3); }
+.searchInput::-webkit-search-cancel-button { appearance: none; }
+.searchInput:focus-visible {
+  outline: 2px solid var(--g-accent);
+  outline-offset: 0;
+  border-color: transparent;
 }
 
-.tag {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--teal);
-}
-
-/* Said plainly, and it says what to do next by saying what is true: the dish
-   is off tonight, not "temporarily unavailable". */
-.soldOut {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-}
-
-.footer {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
-  padding-bottom: var(--space-2);
-  margin: 0;
-}
-
-/* ── The pill ───────────────────────────────────────────────────────────── */
-/* Pinned in the thumb zone over the scrolling menu (DESIGN-SPEC "Viewport").
-   Centred by hand because the shell is a 430px column on a wider screen. */
-.pill,
-.pillIdle {
-  position: fixed;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(398px, calc(100% - 32px));
-  z-index: 3;
-}
-
-/* Nothing chosen yet: not a disabled button, just the one fact worth knowing
-   at 9:40pm. */
-.pillIdle {
+.searchClear {
+  position: absolute;
+  top: 50%;
+  right: 22px;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  height: 46px;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--g-ink-2);
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.searchCount {
+  margin: 4px 20px 0;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+.rows[data-results] { margin: 0 20px; }
+
+/* The Components board's empty state: an arch, a sentence, a way out. */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 56px 20px;
+  text-align: center;
+}
+
+.emptyArch {
+  width: 44px;
+  height: 56px;
+  border: 1px solid var(--g-ink-3);
+  border-radius: 22px 22px var(--radius-xs) var(--radius-xs);
+}
+
+.emptyTitle {
+  max-width: 300px;
   margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--g-ink);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.emptyLine {
+  margin: 0;
+  font-size: 13px;
+  color: var(--g-ink-2);
+}
+
+.emptyButton {
+  min-height: var(--touch-min);
+  margin-top: 4px;
   padding: 0 18px;
-  border-radius: 23px;
-  background: var(--surface-raised);
-  border: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--plaster) 62%, transparent);
+  border: 1px solid var(--g-ink-3);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--g-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  cursor: pointer;
 }
 
-.pillDot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--teal);
+/* ── The order bar ──────────────────────────────────────────────────────────
+   Pinned in the thumb zone. Centred by hand because the shell is a 430px
+   column on a wider screen. */
+.cartBar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 3;
+  width: min(430px, 100%);
+  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--g-line);
+  background: var(--g-page);
+  transform: translateX(-50%);
 }
 
-/* Something chosen: the one light element in the whole product, which is what
-   makes it impossible to miss against the indigo. */
-.pill {
+.cartButton {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  height: 58px;
-  padding: 0 var(--space-2) 0 18px;
-  border-radius: 29px;
-  background: var(--plaster);
-  color: var(--surface);
-  box-shadow: 0 10px 30px color-mix(in srgb, var(--ink-900) 55%, transparent);
+  justify-content: space-between;
+  gap: 12px;
+  height: 56px;
+  padding: 0 20px;
+  border-radius: var(--radius-sm);
+  background: var(--g-accent);
+  color: var(--g-on-accent);
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.pill:hover { background: var(--plaster); color: var(--surface); }
+.cartButton:hover {
+  color: var(--g-on-accent);
+  background: color-mix(in srgb, var(--g-accent) 88%, var(--g-ink));
+}
 
-.pillCount {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 var(--space-1);
-  border-radius: 13px;
-  background: var(--surface);
-  color: var(--text);
-  font-size: var(--text-sm);
+/* ── Loading (loading.tsx) ──────────────────────────────────────────────── */
+.skScreen.skScreen { padding: 0; }
+
+.skHead {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: env(safe-area-inset-top, 0px) 8px 0;
 }
 
-.pillLabel {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--surface);
+.skIcon {
+  width: var(--touch-min);
+  height: var(--touch-min);
 }
 
-.pillTotal {
-  margin-left: auto;
-  font-size: var(--text-base);
-  color: var(--surface);
-}
-
-.pillArrow {
-  width: 42px;
-  height: 42px;
-  flex: none;
-  border-radius: 21px;
-  background: var(--accent);
-  color: var(--surface);
+.skRail {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  gap: 8px;
+  padding: 18px 20px 10px;
+  overflow: hidden;
+}
+
+.skSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 0;
+}
+
+.skFeature {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--g-card);
+}
+
+.skFeatureBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 16px;
 }

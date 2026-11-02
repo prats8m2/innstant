@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Housekeeping</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Mukta:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+:root{--k-bg:#07090C;--k-card:#12161C;--k-line:#2A3038;--k-ink:#F2F4F5;--k-ink-2:#A9B1BA;--k-attn:#F2B544;--k-crit:#FF7A66;--k-ok:#5FC59A}
+.mono{font-family:'DM Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.h{font-size:14px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--k-ink-2);display:flex;justify-content:space-between}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width:390px;height:844px;background:var(--k-bg);color:var(--k-ink);font-family:'Mukta',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden">
+  <header style="padding:48px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--k-line)">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="display:flex;flex-direction:column"><span style="font-size:22px;font-weight:700">Meena</span><span style="font-size:14px;color:var(--k-ink-2)">Housekeeping · <span class="mono">9</span> done today</span></span><span class="mono" style="font-size:20px">8:53pm</span></div>
+    <div role="group" aria-label="Floor" style="display:flex;gap:6px">
+      <button style="height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--k-ink);background:var(--k-ink);color:var(--k-bg);font-size:15px;font-weight:700">My floors</button>
+      <button style="height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--k-line);background:transparent;color:var(--k-ink);font-size:15px">Second</button>
+      <button style="height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--k-line);background:transparent;color:var(--k-ink);font-size:15px">Rooftop</button>
+      <button style="height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--k-line);background:transparent;color:var(--k-ink);font-size:15px">All</button>
+    </div>
+  </header>
+
+  <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;flex:1;min-height:0">
+    <span class="h">Yours <span class="mono">2</span></span>
+    <article style="background:var(--k-card);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--k-crit)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span class="mono" style="font-size:40px;line-height:1">302</span><span style="display:flex;flex-direction:column;align-items:flex-end"><span class="mono" style="font-size:24px;color:var(--k-crit)">+6:10</span><span style="font-size:13px;font-weight:700;color:var(--k-crit)">LATE</span></span></div>
+      <span style="font-size:17px">Ice bucket + 2 glasses</span>
+      <span style="font-size:15px;color:var(--k-attn)">Desk: "They're celebrating — say sorry for the wait."</span>
+      <button style="height:60px;border:0;border-radius:6px;background:var(--k-ok);color:#04140C;font-size:19px;font-weight:700">Done</button>
+    </article>
+    <article style="background:var(--k-card);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;border-top:4px solid var(--k-ok)">
+      <span class="mono" style="font-size:32px">401</span>
+      <span style="display:flex;flex-direction:column;flex:1"><span style="font-size:16px">Iron and board</span><span style="font-size:14px;color:var(--k-ink-2)"><span class="mono" style="color:var(--k-ok)">9:40</span> left</span></span>
+      <button style="height:56px;padding:0 20px;border:0;border-radius:6px;background:var(--k-ok);color:#04140C;font-size:17px;font-weight:700">Done</button>
+    </article>
+
+    <span class="h" style="margin-top:4px">Waiting <span class="mono">1</span></span>
+    <article style="background:var(--k-card);border-radius:8px;padding:14px 16px;display:flex;align-items:center;gap:14px;border:1px dashed var(--k-attn)">
+      <span class="mono" style="font-size:32px">305</span>
+      <span style="display:flex;flex-direction:column;flex:1"><span style="font-size:16px">Make up · checked out</span><span style="font-size:14px;color:var(--k-attn)">Arrival at <span class="mono">10pm</span> · <span class="mono">67</span> min</span></span>
+      <button style="height:56px;padding:0 18px;border:1px solid var(--k-ink);border-radius:6px;background:transparent;color:var(--k-ink);font-size:17px;font-weight:600">Take it</button>
+    </article>
+
+    <span class="h" style="margin-top:4px">With others <span class="mono">3</span> · Done, not checked <span class="mono">4</span></span>
+    <div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--k-line);font-size:16px"><span><span class="mono" style="font-size:20px">214</span> · Sunita · turndown</span><span class="mono" style="color:var(--k-ink-2)">7:00</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid var(--k-line);font-size:16px"><span><span class="mono" style="font-size:20px">303</span> · made up, Meena</span><span style="color:var(--k-ink-2)">needs a check</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

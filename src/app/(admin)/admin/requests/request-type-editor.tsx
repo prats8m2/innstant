@@ -60,7 +60,7 @@ export function RequestTypeEditor({
     <>
       <header className={styles.pageHead}>
         <div>
-          <h1 className={styles.title}>What guests can ask for</h1>
+          <h2 className={styles.title}>What guests can ask for</h2>
           <p className={styles.lede}>
             {live} of {types.length} on the guest&rsquo;s list ·{' '}
             {chargeable === 0

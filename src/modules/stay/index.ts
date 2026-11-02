@@ -29,6 +29,9 @@ export type { DrainResult } from './pms/sync';
 export {
   getGuestDossier, updateGuestProfile, guestIdForStay, recentGuests, DIETARY_FLAGS,
 } from './guest-profile';
+/** The console's search (⌘K): guests by name. */
+export { searchGuests } from './guest-search';
+export type { GuestHit } from './guest-search';
 export type {
   GuestDossier, GuestStaySummary, UpdateGuestProfileInput, DietaryFlag,
 } from './guest-profile';
@@ -36,11 +39,14 @@ export type {
 /** The front desk. Check-IN is `createStay()` above — the only door (#4). */
 export { listRoomsWithOccupancy, checkOutStay } from './front-desk';
 export type { RoomOccupancy, CheckOutResult } from './front-desk';
+/** Today's departures — who is due out and who has gone (D-094). */
+export { listDeparturesToday, getStayAtDesk, listUnpaidDepartures } from './departures';
+export type { Departure, StayAtDesk, UnpaidDeparture } from './departures';
 
 /** Changing when a guest leaves — P3's checkout-change flow. */
 export {
   getCheckoutOptions, requestCheckoutChange, cancelCheckoutRequest,
-  decideCheckoutRequest, listCheckoutRequests,
+  decideCheckoutRequest, listCheckoutRequests, changeCheckoutAt,
 } from './checkout';
 export type {
   CheckoutOptions, PendingCheckoutRequest, RequestCheckoutInput, RequestedCheckout,
@@ -51,3 +57,7 @@ export {
   CHECKOUT_REQUEST_STATUSES,
 } from './checkout-rules';
 export type { CheckoutOffer, CheckoutTier, CheckoutRequestStatus } from './checkout-rules';
+
+/** Rooms in house over Today / 7 days / 30 days, and today's arrivals — the console overview. */
+export { occupancyReport, listArrivalsToday } from './period-report';
+export type { OccupancyReport, Arrival } from './period-report';

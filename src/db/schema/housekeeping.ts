@@ -1,6 +1,6 @@
-import { pgTable, uuid, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, pgEnum, uuid, text, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { pk, ts, createdAt, updatedAt, tenantId, propertyId, shiftStatus } from './_shared';
-import { floors, staffUsers } from './identity';
+import { floors, rooms, staffUsers } from './identity';
 
 /**
  * Shifts and zones. These exist so routing (DATA-MODEL §7) can be automatic:
@@ -35,3 +35,26 @@ export const shiftZones = pgTable('shift_zones', {
   floorId: uuid('floor_id').notNull().references(() => floors.id),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex('shift_zones_uq').on(t.shiftId, t.floorId)]);
+
+/** D-096 — is an empty room ready for the next guest. See 0016. */
+export const roomCleanStatus = pgEnum('room_clean_status', ['CLEAN', 'DIRTY', 'INSPECTED', 'OUT_OF_ORDER']);
+
+/**
+ * The housekeeping half of a room's state, one row per room, written on
+ * change. No row means CLEAN. DIRTY is set by checkout in the same
+ * transaction; OUT_OF_ORDER always carries a note (CHECK).
+ */
+export const roomStatus = pgTable('room_status', {
+  id: pk(),
+  tenantId: tenantId(),
+  propertyId: propertyId(),
+  roomId: uuid('room_id').notNull().references(() => rooms.id, { onDelete: 'cascade' }),
+  status: roomCleanStatus('status').notNull().default('CLEAN'),
+  note: text('note'),
+  updatedByStaffId: uuid('updated_by_staff_id').references(() => staffUsers.id),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (t) => [
+  uniqueIndex('room_status_room_uq').on(t.roomId),
+  index('room_status_property_idx').on(t.propertyId, t.status),
+]);

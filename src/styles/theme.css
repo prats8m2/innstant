@@ -28,82 +28,80 @@
  * existing usages across the CSS modules kept working through the swap. New
  * code should reach for the semantic aliases and let the legacy block rot.
  */
-:root {
-  /* ── Ground and surfaces ────────────────────────────────────────────────
-     Warm paper, not pure white. White is reserved for the things that sit ON
-     the page — cards, rows, the rail — so that an edge is visible without a
-     border doing all the work. */
-  --paper-deep: #EDEEEB;   /* full-bleed ops shells, behind everything */
-  --paper: #F3F4F2;        /* the page */
-  --paper-raised: #E9EBE8; /* a card on the page, a tab strip, a chip well */
-  --paper-hover: #E0E3DE;
-  --white: #FFFFFF;
+:root,
+[data-console] {
+  /* ── The console's colours come from the token file (D-100) ─────────────
+     design/tokens/innstant-themes.css owns every value; this block only says
+     which of its names each older role name means, so the ~250 module
+     stylesheets that read --paper or --teal-600 follow it without an edit.
+
+     Declared on `[data-console]` as well as `:root` because a var() resolves
+     on the element that declares it: the console shell sets its own
+     data-console (a person's light or dark), and without re-declaring here the
+     shell would inherit html's already-resolved light values. That is the bug
+     that once shipped the kitchen's night mode white (see "Derived" below).
+
+     Never redeclare a name the token file owns (--bg, --surface, --border,
+     --text, --accent…) in a block that also matches [data-console]: `--paper:
+     var(--bg)` next to `--bg: var(--paper)` is a cycle, and a cycle is an
+     invalid value — everything it touches goes transparent. */
+
+  /* ── Ground and surfaces ──────────────────────────────────────────────── */
+  --paper-deep: var(--surface-2);   /* full-bleed ops shells, behind everything */
+  --paper: var(--bg);               /* the page */
+  --paper-raised: var(--surface-2); /* a card on the page, a tab strip, a chip well */
+  --paper-hover: color-mix(in srgb, var(--text) 6%, var(--surface-2));
+  --white: var(--surface);
 
   /* ── Lines ───────────────────────────────────────────────────────────────
-     Three weights. `--line` separates panels; `--line-soft` separates rows
-     inside one panel and is deliberately almost invisible; `--line-faint` is
-     the dashed-empty-state and divider weight. None of the three is a text
-     colour — see the --ink-300 assertion in theme-contrast.test.ts. */
-  --line: #D9DDD8;
-  --line-soft: #E4E7E2;
-  --line-faint: #C9CED3;
-  --row-line: #EEF0ED;
-  --row-hover: #F7F8F6;
+     `--line` separates panels; `--line-soft` separates rows inside one panel;
+     `--line-faint` is the dashed-empty-state and divider weight. None of the
+     three is a text colour — asserted in theme-discipline.test.ts. */
+  --line: var(--border);
+  --line-soft: color-mix(in srgb, var(--border) 60%, var(--surface));
+  --line-faint: var(--border-strong);
+  --row-line: color-mix(in srgb, var(--border) 50%, var(--surface));
+  --row-hover: color-mix(in srgb, var(--surface-2) 50%, var(--surface));
 
-  /* ── Accents ─────────────────────────────────────────────────────────────
-     Teal. On a light ground "hover" means DARKER, which is the opposite of
-     what the indigo theme did and the single most common thing to get wrong
-     when porting a component across. */
-  --teal-600: #0F766E;
-  --teal-700: #115E59;
-  --teal-tint: #E0F2F0;    /* selected row, quiet badge fill */
+  /* ── Accent ──────────────────────────────────────────────────────────────
+     Follows the property's guest theme through data-accent. Hover moves
+     toward the text colour: darker on paper, lighter at night. */
+  --teal-600: var(--accent);
+  --teal-700: color-mix(in srgb, var(--accent) 82%, var(--text));
+  --teal-tint: var(--accent-soft);    /* selected row, quiet badge fill */
 
   /* ── Text ────────────────────────────────────────────────────────────────
-     Near-black with a trace of blue, so it sits on the warm paper without
-     ringing. */
-  --ink: #16191B;
-  --ink-secondary: #3C4550;
-  /* Muted and faint are the same ink at reduced alpha, composited over
-     whatever is behind them. The ALPHAS ARE NOT THE ONES THE DARK THEME USED:
-     62% of a light text over a dark ground and 62% of a dark text over a light
-     ground are not the same perceptual step, and --plaster-faint at its old
-     45% landed at 2.96:1 on white — under even the 3:1 bar for UI text. 48%
-     clears it on all three grounds. tests/unit/theme-contrast.test.ts reads
-     these percentages out of this file and holds the line. */
+     Muted and faint are the same ink at reduced alpha. The token file's
+     --text-3 is the design's own third step; these two predate it and stay
+     until the screens that use them are rebuilt. */
+  --ink: var(--text);
+  --ink-secondary: var(--text-2);
   --ink-dim: color-mix(in srgb, var(--ink) 62%, transparent);
   --ink-faint: color-mix(in srgb, var(--ink) 48%, transparent);
 
   /* ── Status ──────────────────────────────────────────────────────────────
-     Named for what they MEAN rather than what they look like, so a badge and a
-     button reach for the same word. All three are TEXT tones and all three
-     clear AA on all three grounds — asserted. */
-
-  /* One step darker than the design's #1F7A4D, which is 4.43:1 on
-     --paper-raised — a hair under AA, and this tone carries "Done" and
-     "Delivered" on exactly that ground. */
-  --status-positive: #1E764A;
-  /* Attention has TWO values on purpose. The mark is the amber the design uses
-     for dots, fills and left borders — graphics, which answer to the 3:1 bar.
-     It is 3.64:1 on white and must never carry a word anybody has to read; the
-     text tone is the darker one. Getting this wrong is how a "late checkout"
-     label ends up unreadable to half the front desk. */
-  --status-attention: #7A5200;
-  --status-attention-mark: #B7791F;
-  --status-critical: #B42318;
-  --accent-ink: #FFFFFF;   /* text ON an accent fill */
-  --status-attention-tint: #FEF6E4;
-  --status-critical-tint: #FCE8E6;
+     Named for what they MEAN. All are text tones on their own soft fill.
+     The attention MARK (dots, fills, borders) is the same tone now: the
+     token file's --warn is dark enough to be read as text on paper. */
+  --status-positive: var(--pos);
+  --status-attention: var(--warn);
+  --status-attention-mark: var(--warn);
+  --status-critical: var(--crit);
+  --accent-ink: var(--accent-fg);   /* text ON an accent fill */
+  --status-attention-tint: var(--warn-soft);
+  --status-critical-tint: var(--crit-soft);
   /* A guest's note, and the ink that is legible on it. */
-  --note-bg: #FEF6E4;
-  --note-ink: #5A4300;
+  --note-bg: var(--warn-soft);
+  --note-ink: color-mix(in srgb, var(--warn) 70%, var(--text));
 
-  /* ── Elevation ───────────────────────────────────────────────────────────
-     On paper a shadow reads as elevation rather than as dirt, so these do more
-     work than their indigo predecessors did. Still only two: a resting lift
-     and a floating panel. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  /* ── Elevation ──────────────────────────────────────────────────────────
+     Not colours in the palette sense; the token file's --shadow is the
+     design's resting card. */
+  --shadow-sm: var(--shadow);
   --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.18);
+}
 
+:root {
   /* ── Console layout ──────────────────────────────────────────────────────
      The ops console is desktop furniture and needs fixed measurements the way a
      document does not. 216px is the design's rail; the 228px it replaced was
@@ -153,12 +151,15 @@
   --radius-pill: 999px;
 
   /* ── Type ────────────────────────────────────────────────────────────────
-     Families are assigned by next/font in src/app/fonts.ts, which sets
-     --font-public-sans / --font-red-hat-mono. There is no serif display face
-     in this design — headings are the body face at 700. */
-  --font-display: var(--font-public-sans), system-ui, sans-serif;
-  --font-body: var(--font-public-sans), system-ui, sans-serif;
-  --font-mono: var(--font-red-hat-mono), ui-monospace, monospace;
+     One set across every surface (Direction A): Mukta explains, DM Mono
+     counts. The console's headings are Mukta at weight, not Marcellus —
+     Marcellus speaks only on the guest's screens. Families are assigned by
+     next/font in src/app/fonts.ts; the token file names the same faces by
+     their plain family names, which next/font does not register, so these
+     win. */
+  --font-display: var(--font-mukta), system-ui, sans-serif;
+  --font-body: var(--font-mukta), system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
 
   /* 10.5px. The guest app's mono metadata — an eyebrow, a tile's subtitle, the
      line under the order button. At --text-xs (12px) a two-word subtitle wrapped
@@ -206,65 +207,6 @@
   --touch-min: 44px;
 
   color-scheme: light;
-}
-
-/*
- * ── Night ──────────────────────────────────────────────────────────────────
- *
- * The kitchen display is the one always-on screen in the product, and it is
- * the one screen whose room gets dark. The design gives it an auto day/night
- * switch; this block is the night half, opted into by `data-scheme="dark"` on
- * a subtree rather than by a media query, because the switch is the property's
- * clock (see kdsScheme in the KDS) and not the tablet's OS setting.
- *
- * Only the semantic aliases are overridden. A component that reached past them
- * into --paper or --ink directly will not follow, which is the intended
- * pressure: reach for the alias.
- */
-[data-scheme='dark'] {
-  --paper-deep: #0D0F11;
-  --paper: #121517;
-  --paper-raised: #22272C;
-  --paper-hover: #2A3037;
-  --white: #1B1F23;
-
-  --line: #2E343A;
-  --line-soft: #262C31;
-  --line-faint: #394047;
-  --row-line: #262C31;
-  --row-hover: #22272C;
-
-  --teal-600: #2DD4BF;
-  --teal-700: #5EEAD4;   /* hover goes LIGHTER again on a dark ground */
-  --teal-tint: #12312D;
-
-  --ink: #EEF1F0;
-  --ink-secondary: #C3CBD2;
-  /* Re-stated, not inherited. `--ink-dim: color-mix(… var(--ink) …)` on :root
-     resolves against :root's --ink and inherits down as a finished colour, so
-     without these two lines the dark board would wear the light theme's grey
-     text. Same trap as the aliases below. */
-  --ink-dim: color-mix(in srgb, var(--ink) 70%, transparent);
-  --ink-faint: color-mix(in srgb, var(--ink) 55%, transparent);
-
-  --accent-ink: #08201C;
-
-  --status-positive: #34D399;
-  --status-attention: #FBBF24;
-  --status-attention-mark: #FBBF24;
-  --status-critical: #EF6B5E;
-  --status-positive-tint: #10312A;
-  --status-attention-tint: #3A3117;
-  --status-critical-tint: #3A1C19;
-  --note-bg: #3A3117;
-  --note-ink: #F7E9C6;
-
-  /* A drop shadow on near-black reads as dirt. Depth here is a lighter
-     surface plus a line, which is what the indigo theme learned. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
-  --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.6);
-
-  color-scheme: dark;
 }
 
 /* ── Base ─────────────────────────────────────────────────────────────── */
@@ -352,82 +294,79 @@ a:hover { color: var(--accent-hover); }
  * declared on. That is the bug that shipped the kitchen's night mode white.
  */
 [data-theme='kesari'] {
-  /* Ground. Deep indigo, not near-black: the brief ruled out both
-     cream-and-terracotta and near-black-with-one-accent.
+  /* ── The guest's colours come from the token file (D-100) ────────────────
+     design/tokens/innstant-themes.css holds five guest themes as --g-*; the
+     property picks one with data-guest-theme on the same element as this
+     data-theme (see the guest layout), and this block says which --g-* name
+     each older role name means. Nothing here is a hex.
 
-     The two values that matter are the export's own: the app's ground is
-     #101E33 and a tile on it is #1B2B45. An earlier pass had the ground at
-     #0A1220 — the colour the design canvas paints BEHIND the phone, not the
-     phone — which is a whole step too dark and made every card float. #0A1220
-     survives as `--paper-deep`, for the full-bleed backdrop behind a hero. */
-  --paper-deep: #0A1220;
-  --paper: #101E33;        /* the app's ground */
-  --paper-raised: #22354F; /* a step above a card */
-  --paper-hover: #243755;
-  /* A card, a tile, a sheet. On a dark ground, raised means lighter. */
-  --white: #1B2B45;
+     Direction A moved the ground: the page is --g-page (#0A1220 in Kesari),
+     a section sits on --g-surface, a tile or card on --g-card. The steps the
+     design does not name — a hover, a tint — are mixed from the ones it
+     does, so they follow whichever theme is chosen, light Sandstone too. */
+  --paper-deep: var(--g-page);
+  --paper: var(--g-page);           /* the app's ground */
+  --paper-raised: color-mix(in srgb, var(--g-line) 55%, var(--g-card)); /* a step above a card */
+  --paper-hover: var(--g-line);
+  /* A card, a tile, a sheet. */
+  --white: var(--g-card);
 
-  --line: #243755;
-  --line-soft: #223353;
-  /* Borders and dividers ONLY — 2.39:1 on the surface, nowhere near AA.
-     Never a text colour, asserted in theme-contrast.test.ts. */
-  --line-faint: #4A5A73;
-  --row-line: #16253E;
-  --row-hover: #16253E;
+  --line: var(--g-line);
+  --line-soft: color-mix(in srgb, var(--g-line) 60%, var(--g-card));
+  /* Borders and dividers ONLY — never a text colour. */
+  --line-faint: color-mix(in srgb, var(--g-line) 55%, var(--g-ink-3));
+  --row-line: var(--g-surface);
+  --row-hover: var(--g-surface);
 
-  /* Saffron. Hover goes LIGHTER here — the opposite of the console, and the
-     single most common thing to get wrong when porting a component across. */
-  --teal-600: #E9A227;
-  --teal-700: #F2B84B;
-  --teal-tint: #22354F;
+  /* The accent: saffron in Kesari. Hover moves toward the ink. */
+  --teal-600: var(--g-accent);
+  --teal-700: color-mix(in srgb, var(--g-accent) 82%, var(--g-ink));
+  --teal-tint: color-mix(in srgb, var(--g-accent) 16%, var(--g-card));
 
-  /* Lime plaster, not white — it is the wall colour of the haveli. */
-  --ink: #E3E5DB;
-  --ink-secondary: #C3C7BC;
-  /* The alphas the DARK theme needs, which are not the console's: 62% of a
-     light text over a dark ground and 62% of a dark text over a light one are
-     not the same perceptual step. 45% here, 48% there. Both are asserted. */
-  --ink-dim: color-mix(in srgb, var(--ink) 62%, transparent);
-  --ink-faint: color-mix(in srgb, var(--ink) 45%, transparent);
+  /* Warm ivory, not white — pure white glares in a dark room. */
+  --ink: var(--g-ink);
+  --ink-secondary: var(--g-ink-2);
+  /* The design's third ink is its own value now, checked at 4.6:1 or better
+     on a card in every theme; both older steps read it. */
+  --ink-dim: var(--g-ink-3);
+  --ink-faint: var(--g-ink-3);
 
-  /* Text ON saffron is the ground, not white. */
-  --accent-ink: #101E33;
+  /* Text ON the accent. */
+  --accent-ink: var(--g-on-accent);
 
-  /* A shade lighter than the export's #6E9C95, which is 4.05:1 on
-     --paper-raised. This tone carries the "Rooftop · Lake Pichola" eyebrow and
-     every "on its way" line, and those sit on a raised card more often than
-     not — the one place the original value did not clear AA. */
-  --status-positive: #7FA9A2;
-  --status-attention: #E9A227;
-  --status-attention-mark: #E9A227;
-  /* Terracotta rather than a pure red: it sits in the haveli palette beside
-     saffron, and it clears AA on all three grounds. */
-  --status-critical: #E4867A;
-  --status-attention-tint: #2A2416;
-  --status-critical-tint: #33201D;
-  --note-bg: #2A2416;
-  --note-ink: #F0D9A8;
+  /* "Open / ready" and "running late" are the design's own tones. Late is a
+     soft sindoor: honesty, never an alarm. */
+  --status-positive: var(--g-ready);
+  --status-attention: var(--g-accent);
+  --status-attention-mark: var(--g-accent);
+  --status-critical: var(--g-late);
+  --status-attention-tint: color-mix(in srgb, var(--g-accent) 14%, var(--g-page));
+  --status-critical-tint: color-mix(in srgb, var(--g-late) 14%, var(--g-page));
+  --note-bg: color-mix(in srgb, var(--g-accent) 14%, var(--g-page));
+  --note-ink: color-mix(in srgb, var(--g-accent) 35%, var(--g-ink));
 
   /* On indigo a drop shadow reads as dirt, so depth is a lighter surface plus
      a border. These two are for things that genuinely float. */
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.24);
   --shadow-md: 0 8px 24px -8px rgb(0 0 0 / 0.45);
 
-  /* Deliberately sharp. 8px-everywhere is the shadcn default the brief ruled
-     out; 3px is the strongest single signal that this is not a template. */
+  /* Near-square, as Direction A draws it: 2px on inputs and tags, 4px on
+     buttons and tiles, 10px on cards and sheets, a full pill on chips only.
+     The only curve with character is the arch. */
   --radius-xs: 2px;
-  --radius-sm: 3px;
+  --radius-sm: 4px;
   --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 6px;
-  --radius-pill-sm: 17px;
-  --radius-pill: 22px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+  --radius-pill-sm: 999px;
+  --radius-pill: 999px;
 
   --font-display: var(--font-marcellus), Georgia, serif;
   --font-body: var(--font-mukta), system-ui, sans-serif;
   --font-mono: var(--font-dm-mono), ui-monospace, monospace;
 
-  color-scheme: dark;
+  /* Dark in four themes and light in Sandstone. */
+  color-scheme: var(--g-scheme);
 }
 
 /*
@@ -443,11 +382,12 @@ a:hover { color: var(--accent-hover); }
  * keeps it forever, no matter how many times a descendant redefines `--paper`.
  *
  * That is exactly how the kitchen display shipped dark-mode-shaped and painted
- * itself white: `data-scheme="dark"` was on the element, every primitive under
+ * itself white: its night attribute (`data-scheme`, before the floor screens
+ * moved to `data-console`) was on the element, every primitive under
  * it was correct, and not one pixel changed because `--bg`, `--surface` and
  * `--text` had all been resolved on `:root` before the attribute was reached.
  *
- * Declaring them under both selectors makes each subtree recompute them from
+ * Declaring them under every scope's selector makes each subtree recompute them from
  * its OWN primitives. If you add a token whose value mentions `var()`, it goes
  * here — not above.
  */
@@ -576,20 +516,32 @@ a:hover { color: var(--accent-hover); }
   --font-mono: var(--font-dm-mono), ui-monospace, monospace;
 }
 
-:root,
-[data-scheme='dark'],
+/*
+ * The five names the token file owns for the console (--bg, --surface,
+ * --border, --text, --accent) come from it directly wherever data-console is
+ * set — html, the console shell and the floor screens. Everywhere else (the
+ * guest's Kesari, the marketing site) they are aliases of that scope's own
+ * primitives, as before. Declaring them on :root too would make `--paper:
+ * var(--bg)` and `--bg: var(--paper)` a cycle (D-100).
+ */
 [data-theme='kesari'],
 [data-theme='innstant'] {
   --bg: var(--paper);
   --surface: var(--white);
+  --border: var(--line);
+  --text: var(--ink);
+  --accent: var(--teal-600);
+}
+
+:root,
+[data-console],
+[data-theme='kesari'],
+[data-theme='innstant'] {
   --surface-raised: var(--paper-raised);
   --surface-hover: var(--paper-hover);
-  --border: var(--line);
   --border-soft: var(--line-soft);
-  --text: var(--ink);
   --text-secondary: var(--ink-secondary);
   --text-muted: var(--ink-dim);
-  --accent: var(--teal-600);
   --accent-hover: var(--teal-700);
   --accent-tint: var(--teal-tint);
 

@@ -1,161 +1,155 @@
 /*
- * One dish. Rebuilt from design/reference/ — matched, not pasted.
- * Every value is a custom property from theme.css.
+ * One dish — rebuilt from design/reference/direction-a/GuestDish.dc.html,
+ * matched rather than pasted. Shared by the room and property-link flows.
+ * Guest tokens only (--g-*, D-100); no hex, no raw duration.
  */
 .shell {
   min-height: 100dvh;
-  background: var(--bg);
   max-width: 430px;
   margin-inline: auto;
-  /* Clearance for the pinned order bar. Without it the bar sits on top of the
-     note field, which is exactly where a thumb goes next. The extra 52px is
-     the review row, which is present whenever the order is not empty. */
-  padding-bottom: 176px;
+  /* Clearance for the pinned bar: 56px of controls, its padding and the
+     safe area, plus the review row when the order is not empty. */
+  padding-bottom: 168px;
+  background: var(--g-page);
+  color: var(--g-ink);
+  font-family: var(--font-body);
 }
 
-/* ── The arch hero ──────────────────────────────────────────────────────── */
-/* The jharokha window again, at full width. Same shape language as the menu
-   thumbnails, which is what makes the transition between them read as one
-   object rather than two screens. */
+/* ── The photograph ─────────────────────────────────────────────────────── */
 .hero {
   position: relative;
-  height: 220px;
+  height: 300px;
   overflow: hidden;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  background-color: var(--ink-700);
-  background-image:
-    radial-gradient(circle at 50% 112%, color-mix(in srgb, var(--saffron) 22%, transparent) 0 18%, transparent 18.5%),
-    radial-gradient(circle at 50% 112%, transparent 0 29%, color-mix(in srgb, var(--plaster) 14%, transparent) 29% 29.6%, transparent 30%),
-    radial-gradient(circle at 50% 112%, transparent 0 42%, color-mix(in srgb, var(--plaster) 10%, transparent) 42% 42.6%, transparent 43%),
-    radial-gradient(circle at 50% 112%, transparent 0 56%, color-mix(in srgb, var(--plaster) 7%, transparent) 56% 56.6%, transparent 57%),
-    repeating-linear-gradient(45deg, color-mix(in srgb, var(--plaster) 3.5%, transparent) 0 1px, transparent 1px 5px);
-  animation: archIn var(--dur-slow) var(--ease-out) both;
-}
-
-.heroWash {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to top,
-    color-mix(in srgb, var(--ink-900) 92%, transparent) 0%,
-    color-mix(in srgb, var(--ink-900) 45%, transparent) 34%,
-    color-mix(in srgb, var(--ink-900) 30%, transparent) 100%
-  );
-}
-
-/* Over a photograph the wash is lighter: enough at the top for the back
-   button to read, and a fade at the foot into the page. The full wash above
-   is for the drawn arch, where it is the light. */
-.hero[data-photo] .heroWash {
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--ink-900) 45%, transparent) 0%,
-    transparent 32%,
-    transparent 68%,
-    color-mix(in srgb, var(--ink-900) 60%, transparent) 100%
+  background-color: color-mix(in srgb, var(--g-line) 55%, var(--g-card));
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--g-ink) 5%, transparent) 0 1px,
+    transparent 1px 9px
   );
 }
 
 .back {
   position: absolute;
-  top: var(--space-3);
-  left: var(--space-3);
-  width: var(--touch-min);
-  height: var(--touch-min);
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 12px;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid color-mix(in srgb, var(--plaster) 20%, transparent);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--g-page) 72%, transparent);
+  color: var(--g-ink);
 }
-.back:hover { background: color-mix(in srgb, var(--surface) 92%, transparent); }
+.back:hover {
+  color: var(--g-ink);
+  background: color-mix(in srgb, var(--g-page) 88%, transparent);
+}
 
 /* ── The copy ───────────────────────────────────────────────────────────── */
-.body { padding: var(--space-5) var(--space-4) 0; }
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 20px 0;
+}
 
-.tag {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--teal);
+.lede {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .name {
-  margin: var(--space-2) 0 0;
+  margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: 32px;
   font-weight: 400;
-  line-height: 1.15;
-  color: var(--text);
-  text-wrap: pretty;
+  line-height: 38px;
+  color: var(--g-ink);
+  text-wrap: balance;
 }
 
+/* A row, so an offer's struck price and its tag sit beside it (D-085). */
 .price {
-  /* A row, so an offer's struck price and its chip sit beside it (D-085). */
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2);
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-lg);
-  color: var(--accent);
+  gap: 4px 10px;
+  margin: 0;
+  font-size: 17px;
+  color: var(--g-ink);
 }
 
-.note {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-base);
-  line-height: 1.55;
-  color: var(--text-muted);
+.soldOut {
+  font-size: 13px;
+  color: var(--g-ink-2);
+}
+
+.fewLeft {
+  font-size: 13px;
+  color: var(--g-late);
+}
+
+.description {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--g-ink-2);
   text-wrap: pretty;
 }
 
-/* ── The form ───────────────────────────────────────────────────────────── */
-.form { margin-top: var(--space-6); }
+.facts {
+  margin: 0;
+  font-size: 13px;
+  color: var(--g-ink-3);
+}
+
+/* ── The choices ────────────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
 
 .group {
-  margin: 0 0 var(--space-6);
+  margin: 0;
   padding: 0;
   border: 0;
+  min-width: 0;
 }
 
-.groupLabel {
+.legend {
   display: block;
+  margin-bottom: 8px;
   padding: 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--plaster-faint);
+  font-size: 13px;
+  color: var(--g-ink-3);
 }
 
-.chips {
+/* One choice: equal boxes, three to a row as the board draws "Heat". */
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.choice {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
-}
-
-/* A styled label over a real radio or checkbox: arrow-keyable, announced, and
-   it posts without JavaScript. */
-.chip {
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  min-height: var(--touch-min);
-  padding: 0 var(--space-4);
+  justify-content: center;
+  gap: 2px;
+  min-height: 48px;
+  padding: 4px 6px;
+  border: 1px solid var(--g-line);
   border-radius: var(--radius-sm);
-  background: var(--surface-raised);
-  border: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
-  color: color-mix(in srgb, var(--plaster) 80%, transparent);
-  font-size: var(--text-base);
-  font-weight: 600;
+  color: var(--g-ink);
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: center;
   cursor: pointer;
   transition:
     background var(--dur-fast) var(--ease-out),
@@ -163,20 +157,66 @@
     color var(--dur-fast) var(--ease-out);
 }
 
-.chip[data-checked='true'] {
-  background: color-mix(in srgb, var(--saffron) 16%, transparent);
-  border-color: var(--accent);
-  color: var(--accent);
+.choice[data-checked='true'] {
+  border-color: var(--g-accent);
+  background: color-mix(in srgb, var(--g-accent) 14%, transparent);
+  color: var(--g-accent);
+  font-weight: 600;
 }
 
-.chip[data-sold-out='true'] {
+/* Many choices: a list of ticks, as the board draws "Add to it". */
+.ticks {
+  display: flex;
+  flex-direction: column;
+}
+
+.tick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--g-line);
+  color: var(--g-ink);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.box {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--g-ink-3);
+  border-radius: var(--radius-xs);
+  color: var(--g-on-accent);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.tick[data-checked='true'] .box {
+  border-color: var(--g-accent);
+  background: var(--g-accent);
+}
+
+.optionName { min-width: 0; }
+
+.optionPrice {
+  font-size: 13px;
+  color: var(--g-ink-2);
+}
+.choice[data-checked='true'] .optionPrice { color: inherit; }
+.tick .optionPrice { margin-left: auto; font-size: 14px; }
+
+.choice[data-sold-out='true'],
+.tick[data-sold-out='true'] {
   opacity: 0.45;
   cursor: not-allowed;
   text-decoration: line-through;
 }
 
 /* Visually hidden, still focusable — the focus ring is drawn on the label. */
-.chipInput {
+.hiddenInput {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -187,209 +227,188 @@
   white-space: nowrap;
 }
 
-.chip:has(.chipInput:focus-visible) {
-  outline: 2px solid var(--accent);
+.choice:has(.hiddenInput:focus-visible),
+.tick:has(.hiddenInput:focus-visible) {
+  outline: 2px solid var(--g-accent);
   outline-offset: 2px;
 }
 
-.chipPrice {
-  font-size: var(--text-sm);
-  font-weight: 500;
-}
-
-/* ── Quantity ───────────────────────────────────────────────────────────── */
-.quantity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  margin-left: auto;
-  border: 1px solid color-mix(in srgb, var(--plaster) 18%, transparent);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-}
-
-.step {
-  width: 46px;
-  height: 46px;
-  background: var(--surface-raised);
-  border: 0;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-xl);
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.step:hover:not(:disabled) { background: var(--surface-hover); }
-.step:disabled { opacity: 0.4; cursor: not-allowed; }
-
-.count {
-  width: 48px;
-  text-align: center;
-  font-size: var(--text-lg);
-}
-
 /* ── The note ───────────────────────────────────────────────────────────── */
-.noteLabel { display: block; margin-bottom: var(--space-6); }
+.noteField { display: block; }
 
-.note[name='notes'],
-.note:is(textarea) {
+.noteInput {
+  display: block;
   width: 100%;
-  margin-top: var(--space-3);
-  padding: var(--space-3);
-  background: var(--surface-raised);
-  border: 1px solid color-mix(in srgb, var(--plaster) 14%, transparent);
-  border-radius: var(--radius-sm);
-  color: var(--text);
+  padding: 12px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-xs);
+  background: var(--g-card);
+  color: var(--g-ink);
   font-family: var(--font-body);
-  font-size: var(--text-base);
+  font-size: 16px;
   line-height: 1.5;
   resize: none;
 }
-.note::placeholder { color: var(--plaster-faint); }
-
-/* ── Feedback ───────────────────────────────────────────────────────────── */
-/* Says what happened and what to do. It does not apologise. */
-.error {
-  margin: 0 0 var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-left: 2px solid var(--accent);
-  background: color-mix(in srgb, var(--saffron) 10%, transparent);
-  color: var(--text);
-  font-size: var(--text-base);
-  line-height: 1.5;
-}
-
-.added {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-base);
-  color: var(--teal);
-}
-
-/* ── The bar ────────────────────────────────────────────────────────────── */
-/* Pinned to the viewport, in the bottom 40% where one thumb reaches
-   (DESIGN-SPEC "Viewport"). Sticky was tried first and is wrong here: a sticky
-   bottom bar covers whatever sits between its resting place and the viewport
-   edge, which on this screen is the note field.
-   Centred by hand because the shell is a 430px column on a wider screen. */
-.addBar {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(430px, 100%);
-  padding: var(--space-6) var(--space-4) var(--space-6);
-  background: linear-gradient(to top, var(--surface) 62%, transparent);
-  /* Two rows now: the way into the cart, then the way to add to it. */
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-/*
- * "Review order · 2 · ₹1,150 →"
- *
- * Deliberately quieter than the saffron Add button beneath it. On a dish screen
- * the primary action is adding the dish; this is the escape hatch for the
- * guest who has stopped browsing and wants to look at what they have built.
- * Same count/label/total/arrow order as the menu's pill, because it is the
- * same control in a different place and should not have to be re-learned.
- */
-.review {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: var(--touch-min);
-  padding: 0 var(--space-3) 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  transition:
-    border-color var(--dur-fast) var(--ease-out),
-    background var(--dur-fast) var(--ease-out);
-}
-
-.review:hover {
-  background: var(--surface-raised);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  color: var(--text);
-}
-
-.reviewCount {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 26px;
-  height: 26px;
-  flex: none;
-  padding: 0 var(--space-1);
-  border-radius: 13px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: var(--text-sm);
-}
-
-.reviewLabel {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-}
-
-.reviewTotal {
-  flex: none;
-  font-size: var(--text-md);
-  color: var(--text-muted);
-}
-
-.reviewArrow {
-  flex: none;
-  font-family: var(--font-mono);
-  font-size: var(--text-md);
-  color: var(--accent);
-}
-
-.add {
-  width: 100%;
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  background: var(--accent);
-  color: var(--surface);
-  border: 0;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-body);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--dur-fast) var(--ease-out);
-}
-.add:hover:not(:disabled) { background: var(--accent-hover); }
-.add:disabled {
-  background: var(--surface-raised);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-.addTotal {
-  font-size: var(--text-base);
-  font-weight: 500;
-}
+.noteInput::placeholder { color: var(--g-ink-3); }
+.noteInput:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 0; }
 
 .foot {
   margin: 0;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border-soft);
-  font-size: var(--text-sm);
+  padding-top: 16px;
+  border-top: 1px solid var(--g-line);
+  font-size: 13px;
   line-height: 1.5;
-  color: color-mix(in srgb, var(--plaster) 50%, transparent);
+  color: var(--g-ink-3);
   text-wrap: pretty;
+}
+
+/* ── The bar ────────────────────────────────────────────────────────────────
+   Pinned to the viewport, in the thumb zone. Centred by hand because the
+   shell is a 430px column on a wider screen. */
+.bar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(430px, 100%);
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--g-line);
+  background: var(--g-page);
+  transform: translateX(-50%);
+}
+
+.barRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepper {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-sm);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 54px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--g-ink);
+  cursor: pointer;
+}
+.step[data-more] { color: var(--g-accent); }
+.step:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.count {
+  width: 28px;
+  font-size: 17px;
+  text-align: center;
+}
+
+.add {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  height: 56px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--g-accent);
+  color: var(--g-on-accent);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.add:hover:not(:disabled) { background: color-mix(in srgb, var(--g-accent) 88%, var(--g-ink)); }
+.add:disabled {
+  background: var(--g-card);
+  color: var(--g-ink-3);
+  cursor: not-allowed;
+}
+
+/* "Review order · 2 dishes · ₹2,040 →" — the way to the cart, quieter than Add. */
+.review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: var(--touch-min);
+  padding: 0 14px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--radius-sm);
+  color: var(--g-ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+.review:hover { color: var(--g-ink); border-color: var(--g-ink-3); }
+
+.reviewFacts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--g-ink-2);
+}
+
+/* ── Feedback ───────────────────────────────────────────────────────────── */
+/* Says what happened and what to do. It does not apologise. */
+.error,
+.added {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.error {
+  padding: 10px 12px;
+  border-left: 2px solid var(--g-late);
+  background: color-mix(in srgb, var(--g-late) 12%, var(--g-page));
+  color: var(--g-ink);
+}
+
+.added { color: var(--g-ready); }
+
+/* ── Loading (loading.tsx) ──────────────────────────────────────────────── */
+.skScreen.skScreen { padding: 0 0 168px; }
+
+.skBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 20px 0;
+}
+
+.skChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.skBar {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  gap: 12px;
+  width: min(430px, 100%);
+  padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--g-line);
+  transform: translateX(-50%);
 }

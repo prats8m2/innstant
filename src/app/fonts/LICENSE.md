@@ -1,22 +1,15 @@
 # Fonts
 
-All seven faces are licensed under the SIL Open Font License 1.1, which permits
+All five faces are licensed under the SIL Open Font License 1.1, which permits
 bundling and self-hosting. Latin subsets, taken from the Google Fonts CDN and
 committed here so the app never makes a runtime request to fonts.gstatic.com
 (see `src/app/fonts.ts`).
 
-There are seven because there are three design systems (D-050, D-062), and they
-are not variants of one another: a guest is being hosted, a cook is being
-informed, and a stranger is being persuaded.
+There are five because there are two type systems: the product's (Marcellus,
+Mukta, DM Mono — the guest app, the console and the floor screens since D-100)
+and the marketing site's (D-062).
 
-## The staff console — `:root`
-
-| File | Family | Axes | Upstream |
-|---|---|---|---|
-| `public-sans-var.woff2` | Public Sans | `wght 100–900` | [Public Sans](https://fonts.google.com/specimen/Public+Sans) — US General Services Administration |
-| `red-hat-mono-var.woff2` | Red Hat Mono | `wght 300–700` | [Red Hat Mono](https://fonts.google.com/specimen/Red+Hat+Mono) — Red Hat, Inc. |
-
-## The guest app — `[data-theme='kesari']`
+## The product — guest app, console and floor screens
 
 | File | Family | Weights | Upstream |
 |---|---|---|---|
