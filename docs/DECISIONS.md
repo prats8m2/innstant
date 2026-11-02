@@ -3480,3 +3480,28 @@ reason (D-095). Not built: "Email invoice", "Send UPI request" (the user's
 call), "Print QR stickers" (no sticker sheet and no QR library), an
 "Arriving" filter (there are no reservations), and staff names on a room's
 activity (the event log does not resolve them).
+
+### D-103 · The floor screens, rebuilt to Direction A
+The kitchen display, the runner and housekeeping follow their boards, on the
+console's tokens: `data-console` is dark from 19:00 to 07:00 on the
+property's clock (`src/app/(ops)/night.ts`, now shared) and light otherwise,
+re-derived on each screen's own tick so a tablet dims by itself, and
+`data-accent` follows the property's guest theme. The kitchen's private night
+palette (`[data-scheme='dark']` in theme.css) is gone; nothing reads it.
+
+**The kitchen** keeps its three steps (Accept, Start cooking, Ready) over the
+board's single "Start", because the state machine has three and the tests
+drive them. The allergy strip stays ABOVE the dishes rather than below as
+drawn: a cook reads top-down, and an allergy read after the dish is cooked is
+read too late. Striking a dish through stays as D-089 built it — the
+tablet's own memory, no stored state — and the board's "tap the room number
+to bump" is not built (there is no bump). Red means late and nothing else, so
+an unseen ticket, the waiting banner and an 86 are amber.
+
+**The runner and housekeeping** show only what their data holds: no guest
+name or VIP on a tray (an order carries only its destination), no other
+runner's whereabouts, no "plating, ready in 2 min" (the runner's queue starts
+at READY), no arrival time on a room to make up (there are no reservations),
+and no claiming a room to make up (rooms have no assignee). "Charged to room.
+Nothing to collect." appears on room orders only. "No answer at the door" is
+not built (the user's call). Work buttons are 56px or more.

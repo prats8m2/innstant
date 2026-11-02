@@ -32,7 +32,9 @@ door", WhatsApp) until they decide. Order: 1 tokens, fonts, shared pieces ✅ �
 2 guest app ✅ (D-101; per-property theme in branding, every guest screen
 rebuilt, menu search; e2e 111/111) → 3 console ✅ (D-102; shell, ⌘K search,
 per-person light/dark — migration **0017**, applied locally only; Overview
-with revenue; Rooms; Checkout; Requests; Branding with draft/publish) shell and its five pages → 4 floor screens.
+with revenue; Rooms; Checkout; Requests; Branding with draft/publish) → 4 floor screens ✅ (D-103; kitchen,
+runner, housekeeping; dark after 7pm on the property's clock). The redesign
+plan is complete; e2e 111/111 on a production build shell and its five pages → 4 floor screens.
 
 **CI made green (same branch), D-099.** The e2e suite was 24 red against
 this branch; it is now 111 passed / 0 failed on a production build run the
