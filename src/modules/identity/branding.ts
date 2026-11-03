@@ -36,6 +36,7 @@ export const GUEST_THEMES = [
   { key: 'gulabi', name: 'Gulabi', origin: 'Jaipur · rose plum and pink' },
   { key: 'mehendi', name: 'Mehendi', origin: 'Garden · henna green and lime' },
   { key: 'sandstone', name: 'Jaisalmer Sandstone', origin: 'Desert · the daylight theme' },
+  { key: 'midnight', name: 'Midnight', origin: 'Near-black and lamplight gold · arches and Cormorant' },
 ] as const;
 
 export type GuestThemeKey = (typeof GUEST_THEMES)[number]['key'];

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import {
-  marcellus, mukta, dmMono, instrumentSerif, figtree,
+  marcellus, mukta, dmMono, cormorant, manrope, instrumentSerif, figtree,
 } from './fonts';
 import NextTopLoader from 'nextjs-toploader';
 import '@/styles/globals.css';
@@ -36,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
      */
     <html lang="en" data-console="light" data-accent="kesari" className={[
         marcellus.variable, mukta.variable, dmMono.variable,
+        cormorant.variable, manrope.variable,
         instrumentSerif.variable, figtree.variable,
       ].join(' ')}>
       {/* Browser extensions write attributes onto <body> before React hydrates

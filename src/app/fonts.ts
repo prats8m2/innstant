@@ -6,7 +6,7 @@ import localFont from 'next/font/local';
  * exactly the thing that makes a menu feel slow at 9:40pm. Both design exports
  * link the CDN; those are design documents, not a deployment.
  *
- * All five are SIL OFL 1.1 — see src/app/fonts/LICENSE.md.
+ * All seven are SIL OFL 1.1 — see src/app/fonts/LICENSE.md.
  *
  * ─── One set, every surface ────────────────────────────────────────────────
  *
@@ -51,6 +51,28 @@ export const dmMono = localFont({
   variable: '--font-dm-mono',
   display: 'swap',
   fallback: ['ui-monospace', 'monospace'],
+});
+
+/* ── The Midnight guest theme (D-105). Variable faces, Latin only. ───────────
+   Cormorant Garamond speaks (headings, the greeting, big numbers) and Manrope
+   explains and counts — `--font-mono` is Manrope with tabular figures there.
+   Manrope has no Devanagari; a Hindi name falls back to the system face. */
+
+export const cormorant = localFont({
+  src: [
+    { path: './fonts/cormorant-garamond-var.woff2', weight: '400 600', style: 'normal' },
+    { path: './fonts/cormorant-garamond-italic-var.woff2', weight: '400 500', style: 'italic' },
+  ],
+  variable: '--font-cormorant',
+  display: 'swap',
+  fallback: ['Georgia', 'serif'],
+});
+
+export const manrope = localFont({
+  src: [{ path: './fonts/manrope-var.woff2', weight: '400 700', style: 'normal' }],
+  variable: '--font-manrope',
+  display: 'swap',
+  fallback: ['system-ui', 'sans-serif'],
 });
 
 /* ── The marketing site. A third system, and deliberately not either of the

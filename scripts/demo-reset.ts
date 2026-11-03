@@ -16,7 +16,7 @@ import { withTenant, recordEvent, closePool } from '@/db';
 import { dbSsl } from '@/db/ssl';
 import { provisionProperty, seedSystemRoles, setStaffPassword, SYSTEM_ROLES } from '@/modules/identity';
 import { seedMenu, KESARI_MENU, KESARI_CATEGORIES, KESARI_COLLECTIONS, KESARI_DEMO_COLLECTIONS, KESARI_MODIFIER_GROUPS, KESARI_ROOM_TYPES, KESARI_FLOORS, KESARI_ROOMS } from '@/modules/catalog';
-import { staffUsers, staffPropertyRoles, rooms as roomsTable } from '@/db/schema/identity';
+import { staffUsers, staffPropertyRoles, rooms as roomsTable, properties } from '@/db/schema/identity';
 import { createStay } from '@/modules/stay';
 import { createVisitLink } from '@/modules/visit';
 import { menuItems, outlets } from '@/db/schema/catalog';
@@ -271,6 +271,12 @@ async function main(): Promise<void> {
       adminName: 'Vikram Rathore',
       publicCodeFor: demoPublicCode,
     });
+
+    // The Kesari wears Midnight, the theme its November redesign drew (D-105).
+    // A hotel picks its own on Branding & themes; this is the demo's choice.
+    await tx.update(properties)
+      .set({ branding: { theme: 'midnight' } })
+      .where(eq(properties.id, provisioned.propertyId));
 
     const menu = await seedMenu(tx, {
       tenantId: TENANT_ID,

@@ -2,7 +2,7 @@
    Innstant · theme tokens (Direction A)
    --------------------------------------------------------------------------
    Two independent axes:
-     1. Guest theme   → <html data-guest-theme="kesari|pichola|gulabi|mehendi|sandstone">
+     1. Guest theme   → <html data-guest-theme="kesari|pichola|gulabi|mehendi|sandstone|midnight">
         Set per property (Setup › Property & branding). Applies to the guest
         web app, the Expo app, and the guest preview inside the console.
      2. Console look  → <html data-console="light|dark" data-accent="<guest theme key>">
@@ -60,6 +60,12 @@
    Contrast (WCAG 2.2) for every theme was checked: ink/page ≥ 14:1,
    ink-2/card ≥ 7.3:1, ink-3/card ≥ 4.6:1, on-accent/accent ≥ 5.6:1,
    ready/card ≥ 4.6:1, late/card ≥ 5.8:1.
+
+   Every theme also carries --g-raised (a tile a step above a card),
+   --g-accent-text (text in the accent's family), --g-eyebrow (small-caps
+   labels) and --g-glint (the colour hairlines and glows are mixed from).
+   Midnight drew them; the other themes take equivalents from their own
+   palette, so a screen built for one theme never reads an empty value.
    -------------------------------------------------------------------------- */
 
 /* Default. Udaipur — indigo night and saffron. */
@@ -77,6 +83,10 @@
   --g-ready: #6E9C95;
   --g-late: #F08A6C;
   --g-scheme: dark;
+  --g-raised: #23344F;
+  --g-accent-text: #E9A227;
+  --g-eyebrow: #B9C2D0;
+  --g-glint: #F4ECDD;
 }
 
 /* Lakeside — deep water, silver-green. */
@@ -93,6 +103,10 @@
   --g-ready: #9CCB7A;
   --g-late: #F2967A;
   --g-scheme: dark;
+  --g-raised: #1E444F;
+  --g-accent-text: #9ED8D0;
+  --g-eyebrow: #B3C7C6;
+  --g-glint: #EAF2F0;
 }
 
 /* Jaipur — rose plum and pink. */
@@ -109,6 +123,10 @@
   --g-ready: #8FC9A9;
   --g-late: #F5A25C;
   --g-scheme: dark;
+  --g-raised: #3F2136;
+  --g-accent-text: #F29BBE;
+  --g-eyebrow: #D3B8C6;
+  --g-glint: #F7E9EF;
 }
 
 /* Garden — henna green and lime. */
@@ -125,6 +143,10 @@
   --g-ready: #8CC7B4;
   --g-late: #F0956C;
   --g-scheme: dark;
+  --g-raised: #2B3925;
+  --g-accent-text: #C9D86B;
+  --g-eyebrow: #C1C7AE;
+  --g-glint: #EFF0E4;
 }
 
 /* Desert — the one daylight guest theme (resorts, day-use properties). */
@@ -141,6 +163,31 @@
   --g-ready: #2F6F5E;
   --g-late: #B3261E;
   --g-scheme: light;
+  --g-raised: #ECE1D0;
+  --g-accent-text: #A4500F;
+  --g-eyebrow: #5B4A38;
+  --g-glint: #2A1E12;
+}
+
+/* Midnight — near-black and lamplight gold (D-105). The Kesari's own since the
+   November redesign: arches, generous radii, Cormorant Garamond + Manrope. */
+[data-guest-theme="midnight"] {
+  --g-page: #0A0C11;
+  --g-surface: #10131A;
+  --g-card: #12151C;
+  --g-line: #29292A;
+  --g-ink: #F3EEE4;
+  --g-ink-2: #B3B5BE;
+  --g-ink-3: #8E919C;
+  --g-accent: #D6A85C;
+  --g-on-accent: #1A1408;
+  --g-ready: #8FBFA0;
+  --g-late: #F08A6C;
+  --g-scheme: dark;
+  --g-raised: #1A1E28;
+  --g-accent-text: #EBD3A6;
+  --g-eyebrow: #C9B48E;
+  --g-glint: #E8D5B0;
 }
 
 /* --------------------------------------------------------------------------
@@ -194,12 +241,14 @@
 [data-console="light"][data-accent="gulabi"]    { --accent: #A21CAF; --accent-text: #A21CAF; --accent-soft: #A21CAF1A; }
 [data-console="light"][data-accent="mehendi"]   { --accent: #4D7C0F; --accent-text: #4D7C0F; --accent-soft: #4D7C0F1A; }
 [data-console="light"][data-accent="sandstone"] { --accent: #B45309; --accent-text: #B45309; --accent-soft: #B453091A; }
+[data-console="light"][data-accent="midnight"]  { --accent: #8A6420; --accent-text: #8A6420; --accent-soft: #8A64201A; }
 
 [data-console="dark"][data-accent="kesari"]     { --accent: #3FB6A8; --accent-text: #3FB6A8; --accent-soft: #3FB6A829; }
 [data-console="dark"][data-accent="pichola"]    { --accent: #5BC0D8; --accent-text: #5BC0D8; --accent-soft: #5BC0D829; }
 [data-console="dark"][data-accent="gulabi"]     { --accent: #E08AF0; --accent-text: #E08AF0; --accent-soft: #E08AF029; }
 [data-console="dark"][data-accent="mehendi"]    { --accent: #A8CC62; --accent-text: #A8CC62; --accent-soft: #A8CC6229; }
 [data-console="dark"][data-accent="sandstone"]  { --accent: #E3A458; --accent-text: #E3A458; --accent-soft: #E3A45829; }
+[data-console="dark"][data-accent="midnight"]   { --accent: #D6A85C; --accent-text: #D6A85C; --accent-soft: #D6A85C29; }
 
 /* "Match device" */
 @media (prefers-color-scheme: dark) {
