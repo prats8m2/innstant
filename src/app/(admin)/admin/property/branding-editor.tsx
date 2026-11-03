@@ -3,10 +3,14 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Check, Copy, Moon, MonitorSmartphone, Sun } from 'lucide-react';
+import {
+  ArrowRight, Bell, Check, ConciergeBell, Copy, House, Landmark, MapPin, MessageCircle, Moon,
+  MonitorSmartphone, Package, Sun, Utensils,
+} from 'lucide-react';
 import { GUEST_GROUND, type GuestThemeKey, type PropertyBranding } from '@/modules/identity/branding';
 import { mediaSrcSet } from '@/modules/media/paths';
 import { ImageField } from '../image-field';
+import { useAppearanceChoice } from '../appearance-toggle';
 import type { GuestThemeSheet } from '@/modules/identity/theme-sheet';
 import {
   saveBranding, pickThemeDraft, discardThemeDraftAction, publishThemeAction, type PropertyState,
@@ -56,8 +60,11 @@ export function BrandingEditor({
   const [selected, setSelected] = useState<GuestThemeKey>(saved);
   const [message, setMessage] = useState<PropertyState>({});
   const [pending, startTransition] = useTransition();
-  const appearance = useConsoleAppearance();
-  const mode: ConsoleMode = appearance.resolved;
+  // This person's own console look — the top bar's moon and these cards are
+  // one choice (appearance-toggle.tsx).
+  const appearance = useAppearanceChoice();
+  const mode: ConsoleMode = appearance?.resolved ?? 'light';
+  const [appearanceFailed, setAppearanceFailed] = useState(false);
 
   // A publish or discard elsewhere (another tab, another manager) arrives as
   // new props; the cards follow it.
@@ -149,22 +156,37 @@ export function BrandingEditor({
             <div>
               <h3 id="console-look" className={b.h3}>Staff console</h3>
               <p className={b.sub}>
-                Each person picks their own from the moon icon in the top bar. These are the three choices;
-                nothing here changes anybody&rsquo;s screen.
+                Your own console: pick how it looks for you. Everybody chooses their own, here or from the
+                moon icon in the top bar; nobody else&rsquo;s screen changes.
               </p>
             </div>
-            <ul className={b.apps}>
+            <fieldset className={b.apps} disabled={!appearance}>
+              <legend className={b.visuallyHidden}>Your console appearance</legend>
               {APPEARANCES.map((a) => (
-                <li key={a.key} className={b.app} data-yours={appearance.chosen === a.key || undefined}>
+                <label key={a.key} className={b.app} data-yours={appearance?.appearance === a.key || undefined}>
+                  <input
+                    type="radio"
+                    name="console-appearance"
+                    value={a.key}
+                    className={b.appRadio}
+                    checked={appearance?.appearance === a.key}
+                    onChange={() => {
+                      setAppearanceFailed(false);
+                      void appearance?.choose(a.key).then((saved) => { if (!saved) setAppearanceFailed(true); });
+                    }}
+                  />
                   <AppearanceThumb kind={a.key} accent={selected} />
                   <span className={b.appLabel}>
                     <a.icon size={15} aria-hidden="true" />
                     {a.label}
-                    {appearance.chosen === a.key ? <span className={b.yours}>Yours</span> : null}
+                    {appearance?.appearance === a.key ? <span className={b.yours}>Yours</span> : null}
                   </span>
-                </li>
+                </label>
               ))}
-            </ul>
+            </fieldset>
+            {appearanceFailed ? (
+              <p className={b.error} role="alert">That did not save. Try again.</p>
+            ) : null}
             <div className={b.accentNote} data-console={mode} data-accent={selected}>
               <span className={b.accentSwatch} aria-hidden="true" />
               <span className={b.accentText}>
@@ -321,36 +343,6 @@ function MiniConsole() {
   );
 }
 
-/**
- * Which appearance this person's console is in. The top bar owns the choice
- * (appearance-toggle.tsx) and writes it on the console's frame as
- * `data-appearance` (light, dark or system) beside the rendered
- * `data-console`; this only reads them, and follows them when they change.
- * Without a frame it falls back to <html data-console>.
- */
-function useConsoleAppearance(): { chosen: Appearance | null; resolved: ConsoleMode } {
-  const [state, setState] = useState<{ chosen: Appearance | null; resolved: ConsoleMode }>({
-    chosen: null, resolved: 'light',
-  });
-  useEffect(() => {
-    const root = document.documentElement;
-    const frame = document.querySelector('[data-appearance]') ?? root;
-    const read = () => {
-      const rendered = frame.getAttribute('data-console') ?? root.getAttribute('data-console');
-      const stored = frame.getAttribute('data-appearance') ?? rendered;
-      const chosen = (['light', 'dark', 'system'] as const).find((a) => a === stored) ?? null;
-      setState({ chosen, resolved: rendered === 'dark' ? 'dark' : 'light' });
-    };
-    read();
-    const observer = new MutationObserver(read);
-    const attributeFilter = ['data-console', 'data-appearance'];
-    observer.observe(frame, { attributes: true, attributeFilter });
-    if (frame !== root) observer.observe(root, { attributes: true, attributeFilter });
-    return () => observer.disconnect();
-  }, []);
-  return state;
-}
-
 /* ── Developer tokens ────────────────────────────────────────────────────── */
 
 function DeveloperTokens({ css }: { css: string }) {
@@ -469,47 +461,77 @@ function Preview({
       <span className={b.lbl}>Live preview</span>
       <div className={b.device}>
         <div className={b.screen} data-theme="kesari" data-guest-theme={theme}>
+          {/* The guest Home as D-105 draws it, small: the same parts in the
+              same order, in this theme's own tokens and type. */}
           <div className={b.pMast}>
             {logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
               <img src={logoUrl} srcSet={mediaSrcSet(logoUrl)} sizes="120px" alt={propertyName} className={b.pLogo} />
             ) : (
-              <span className={b.pWordmark}>{propertyName.toUpperCase()}</span>
+              <span className={b.pBrand}>
+                <svg width="13" height="16" viewBox="0 0 22 26" fill="none" aria-hidden="true">
+                  <path d="M1 25V11C1 5.5 5.5 1 11 1s10 4.5 10 10v14" stroke="currentColor" strokeWidth="1.4" />
+                  <circle cx="11" cy="18" r="2" fill="currentColor" />
+                </svg>
+                <span className={b.pWordmark}>{propertyName.toUpperCase()}</span>
+              </span>
             )}
-            <span className={b.pRoom}>Room <span className="tabular">214</span></span>
           </div>
+
           <div className={b.pHero}>
-            <span className={b.pArchWrap}>
-              {coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
-                <img src={coverUrl} srcSet={mediaSrcSet(coverUrl)} sizes="80px" alt="" className={b.pCover} />
-              ) : null}
-              <svg width="74" height="96" viewBox="0 0 200 260" className={b.pArch} aria-hidden="true">
-                <path d="M2 260 V110 C2 60 50 30 100 2 C150 30 198 60 198 110 V260" strokeWidth="4" />
-              </svg>
-            </span>
-            <span className={b.pGreeting}>Good evening</span>
+            {coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
+              <img src={coverUrl} srcSet={mediaSrcSet(coverUrl)} sizes="260px" alt="" className={b.pCover} />
+            ) : null}
+            <span className={b.pHeroLine} aria-hidden="true" />
+            <span className={b.pEyebrow}>Day 2 of 4 · Room <span className="tabular">214</span></span>
+            <span className={b.pGreeting}>Good evening,<br /><em>Anjali</em></span>
           </div>
-          <div className={b.pStatus}>
-            <span className={b.pDot} aria-hidden="true" />
-            <span className={b.pStatusText}>
-              <span>Dinner is plated and covered</span>
-              <span className={b.pMuted}>At your door around <span className="tabular">9:05pm</span></span>
-            </span>
-          </div>
-          <div className={b.pTiles}>
-            {[['Amenities', 'Towels, pillows'], ['Call for service', 'Someone comes up'], ['Your stay', 'Bill, Wi-Fi'], ['Plan my day', 'Places nearby']].map(([title, sub]) => (
-              <span key={title} className={b.pTile}>
-                <span className={b.pTileTitle}>{title}</span>
-                <span className={b.pMuted}>{sub}</span>
+
+          <div className={b.pStrip}>
+            {[['Check-out', 'Mon, 11am'], ['Wi-Fi', 'Tap to join'], ['Bill', 'View']].map(([label, value]) => (
+              <span key={label} className={b.pCell}>
+                <span className={b.pCellLabel}>{label}</span>
+                <span className={b.pCellValue}>{value}</span>
               </span>
             ))}
           </div>
-          <div className={b.pChips}>
-            <span className={b.pReady}>Open till 11pm</span>
-            <span className={b.pLate}>About 6 min behind</span>
+
+          <span className={b.pHeading}>At your service</span>
+          <div className={b.pTiles}>
+            {([
+              [ConciergeBell, 'In-room dining', 'Until 1am'],
+              [Package, 'Amenities', 'Towels, pillows'],
+              [Landmark, 'Plan my day', 'Places we vouch for'],
+              [Bell, 'Call for service', 'About 8 min'],
+            ] as const).map(([Icon, title, sub], index) => (
+              <span key={title} className={b.pTile} data-lit={index === 3 || undefined}>
+                <span className={b.pTileIcon}><Icon size={11} strokeWidth={1.6} aria-hidden="true" /></span>
+                <span className={b.pTileText}>
+                  <span className={b.pTileTitle}>{title}</span>
+                  <span className={b.pMuted}>{sub}</span>
+                </span>
+              </span>
+            ))}
           </div>
-          <span className={b.pButton}><span>Order dinner to room <span className="tabular">214</span></span><ArrowRight size={14} aria-hidden="true" /></span>
+
+          <div className={b.pDock}>
+            <span className={b.pButton}>
+              <span className={b.pButtonText}>
+                <span>Order dinner to Room <span className="tabular">214</span></span>
+                <span className={b.pButtonSub}>Kitchen open until 1am · ~30 min</span>
+              </span>
+              <span className={b.pButtonArrow}><ArrowRight size={12} aria-hidden="true" /></span>
+            </span>
+            <span className={b.pNav}>
+              {([[House, 'Stay'], [Utensils, 'Dining'], [MessageCircle, 'Concierge'], [MapPin, 'Explore']] as const).map(([Icon, label], index) => (
+                <span key={label} className={b.pNavItem} data-on={index === 0 || undefined}>
+                  <Icon size={13} strokeWidth={1.6} aria-hidden="true" />
+                  {label}
+                </span>
+              ))}
+            </span>
+          </div>
         </div>
       </div>
 

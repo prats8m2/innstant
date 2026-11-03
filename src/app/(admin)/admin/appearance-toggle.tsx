@@ -113,6 +113,15 @@ export function ConsoleFrame({
   );
 }
 
+/**
+ * This person's console appearance, and the way to change it — the same state
+ * the moon in the top bar shows, so a choice made on the Branding screen and
+ * one made in the top bar are one choice. Null outside the console frame.
+ */
+export function useAppearanceChoice(): AppearanceState | null {
+  return useContext(AppearanceContext);
+}
+
 const ICONS = { light: Sun, dark: Moon, system: Monitor } as const;
 
 /**
