@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  localTimeAt, addDays, dayOfWeekOf, parseClock, toClock, formatClock, dayName, formatCheckoutDay, formatCheckoutShort, nightsUntil, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
+  localTimeAt, addDays, dayOfWeekOf, parseClock, toClock, formatClock, dayName, formatCheckoutDay, formatCheckoutShort, nightsUntil, stayNights, stayDay, formatFolioDate, spellCount, atLocalHourOnSameDay, formatHour,
 } from './clock';
 
 /**
@@ -225,5 +225,41 @@ describe('addDays / dayOfWeekOf', () => {
   it('names the weekday of a bare date, 0 = Sunday', () => {
     expect(dayOfWeekOf('2026-10-25')).toBe(0);
     expect(dayOfWeekOf('2026-10-31')).toBe(6);
+  });
+});
+
+describe('stayNights and stayDay', () => {
+  // Checked in Thu 5 Nov, 2pm Kolkata (08:30Z); out Mon 9 Nov, 11am (05:30Z).
+  const checkIn = new Date('2026-11-05T08:30:00Z');
+  const checkOut = new Date('2026-11-09T05:30:00Z');
+
+  it('counts nights on the property calendar', () => {
+    expect(stayNights(checkIn, checkOut, 'Asia/Kolkata')).toBe(4);
+  });
+
+  it('never says zero nights for a same-day stay', () => {
+    expect(stayNights(checkIn, new Date('2026-11-05T12:00:00Z'), 'Asia/Kolkata')).toBe(1);
+  });
+
+  it('is day 1 on arrival, even late that night', () => {
+    // 23:50 local on the 5th is 18:20Z.
+    expect(stayDay(new Date('2026-11-05T18:20:00Z'), checkIn, checkOut, 'Asia/Kolkata'))
+      .toEqual({ day: 1, of: 4 });
+  });
+
+  it('turns over at the property’s midnight, not the server’s', () => {
+    // 00:10 on the 6th in Kolkata is still the 5th in UTC.
+    expect(stayDay(new Date('2026-11-05T18:40:00Z'), checkIn, checkOut, 'Asia/Kolkata'))
+      .toEqual({ day: 2, of: 4 });
+  });
+
+  it('holds at the last day on the morning of departure', () => {
+    expect(stayDay(new Date('2026-11-09T03:00:00Z'), checkIn, checkOut, 'Asia/Kolkata'))
+      .toEqual({ day: 4, of: 4 });
+  });
+
+  it('never reads day 0 when the clock is a touch behind the desk', () => {
+    expect(stayDay(new Date('2026-11-04T18:00:00Z'), checkIn, checkOut, 'Asia/Kolkata'))
+      .toEqual({ day: 1, of: 4 });
   });
 });

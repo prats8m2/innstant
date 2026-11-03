@@ -1,33 +1,44 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { mediaSrcSet } from '@/modules/media/paths';
 import { withTenant } from '@/db';
 import { resolveStaySession, GUEST_SESSION_COOKIE } from '@/modules/access';
 import { DEMO_NAME_COOKIE, DEMO_FLAG_COOKIE } from '@/modules/demo';
-import { TileIcon, type TileIconName } from './tile-icon';
-import { findProperty } from '@/modules/identity';
+import { getPropertyProfile } from '@/modules/identity';
 import {
-  getInRoomDiningOutlet, getOutletHours, outletOpenState, describeOpenState,
+  getInRoomDiningOutletConfig, getOutletHours, outletOpenState, describeOpenState,
+  type OutletOpenState,
 } from '@/modules/catalog';
-import { listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession } from '@/modules/ordering';
 import {
-  getRequestsForStay, getRequestTypeByKey, REQUEST_OPEN_TO_A_GUEST, CALL_SERVICE_KEY,
+  listOrdersForContext, orderStateFor, OPEN_TO_A_GUEST, contextForSession, trackEta,
+} from '@/modules/ordering';
+import {
+  getRequestsForStay, getRequestTypeByKey, requestStateFor, REQUEST_OPEN_TO_A_GUEST,
+  CALL_SERVICE_KEY,
 } from '@/modules/requests';
-import { localTimeAt, formatClock, formatCheckoutDay, toClock } from '@/lib/clock';
+import { getStayAtDesk } from '@/modules/stay';
+import {
+  localTimeAt, formatClock, formatCheckoutShort, dayName, toClock, stayDay,
+} from '@/lib/clock';
 import { guestBranding } from '../../../_brand/brand-scope';
+import { ArchMark } from '../../../_brand/arch-mark';
+import { TileIcon, DockNav, type TileIconName } from './tile-icon';
 import styles from './room-home.module.css';
 
 /**
- * The room home — the post-scan landing, and the only screen most guests see.
+ * The room home — where a scan lands once the guest has been welcomed, and the
+ * only screen most guests see.
  *
- * Rebuilt against Direction A (D-100), `design/reference/direction-a/
- * GuestHome.dc.html`: a masthead, the jharokha arch with the greeting beside
- * it, a live strip when something is on its way, four tiles, and ONE pinned
- * button. `GuestHomeAlt.dc.html` is the same layout on another theme, which is
- * the test of this file: nothing here may be Kesari's — the name, the
- * greeting, the hours and the arch's colour all come from the property.
+ * Rebuilt to Midnight (`design/reference/midnight/Main.dc.html`): the
+ * wordmark, the arch with the greeting inside it, the stay strip, what is on
+ * its way, four tiles, and the dock — the order bar over a four-tab nav.
+ *
+ * What the board draws and this does not, because nothing stands behind it:
+ * the digital key and its Unlock button, the messages and profile buttons,
+ * "Today at The Kesari", and the bill's amount (the bill is behind the
+ * four-digit check on Your stay, so that cell says "View" and goes there).
  *
  * CLAUDE.md #9: this renders for an anonymous REQUEST-tier session with nothing
  * in the way. No login, no verification, no onboarding.
@@ -39,16 +50,27 @@ import styles from './room-home.module.css';
  */
 export const dynamic = 'force-dynamic';
 
-/**
- * The four tiles. `sub` is a default; the service tile's is replaced by the
- * real wait when the property has the one-tap call set up.
- */
-const TILES: readonly { key: TileIconName; title: string; sub: string }[] = [
-  { key: 'amenities', title: 'Amenities', sub: 'Towels, pillows, laundry' },
-  { key: 'service', title: 'Call for service', sub: 'Someone comes up' },
-  { key: 'stay', title: 'Your stay', sub: 'Bill, Wi-Fi, checkout' },
-  { key: 'nearby', title: 'Plan my day', sub: 'Places we vouch for' },
+/** The four tiles, in the board's order. Call for service is the lit one. */
+const TILES: readonly { key: TileIconName; path: string; title: string; sub: string }[] = [
+  { key: 'dining', path: 'menu', title: 'In-room dining', sub: 'See the menu' },
+  { key: 'amenities', path: 'amenities', title: 'Amenities', sub: 'Towels, pillows, laundry' },
+  { key: 'nearby', path: 'nearby', title: 'Plan my day', sub: 'Places we vouch for' },
+  { key: 'service', path: 'service', title: 'Call for service', sub: 'Someone comes up' },
 ];
+
+/** One row under "Your requests", whichever module it came from. */
+interface Asked {
+  id: string;
+  href: string;
+  title: string;
+  sub: string;
+  /** Somebody has it in hand (the accent dot) or it is waiting (an outline). */
+  moving: boolean;
+  /** "12 min", "9:40pm", "4 min late" — only while a promise is in play. */
+  when: string | null;
+  late: boolean;
+  at: number;
+}
 
 export default async function RoomHome({
   params,
@@ -76,115 +98,122 @@ export default async function RoomHome({
 
   const base = `/r/${encodeURIComponent(qrCode)}`;
 
-  const { property, kitchen, isOpen, orders, requests, callWait } = await withTenant(
+  const {
+    profile, stay, kitchenState, prepMinutes, orders, requests, callWait,
+  } = await withTenant(
     { tenantId: session.tenantId, propertyId: session.propertyId },
     async (tx) => {
-      const found = await findProperty(tx, session.propertyId);
-      const outlet = await getInRoomDiningOutlet(tx, session.propertyId);
+      // The name, the timezone, and the wifi for the strip's middle cell —
+      // shown only when the hotel has one to give.
+      const found = await getPropertyProfile(tx, session.propertyId);
+      const outlet = await getInRoomDiningOutletConfig(tx, session.propertyId);
       const timeZone = found?.timezone ?? 'Asia/Kolkata';
-      // Everything this room has asked for — food AND amenities (D-058).
-      const placed = await listOrdersForContext(tx, { context: contextForSession(session) });
-      const asked = await getRequestsForStay(tx, { stayId: session.stayId });
-      // The one-tap call's own promise, so the tile can say it.
       const call = await getRequestTypeByKey(tx, {
         propertyId: session.propertyId,
         key: CALL_SERVICE_KEY,
       });
 
-      const state = outlet
-        ? outletOpenState(await getOutletHours(tx, outlet.id), localTimeAt(new Date(), timeZone))
-        : null;
-
       return {
-        property: found,
-        kitchen: state ? describeOpenState(state, formatClock) : null,
-        isOpen: state?.isOpen ?? false,
-        orders: placed,
-        requests: asked,
+        profile: found,
+        // When they arrived, for "Day 2 of 4".
+        stay: await getStayAtDesk(tx, { propertyId: session.propertyId, stayId: session.stayId }),
+        kitchenState: outlet
+          ? outletOpenState(await getOutletHours(tx, outlet.id), localTimeAt(new Date(), timeZone))
+          : null,
+        prepMinutes: outlet?.prepTimeMinutes ?? null,
+        // Everything this room has asked for — food AND amenities (D-058).
+        orders: await listOrdersForContext(tx, { context: contextForSession(session) }),
+        requests: await getRequestsForStay(tx, { stayId: session.stayId }),
+        // The one-tap call's own promise, so the tile can say it.
         callWait: call?.slaMinutes ?? null,
       };
     },
   );
 
-  // D-087: the hotel's logo in place of its wordmark, its photograph inside
-  // the arch. Shared with the brand scope's read, so no second query.
+  // D-087: the hotel's logo in place of its wordmark. Shared with the brand
+  // scope's read, so no second query.
   const branding = await guestBranding();
 
-  const timeZone = property?.timezone ?? 'Asia/Kolkata';
+  const timeZone = profile?.timezone ?? 'Asia/Kolkata';
   const now = new Date();
   const hour = localTimeAt(now, timeZone).minutes / 60;
 
   /** "9:05pm", on the property's clock. */
   const clockAt = (instant: Date) => formatClock(toClock(localTimeAt(instant, timeZone).minutes));
 
-  /** "until Monday, 11am" — from the stay, in the PROPERTY's timezone. */
-  const checkout = formatCheckoutDay(session.scheduledCheckoutAt, timeZone);
-
   /** The visitor's own name wins over the stay's — see the note at the top. */
   const callThem = demoName ?? session.guestFirstName;
 
+  const { day, of } = stayDay(now, stay?.checkedInAt ?? now, session.scheduledCheckoutAt, timeZone);
+  const hasWifi = Boolean(profile?.guestInfo.wifiNetwork);
+
   /**
-   * The live strip — the way back to something already asked for.
-   *
-   * Counts FOOD AND AMENITIES together (D-058). With exactly one thing moving
-   * it goes straight to that thing's screen; with several, or with none moving
-   * and some history, it goes to the list.
-   *
-   * The second line is the nearest TRUE thing to the board's "At your door
-   * around 9:05pm": the order's promised time while it is still ahead, the
-   * request's SLA target and whoever has it — and the order's own summary
-   * otherwise. Never a time that has already passed.
+   * "Sun, 11am" — the board's strip cell, on the property's clock.
+   * `formatCheckoutShort` is the desk's "Sun 11am"; the strip has the comma.
    */
-  const movingOrders = orders.filter((order) => OPEN_TO_A_GUEST.includes(order.status));
-  const movingRequests = requests
-    .filter((request) => REQUEST_OPEN_TO_A_GUEST.includes(request.status));
-  const moving = movingOrders.length + movingRequests.length;
-  const everything = orders.length + requests.length;
+  const checkout = formatCheckoutShort(session.scheduledCheckoutAt, timeZone).replace(' ', ', ');
 
-  const oneOrder = moving === 1 ? movingOrders[0] : undefined;
-  const oneRequest = moving === 1 ? movingRequests[0] : undefined;
+  /**
+   * What the promise reads as at the end of a row. Minutes while it is within
+   * the hour ("12 min"), the time beyond that ("9:40pm"), and how far behind
+   * once it has passed — never a time that is already gone.
+   */
+  const promise = (deadline: Date | null): { when: string | null; late: boolean } => {
+    if (!deadline) return { when: null, late: false };
+    const minutes = Math.round((deadline.getTime() - now.getTime()) / 60_000);
+    if (minutes < 0) return { when: `${Math.max(1, -minutes)} min late`, late: true };
+    return { when: minutes <= 60 ? `${Math.max(1, minutes)} min` : clockAt(deadline), late: false };
+  };
 
-  const trail = oneOrder
-    ? {
-      href: `${base}/order/${oneOrder.id}`,
-      label: orderStateFor(oneOrder.status).short,
-      detail: oneOrder.promisedByAt && oneOrder.promisedByAt > now
-        ? `At your door around ${clockAt(oneOrder.promisedByAt)}`
-        : oneOrder.summary,
-      live: true,
-    }
-    : oneRequest
-      ? {
-        href: `${base}/service/${oneRequest.id}`,
-        label: oneRequest.assignedStaffName
-          ? `${oneRequest.assignedStaffName} is on the way`
-          : 'Someone is on the way',
-        detail: [
-          oneRequest.lines.map((line) => line.label).join(' · '),
-          oneRequest.slaTargetAt && oneRequest.slaTargetAt > now
-            ? `by ${clockAt(oneRequest.slaTargetAt)}`
-            : null,
-        ].filter(Boolean).join(' · '),
-        live: true,
-      }
-      : moving > 1
-        ? {
-          href: `${base}/activity`,
-          label: `${moving} things happening`,
-          detail: 'Tap to see where each one is',
-          live: true,
-        }
-        : everything
-          ? {
-            href: `${base}/activity`,
-            label: 'Your requests',
-            detail: `${everything} this stay`,
-            live: false,
-          }
-          : null;
+  /** Still on its way, newest first, three at most — the rest is "View all". */
+  const asked: Asked[] = [
+    ...orders
+      .filter((order) => OPEN_TO_A_GUEST.includes(order.status))
+      .map((order): Asked => {
+        const eta = trackEta(order.status, order.promisedByAt);
+        return {
+          id: order.id,
+          href: `${base}/order/${order.id}`,
+          title: order.summary,
+          sub: `${orderStateFor(order.status).label} · ${order.orderNumber}`,
+          moving: order.status !== 'PLACED',
+          ...promise(eta ? (eta.to ?? eta.from) : null),
+          at: order.placedAt ? new Date(order.placedAt).getTime() : 0,
+        };
+      }),
+    ...requests
+      .filter((request) => REQUEST_OPEN_TO_A_GUEST.includes(request.status))
+      .map((request): Asked => ({
+        id: request.id,
+        href: `${base}/service/${request.id}`,
+        title: request.lines
+          .map((line) => (line.quantity > 1 ? `${line.quantity}× ${line.label}` : line.label))
+          .join(' · '),
+        sub: [requestStateFor(request.status).label, request.assignedStaffName]
+          .filter(Boolean).join(' · '),
+        moving: request.status !== 'OPEN',
+        ...promise(request.slaTargetAt),
+        at: new Date(request.createdAt).getTime(),
+      })),
+  ].sort((a, b) => b.at - a.at).slice(0, 3);
 
-  const tileSub = (key: TileIconName, fallback: string) =>
-    key === 'service' && callWait ? `Someone in about ${callWait} min` : fallback;
+  const anyHistory = orders.length + requests.length > 0;
+
+  const tileSub = (key: TileIconName, fallback: string) => {
+    if (key === 'service' && callWait) return `Someone in about ${callWait} min`;
+    if (key === 'dining' && kitchenState) return diningHours(kitchenState);
+    return fallback;
+  };
+
+  const isOpen = kitchenState?.isOpen ?? false;
+  const kitchenLine = kitchenState
+    ? [
+      describeOpenState(kitchenState, formatClock),
+      isOpen && prepMinutes ? `~${prepMinutes} min` : null,
+    ].filter(Boolean).join(' · ')
+    : null;
+
+  const name = profile?.name ?? 'Your stay';
 
   return (
     <main className={styles.shell}>
@@ -208,109 +237,169 @@ export default async function RoomHome({
               src={branding.logoUrl}
               srcSet={mediaSrcSet(branding.logoUrl)}
               sizes="200px"
-              alt={property?.name ?? 'The hotel'}
+              alt={name}
               className={styles.logo}
             />
           </p>
         ) : (
-          <p className={styles.wordmark}>{property?.name ?? 'Your stay'}</p>
+          <p className={styles.brand}>
+            <ArchMark className={styles.brandMark} double />
+            <span className={styles.wordmark}>{name}</span>
+          </p>
         )}
-        {/* The board makes the room number the way to the stay screen. */}
-        <Link href={`${base}/stay`} className={styles.roomLink}>
-          Room <span className={`${styles.roomNumber} tabular`}>{session.roomNumber}</span>
-        </Link>
       </header>
 
-      <section className={styles.hero}>
-        {/*
-          The jharokha. The one hand-drawn shape in the guest app (CLAUDE.md
-          allows it: it is the brand, no package has it), and since Direction A
-          a single 1px line in the property's accent, drawn on as the page
-          lands. The hotel's own photograph sits inside it when there is one
-          (D-087); without one, the lamplight wash the arch always had.
-        */}
-        <div className={styles.archFrame} aria-hidden="true">
-          <div className={styles.archPhoto}>
-            {branding.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
-              <img
-                src={branding.coverUrl}
-                srcSet={mediaSrcSet(branding.coverUrl)}
-                sizes="132px"
-                alt=""
-                className={styles.archCover}
-              />
-            ) : null}
-          </div>
-          <svg
-            className={styles.archLine}
-            viewBox="0 0 200 260"
-            focusable="false"
-          >
-            <path
-              d="M0 260 V110 C0 60 50 30 100 0 C150 30 200 60 200 110 V260"
-              pathLength={1}
+      <section className={styles.heroWrap}>
+        <div className={styles.hero}>
+          {/* D-087: the hotel's own photograph, quietly, behind the lamplight. */}
+          {branding.coverUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- an upload, or a URL pasted before uploads (D-093)
+            <img
+              src={branding.coverUrl}
+              srcSet={mediaSrcSet(branding.coverUrl)}
+              sizes="390px"
+              alt=""
+              className={styles.heroCover}
             />
+          ) : null}
+          <span className={styles.heroInner} aria-hidden="true" />
+          {/* The rising sun in the doorway — the board's ornament, drawn as it is. */}
+          <svg className={styles.heroSun} width="120" height="60" viewBox="0 0 120 60" fill="none" aria-hidden="true" focusable="false">
+            <path d="M10 60a50 50 0 0 1 100 0" strokeWidth="1" opacity="0.35" />
+            <path d="M26 60a34 34 0 0 1 68 0" strokeWidth="1" opacity="0.6" />
+            <circle cx="60" cy="60" r="16" opacity="0.9" />
           </svg>
-        </div>
 
-        <div className={styles.heroText}>
+          <p className={styles.eyebrow}>
+            Day {day} of {of} · Room {session.roomNumber}
+          </p>
           {/*
             By name, when the stay has one (D-059). Falls back to the bare
             greeting — "Good evening," with a dangling comma is worse.
           */}
           <h1 className={styles.greeting}>
-            {callThem ? `${greetingFor(hour)}, ${callThem}` : greetingFor(hour)}
+            {callThem ? (
+              <>
+                {greetingFor(hour)},<br />
+                <em className={styles.greetingName}>{callThem}</em>
+              </>
+            ) : greetingFor(hour)}
           </h1>
-          <p className={styles.stayLine}>
-            Room <span className="tabular">{session.roomNumber}</span>
-            {' · until '}
-            <span className={styles.checkout}>{checkout}</span>
-          </p>
+          <p className={styles.heroLine}>{subtitleFor(hour)}</p>
         </div>
       </section>
 
-      {trail ? (
-        <Link href={trail.href} className={styles.trail} data-live={trail.live}>
-          {trail.live ? <span className={styles.trailDot} aria-hidden="true" /> : null}
-          <span className={styles.trailBody}>
-            <span className={styles.trailLabel}>{trail.label}</span>
-            <span className={styles.trailDetail}>{trail.detail}</span>
-          </span>
-          <ChevronRight className={styles.trailChevron} size={18} strokeWidth={1.5} aria-hidden="true" />
-        </Link>
-      ) : null}
-
-      <nav className={styles.tiles} aria-label="Services">
-        {TILES.map((tile) => (
-          <Link key={tile.key} href={`${base}/${tile.key}`} className={styles.tile}>
-            <TileIcon name={tile.key} />
-            <span className={styles.tileBody}>
-              <span className={styles.tileTitle}>{tile.title}</span>
-              <span className={styles.tileSub}>{tileSub(tile.key, tile.sub)}</span>
-            </span>
+      <section className={styles.section} aria-label="Your stay">
+        <div className={styles.strip} data-cells={hasWifi ? 3 : 2}>
+          <Link href={`${base}/stay`} className={styles.cell}>
+            <span className={styles.cellLabel}>Check-out</span>
+            <span className={styles.cellValue}>{checkout}</span>
           </Link>
-        ))}
-      </nav>
+          {hasWifi ? (
+            <Link href={`${base}/stay`} className={styles.cell}>
+              <span className={styles.cellLabel}>Wi-Fi</span>
+              <span className={styles.cellValue}>Tap to join</span>
+            </Link>
+          ) : null}
+          {/* The amount is behind the four digits on Your stay — not here. */}
+          <Link href={`${base}/stay`} className={styles.cell}>
+            <span className={styles.cellLabel}>Bill</span>
+            <span className={styles.cellValue}>View</span>
+          </Link>
+        </div>
+      </section>
+
+      <section className={styles.sectionWide} aria-labelledby="home-requests">
+        <div className={styles.sectionHead}>
+          <h2 id="home-requests" className={styles.h2}>Your requests</h2>
+          {anyHistory ? (
+            <Link href={`${base}/activity`} className={styles.viewAll}>View all</Link>
+          ) : null}
+        </div>
+        {asked.length ? (
+          <ul className={styles.requests}>
+            {asked.map((row) => (
+              <li key={row.id}>
+                <Link href={row.href} className={styles.request}>
+                  <span className={styles.requestDot} data-moving={row.moving} aria-hidden="true" />
+                  <span className={styles.requestBody}>
+                    <span className={styles.requestTitle}>{row.title}</span>
+                    <span className={styles.requestSub}>{row.sub}</span>
+                  </span>
+                  {row.when ? (
+                    <span
+                      className={styles.requestWhen}
+                      data-moving={row.moving}
+                      data-late={row.late}
+                    >
+                      {row.when}
+                    </span>
+                  ) : null}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.quiet}>Nothing on its way. Anything you ask for shows up here.</p>
+        )}
+      </section>
+
+      <section className={styles.sectionWide} aria-labelledby="home-services">
+        <h2 id="home-services" className={`${styles.h2} ${styles.h2Alone}`}>At your service</h2>
+        <nav className={styles.tiles} aria-label="Services">
+          {TILES.map((tile) => (
+            <Link
+              key={tile.key}
+              href={`${base}/${tile.path}`}
+              className={styles.tile}
+              data-lit={tile.key === 'service'}
+            >
+              <span className={styles.tileIcon}>
+                <TileIcon name={tile.key} />
+              </span>
+              <span className={styles.tileBody}>
+                <span className={styles.tileTitle}>{tile.title}</span>
+                <span className={styles.tileSub}>{tileSub(tile.key, tile.sub)}</span>
+              </span>
+            </Link>
+          ))}
+        </nav>
+      </section>
 
       {/*
-        The one button, pinned. It stays a link when the kitchen is shut: the
-        menu, the prices and the hours are all readable with the kitchen closed
-        (#9 — never gate browsing), and the line under it says so rather than
-        the button refusing.
+        The dock: the one button, pinned, over the four tabs. The button stays a
+        link when the kitchen is shut: the menu, the prices and the hours are
+        all readable with the kitchen closed (#9 — never gate browsing), and the
+        line under it says so rather than the button refusing.
       */}
-      <div className={styles.cta}>
-        <Link href={`${base}/menu`} className={styles.ctaButton} data-open={isOpen}>
-          <span>
-            Order {mealFor(hour)} to room{' '}
-            <span className="tabular">{session.roomNumber}</span>
+      <div className={styles.dock}>
+        <Link href={`${base}/menu`} className={styles.orderBar} data-open={isOpen}>
+          <span className={styles.orderText}>
+            <span className={styles.orderTitle}>
+              Order {mealFor(hour)} to Room {session.roomNumber}
+            </span>
+            {kitchenLine ? <span className={styles.orderSub}>{kitchenLine}</span> : null}
           </span>
-          <ArrowRight size={20} strokeWidth={2} aria-hidden="true" />
+          <span className={styles.orderArrow} aria-hidden="true">
+            <ArrowRight size={18} strokeWidth={1.8} />
+          </span>
         </Link>
-        {kitchen ? <p className={styles.ctaSub}>{kitchen}</p> : null}
+        <DockNav base={base} />
       </div>
     </main>
   );
+}
+
+/**
+ * The In-room dining tile's line — "Until 1am" while the kitchen is open,
+ * when it next opens while it is not. The same state the order bar reads.
+ */
+function diningHours(state: OutletOpenState): string {
+  if (state.isOpen && state.closesAt) return `Until ${formatClock(state.closesAt)}`;
+  if (!state.nextOpen) return 'Kitchen closed';
+  return state.nextOpen.today
+    ? `Opens at ${formatClock(state.nextOpen.opensAt)}`
+    : `Opens ${dayName(state.nextOpen.dayOfWeek)} at ${formatClock(state.nextOpen.opensAt)}`;
 }
 
 /**
@@ -323,6 +412,17 @@ function greetingFor(hour: number): string {
   if (hour < 12) return 'Good morning';
   if (hour < 17) return 'Good afternoon';
   return 'Good evening';
+}
+
+/**
+ * The line under the greeting. The board's "We hope you slept well" is a
+ * morning sentence, so it is only said in the greeting's morning band.
+ */
+function subtitleFor(hour: number): string {
+  if (hour < 5) return 'Whatever you need tonight, it is a tap away.';
+  if (hour < 12) return 'We hope you slept well. Everything is ready when you are.';
+  if (hour < 17) return 'Everything is ready when you are.';
+  return 'Settle in. Everything is ready when you are.';
 }
 
 /**

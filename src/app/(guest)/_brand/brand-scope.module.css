@@ -5,4 +5,8 @@
   background: var(--bg);
   color: var(--text);
   color-scheme: var(--g-scheme);
+  /* Re-read here, like the colours: the guest layout above resolved
+     --font-body before the theme was known, so a theme with its own type
+     (Midnight's Manrope, D-105) only reaches the screens through this box. */
+  font-family: var(--font-body);
 }
