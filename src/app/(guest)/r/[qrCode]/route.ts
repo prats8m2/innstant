@@ -15,6 +15,11 @@ import { secureCookies } from '@/lib/cookie-security';
  * So: resolve or issue the session here, set the cookie, redirect to
  * `/r/{code}/home`. One extra hop, and the guest never sees it.
  *
+ * The one exception is the FIRST scan on a phone — the hop that mints the
+ * session — which lands on `/r/{code}/welcome` instead: the Midnight welcome,
+ * shown once, whose only control is "Enter your stay". It asks nothing and
+ * gates nothing (#9); a phone that already holds a session goes straight home.
+ *
  * CLAUDE.md #9 — no login, no signup, no verification, no onboarding. If you
  * add a screen here, read D-012 first: that design was built and removed.
  */
@@ -104,6 +109,8 @@ export async function GET(
    * against the URL it actually requested, so there is no host to get wrong.
    */
   const home = `/r/${encodeURIComponent(qrCode)}/home`;
+  /** Where a NEW session lands, once — see the header. */
+  const welcome = `/r/${encodeURIComponent(qrCode)}/welcome`;
 
   /**
    * Is this code real, before anything else?
@@ -135,7 +142,7 @@ export async function GET(
       userAgent: request.headers.get('user-agent') ?? undefined,
     });
 
-    const response = redirectTo(home);
+    const response = redirectTo(welcome);
     response.cookies.set(GUEST_SESSION_COOKIE, scan.cookieValue, {
       httpOnly: true,
       sameSite: 'lax',

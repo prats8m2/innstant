@@ -194,6 +194,35 @@ export function nightsUntil(now: Date, checkoutAt: Date, timeZone: string): numb
 }
 
 /**
+ * How many nights a stay is, check-in to check-out, in property-local calendar
+ * days — the Welcome screen's "Nights 4". At least one: a stay that checks in
+ * and out on the same local day was still booked as a night.
+ */
+export function stayNights(checkedInAt: Date, checkoutAt: Date, timeZone: string): number {
+  return Math.max(1, localDayNumber(checkoutAt, timeZone) - localDayNumber(checkedInAt, timeZone));
+}
+
+/**
+ * "Day 2 of 4" — where today falls in the stay, on the hotel's calendar.
+ *
+ * `of` is the number of nights (`stayNights`); `day` is today's local date
+ * counted from the check-in date, the arrival day being day 1. Clamped to
+ * 1…of, so the morning of departure still reads "Day 4 of 4" rather than
+ * "Day 5 of 4", and a clock that disagrees with the desk by a minute never
+ * shows "Day 0".
+ */
+export function stayDay(
+  now: Date,
+  checkedInAt: Date,
+  checkoutAt: Date,
+  timeZone: string,
+): { day: number; of: number } {
+  const of = stayNights(checkedInAt, checkoutAt, timeZone);
+  const day = localDayNumber(now, timeZone) - localDayNumber(checkedInAt, timeZone) + 1;
+  return { day: Math.min(of, Math.max(1, day)), of };
+}
+
+/**
  * A property-local date as a day count, for subtracting one from another.
  *
  * Built from the formatted Y-M-D rather than from the epoch, so it is the

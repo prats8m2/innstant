@@ -101,7 +101,7 @@ describe('theme sheets', () => {
   it('covers every theme, with the token file\'s values in its CSS', () => {
     const css = readFileSync('design/tokens/innstant-themes.css', 'utf8');
     const sheets = guestThemeSheets();
-    expect(sheets.map((s) => s.key)).toEqual(['kesari', 'pichola', 'gulabi', 'mehendi', 'sandstone']);
+    expect(sheets.map((s) => s.key)).toEqual(['kesari', 'pichola', 'gulabi', 'mehendi', 'sandstone', 'midnight']);
     for (const sheet of sheets) {
       const block = css.slice(css.indexOf(`[data-guest-theme="${sheet.key}"] {`));
       const page = block.match(/--g-page:\s*(#[0-9A-Fa-f]{6})/)?.[1];

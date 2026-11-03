@@ -1,34 +1,68 @@
 /*
- * The room home, Direction A (D-100) — design/reference/direction-a/GuestHome.dc.html.
+ * The room home, Midnight — design/reference/midnight/Main.dc.html.
  *
- * 390×844 is the design viewport. Mobile only — it centres rather than
- * stretching on a larger screen.
+ * 390px is the design viewport. Mobile only — it centres rather than
+ * stretching on a larger screen. Sizes, spacing and radii are the board's own
+ * px; every colour is a token.
  *
  * Colour is the guest theme's --g-* tokens, read directly. The one exception
  * is the accent: `--accent` / `--accent-ink`, which ARE --g-accent /
  * --g-on-accent unless a Kesari property has set its own accent (D-087) —
  * `brandingStyle()` redeclares the role names, not the token, so reading the
  * token here would silently drop a hotel's chosen colour.
+ *
+ * The board's hairlines are its gold glint at a low alpha —
+ * rgba(232,213,176,α) — written as a mix of --g-glint with transparent.
  */
 .shell {
   position: relative;
   min-height: 100dvh;
   max-width: 430px;
   margin-inline: auto;
-  /* 20px gutter; the bottom clears the pinned button and its line. */
-  padding: 0 var(--space-5) 152px;
+  /* Clears the dock: 14 + 64 + 10 + 57 + 16, and a breath above it. */
+  padding: 0 0 calc(196px + env(safe-area-inset-bottom));
   background: var(--g-page);
   color: var(--g-ink);
+  font-family: var(--font-body);
+  overflow-x: clip;
 }
 
-/* ── Masthead ─────────────────────────────────────────────────────────── */
+/* ── Header ───────────────────────────────────────────────────────────── */
 
 .masthead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  height: 56px;
+  /* 22 + 44 + 10: the board's header, whose 44px buttons set its height. */
+  min-height: 76px;
+  padding: 22px 20px 10px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+
+.brandMark {
+  flex: none;
+  width: 22px;
+  height: 26px;
+  color: var(--accent);
+}
+
+.wordmark {
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--g-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* D-087: a hotel's logo, in the wordmark's place and at its height. */
@@ -37,6 +71,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
+  min-height: 44px;
 }
 
 .logo {
@@ -46,105 +81,103 @@
   object-fit: contain;
 }
 
-.wordmark {
-  margin: 0;
-  min-width: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--g-ink);
-  /* A long hotel name must not push the room number off the screen — that is
-     the half that tells a guest the sticker they scanned was theirs. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* ── The arch ─────────────────────────────────────────────────────────── */
+
+.heroWrap {
+  padding: 14px 20px 0;
 }
-
-.roomLink {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--touch-min);
-  padding: 0 var(--space-1);
-  font-size: var(--text-md);
-  color: var(--g-ink-2);
-  text-decoration: none;
-}
-
-.roomLink:hover { color: var(--g-ink); }
-
-.roomNumber { color: var(--g-ink); }
-
-/* ── The arch and the greeting ────────────────────────────────────────── */
 
 .hero {
-  display: flex;
-  align-items: flex-end;
-  gap: 18px;
-  padding-top: var(--space-1);
-}
-
-.archFrame {
   position: relative;
-  flex: none;
-  width: 132px;
-  height: 172px;
-}
-
-/* The window inside the arch: the hotel's photograph, or lamplight. */
-.archPhoto {
-  position: absolute;
-  inset: 12px 9px 0;
+  height: 330px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px 30px;
   overflow: hidden;
-  border-radius: 57px 57px 0 0;
+  text-align: center;
+  border-radius: 175px 175px 28px 28px;
+  border: 1px solid color-mix(in srgb, var(--g-glint) 16%, transparent);
   background:
     radial-gradient(
-      ellipse 90% 60% at 50% 100%,
-      color-mix(in srgb, var(--accent) 22%, transparent),
-      transparent 70%
+      120% 70% at 50% 108%,
+      color-mix(in srgb, var(--accent) 38%, transparent) 0%,
+      color-mix(in srgb, var(--accent) 10%, transparent) 38%,
+      transparent 62%
     ),
-    color-mix(in srgb, var(--g-card) 70%, var(--g-line));
+    var(--g-card);
+  animation: rise var(--dur-mid) var(--ease) both;
 }
 
-.archCover {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.archLine {
+/* The hotel's photograph, when it has one — under the lamplight, so the
+   greeting still reads. */
+.heroCover {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  object-fit: cover;
+  opacity: 0.28;
+  pointer-events: none;
 }
 
-/* 1.5 units in a 200-wide box drawn at 132px: a 1px line, as the board has
-   it. `pathLength="1"` on the path makes the draw-on one dash of length 1. */
-.archLine path {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  stroke-dasharray: 1;
-  animation: draw var(--dur-slower) var(--ease) both;
+.heroInner {
+  position: absolute;
+  inset: 14px;
+  border-radius: 162px 162px 18px 18px;
+  border: 1px solid color-mix(in srgb, var(--g-glint) 9%, transparent);
+  pointer-events: none;
 }
 
-@keyframes draw {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
+.heroSun {
+  position: absolute;
+  top: 74px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0.9;
+  color: var(--accent);
 }
 
-.heroText {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-  padding-bottom: 6px;
-  animation: rise var(--dur-mid) var(--ease) both;
+.heroSun path { stroke: currentColor; }
+.heroSun circle { fill: currentColor; }
+
+.eyebrow {
+  position: relative;
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--g-eyebrow);
+}
+
+.greeting {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 44px;
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: var(--g-ink);
+  overflow-wrap: anywhere;
+}
+
+.greetingName {
+  font-style: italic;
+  color: var(--g-accent-text);
+}
+
+.heroLine {
+  position: relative;
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: normal;
+  color: var(--g-ink-2);
 }
 
 @keyframes rise {
@@ -152,119 +185,247 @@
   to { opacity: 1; transform: none; }
 }
 
-.greeting {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.9375rem;
-  font-weight: 400;
-  line-height: 1.08;
-  color: var(--g-ink);
-  overflow-wrap: anywhere;
+/* ── The stay strip ───────────────────────────────────────────────────── */
+
+.section {
+  padding: 16px 20px 0;
 }
 
-.stayLine {
+.strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--g-card);
+  border: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
+}
+
+.strip[data-cells='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 44px;
+  padding: 14px 16px;
+  color: var(--g-ink);
+  text-decoration: none;
+  border-right: 1px solid color-mix(in srgb, var(--g-glint) 8%, transparent);
+  transition: background var(--dur-fast) var(--ease);
+}
+
+.cell:last-child { border-right: 0; }
+
+.cell:hover,
+.cell:active {
+  color: var(--g-ink);
+  background: color-mix(in srgb, var(--g-raised) 60%, transparent);
+}
+
+.cell:focus-visible { outline-offset: -2px; }
+
+.cellLabel {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--g-ink-3);
+  white-space: nowrap;
+}
+
+/* Below the board's 390: three cells keep "CHECK-OUT" on one line. */
+@media (max-width: 374px) {
+  .cell { padding-inline: 12px; }
+}
+
+.cellValue {
+  margin-top: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--g-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+
+.sectionWide {
+  padding: 32px 20px 0;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.h2 {
   margin: 0;
-  font-size: var(--text-md);
-  line-height: 1.4;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--g-ink);
+}
+
+.h2Alone { margin-bottom: 14px; }
+
+/* The board's link colour: between the accent and its text tone. */
+.viewAll {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -14px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--accent) 50%, var(--g-accent-text));
+  text-decoration: none;
+}
+
+.viewAll:hover { color: var(--g-accent-text); }
+
+.quiet {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--g-ink-2);
 }
 
-.checkout { white-space: nowrap; }
+/* ── Your requests ────────────────────────────────────────────────────── */
 
-/* ── The live strip ───────────────────────────────────────────────────── */
+.requests {
+  list-style: none;
+  margin: 0;
+  padding: 6px 18px;
+  border-radius: 24px;
+  background: var(--g-card);
+  border: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
+}
 
-.trail {
+.requests li + li .request {
+  border-top: 1px solid color-mix(in srgb, var(--g-glint) 8%, transparent);
+}
+
+.request {
   display: flex;
   align-items: center;
   gap: 14px;
-  min-height: 64px;
-  margin-top: 22px;
-  padding: 14px var(--space-4);
-  background: var(--g-surface);
-  border: 1px solid var(--g-line);
-  border-radius: var(--radius-lg);
+  min-height: 44px;
+  padding: 14px 0;
   color: var(--g-ink);
   text-decoration: none;
-  animation: rise var(--dur-mid) var(--ease) both;
-  transition: border-color var(--dur-fast) var(--ease);
 }
 
-.trail:hover {
-  color: var(--g-ink);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--g-line));
-}
+.request:hover { color: var(--g-ink); }
 
-/* Something is moving: the accent dot with a soft halo of itself. */
-.trailDot {
+/* Somebody has it: the accent, with a soft halo of itself. */
+.requestDot {
   flex: none;
+  box-sizing: border-box;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
+  margin: 0 4px;
+  border-radius: 5px;
   background: var(--accent);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.trailBody {
+/* Waiting to be picked up: an outline. */
+.requestDot[data-moving='false'] {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px solid var(--g-ink-3);
+}
+
+.requestBody {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.trailLabel {
-  font-size: var(--text-base);
-  font-weight: 500;
+.requestTitle {
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.4;
-}
-
-.trailDetail {
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  color: var(--g-ink-2);
-  /* One line. A three-dish order must not make the strip taller than a tile. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.trailChevron {
-  flex: none;
-  color: var(--g-ink-3);
+.requestSub {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--g-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* ── The tiles ────────────────────────────────────────────────────────── */
+.requestWhen {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--g-accent-text);
+}
+
+.requestWhen[data-moving='false'] { color: var(--g-ink-2); }
+.requestWhen[data-late='true'] { color: var(--g-late); }
+
+/* ── At your service ──────────────────────────────────────────────────── */
 
 .tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-3);
+  gap: 12px;
 }
-
-/* With no strip above them, the board's alternate spacing. */
-.hero + .tiles { margin-top: 28px; }
 
 .tile {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 120px;
-  padding: var(--space-4);
+  min-width: 0;
+  height: 148px;
+  box-sizing: border-box;
+  padding: 18px;
+  border-radius: 22px;
   background: var(--g-card);
-  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
   color: var(--g-ink);
   text-decoration: none;
-  transition: background var(--dur-fast) var(--ease);
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
 .tile:hover,
 .tile:active {
   color: var(--g-ink);
-  background: color-mix(in srgb, var(--g-card) 82%, var(--g-line));
+  background: var(--g-raised);
+}
+
+.tile[data-lit='true'] {
+  background: var(--g-raised);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 .tileIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--g-glint) 20%, transparent);
   color: var(--accent);
+}
+
+.tile[data-lit='true'] .tileIcon {
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .tileBody {
@@ -274,20 +435,23 @@
 }
 
 .tileTitle {
-  font-size: var(--text-lg);
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
   line-height: 1.35;
 }
 
 .tileSub {
-  font-size: var(--text-sm);
+  margin-top: 3px;
+  font-size: 13px;
   line-height: 1.4;
   color: var(--g-ink-2);
 }
 
-/* ── The one button ───────────────────────────────────────────────────── */
+.tile[data-lit='true'] .tileSub { color: var(--g-eyebrow); }
 
-.cta {
+/* ── The dock ─────────────────────────────────────────────────────────── */
+
+.dock {
   position: fixed;
   left: 0;
   right: 0;
@@ -295,33 +459,70 @@
   z-index: 2;
   max-width: 430px;
   margin-inline: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: var(--space-4) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
-  background: var(--g-page);
-  border-top: 1px solid var(--g-line);
+  box-sizing: border-box;
+  padding: 14px 16px max(16px, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--g-page) 94%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
 }
 
-.ctaButton {
+.orderBar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  min-height: 58px;
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-sm);
+  gap: 12px;
+  height: 64px;
+  box-sizing: border-box;
+  padding: 0 10px 0 22px;
+  border-radius: 20px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: var(--text-lg);
-  font-weight: 600;
   text-decoration: none;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--accent) 22%, transparent);
   transition: background var(--dur-fast) var(--ease);
 }
 
-.ctaButton:hover {
+.orderBar:hover {
   background: var(--accent-hover);
   color: var(--accent-ink);
+}
+
+.orderText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.orderTitle {
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orderSub {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: color-mix(in srgb, var(--accent-ink) 70%, var(--accent));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orderArrow {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--accent-ink);
+  color: var(--g-accent-text);
 }
 
 /*
@@ -329,23 +530,49 @@
  * readable with the kitchen closed (#9), and the line under it says so.
  * Quieter, because promising dinner at 2am is the lie this is avoiding.
  */
-.ctaButton[data-open='false'] {
-  background: transparent;
-  border: 1px solid var(--g-ink-3);
+.orderBar[data-open='false'] {
+  background: var(--g-card);
+  border: 1px solid color-mix(in srgb, var(--g-glint) 18%, transparent);
+  color: var(--g-ink);
+  box-shadow: none;
+}
+
+.orderBar[data-open='false']:hover {
+  background: var(--g-raised);
   color: var(--g-ink);
 }
 
-.ctaButton[data-open='false']:hover {
-  background: var(--g-surface);
-  color: var(--g-ink);
+.orderBar[data-open='false'] .orderSub { color: var(--g-ink-2); }
+
+.orderBar[data-open='false'] .orderArrow {
+  background: var(--g-raised);
+  color: var(--g-accent-text);
 }
 
-.ctaSub {
-  margin: 0;
-  font-size: var(--text-sm);
-  line-height: 1.4;
-  text-align: center;
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 10px;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--g-ink-3);
+  text-decoration: none;
+}
+
+.tab:hover { color: var(--g-ink); }
+
+.tab[aria-current='page'],
+.tab[aria-current='page']:hover {
+  color: var(--g-accent-text);
 }
 
 /*
@@ -357,12 +584,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  margin: 0 calc(var(--space-5) * -1);
-  padding: var(--space-2) var(--space-5);
+  gap: 12px;
+  margin: 0;
+  padding: 8px 20px;
   background: var(--g-surface);
   border-bottom: 1px solid var(--g-line);
-  font-size: var(--text-sm);
+  font-size: 13px;
   color: var(--g-ink-2);
 }
 
@@ -372,47 +599,49 @@
   font-weight: 500;
   white-space: nowrap;
   /* 44px of tappable height without 44px of ribbon. */
-  padding: var(--space-3) 0;
-  margin: calc(var(--space-3) * -1) 0;
+  padding: 12px 0;
+  margin: -12px 0;
 }
 
 /* ── The skeleton (loading.tsx) — the same boxes, waiting ─────────────── */
 
-/* SkeletonScreen pads 16px; the inner box makes it the guest's 20px gutter. */
+/* SkeletonScreen pads 16px; the sections carry the board's own 20px. */
 .skeleton {
-  margin-inline: var(--space-1);
-  padding-bottom: 152px;
+  margin-inline: calc(var(--space-4) * -1);
+  padding-bottom: 196px;
 }
 
 .skeletonMast {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 56px;
-}
-
-.skeletonText {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
-  flex: 1;
-  padding-bottom: 6px;
+  min-height: 76px;
+  padding: 22px 20px 10px;
 }
 
-.skeletonTile {
-  min-height: 120px;
-  border-radius: var(--radius-sm);
+.skeletonStrip {
+  height: 72px;
+  border-radius: 24px;
   background: var(--g-card);
 }
 
-.skeletonCta {
+.skeletonDock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   max-width: 430px;
   margin-inline: auto;
-  padding: var(--space-4) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
-  background: var(--g-page);
-  border-top: 1px solid var(--g-line);
+  box-sizing: border-box;
+  padding: 14px 16px max(16px, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--g-page) 94%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
 }
+
+.skeletonBar {
+  height: 64px;
+  border-radius: 20px;
+  background: var(--g-card);
+}
+
+.skeletonTabs { height: 57px; margin-top: 10px; }

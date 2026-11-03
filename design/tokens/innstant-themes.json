@@ -13,7 +13,11 @@
       "g-on-accent": "#1A1206",
       "g-ready": "#6E9C95",
       "g-late": "#F08A6C",
-      "g-scheme": "dark"
+      "g-scheme": "dark",
+      "g-raised": "#23344F",
+      "g-accent-text": "#E9A227",
+      "g-eyebrow": "#B9C2D0",
+      "g-glint": "#F4ECDD"
     },
     "pichola": {
       "g-page": "#08171B",
@@ -27,7 +31,11 @@
       "g-on-accent": "#062320",
       "g-ready": "#9CCB7A",
       "g-late": "#F2967A",
-      "g-scheme": "dark"
+      "g-scheme": "dark",
+      "g-raised": "#1E444F",
+      "g-accent-text": "#9ED8D0",
+      "g-eyebrow": "#B3C7C6",
+      "g-glint": "#EAF2F0"
     },
     "gulabi": {
       "g-page": "#170C14",
@@ -41,7 +49,11 @@
       "g-on-accent": "#2A0A18",
       "g-ready": "#8FC9A9",
       "g-late": "#F5A25C",
-      "g-scheme": "dark"
+      "g-scheme": "dark",
+      "g-raised": "#3F2136",
+      "g-accent-text": "#F29BBE",
+      "g-eyebrow": "#D3B8C6",
+      "g-glint": "#F7E9EF"
     },
     "mehendi": {
       "g-page": "#0E130C",
@@ -55,7 +67,11 @@
       "g-on-accent": "#1A2008",
       "g-ready": "#8CC7B4",
       "g-late": "#F0956C",
-      "g-scheme": "dark"
+      "g-scheme": "dark",
+      "g-raised": "#2B3925",
+      "g-accent-text": "#C9D86B",
+      "g-eyebrow": "#C1C7AE",
+      "g-glint": "#EFF0E4"
     },
     "sandstone": {
       "g-page": "#F5EEE2",
@@ -69,7 +85,29 @@
       "g-on-accent": "#FFFFFF",
       "g-ready": "#2F6F5E",
       "g-late": "#B3261E",
-      "g-scheme": "light"
+      "g-scheme": "light",
+      "g-raised": "#ECE1D0",
+      "g-accent-text": "#A4500F",
+      "g-eyebrow": "#5B4A38",
+      "g-glint": "#2A1E12"
+    },
+    "midnight": {
+      "g-page": "#0A0C11",
+      "g-surface": "#10131A",
+      "g-card": "#12151C",
+      "g-line": "#29292A",
+      "g-ink": "#F3EEE4",
+      "g-ink-2": "#B3B5BE",
+      "g-ink-3": "#8E919C",
+      "g-accent": "#D6A85C",
+      "g-on-accent": "#1A1408",
+      "g-ready": "#8FBFA0",
+      "g-late": "#F08A6C",
+      "g-scheme": "dark",
+      "g-raised": "#1A1E28",
+      "g-accent-text": "#EBD3A6",
+      "g-eyebrow": "#C9B48E",
+      "g-glint": "#E8D5B0"
     }
   },
   "console": {
@@ -138,6 +176,11 @@
         "accent": "#B45309",
         "accent-text": "#B45309",
         "accent-soft": "#B453091A"
+      },
+      "midnight": {
+        "accent": "#8A6420",
+        "accent-text": "#8A6420",
+        "accent-soft": "#8A64201A"
       }
     },
     "dark": {
@@ -165,6 +208,11 @@
         "accent": "#E3A458",
         "accent-text": "#E3A458",
         "accent-soft": "#E3A45829"
+      },
+      "midnight": {
+        "accent": "#D6A85C",
+        "accent-text": "#D6A85C",
+        "accent-soft": "#D6A85C29"
       }
     }
   }

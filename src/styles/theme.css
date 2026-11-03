@@ -517,6 +517,19 @@ a:hover { color: var(--accent-hover); }
 }
 
 /*
+ * Midnight's type (D-105): Cormorant Garamond for headings and the big
+ * numbers, Manrope for everything else — including `--font-mono`, so a price
+ * or a time is Manrope with tabular figures there rather than DM Mono. Two
+ * attributes in the selector, so it outranks the Kesari block's own fonts on
+ * the BrandScope element that carries both.
+ */
+[data-theme='kesari'][data-guest-theme='midnight'] {
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-body: var(--font-manrope), system-ui, sans-serif;
+  --font-mono: var(--font-manrope), system-ui, sans-serif;
+}
+
+/*
  * The five names the token file owns for the console (--bg, --surface,
  * --border, --text, --accent) come from it directly wherever data-console is
  * set — html, the console shell and the floor screens. Everywhere else (the

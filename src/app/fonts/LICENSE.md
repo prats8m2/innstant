@@ -1,6 +1,6 @@
 # Fonts
 
-All five faces are licensed under the SIL Open Font License 1.1, which permits
+All seven faces are licensed under the SIL Open Font License 1.1, which permits
 bundling and self-hosting. Latin subsets, taken from the Google Fonts CDN and
 committed here so the app never makes a runtime request to fonts.gstatic.com
 (see `src/app/fonts.ts`).
@@ -16,6 +16,8 @@ and the marketing site's (D-062).
 | `marcellus-400.woff2` | Marcellus | 400 | [Marcellus](https://fonts.google.com/specimen/Marcellus) — Brian J. Bonislawsky |
 | `mukta-400/500/600/700.woff2` | Mukta | 400, 500, 600, 700 | [Mukta](https://fonts.google.com/specimen/Mukta) — Ek Type |
 | `dm-mono-400/500.woff2` | DM Mono | 400, 500 | [DM Mono](https://fonts.google.com/specimen/DM+Mono) — Colophon Foundry |
+| `cormorant-garamond-var.woff2`, `cormorant-garamond-italic-var.woff2` | Cormorant Garamond | `wght 400–600`, italic `400–500` | [Cormorant Garamond](https://fonts.google.com/specimen/Cormorant+Garamond) — Christian Thalmann (Catharsis Fonts) |
+| `manrope-var.woff2` | Manrope | `wght 400–700` | [Manrope](https://fonts.google.com/specimen/Manrope) — Mikhail Sharanda |
 
 These were briefly unused: D-048 replaced the palette product-wide with the
 console's, and D-050 gave the guest app its own theme back. The three families

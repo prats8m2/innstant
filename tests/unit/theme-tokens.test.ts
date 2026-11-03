@@ -21,7 +21,7 @@ const json = JSON.parse(readFileSync('design/tokens/innstant-themes.json', 'utf8
   consoleAccent: Record<'light' | 'dark', Record<string, Record<string, string>>>;
 };
 
-const GUEST_THEMES = ['kesari', 'pichola', 'gulabi', 'mehendi', 'sandstone'] as const;
+const GUEST_THEMES = ['kesari', 'pichola', 'gulabi', 'mehendi', 'sandstone', 'midnight'] as const;
 
 /** The custom properties declared in the first block whose selector is `selector`. */
 function block(selector: string): Record<string, string> {

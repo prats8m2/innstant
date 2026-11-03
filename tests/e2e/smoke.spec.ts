@@ -113,9 +113,15 @@ test.describe('a scanned sticker', () => {
     expect(code, 'room 214 must exist in the demo property').toBeTruthy();
 
     // CLAUDE.md #9 / D-012: a bare scan is never gated. One redirect hop to
-    // set the session cookie, and then the room.
+    // set the session cookie, then the welcome — shown once, on the scan that
+    // minted the session — whose one control goes into the room.
     await page.goto(`/r/${code}`);
-    await expect(page).toHaveURL(new RegExp(`/r/${code}/home$`));
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/welcome$`));
+    await expect(page.locator('body')).toContainText('214');
+    await expect(page.locator('input')).toHaveCount(0);
+
+    await page.getByRole('link', { name: 'Enter your stay' }).click();
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/home$`), { timeout: 20_000 });
 
     await expect(page.locator('body')).toContainText('214');
     await expect(page.locator('input[type="password"]')).toHaveCount(0);
@@ -125,7 +131,8 @@ test.describe('a scanned sticker', () => {
   test('browses the whole menu with no verification in the way', async ({ page }) => {
     const code = seed!.qrCodes['214'];
     await page.goto(`/r/${code}`);
-    // "Order lunch to room 214" — the meal changes with the hour.
+    await page.goto(`/r/${code}/home`);
+    // "Order lunch to Room 214" — the meal changes with the hour.
     await page.getByRole('link', { name: /^Order .+ to room 214/i }).click();
 
     // Generous, and deliberately so: this render is several round trips to
@@ -368,9 +375,12 @@ test.describe('a scanned sticker', () => {
     // guest — see the note in the route handler.
     const code = seed!.qrCodes['214'];
     await page.goto(`/r/${code}`);
+    // The scan that minted it shows the welcome; the next goes straight home.
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/welcome$`));
     const first = (await page.context().cookies()).find((c) => c.name === 'hgs_guest')?.value;
 
     await page.goto(`/r/${code}`);
+    await expect(page).toHaveURL(new RegExp(`/r/${code}/home$`));
     const second = (await page.context().cookies()).find((c) => c.name === 'hgs_guest')?.value;
 
     expect(first).toBeTruthy();
@@ -1498,6 +1508,7 @@ test.describe('asking for things', () => {
   test('a free request needs no prompt at all', async ({ page }) => {
     const code = seed!.qrCodes[ownRoom()]!;
     await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/home`);
 
     // From the room home, which now goes somewhere.
     await page.getByRole('link', { name: /Amenities/ }).click();
@@ -1564,6 +1575,7 @@ test.describe('asking for things', () => {
   test('the one tap is one tap', async ({ page }) => {
     const code = seed!.qrCodes[ownRoom()]!;
     await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/home`);
     await page.getByRole('link', { name: /Call for service/ }).click();
     await expect(page).toHaveURL(new RegExp(`/r/${code}/service$`), { timeout: 20_000 });
 
@@ -1583,14 +1595,19 @@ test.describe('asking for things', () => {
   test('the rows that go nowhere yet say so', async ({ page }) => {
     const code = seed!.qrCodes[ownRoom()]!;
     await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/home`);
 
     // P4. A row that looks tappable and does nothing is worse than one that says
     // it is coming. All four are built now — "Plan my day" was the last
     // ("Places we vouch for · soon" until D-069) — so none may be a dead tile.
+    // Your stay is reached from the stay strip's Bill cell since Midnight.
     await page.waitForURL(/\/home$/, { timeout: 20_000 });
     await expect(page.locator('[data-soon="true"]')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: /Your stay/ })).toHaveCount(1);
-    await expect(page.getByRole('link', { name: /Plan my day/ })).toHaveCount(1);
+    const services = page.getByRole('navigation', { name: 'Services' });
+    for (const tile of [/In-room dining/, /Amenities/, /Plan my day/, /Call for service/]) {
+      await expect(services.getByRole('link', { name: tile })).toHaveCount(1);
+    }
+    await expect(page.getByRole('link', { name: /^Bill/ })).toHaveAttribute('href', new RegExp(`/r/${code}/stay$`));
   });
 });
 
@@ -2102,9 +2119,12 @@ test.describe('your stay', () => {
   test('asks the one question before it shows anybody a bill', async ({ page }) => {
     const code = seed!.qrCodes[ROOM]!;
     await page.goto(`/r/${code}`);
+    await page.goto(`/r/${code}/home`);
 
-    // The row is real now, and says what is behind it.
-    const row = page.getByRole('link', { name: /Your stay/ });
+    // The row is real now, and says what is behind it — the stay strip's
+    // Bill cell since Midnight; the amount is behind the question, so it
+    // says "View".
+    const row = page.getByRole('link', { name: /^Bill\s*View/ });
     await expect(row).toBeVisible({ timeout: 20_000 });
     await row.click();
     await expect(page).toHaveURL(new RegExp(`/r/${code}/stay$`), { timeout: 20_000 });
@@ -2441,7 +2461,8 @@ test.describe('the front desk', () => {
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
     const guest = await phone.newPage();
     await guest.goto(`/r/${seed!.qrCodes[ROOM]}`);
-    await expect(guest).toHaveURL(new RegExp(`/r/${seed!.qrCodes[ROOM]}/home$`), {
+    // A first scan on this phone: the welcome, once.
+    await expect(guest).toHaveURL(new RegExp(`/r/${seed!.qrCodes[ROOM]}/welcome$`), {
       timeout: 25_000,
     });
     await expect(guest.getByText(`Room ${ROOM}`).first()).toBeVisible();
@@ -2512,7 +2533,7 @@ test.describe('the front desk', () => {
     const phone = await browser.newContext({ ...devices['Pixel 7'] });
     const guest = await phone.newPage();
     await guest.goto((await link.getAttribute('href'))!);
-    await expect(guest).toHaveURL(new RegExp(`/r/${code}/home$`), { timeout: 25_000 });
+    await expect(guest).toHaveURL(new RegExp(`/r/${code}/welcome$`), { timeout: 25_000 });
     await expect(guest.getByText('Room 214').first()).toBeVisible();
 
     await desk.close();
@@ -3048,7 +3069,7 @@ test.describe('the building', () => {
       const phone = await browser.newContext({ ...devices['Pixel 7'] });
       const guest = await phone.newPage();
       await guest.goto(`/r/${code}`);
-      await expect(guest).toHaveURL(new RegExp(`/r/${code}/home$`), { timeout: 25_000 });
+      await expect(guest).toHaveURL(new RegExp(`/r/${code}/welcome$`), { timeout: 25_000 });
       await expect(guest.getByText('Room 401').first()).toBeVisible();
 
       await desk.close();
@@ -3091,7 +3112,7 @@ test.describe('the building', () => {
     await expect(guest.getByText('Room 401')).toHaveCount(0, { timeout: 25_000 });
 
     await guest.goto(`/r/${fresh}`);
-    await expect(guest).toHaveURL(new RegExp(`/r/${fresh}/home$`), { timeout: 25_000 });
+    await expect(guest).toHaveURL(new RegExp(`/r/${fresh}/welcome$`), { timeout: 25_000 });
     await expect(guest.getByText('Room 401').first()).toBeVisible();
 
     await desk.close();
