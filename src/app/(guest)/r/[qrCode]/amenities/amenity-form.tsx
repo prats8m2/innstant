@@ -2,7 +2,9 @@
 
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Check, Minus, Plus } from 'lucide-react';
+import {
+  BedDouble, Check, ConciergeBell, Minus, Package, Plus, Sparkles, Wrench, type LucideIcon,
+} from 'lucide-react';
 import type { RequestTypeCard } from '@/modules/requests';
 import { formatMoney, money } from '@/lib/money';
 import { sendRequests, verifyAndSend, type RequestActionState } from './actions';
@@ -27,12 +29,17 @@ import styles from './amenities.module.css';
  * The four categories, in the order a guest wants them: the things people ask
  * for most, then the room, then what is broken, then what costs.
  */
-const GROUPS = [
-  { category: 'AMENITY', heading: 'Bring me' },
-  { category: 'HOUSEKEEPING', heading: 'The room' },
-  { category: 'MAINTENANCE', heading: 'Something is not working' },
-  { category: 'SERVICE', heading: 'Services' },
-] as const;
+const GROUPS: ReadonlyArray<{
+  category: RequestTypeCard['category']; heading: string; chip: string; icon: LucideIcon;
+}> = [
+  { category: 'AMENITY', heading: 'Bring me', chip: 'Bring me', icon: Package },
+  { category: 'HOUSEKEEPING', heading: 'The room', chip: 'The room', icon: BedDouble },
+  { category: 'MAINTENANCE', heading: 'Something is not working', chip: 'Not working', icon: Wrench },
+  { category: 'SERVICE', heading: 'Services', chip: 'Services', icon: ConciergeBell },
+];
+
+/** What the chips at the top show: everything, the most asked for, or one category. */
+type Filter = 'ALL' | 'POPULAR' | RequestTypeCard['category'];
 
 export function AmenityForm({
   qrCode,
@@ -50,6 +57,7 @@ export function AmenityForm({
 }) {
   const [state, action] = useActionState<RequestActionState, FormData>(sendRequests, {});
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [filter, setFilter] = useState<Filter>('ALL');
 
   /** Resolved here rather than passed twice — the ids are the whole payload. */
   const shortlist = shortlistIds
@@ -80,76 +88,85 @@ export function AmenityForm({
   const set = (id: string, next: number) =>
     setQuantities((current) => ({ ...current, [id]: Math.max(0, next) }));
 
+  const groups = GROUPS
+    .map((group) => ({ ...group, cards: catalog.filter((card) => card.category === group.category) }))
+    .filter((group) => group.cards.length > 0);
+
+  const filters: Array<{ key: Filter; label: string; cards: RequestTypeCard[] }> = [
+    { key: 'ALL', label: 'All', cards: catalog },
+    ...(shortlist.length ? [{ key: 'POPULAR' as const, label: 'Most asked for', cards: shortlist }] : []),
+    ...groups.map((group) => ({ key: group.category, label: group.chip, cards: group.cards })),
+  ];
+
+  const sections: Array<{ key: string; heading: string; icon: LucideIcon; cards: RequestTypeCard[] }> =
+    filter === 'ALL'
+      ? groups.map((group) => ({ key: group.category, heading: group.heading, icon: group.icon, cards: group.cards }))
+      : filter === 'POPULAR'
+        ? [{ key: 'POPULAR', heading: 'Most asked for', icon: Sparkles, cards: shortlist }]
+        : groups
+          .filter((group) => group.category === filter)
+          .map((group) => ({ key: group.category, heading: group.heading, icon: group.icon, cards: group.cards }));
+
   return (
     <form action={action} className={styles.form} data-sending={chosen.length > 0}>
       <input type="hidden" name="qrCode" value={qrCode} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
       {/*
-        The fast path (D-071). Most of the time a guest wants one of six
-        things. A chip is one tap = one of that thing; tapping again adds
-        another, and the row further down is there to undo it.
-
-        Not on the board, which draws a short list; this property's list is
-        twenty-odd rows, and these are what the chips are for. One scrolling
-        line of them, so they cost the list a single row of height.
+        Every quantity, posted from here rather than from its row: the chips
+        below hide rows, and a row that is not drawn must still send what the
+        guest chose in it. Also what makes the screen work with no JS.
       */}
-      {shortlist.length ? (
-        <section className={styles.quick} aria-labelledby="most-asked">
-          <h2 className={styles.eyebrow} id="most-asked">Most asked for</h2>
-          <ul className={styles.chips}>
-            {shortlist.map((card) => {
-              const quantity = quantities[card.id] ?? 0;
-              return (
-                <li key={card.id}>
-                  <button
-                    type="button"
-                    className={styles.chip}
-                    data-on={quantity > 0}
-                    onClick={() => set(card.id, Math.min(card.maxQuantity, quantity + 1))}
-                    aria-label={
-                      quantity > 0
-                        ? `${card.name}, ${quantity} asked for. Tap for one more.`
-                        : `Ask for ${card.name}`
-                    }
-                  >
-                    {card.name}
-                    {quantity > 0 ? (
-                      <span className={`${styles.chipCount} tabular`}>{quantity}</span>
-                    ) : null}
-                    {card.isChargeable ? (
-                      <span className={`${styles.chipPrice} tabular`}>
-                        {formatMoney(money(card.priceMinor, card.currency))}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              );
-            })}
+      {catalog.map((card) => (
+        <input key={card.id} type="hidden" name={`qty-${card.id}`} value={quantities[card.id] ?? 0} />
+      ))}
+
+      {/*
+        Filters, not shortcuts. The chips here once ADDED one of a thing
+        (D-071), which read like a filter and behaved like a stepper; now each
+        only narrows the list, and the + on a row is the one way to ask. "Most
+        asked for" survives as a filter of its own.
+      */}
+      <div className={styles.filters} role="group" aria-label="Show">
+        {filters.map((option) => {
+          const picked = option.cards.reduce((n, card) => n + (quantities[card.id] ?? 0), 0);
+          return (
+            <button
+              key={option.key}
+              type="button"
+              className={styles.filter}
+              aria-pressed={filter === option.key}
+              onClick={() => setFilter(option.key)}
+            >
+              {option.label}
+              {picked > 0 ? (
+                <span className={`${styles.filterCount} tabular`} aria-label={`${picked} chosen`}>{picked}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {sections.map((section) => (
+        <section key={section.key} className={styles.group} aria-labelledby={`group-${section.key}`}>
+          <h2 className={styles.groupHead} id={`group-${section.key}`}>
+            <span className={styles.groupIcon} aria-hidden="true">
+              <section.icon size={18} strokeWidth={1.5} />
+            </span>
+            {section.heading}
+          </h2>
+          <ul className={styles.list}>
+            {section.cards.map((card) => (
+              <Row
+                key={card.id}
+                card={card}
+                quantity={quantities[card.id] ?? 0}
+                onChange={(next) => set(card.id, next)}
+              />
+            ))}
           </ul>
         </section>
-      ) : null}
-
-      {GROUPS.map(({ category, heading }) => {
-        const inGroup = catalog.filter((card) => card.category === category);
-        if (!inGroup.length) return null;
-
-        return (
-          <section key={category} className={styles.group}>
-            <h2 className={styles.eyebrow}>{heading}</h2>
-            <ul className={styles.list}>
-              {inGroup.map((card) => (
-                <Row
-                  key={card.id}
-                  card={card}
-                  quantity={quantities[card.id] ?? 0}
-                  onChange={(next) => set(card.id, next)}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      ))}
 
       <label className={styles.noteField}>
         <span className={styles.eyebrow}>Anything we should know?</span>
@@ -223,9 +240,6 @@ function Row({
           {meta}
         </span>
       </span>
-
-      {/* Posted whatever happens, so the screen works with no JS. */}
-      <input type="hidden" name={`qty-${card.id}`} value={quantity} />
 
       {card.allowsQuantity ? (
         <span className={styles.stepper}>

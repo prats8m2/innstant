@@ -137,40 +137,37 @@
   color: var(--g-ink-3);
 }
 
-/* Most asked for (D-071): one line of chips that scrolls sideways. */
-.quick {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-}
-
-.chips {
+/* The filters: one line of chips that scrolls sideways, held at the top while
+   the list moves under it. Selecting only narrows the list (see the form). */
+.filters {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   gap: var(--space-2);
-  margin: 0 calc(var(--space-5) * -1);
-  padding: 0 var(--space-5);
-  list-style: none;
+  margin: var(--space-5) calc(var(--space-5) * -1) 0;
+  padding: 10px var(--space-5);
   overflow-x: auto;
   scrollbar-width: none;
+  background: var(--g-page);
 }
 
-.chips::-webkit-scrollbar { display: none; }
+.filters::-webkit-scrollbar { display: none; }
 
-.chips li { flex: none; }
-
-.chip {
+.filter {
+  flex: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--touch-min);
-  padding: 0 var(--space-4);
-  border: 1px solid var(--g-line);
+  padding: 0 18px;
+  border: 1px solid color-mix(in srgb, var(--g-glint) 16%, transparent);
   border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--g-ink);
+  background: var(--g-card);
+  color: var(--g-ink-2);
   font: inherit;
-  font-size: var(--text-base);
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -180,36 +177,73 @@
 }
 
 @media (hover: hover) {
-  .chip:hover { border-color: var(--g-ink-3); }
+  .filter:not([aria-pressed='true']):hover { color: var(--g-ink); }
 }
 
-/* Chosen: the accent, as Direction A selects a chip. */
-.chip[data-on='true'] {
+/* The one selected: the accent, as the Home's call-for-service tile wears it. */
+.filter[aria-pressed='true'] {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
-  font-weight: 600;
 }
 
-.chipCount { font-size: var(--text-md); }
-
-.chipPrice {
-  font-size: var(--text-sm);
-  color: var(--g-ink-2);
+/* How many are chosen in that filter, so a pick made under another chip is
+   never out of sight. */
+.filterCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--g-accent-text);
+  font-size: 12px;
 }
 
-.chip[data-on='true'] .chipPrice { color: inherit; }
+.filter[aria-pressed='true'] .filterCount {
+  background: color-mix(in srgb, var(--accent-ink) 18%, transparent);
+  color: inherit;
+}
 
+/* A category is a card, as the Home draws its cards: 24px, a warm hairline. */
 .group {
+  margin-top: var(--space-4);
+  border-radius: 24px;
+  background: var(--g-card);
+  border: 1px solid color-mix(in srgb, var(--g-glint) 10%, transparent);
+  overflow: hidden;
+}
+
+.groupHead {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: var(--space-5);
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px 6px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--g-ink);
+}
+
+.groupIcon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--g-glint) 20%, transparent);
+  color: var(--accent);
 }
 
 .list {
   margin: 0;
-  padding: 0;
+  padding: 0 18px 6px;
   list-style: none;
 }
 
@@ -218,10 +252,12 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 64px;
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--g-line);
+  min-height: 68px;
+  padding: 12px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--g-glint) 8%, transparent);
 }
+
+.row:last-child { border-bottom: 0; }
 
 .rowText {
   display: flex;
@@ -262,7 +298,7 @@
   height: var(--touch-min);
   padding: 0;
   border: 1px solid var(--g-line);
-  border-radius: var(--radius-sm);
+  border-radius: 14px;
   background: transparent;
   color: var(--g-ink);
   cursor: pointer;

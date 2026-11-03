@@ -3563,3 +3563,35 @@ passed six runs in six, and faster. It is the same freeze D-099 found on the
 live screens, here on a server action's result, so the rule is wider than
 "live screens": a screen whose form result the guest is waiting on should
 not carry a loading boundary either.
+
+### D-105 · Midnight: a sixth guest theme, a Welcome step, and the Home rebuilt
+The user redesigned the guest Home and added a Welcome screen in Claude Design
+(boards in `design/reference/midnight/`). Their decisions: Welcome and Home
+exactly as drawn; every other guest screen keeps its layout and takes the
+colours and fonts from the theme; nothing that has no feature behind it.
+
+**Midnight is a guest theme, not a rewrite of one.** It joins the token file
+with the boards' colours and becomes The Kesari's in the demo seed; the other
+five themes are unchanged and still selectable. The boards needed four colours
+no token named — gold heading text, small-caps labels, the warm hairline the
+borders are mixed from, a raised tile — so every theme now carries
+`--g-accent-text`, `--g-eyebrow`, `--g-glint` and `--g-raised`, Midnight's
+drawn and the others' taken from their own palettes. Midnight's type is
+Cormorant Garamond and Manrope (self-hosted, Latin); `--font-mono` is Manrope
+with tabular figures there. The BrandScope wrapper now sets the body font
+itself, because the guest layout fixes one before the theme is known.
+
+**Welcome is the first time a phone opens a stay** — when the scan route mints
+a new session — and "Enter your stay" goes Home; a phone that already has a
+session goes straight Home. The board's key becomes the room number: there is
+no digital key. Left out for the same reason: messages, the profile button,
+"Today at The Kesari", and the bill amount (behind its check; the strip says
+"View"). Wi-Fi and "Speak to the front desk" show only when the hotel has
+them. The greeting and the meal on the order button keep the existing logic.
+
+**Amenities: filters, not shortcuts.** The "Most asked for" chips added one of
+a thing per tap (D-071), which read like a filter and behaved like a stepper.
+They are filter chips now — All, Most asked for, and each category — that only
+narrow the list, with a count of what is chosen under each; each category is a
+card in the Home's style. Every quantity posts from the form, not its row, so
+a choice made under one chip still sends from another.
